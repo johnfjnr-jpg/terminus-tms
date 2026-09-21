@@ -127,9 +127,17 @@ test('THE REACT REFERENCE PANEL IS THE LIVE ONE, and the vanilla is GONE', () =>
     'frontend/opportunity-reference.js exists again: the retirement has been reverted')
 })
 
-test('and the Reference panel has its own mount and its own revert target', () => {
+// RETIRED HALF OF THIS TEST, hygiene round, 2026-09-21, on John's
+// disposition. It asserted the `#ref-vanilla` revert target was PRESENT. That
+// block has been removed: it rendered nothing, and Verification 41 records
+// what a retired surface that still parses costs - an edit lands in it, the
+// served file changes exactly as intended, and the screen does not move.
+//
+// The mount assertion stays, because that one is about the LIVE panel.
+test('and the Reference panel has its own mount', () => {
   assert.match(LIVE, /id="ref-root"/, 'the React Reference panel has no container to mount into')
-  assert.match(LIVE, /id="ref-vanilla"/, "the Reference tab's revert target markup is gone")
+  assert.doesNotMatch(LIVE, /id="ref-vanilla"/,
+    'the retired #ref-vanilla block is back in the markup')
 })
 
 test('the door is OPEN for the Reference tab, in the shell registry', () => {

@@ -1021,8 +1021,18 @@ test('the strip is FOUR figures, achieved margin promoted alone', () => {
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
   assert.match(css, /\.stats-grid--deal \{/)
   assert.match(css, /grid-template-columns: repeat\(4, 1fr\)/, '.stats-grid itself is unchanged')
-  assert.equal((html.match(/class="stats-grid"/g) || []).length, 1,
-    'the other stats-grid must not have picked up the deal modifier')
+  // RE-POINTED, hygiene round 2026-09-21. This counted ONE bare
+  // `class="stats-grid"` in index.html and that one lived inside the retired
+  // `#ref-vanilla` block, which has now been removed - so the count is 0 and
+  // the assertion's SUBJECT is gone rather than its intent.
+  //
+  // The intent is that `--deal` is a MODIFIER and the shared class is
+  // untouched, and the two CSS assertions directly above carry it: the
+  // modifier exists, and `.stats-grid` is still `repeat(4, 1fr)`. The Test
+  // Bed's own grid is rendered by React, so index.html is no longer a place
+  // this can be counted at all.
+  assert.equal((html.match(/class="stats-grid"/g) || []).length, 0,
+    'a bare stats-grid is back in index.html; check it did not take the deal modifier')
 })
 
 // ─────────────────────────────────────────────────────────────

@@ -3356,10 +3356,11 @@ textarea::placeholder { color: var(--muted-2); }
    test-bed-detail.js for why keystroke blocking was withdrawn. Uses the
    same red as .msg-error, which is what the accompanying message uses,
    rather than the amber reserved for warnings. */
-input.input-invalid {
-  border-color: var(--red);
-  outline-color: var(--red);
-}
+/* `input.input-invalid` DELETED, hygiene round 2026-09-21, on John's
+   disposition: it was applied by NO live source. The withdrawn keystroke
+   guard it was built for is described above and `guardNumericEntry` no
+   longer marks anything, so the rule styled a state nothing could reach.
+   Future invalid styling gets built WITH its applier, in the same change. */
 
 /* ── Test Bed header digest (Round 7 Phase 5, repositioned Round 8 Phase 5)
    Summary and Notes now sit INSIDE the left column, beneath the name,
@@ -5180,7 +5181,11 @@ input.input-invalid {
    permanently two lines instead of one. That is 37px of constant chrome
    against 37px that moved, and a thing that does not move is worth more than a
    thing that is occasionally shorter. */
-#opp-tab-actions .tab-action-idle { visibility: hidden; }
+/* `.tab-action-idle` DELETED, hygiene round 2026-09-21, on John's
+   disposition. Nothing applied it: `opportunity-reference.js` was the only
+   source that toggled it and that file was retired, so the rule dressed a
+   class no live code sets. A rule with no applier is Verification 9's dead
+   guard wearing a stylesheet. */
 
 /* Round 34 Phase 5: the proposal address's "same as account" tick and the
    line that stands in for the rows when the account has no address. Both sit

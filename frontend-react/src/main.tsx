@@ -318,7 +318,7 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
 // but the rows here hold drafts, so an unnecessary remount is a worse risk on
 // this surface than it was there, not a better one.
 const REF_CONTAINER = 'ref-root'
-const REF_VANILLA = 'ref-vanilla'
+
 let refRoot: Root | null = null
 let refOppId: string | null = null
 let refReload: (() => void) | null = null
@@ -326,7 +326,9 @@ let refReload: (() => void) | null = null
 window.initOpportunityReferencePanel = function (opp: OppRecord): void {
   const container = document.getElementById(REF_CONTAINER)
   if (!container) return
-  document.getElementById(REF_VANILLA)?.classList.add('hidden')
+  // The `#ref-vanilla` block this used to hide was REMOVED in the hygiene
+  // round, 2026-09-21. Hiding markup that no longer exists is a no-op that
+  // reads as a live coupling.
   if (refRoot && refOppId === opp.id) { refReload?.(); return }
   refOppId = opp.id
   if (!refRoot) refRoot = createRoot(container)

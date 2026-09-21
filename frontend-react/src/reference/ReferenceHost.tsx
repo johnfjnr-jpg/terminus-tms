@@ -264,9 +264,9 @@ export function ReferenceHost({ opp, registerReload }: {
           control. A surface that could only render text would have to invent
           its own, which is the duplication this avoids. */}
       {feedback?.html
-        ? <p data-testid="ref-save-feedback" className="msg-error"
+        ? <p data-testid="ref-react-save-feedback" className="msg-error"
             dangerouslySetInnerHTML={{ __html: feedback.html }} />
-        : <p data-testid="ref-save-feedback"
+        : <p data-testid="ref-react-save-feedback"
             className={feedback ? (feedback.ok ? 'msg-success' : 'msg-error') : 'hidden'}>
             {feedback?.text ?? ''}
           </p>}
