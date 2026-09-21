@@ -84,7 +84,58 @@ try {
     check(named.length > 0 && named.every((t) => t && t.trim()),
       `F1 and every option carries a NAME rather than rendering blank at ${width}`,
       JSON.stringify(named))
+    // ── THE ROLE AND STANCE DROPDOWNS, same card, same mistype ──────────
+    const vocab = await p.evaluate(() => {
+      const opts = (sel) => { const e = document.querySelector(sel)
+        return e ? [...e.options].map((o) => o.text) : [] }
+      return { roles: opts('[data-testid="kc-add-role"]') }
+    })
+    const roleNames = vocab.roles.filter((t) => t !== 'Role' && t !== 'Other')
+    check(roleNames.length > 0 && roleNames.every((t) => t && t.trim()),
+      `F1 every ROLE option carries a label rather than rendering blank at ${width}`,
+      JSON.stringify(roleNames.slice(0, 4)))
+
     await p.screenshot({ path: `${OUT}f1-owned-${width}.png` })
+
+    // ── AND THE ADD ACTUALLY LANDS, driven through the UI and read back
+    // from the DATABASE. The route takes role_id or role_other and the
+    // client sent `role`, so every Add answered 400.
+    if (width === 1440) {
+      // BRACKETED. The fixture already links its own contact as the customer
+      // lead, so the count before is not zero and the row this Add creates is
+      // found by its contact_id rather than by position. Asserting on
+      // `after[0]` read the PRE-EXISTING row and reported a null role_id.
+      const before = must(await db.from('record_contacts')
+        .select('id, contact_id').eq('record_id', opp.oppId), 'before')
+      const target = mine.find((c) => !before.some((b) => b.contact_id === c.id))
+      if (!target) throw new Error('every contact on the account is already linked')
+      await p.select('[data-testid="kc-add-contact"]', target.id)
+      const roleId = await p.evaluate(() => {
+        const e = document.querySelector('[data-testid="kc-add-role"]')
+        const o = [...e.options].find((x) => x.value && x.value !== 'Other')
+        return o ? o.value : null
+      })
+      await p.select('[data-testid="kc-add-role"]', roleId)
+      await p.click('[data-testid="kc-add"]')
+      await p.waitForFunction(() => {
+        const f = document.querySelector('[data-testid="kc-feedback"]')
+        return f && (f.textContent || '').trim().length > 0
+      }, { timeout: 15000 })
+      const feedback = await p.evaluate(() =>
+        document.querySelector('[data-testid="kc-feedback"]').textContent.trim())
+      const after = must(await db.from('record_contacts')
+        .select('id, role_id, contact_id').eq('record_id', opp.oppId), 'after')
+      const mineRow = after.find((r) => r.contact_id === target.id)
+      console.log(`  Add feedback: ${JSON.stringify(feedback)}`)
+      console.log(`  record_contacts rows: ${before.length} -> ${after.length}`)
+      check(feedback === 'Added.', 'F1 the Add reports success', feedback)
+      check(after.length === before.length + 1,
+        'F1 and the link LANDED in the database, not just on screen',
+        `${before.length} -> ${after.length}`)
+      check(!!mineRow && mineRow.role_id === roleId,
+        'F1 carrying the role_id the route requires, which the old body could not send',
+        `${mineRow?.role_id} against ${roleId}`)
+    }
   }
 } finally { await b.close(); await tearDown([TAG]) }
 const passed = checks.filter(Boolean).length

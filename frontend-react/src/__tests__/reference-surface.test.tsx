@@ -27,6 +27,10 @@ let apiCalls: { method: string, path: string, body?: unknown }[] = []
 // contact and the option rendering was never exercised at all: a claim true
 // by absence, which is why blank labels survived from `da207cf`.
 let contactRows: unknown[] = []
+// Roles and stances are VOCABULARY TABLES and answer `{id, label}` - no
+// top-level `name` either, which is the same defect on the same card.
+let roleRows: unknown[] = []
+let stanceRows: unknown[] = []
 
 const source = (o: Partial<ReferenceSource> = {}): ReferenceSource => ({
   payload: { name: 'Changi T5', country: 'Singapore', duration: '36',
@@ -50,6 +54,8 @@ const shell = (canEdit: boolean | 'absent'): ShellServices => shellServices({
     if (path.startsWith('/api/contacts')) {
       return { ok: true, status: 200, data: contactRows }
     }
+    if (path === '/api/contact-roles') return { ok: true, status: 200, data: roleRows }
+    if (path === '/api/contact-stances') return { ok: true, status: 200, data: stanceRows }
     return { ok: true, status: 200, data: [] }
   }) as ShellServices['api'],
   navigate: vi.fn(),
@@ -71,6 +77,8 @@ const mount = async (opts: {
   links?: KcLink[]
   onSave?: (c: Record<string, string>) => void
   contacts?: unknown[]
+  roles?: unknown[]
+  stances?: unknown[]
 } = {}) => {
   apiCalls = []
   // PASSED IN, not set by the caller beforehand: this reset runs AFTER the
@@ -79,6 +87,8 @@ const mount = async (opts: {
   // fixture never reaching the component. An alarm firing for the wrong
   // reason proves nothing.
   contactRows = opts.contacts ?? []
+  roleRows = opts.roles ?? []
+  stanceRows = opts.stances ?? []
   // A SIBLING, NOT A CHILD: `createRoot` CLEARS its container on first render,
   // so a target nested inside `#host` is destroyed before the portal finds it.
   // `#opp-band-root` is where `ReferencePanel` PORTALS the record band, and
@@ -122,6 +132,23 @@ const display = (n: string) => must(`[data-testid="display-${n}"]`)
 const editHalf = (n: string) => must(`[data-testid="edit-${n}"]`)
 const isOpen = (n: string) => !editHalf(n).hasAttribute('hidden')
 const click = async (el: HTMLElement) => { await act(async () => { el.click() }) }
+// A CONTROLLED SELECT/INPUT IS WRITTEN THROUGH THE NATIVE SETTER, the pattern
+// the rest of this suite already uses, so React's own value tracker sees the
+// change rather than the DOM diverging from the component's state.
+const pick = async (sel: string, v: string) => {
+  const el = must(sel) as HTMLSelectElement
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!.call(el, v)
+    el.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+}
+const type = async (sel: string, v: string) => {
+  const el = must(sel) as HTMLInputElement
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(el, v)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+}
 const key = async (el: HTMLElement, k: string) => {
   await act(async () => {
     el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }))
@@ -522,6 +549,66 @@ describe('K: key contacts', () => {
     expect(labels).not.toContain('')
   })
 
+  // THE SAME MISTYPE ON THE SAME CARD, twice more. `/contact-roles` and
+  // `/contact-stances` answer `{id, label}`. Typing all three vocabularies as
+  // one `KcVocabItem { id, name }` made every dropdown on this card render
+  // blank, which is a better account of "the picker does not work" than the
+  // contacts alone. Fixed as a class rather than as the instance reported.
+  const ROLES = [
+    { id: 'r1', label: 'Commercial Buyer', sort_order: 30 },
+    { id: 'r2', label: 'Technical Buyer', sort_order: 20 },
+  ]
+  const STANCES = [{ id: 's1', label: 'Champion', axis: 'support', sort_order: 10 }]
+
+  test('F1 the role dropdown renders each role by its label', async () => {
+    await mount({ roles: ROLES })
+    const sel = must('[data-testid="kc-add-role"]') as HTMLSelectElement
+    const labels = [...sel.options].map((o) => o.text)
+    expect(labels).toContain('Commercial Buyer')
+    expect(labels).toContain('Technical Buyer')
+    expect(labels, 'a role rendered blank').not.toContain('')
+  })
+
+  // AND ITS VALUE IS THE ID, because the route takes `role_id`. Rendering the
+  // label correctly while posting it as a name would still refuse.
+  test('F1 the role option carries the id as its value', async () => {
+    await mount({ roles: ROLES })
+    const sel = must('[data-testid="kc-add-role"]') as HTMLSelectElement
+    const byLabel = [...sel.options].find((o) => o.text === 'Commercial Buyer')!
+    expect(byLabel.value).toBe('r1')
+  })
+
+  test('F1 the stance dropdown renders each stance by its label', async () => {
+    await mount({ stances: STANCES, links: LINKS })
+    const sel = must(`[data-testid="kc-stance-${LINKS[0].id}"]`) as HTMLSelectElement
+    expect([...sel.options].map((o) => o.text)).toContain('Champion')
+  })
+
+  // ── THE ADD BODY ──────────────────────────────────────────────────────
+  // The route takes `role_id` OR `role_other`, exactly one, and refuses with
+  // "supply exactly one of role_id or role_other". The client sent `role`,
+  // so every Add answered 400 and the card said "Could not add that contact".
+  // Measured against the live route before it was changed.
+  test('F1 adding a vocabulary role posts role_id', async () => {
+    await mount({ roles: ROLES, contacts: [{ id: 'c1', payload: { name: 'Road Runner' } }] })
+    await pick('[data-testid="kc-add-contact"]', 'c1')
+    await pick('[data-testid="kc-add-role"]', 'r1')
+    await click(must('[data-testid="kc-add"]'))
+    const posted = apiCalls.find((c) => c.path.endsWith('/key-contacts'))
+    expect(posted, 'nothing was posted').toBeTruthy()
+    expect(posted!.body).toEqual({ contact_id: 'c1', role_id: 'r1' })
+  })
+
+  test('F1 adding a typed Other role posts role_other', async () => {
+    await mount({ roles: ROLES, contacts: [{ id: 'c1', payload: { name: 'Road Runner' } }] })
+    await pick('[data-testid="kc-add-contact"]', 'c1')
+    await pick('[data-testid="kc-add-role"]', 'Other')
+    await type('[data-testid="kc-add-other"]', 'Site Warden')
+    await click(must('[data-testid="kc-add"]'))
+    const posted = apiCalls.find((c) => c.path.endsWith('/key-contacts'))
+    expect(posted!.body).toEqual({ contact_id: 'c1', role_other: 'Site Warden' })
+  })
+
   test('R-W3 with NO linked account it asks for nothing and says why', async () => {
     await mount({ src: source({ account: null }) })
     const paths = apiCalls.map((c) => c.path)
@@ -548,7 +635,7 @@ describe('K: key contacts', () => {
     await mount()
     expect(must('[data-testid="kc-record-lnk1"]').hasAttribute('hidden')).toBe(true)
     await act(async () => {
-      const sel = must('[data-testid="kc-stance-lnk1"]') as HTMLSelectElement
+      const sel = must(`[data-testid="kc-stance-${LINKS[0].id}"]`) as HTMLSelectElement
       sel.value = ''
       sel.dispatchEvent(new Event('change', { bubbles: true }))
     })
@@ -562,7 +649,7 @@ describe('K: key contacts', () => {
   test('K4 recording writes IMMEDIATELY, never through the bar', async () => {
     await mount()
     await act(async () => {
-      const sel = must('[data-testid="kc-stance-lnk1"]') as HTMLSelectElement
+      const sel = must(`[data-testid="kc-stance-${LINKS[0].id}"]`) as HTMLSelectElement
       sel.value = ''
       sel.dispatchEvent(new Event('change', { bubbles: true }))
     })
@@ -592,7 +679,7 @@ describe('K: key contacts', () => {
     const onSave = vi.fn()
     await mount({ onSave })
     await act(async () => {
-      const sel = must('[data-testid="kc-stance-lnk1"]') as HTMLSelectElement
+      const sel = must(`[data-testid="kc-stance-${LINKS[0].id}"]`) as HTMLSelectElement
       sel.value = ''
       sel.dispatchEvent(new Event('change', { bubbles: true }))
     })

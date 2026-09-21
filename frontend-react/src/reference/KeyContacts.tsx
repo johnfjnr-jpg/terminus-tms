@@ -23,6 +23,17 @@ import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export interface KcVocabItem { id: string, name: string }
 
+/**
+ * What the two vocabulary routes actually answer. `/contact-roles` and
+ * `/contact-stances` are tables of `{ id, label }`; neither carries a
+ * top-level `name`. Typing them as `KcVocabItem` rendered every option on
+ * this card BLANK while the fetches were returning the right rows.
+ */
+export interface KcVocabRow { id: string, label?: string | null }
+export const vocabOption = (v: KcVocabRow): KcVocabItem => ({
+  id: v.id, name: v.label?.trim() || v.id,
+})
+
 /** What `GET /contacts` actually answers: a record row, name inside payload. */
 export interface KcContactRow {
   id: string
@@ -91,8 +102,8 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
 
   const loadVocabularies = useCallback(async () => {
     const [r, s, c] = await Promise.all([
-      shell.api<KcVocabItem[]>('GET', KC_ROUTES.roles),
-      shell.api<KcVocabItem[]>('GET', KC_ROUTES.stances),
+      shell.api<KcVocabRow[]>('GET', KC_ROUTES.roles),
+      shell.api<KcVocabRow[]>('GET', KC_ROUTES.stances),
       // R-W3: SCOPED TO THE ACCOUNT. `?account_id=` has existed on this route
       // since Round 11 and filters on `parent_record_id`, the column a
       // contact's account actually lives in, so this is a parameter rather
@@ -103,8 +114,8 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
         ? shell.api<KcContactRow[]>('GET', `${KC_ROUTES.contacts}?account_id=${encodeURIComponent(accountId)}`)
         : Promise.resolve({ ok: true, data: [] as KcContactRow[] }),
     ])
-    if (r.ok && Array.isArray(r.data)) setRoles(r.data)
-    if (s.ok && Array.isArray(s.data)) setStances(s.data)
+    if (r.ok && Array.isArray(r.data)) setRoles(r.data.map(vocabOption))
+    if (s.ok && Array.isArray(s.data)) setStances(s.data.map(vocabOption))
     // F1: MAPPED FROM THE ROUTE'S OWN SHAPE. `/contacts` answers whole record
     // rows and a contact's name lives in `payload.name`; roles and stances are
     // vocabulary tables that really do carry a top-level `name`. Typing all
@@ -148,9 +159,14 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
     if (!addContact) { setFeedback('Choose a contact to add.'); return }
     setBusy(true)
     try {
+      // THE ROUTE TAKES EXACTLY ONE OF `role_id` OR `role_other`, and refuses
+      // with "supply exactly one of role_id or role_other". This sent `role`,
+      // so every Add answered 400 and the card said "Could not add that
+      // contact". Measured against the live route before it was changed.
+      const typed = addOther.trim()
       const r = await shell.api('POST', KC_ROUTES.add(oppId), {
         contact_id: addContact,
-        role: addRole === 'Other' ? addOther : addRole,
+        ...(addRole === 'Other' ? { role_other: typed } : { role_id: addRole }),
       })
       setFeedback(r.ok ? 'Added.' : 'Could not add that contact.')
       if (r.ok) { setAddContact(''); setAddRole(''); setAddOther(''); onChanged() }
@@ -236,7 +252,10 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
         <select data-testid="kc-add-role" value={addRole}
           onChange={(e) => setAddRole(e.target.value)}>
           <option value="">Role</option>
-          {roles.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+          {/* THE VALUE IS THE ID, because the route takes `role_id`. It was
+              the name, so even a correctly-labelled option posted the wrong
+              thing. 'Other' stays a literal sentinel and is not an id. */}
+          {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           <option value="Other">Other</option>
         </select>
         {addRole === 'Other' && (
