@@ -68,17 +68,22 @@ const hueGap = (a, b) => { const d = Math.abs(hue(a) - hue(b)); return Math.min(
 const RED_FAMILY = [
   '.auth-error',
   '.msg-error',
-  'input.input-invalid',
+  // `input.input-invalid` REMOVED from the family, hygiene round 2026-09-21:
+  // the rule is deleted because nothing applied it. The list asserts its own
+  // completeness, so a member that no longer exists would fail this test
+  // rather than pass it quietly, which is the list working.
   '.nlg-why',
   '.new-lead-table select[aria-invalid="true"]',
   '.tb-doc-feedback.err',
   '.stat-value--overdue',
 ]
-// `input.input-invalid` binds twice, border-color and outline-color, and
 // `.stat-value--overdue` binds twice, colour and border. The select rule also
 // carried a `border-bottom: 1px solid var(--red)` BEFORE this round, which is
 // the one site that was already healthy.
-const EXTRA_BINDINGS = 3
+//
+// WAS 3. `input.input-invalid` bound twice as well and contributed the third;
+// its rule was deleted in the hygiene round because nothing applied it.
+const EXTRA_BINDINGS = 2
 
 test('R4 1: the red is defined, and once', () => {
   assert.ok(hexOf('red'), 'no --red definition found in style.css')

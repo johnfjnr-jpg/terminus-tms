@@ -115,6 +115,13 @@ export interface ReconciliationView {
   statement: string | null
   off: boolean
   warning: string | null
+  /**
+   * LEDGER 5: whether there is anything to total. An EMPTY schedule printed
+   * `TOTAL 100% $0`, because `scheduleReconciliation` returns `exact: true`
+   * with no rows and `exact` is what prints "100%" - a hundred per cent of
+   * nothing, stated as confidently as a real reconciliation.
+   */
+  hasSchedule: boolean
 }
 
 /**
@@ -148,6 +155,7 @@ export function contractorReconciliation(values: Values, lumpCost: number): Reco
     totalPct: rec.exact ? '100%' : `${Number(totalPct.toFixed(4))}%`,
     statement: rec.statement,
     off: !rec.reconciles,
+    hasSchedule: rec.hasSchedule,
     warning: rec.hasSchedule && !rec.issuable
       ? (rec.incomplete > 0
         ? `${rec.incomplete} contractor milestone${rec.incomplete === 1 ? '' : 's'} carry an amount and no month. A version cannot be taken until every row has a month.`

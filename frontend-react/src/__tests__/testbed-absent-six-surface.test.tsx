@@ -315,3 +315,32 @@ describe('re-navigation: ONE root, re-rendered', () => {
 const ENTRIES_A = [
   { id: 'x', timestamp: '2026-01-01T00:00:00Z', action: 'record_created', actor_id: 'a', detail: {} },
 ]
+
+// ── AUDIT L7: AN INSTALL NOTE IS STAMPED WITH THE STAGE IT WAS WRITTEN AT ──
+//
+// `addInstallNote` has accepted a `stage` since it was written, and the row
+// renders a chip the moment a note carries one. The CALL SITE simply never
+// passed it, so every note written on this surface was stamped with nothing
+// and the chip could only ever appear on notes the vanilla had left behind.
+//
+// A HELPER THAT ACCEPTS AN ARGUMENT NOBODY PASSES is the defaulted-parameter
+// shape Verification 24 names: the code reads as though the feature is there.
+describe('L7: the install note carries its stage', () => {
+  test('L7 adding a note stamps the stage the record is at', async () => {
+    const p = install({ stage: 'Site Assessment' })
+    const box = host.querySelector('[data-testid="tb-install-note-input"]')
+      ?? host.querySelector('textarea') ?? host.querySelector('input[type="text"]')
+    await act(async () => {
+      const proto = box!.tagName === 'TEXTAREA'
+        ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype
+      Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(box, 'rained all week')
+      box!.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const add = [...host.querySelectorAll('button')]
+      .find((b) => /add note/i.test(b.textContent ?? ''))!
+    await act(async () => { add.click() })
+    expect(p.onWriteNotes).toHaveBeenCalled()
+    const written = (p.onWriteNotes as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0]
+    expect((written as Array<{ stage?: string }>)[0].stage).toBe('Site Assessment')
+  })
+})

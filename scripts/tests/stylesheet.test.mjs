@@ -111,3 +111,50 @@ test('STYLESHEET INVARIANT: the current-stage dot is painted AND has a size', ()
     + 'do nothing to an inline element inside a <button>, so the dot would paint '
     + 'at zero width however it is coloured')
 })
+
+// ── LEDGER 6: A CHEVRON'S PADDING MAY NOT BE SMALLER THAN ITS OWN NOTCH ──
+//
+// Hygiene round, 2026-09-21. `.chevron-item` cuts an arrow out of itself with
+// a `clip-path` that bites `--chevron-notch` into the LEFT edge, so any
+// padding smaller than that notch puts text underneath the cut.
+//
+// `.many` set `padding: 0 10px` against an 11px notch - ONE PIXEL short - and
+// at 1240 the Test Bed's ten stages squeezed every item until
+// `DECOMMISSIONING` rendered as `)ECOMMISSIONING`. Two literals, in two rules,
+// that had to agree and nothing made them: Verification 20 in a stylesheet.
+//
+// ASSERTED ON THE DERIVATION, not on the number. A test that checked for
+// `11px` would pass the day somebody changed the notch to 14px and left the
+// padding at 13, which is the same defect with different digits.
+test('STYLESHEET INVARIANT: every chevron padding is derived from the notch', () => {
+  const notch = /\.chevron-item\s*\{([^}]*)\}/.exec(css)
+  assert.ok(notch, 'no .chevron-item rule found, so this scan is measuring nothing')
+  assert.match(notch[1], /--chevron-notch\s*:\s*\d/,
+    '.chevron-item no longer declares --chevron-notch, so the clip and the '
+    + 'padding are two literals that have to agree and nothing makes them')
+
+  // SCOPED TO THE CLIPPED ELEMENT. The first version matched every selector
+  // starting `.chevron` and failed on `.chevron-popup`, which is the hover
+  // panel: a SIBLING of the strip, carrying no clip-path, whose 4px padding
+  // is correct. A padding only has to clear a notch where a notch is cut.
+  for (const [sel, body] of [...css.matchAll(/([^{}]*\.chevron-item[^{]*?)\{([^}]*)\}/g)]
+    .map((m) => [m[1].trim(), m[2]])) {
+    const pad = /padding\s*:\s*([^;]+);/.exec(body)
+    if (!pad) continue
+    assert.match(pad[1], /var\(--chevron-notch\)/,
+      `${sel} sets a padding that is not derived from --chevron-notch `
+      + `(${pad[1].trim()}). A literal smaller than the notch renders text under the clip.`)
+  }
+})
+
+// AND A SINGLE LONG WORD MUST BE ABLE TO BREAK, or no padding can save it.
+// `white-space: normal` wraps between WORDS; `DECOMMISSIONING` is one word
+// wider than its content box at 1240, so with the notch fix alone it still
+// started inside the cut. Measured, not assumed.
+test('STYLESHEET INVARIANT: a crowded chevron may break a long word', () => {
+  const many = /\.chevron-strip\.many\s+\.chevron-item\s*\{([^}]*)\}/.exec(css)
+  assert.ok(many, 'no .chevron-strip.many .chevron-item rule found')
+  assert.match(many[1], /overflow-wrap\s*:\s*(anywhere|break-word)/,
+    'a crowded chevron cannot break a long word, so a label longer than its '
+    + 'content box overflows the padding and the clip-path cuts it')
+})

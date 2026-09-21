@@ -22,6 +22,59 @@ import { useShell } from '../ShellContext'
 import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
 export interface KcVocabItem { id: string, name: string }
+
+/**
+ * What the two vocabulary routes actually answer. `/contact-roles` and
+ * `/contact-stances` are tables of `{ id, label }`; neither carries a
+ * top-level `name`. Typing them as `KcVocabItem` rendered every option on
+ * this card BLANK while the fetches were returning the right rows.
+ */
+export interface KcVocabRow { id: string, label?: string | null }
+
+/**
+ * A key-contact row AS THE RECORD CARRIES IT. `GET /opportunities/:id`
+ * already returns `key_contacts`, and its field names are not the ones this
+ * component reads: `name` not `contact_name`, `stance` not `stance_id`,
+ * `note` not `stance_note`.
+ */
+export interface KcLinkRow {
+  id: string
+  contact_id: string
+  name?: string | null
+  role?: string | null
+  stance?: string | null
+  note?: string | null
+  linked_at?: string | null
+}
+export const linkRow = (k: KcLinkRow): KcLink => ({
+  id: k.id,
+  contact_id: k.contact_id,
+  contact_name: k.name?.trim() || 'Unnamed contact',
+  role: k.role ?? null,
+  stance_id: k.stance ?? null,
+  stance_note: k.note ?? null,
+  linked_at: k.linked_at ?? null,
+})
+export const vocabOption = (v: KcVocabRow): KcVocabItem => ({
+  id: v.id, name: v.label?.trim() || v.id,
+})
+
+/** What `GET /contacts` actually answers: a record row, name inside payload. */
+export interface KcContactRow {
+  id: string
+  reference_code?: string | null
+  payload?: { name?: string | null } | null
+}
+
+// AN ABSENT NAME IS SAID, NOT LEFT BLANK. The estate's recorded position, at
+// `contacts.js:1021`: a silent fallback "made a missing name look like a
+// supplied one, and nothing surfaced for eleven rounds". A blank option is
+// exactly that fallback. All 17 live contacts carry a name and none carries a
+// reference_code, so the last branch is defensive rather than expected.
+export const contactOption = (c: KcContactRow): KcVocabItem => ({
+  id: c.id,
+  name: c.payload?.name?.trim() || c.reference_code || 'Unnamed contact',
+})
 export interface KcLink {
   id: string
   contact_id: string
@@ -74,8 +127,8 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
 
   const loadVocabularies = useCallback(async () => {
     const [r, s, c] = await Promise.all([
-      shell.api<KcVocabItem[]>('GET', KC_ROUTES.roles),
-      shell.api<KcVocabItem[]>('GET', KC_ROUTES.stances),
+      shell.api<KcVocabRow[]>('GET', KC_ROUTES.roles),
+      shell.api<KcVocabRow[]>('GET', KC_ROUTES.stances),
       // R-W3: SCOPED TO THE ACCOUNT. `?account_id=` has existed on this route
       // since Round 11 and filters on `parent_record_id`, the column a
       // contact's account actually lives in, so this is a parameter rather
@@ -83,12 +136,19 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
       // asking without the parameter would return every contact in the
       // system - which is the behaviour being removed.
       accountId
-        ? shell.api<KcVocabItem[]>('GET', `${KC_ROUTES.contacts}?account_id=${encodeURIComponent(accountId)}`)
-        : Promise.resolve({ ok: true, data: [] as KcVocabItem[] }),
+        ? shell.api<KcContactRow[]>('GET', `${KC_ROUTES.contacts}?account_id=${encodeURIComponent(accountId)}`)
+        : Promise.resolve({ ok: true, data: [] as KcContactRow[] }),
     ])
-    if (r.ok && Array.isArray(r.data)) setRoles(r.data)
-    if (s.ok && Array.isArray(s.data)) setStances(s.data)
-    if (c.ok && Array.isArray(c.data)) setContacts(c.data)
+    if (r.ok && Array.isArray(r.data)) setRoles(r.data.map(vocabOption))
+    if (s.ok && Array.isArray(s.data)) setStances(s.data.map(vocabOption))
+    // F1: MAPPED FROM THE ROUTE'S OWN SHAPE. `/contacts` answers whole record
+    // rows and a contact's name lives in `payload.name`; roles and stances are
+    // vocabulary tables that really do carry a top-level `name`. Typing all
+    // three as one `KcVocabItem` made the contacts read `c.name`, which is
+    // `undefined`, so every option rendered BLANK while the fetch was
+    // returning exactly the right rows. Unchanged since `da207cf`, and not
+    // R-W3's doing: R-W3 corrected WHICH contacts arrive, never their labels.
+    if (c.ok && Array.isArray(c.data)) setContacts(c.data.map(contactOption))
   }, [shell, accountId])
 
   useEffect(() => { void loadVocabularies() }, [loadVocabularies])
@@ -124,9 +184,14 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
     if (!addContact) { setFeedback('Choose a contact to add.'); return }
     setBusy(true)
     try {
+      // THE ROUTE TAKES EXACTLY ONE OF `role_id` OR `role_other`, and refuses
+      // with "supply exactly one of role_id or role_other". This sent `role`,
+      // so every Add answered 400 and the card said "Could not add that
+      // contact". Measured against the live route before it was changed.
+      const typed = addOther.trim()
       const r = await shell.api('POST', KC_ROUTES.add(oppId), {
         contact_id: addContact,
-        role: addRole === 'Other' ? addOther : addRole,
+        ...(addRole === 'Other' ? { role_other: typed } : { role_id: addRole }),
       })
       setFeedback(r.ok ? 'Added.' : 'Could not add that contact.')
       if (r.ok) { setAddContact(''); setAddRole(''); setAddOther(''); onChanged() }
@@ -212,7 +277,10 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
         <select data-testid="kc-add-role" value={addRole}
           onChange={(e) => setAddRole(e.target.value)}>
           <option value="">Role</option>
-          {roles.map((r) => <option key={r.id} value={r.name}>{r.name}</option>)}
+          {/* THE VALUE IS THE ID, because the route takes `role_id`. It was
+              the name, so even a correctly-labelled option posted the wrong
+              thing. 'Other' stays a literal sentinel and is not an id. */}
+          {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           <option value="Other">Other</option>
         </select>
         {addRole === 'Other' && (

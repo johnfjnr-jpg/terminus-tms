@@ -274,12 +274,17 @@ export function ContractorGrid({ rows, values, options, onTyped, view, base }: {
         <span />
         <span className="cm-total-figure" data-testid="contractor-base-figure">{view.baseFigure}</span>
       </div>
-      <div className="cm-grid-row cm-grid-total" data-testid="contractor-total-row">
-        <span />
-        <span className="cm-total-label">Total</span>
-        <span className="cm-total-figure" data-testid="contractor-total-pct">{view.totalPct}</span>
-        <span className="cm-total-figure" data-testid="contractor-total-usd">{view.totalUsd}</span>
-      </div>
+      {/* LEDGER 5: RENDERED ONLY WHEN THERE IS SOMETHING TO TOTAL, which is
+          the rule the customer grid above already follows. An empty schedule
+          printed `TOTAL 100% $0`. */}
+      {view.hasSchedule ? (
+        <div className="cm-grid-row cm-grid-total" data-testid="contractor-total-row">
+          <span />
+          <span className="cm-total-label">Total</span>
+          <span className="cm-total-figure" data-testid="contractor-total-pct">{view.totalPct}</span>
+          <span className="cm-total-figure" data-testid="contractor-total-usd">{view.totalUsd}</span>
+        </div>
+      ) : null}
       {view.statement
         ? <p data-testid="contractor-diff" className={view.off ? 'deal-schedule-off' : ''}>{view.statement}</p>
         : null}

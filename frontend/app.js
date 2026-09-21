@@ -7622,11 +7622,21 @@ async function renderOppDetail(opp) {
   // this is a display, and the two are one value read twice for two jobs.
   document.getElementById('ref-display-name').textContent = p.name ?? '--'
   document.getElementById('detail-company').textContent = p.company_name ?? ''
-  document.getElementById('detail-probability').textContent =
-    det.probability_pct != null ? `${det.probability_pct}%` : '--'
-  document.getElementById('detail-close-date').textContent = det.forecast_close_date ?? '--'
-  document.getElementById('detail-testbed-cost').textContent = formatCost(det.test_bed_cost)
-  document.getElementById('detail-age').textContent = daysAgo(opp.created_at)
+  // ── FOUR WRITES REMOVED WITH THEIR MARKUP, hygiene round 2026-09-21 ────
+  //
+  // `detail-probability`, `detail-close-date`, `detail-testbed-cost` and
+  // `detail-age` lived inside the `#ref-vanilla` block, which rendered
+  // NOTHING and has now been deleted. These four lines wrote figures nobody
+  // could see, and once the markup went they threw on the first null and
+  // left the whole view stuck at `is-loading`.
+  //
+  // THE LIVE READERS ARE IN `#opp-headline`, which is where these figures
+  // actually appear: `oppHeadlineFigure('Probability', ...)` and
+  // `('Age', ...)` a few hundred lines above. Two writers of one value, and
+  // only one of them was ever on screen.
+  //
+  // Verification 43's clause, arriving from the other direction: when a
+  // retirement removes markup, find what WROTE it.
 
   // Show origin tag if converted from a Test Bed
   const originTag = document.getElementById('detail-origin-tag')

@@ -9,9 +9,13 @@ import { headerOf, OWNERSHIP_REFUSAL_TEXT } from './viewLoad'
 import { headerStats } from './headerStats'
 
 const CHEVRON_ID = 'tb-chevron-strip'
+const CHEVRON_WRAP_ID = 'tb-chevron-wrap'
+const CHEVRON_POPUP_ID = 'tb-chevron-popup'
 
 export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
   record: {
+    /** AUDIT L10: the hover popup asks `/records/:id/exit-criteria`. */
+    id?: string
     status?: string
     payload?: Record<string, unknown> & { name?: string, client_organisation?: string }
   } | null
@@ -50,6 +54,7 @@ export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
   const payload = record?.payload ?? {}
   const { cells, hardware } = headerStats(payload)
   const status = record?.status
+  const recordId = record?.id ? String(record.id) : ''
 
   // ── THE CHEVRON RUNS THE TEST BED'S OWN STAGES ──────────────────────
   //
@@ -66,15 +71,25 @@ export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
     const w = window as unknown as {
       fetchStages?: (t: string) => Promise<Array<Record<string, unknown>>>
       renderChevronStrip?: (id: string, stage: string, stages: Array<Record<string, unknown>>) => void
+      wireChevronHover?: (o: { wrapId: string, popupId: string, recordId: string }) => void
     }
     void (async () => {
       const stages = await w.fetchStages?.('test_bed')
       // A stale answer from the previous record must not paint this one.
       if (cancelled || !stages?.length) return
       w.renderChevronStrip?.(CHEVRON_ID, status, stages)
+      // AUDIT L10. Wired AFTER the strip is painted, because the handler is
+      // delegated from the wrapper and the items must exist to be hovered.
+      // The helper re-points `wrap.dataset.recordId` on every call and guards
+      // its own listener, which is what makes it safe to call per record.
+      if (recordId) {
+        w.wireChevronHover?.({
+          wrapId: CHEVRON_WRAP_ID, popupId: CHEVRON_POPUP_ID, recordId,
+        })
+      }
     })()
     return () => { cancelled = true }
-  }, [status])
+  }, [status, recordId])
 
   return (
     <div data-testid="tb-view-header">
@@ -145,8 +160,25 @@ export function ViewHeader({ record, readOnly, titleAction, band, onBack }: {
         ))}
       </div>
 
-      {/* THE CHEVRON, below the strip. */}
-      <div id={CHEVRON_ID} className="chevron-strip" data-testid="tb-chevron-strip" />
+      {/* ── THE CHEVRON, below the strip ──────────────────────────────────
+          AUDIT L10: the POPUP IS A SIBLING OF THE STRIP, inside a wrapper,
+          and the reason is recorded at the Opportunity's own copy and at the
+          retired vanilla's: `.chevron-strip` has `overflow: hidden` and every
+          `.chevron-item` carries a clip-path, so a popup rendered inside
+          either would be clipped away entirely. The wrapper is the
+          positioning context AND the hover target, so moving the pointer from
+          a chevron into the popup does not read as leaving.
+
+          The strip was rendered bare here, with no wrap and no popup, so the
+          per-stage hover detail and its blocking list existed on the
+          Opportunity and nowhere on the Test Bed. `wireChevronHover` is
+          record-type agnostic - it asks `/records/:id/exit-criteria` - so
+          this needed the markup and the call, not a second implementation. */}
+      <div id={CHEVRON_WRAP_ID} className="chevron-wrap" data-testid="tb-chevron-wrap">
+        <div id={CHEVRON_ID} className="chevron-strip" data-testid="tb-chevron-strip" />
+        <div id={CHEVRON_POPUP_ID} className="chevron-popup hidden"
+          data-testid="tb-chevron-popup" />
+      </div>
 
       {/* L6: the banner is the only PER-VIEW part. The class, the value and the
           stylesheet rule are shared with the Opportunity; the banners differ

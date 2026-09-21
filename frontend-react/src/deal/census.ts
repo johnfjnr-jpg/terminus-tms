@@ -63,7 +63,13 @@ export const CENSUS: CensusInput[] = [
   { id: 'deal-inHemir', label: 'HEMIR install', contract: 'numOrNull', section: 'installation', placeholderFromCatalog: 'inHemir' },
 
   { id: 'deal-warrantyPct', label: 'Warranty %', contract: 'numOrNull', section: 'risk' },
-  { id: 'deal-whtPct', label: 'Withholding Tax %', contract: 'numOrNull', section: 'risk', placeholder: '--' },
+  // LEDGER 8, 2026-09-21: the `placeholder: '--'` override is GONE, so this
+  // takes `numOrNull`'s own "not recorded" - the same words GST uses on the
+  // same line. Walk 5 added the override because sizing the box to two digits
+  // clipped the wording to "not recorde", and recorded it as a departure
+  // wanting a wording decision. This is that decision: the words match and the
+  // LAYOUT gives them room.
+  { id: 'deal-whtPct', label: 'Withholding Tax %', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-gstPct', label: 'GST %', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-fxContingency', label: '% Currency Contingency', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-bidCurrency', label: 'Bid Currency', contract: 'emptyToNull', section: 'risk' },

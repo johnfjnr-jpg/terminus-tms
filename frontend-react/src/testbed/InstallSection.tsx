@@ -20,6 +20,14 @@ export interface InstallSectionProps {
   installerContacts: readonly ContactOption[]
   linkedTechTeam: string | null
   notes: readonly InstallNote[] | undefined
+  /**
+   * AUDIT L7. The stage the record is at, stamped onto a note as it is
+   * written. `addInstallNote` has accepted this since it was written and the
+   * row renders a chip the moment a note carries one; the call site simply
+   * never passed it, so every note this surface wrote was stamped with
+   * nothing and the chip could only appear on notes the vanilla left behind.
+   */
+  stage?: string
   author: string
   now: () => string
   onSetInstaller: (accountId: string) => Promise<{ cleared_tech_team?: boolean } | null>
@@ -152,7 +160,7 @@ export function InstallSection(p: InstallSectionProps) {
           onChange={(e) => setNoteText(e.target.value)} />
         <button type="button" className="btn-sm" data-testid="tb-install-note-add"
           onClick={() => {
-            const next = addInstallNote(p.notes, noteText, p.author, p.now())
+            const next = addInstallNote(p.notes, noteText, p.author, p.now(), p.stage)
             if (!next) return
             void p.onWriteNotes(next).then((ok) => { if (ok) setNoteText('') })
           }}>Add note</button>

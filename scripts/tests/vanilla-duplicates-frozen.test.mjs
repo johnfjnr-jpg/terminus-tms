@@ -54,7 +54,10 @@ export function extractBlock(text, openTag) {
 export const RECORDED = {
   'deal-form-vanilla': '3fb0d445b7239901e3c7e0633070fc02a89a4b7e7636972e91e522889abb7f21',
   'deal-version-vanilla': 'c9f6ec6ef74ed9f6c99fe4b7e1368e51a0435cfb58d9cd4026e0111ff36eb3e7',
-  'ref-vanilla': 'fc72d56ef3f510e887bd5fdcbfdd718de8158e79cf1062c33608d934ddc010d9',
+  // `ref-vanilla` WAS HERE AND ITS BLOCK IS NOW REMOVED, hygiene round,
+  // 2026-09-21, on John's disposition. The tripwire existed to catch an edit
+  // landing in markup that renders nothing; with the markup gone there is
+  // nothing to freeze. The other two blocks are still here and still frozen.
 }
 
 const found = [...src.matchAll(/id="([a-z-]+-vanilla)"/g)].map((m) => m[1])
