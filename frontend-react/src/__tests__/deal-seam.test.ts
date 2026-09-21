@@ -22,7 +22,11 @@ const UI: UiState = {
 }
 const V: Values = {
   'deal-ssExisting': '10', 'deal-gstPct': '9', 'deal-lumpCost': '200000',
-  'deal-cm-0-usd': '5000', 'deal-cm-0-month': '3', 'deal-cm-1-usd': '2000', 'deal-cm-1-month': '0',
+  // R-N1: contractor rows are PERCENTAGES of the lump sum now, so these are
+  // the same two amounts said the new way: $5,000 and $2,000 of $200,000 are
+  // 2.5% and 1%. The second still carries no month, which is the point of the
+  // assertion below - a dateless row is carried and flagged, not dropped.
+  'deal-cm-0-pct': '2.5', 'deal-cm-0-month': '3', 'deal-cm-1-pct': '1', 'deal-cm-1-month': '0',
 }
 const cleanBaseline = () => pickSalespersonWritable(readDealPayload(V, UI, RATES))
 
@@ -123,7 +127,7 @@ describe('freezeCurrentState: THE ORDER IS THE POINT', () => {
     expect(frozen.catalogRates).toEqual(RATES)
     expect(frozen.contractorMilestones).toHaveLength(2)
     // The dateless row is carried and flagged, not dropped.
-    expect(frozen.contractorMilestones.find((r) => r.usd === 2000)!.incomplete).toBe(true)
+    expect(frozen.contractorMilestones.find((r) => r.pct === 1)!.incomplete).toBe(true)
   })
 
   // MEASURED, per the ruling: the version machinery's single num() call read

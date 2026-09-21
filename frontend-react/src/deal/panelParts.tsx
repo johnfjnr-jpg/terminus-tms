@@ -1,6 +1,7 @@
 import type { CFRow } from './cashflow'
 import type { YearSchedule } from './schedule'
 import type { ReconciliationView, MilestoneOption } from './milestones'
+import { milestoneUsd } from '../../../src/lib/milestone-schedule.js'
 import type { InstallVisibility, StructureVisibility, ToggleState } from './installation'
 import { money } from './rows'
 // The SAME reader the vanilla paints the accent from. Verification 20.
@@ -91,7 +92,7 @@ export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
   )
 }
 
-export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options }: {
+export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options, base }: {
   rows: { row: number; month: string; label: string; usd: string; pct: string }[]
   values: Record<string, string | undefined>
   usdFor(i: number): string
@@ -105,7 +106,18 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options
    * before this existed does not silently lose it.
    */
   options(i: number): MilestoneOption[]
+  /** N1: the one-off price the schedule is a percentage of, so it can total. */
+  base: number
 }) {
+  // N1: the total of the one reading. Summed from the PERCENTAGES the rows
+  // carry, then derived once, rather than summing the formatted cells - a
+  // total built by re-parsing its own display is a second reader of the thing
+  // it is totalling.
+  const msTotalPct = rows.reduce((s, r) => {
+    const raw = values[r.pct]
+    const n = raw === '' || raw == null ? 0 : Number(raw)
+    return s + (Number.isFinite(n) ? n : 0)
+  }, 0)
   return (
     // ── R-O5/O6: THE ROWS SHARE THE HEADER'S GRID ─────────────────────────
     //
@@ -138,24 +150,75 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options
           </select>
           <input id={r.pct} data-testid={r.pct} inputMode="decimal"
             value={values[r.pct] ?? ''} onChange={(e) => onChange(r.pct, e.target.value)} />
-          {/* L6: THE USD IS COMPUTED and shown read-only, so the two readings
-              of this schedule cannot disagree about what it is a percentage of. */}
+          {/* ── THE COMMENT THAT WAS FALSE, CORRECTED (R-N1) ───────────────
+              It read: "THE USD IS COMPUTED and shown read-only, so the two
+              readings of this schedule cannot disagree about what it is a
+              percentage of."
+              The cell was computed and read-only, and the sentence after the
+              "so" was not true: the OTHER readers - the schedule warning and
+              the cash flow - took a STORED figure that only moved when
+              somebody retyped a percentage. Measured, changing the units from
+              40 to 80 left this cell showing $467,143 while the warning and
+              the cash flow both said $233,572, and the save wrote the stale
+              one.
+              It is true now, and by construction rather than by assertion:
+              there is one derivation, `milestoneUsd`, and all three readers
+              call it. There is no second number to disagree with. */}
           <input id={r.usd} data-testid={r.usd} className="is-computed"
             readOnly tabIndex={-1} value={usdFor(r.row)} />
         </div>
       ))}
+      {/* ── N1: THE TOTAL ROW, ruled by John 2026-09-20 ──────────────────
+          The same shape the installation grid already has: the percentage
+          and the amount each under the column they total, right-aligned.
+
+          IT TOTALS THE SINGLE DERIVED READING. That is the whole reason this
+          row waited for R-N1: totalling a column whose cells disagreed with
+          the record would have produced a figure that was right about one
+          reading and wrong about the other, with nothing saying which. There
+          is one reading now, so the total is a sum of the same numbers the
+          cells show, the warning counts and the cash flow pays.
+
+          RENDERED ONLY WHEN THERE IS SOMETHING TO TOTAL. A total of nothing
+          is a zero that looks like a priced schedule of zero. */}
+      {msTotalPct > 0 ? (
+        <div className="ms-grid-row ms-grid-total" data-testid="ms-grid-total">
+          <span />
+          <span className="cm-total-label">Total</span>
+          <span className="cm-total-figure" data-testid="ms-total-pct">
+            {`${Number(msTotalPct.toFixed(4))}%`}
+          </span>
+          <span className="cm-total-figure" data-testid="ms-total-usd">
+            {`$${money(milestoneUsd(msTotalPct, base))}`}
+          </span>
+        </div>
+      ) : null}
       {warning ? <p className="msg-warning" data-testid="milestone-warning">{warning}</p> : null}
     </div>
   )
 }
 
-export function ContractorGrid({ rows, values, options, onTyped, view }: {
+export function ContractorGrid({ rows, values, options, onTyped, view, base }: {
   rows: { row: number; month: string; label: string; usd: string; pct: string }[]
   values: Record<string, string | undefined>
   options(i: number): MilestoneOption[]
   onTyped(i: number, side: 'pct' | 'usd', id: string, v: string): void
   view: ReconciliationView
+  /**
+   * R-N1: the lump sum this schedule is a percentage OF, so the amount column
+   * can be derived rather than stored. Passed in rather than read off `view`,
+   * which carries the base as formatted text for display.
+   */
+  base: number
 }) {
+  // R-N1: one derivation, the same one the reconciliation and the cash flow
+  // read. A row mid-edit - dollars typed but not yet synced - would otherwise
+  // fight the person's keystrokes, so the box shows what the percentage says.
+  const derivedUsd = (i: number) => {
+    const pct = values[`deal-cm-${i}-pct`]
+    const n = pct === '' || pct == null ? null : Number(pct)
+    return n === null || !Number.isFinite(n) || !base ? '' : milestoneUsd(n, base).toFixed(2)
+  }
   return (
     <div data-testid="contractor-grid">
       {/* ── W6-W9: ONE GRID WITH LABELLED COLUMNS, NOT A BARE TABLE ───────
@@ -185,8 +248,18 @@ export function ContractorGrid({ rows, values, options, onTyped, view }: {
               which one follows. That is the round trip, not a convenience. */}
           <input id={r.pct} data-testid={r.pct} inputMode="decimal"
             value={values[r.pct] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.pct, e.target.value)} />
+          {/* ── R-N1: THE AMOUNT IS DERIVED, AND STILL TYPEABLE ────────────
+              It rendered `values[r.usd]`, a stored figure that went stale the
+              moment the lump sum moved: measured, a row typed at 50% of
+              200,000 still read 50% and $100,000 after the lump sum became
+              400,000, where $100,000 is 25%.
+              It now shows the percentage's own derivation. Typing dollars
+              still works and still sets the percentage - that round trip is
+              the point of this grid - but what the row CARRIES is the
+              percentage, so there is nothing left to go stale. */}
           <input id={r.usd} data-testid={r.usd} inputMode="decimal"
-            value={values[r.usd] ?? ''} onChange={(e) => onTyped(r.row, 'usd', r.usd, e.target.value)} />
+            value={derivedUsd(r.row)}
+            onChange={(e) => onTyped(r.row, 'usd', r.usd, e.target.value)} />
         </div>
       ))}
       {/* ── W10: THE FIGURES SIT IN THE MONEY COLUMN ─────────────────────

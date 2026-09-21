@@ -102,6 +102,17 @@ try {
       // STORED one, so all three are visible at once and two disagree with
       // the third.
       warning: (pick('[data-testid="milestone-warning"]')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+      // N1: the total row, and the columns it must line up under.
+      totalPct: (pick('[data-testid="ms-total-pct"]')?.textContent ?? '').trim(),
+      totalUsd: (pick('[data-testid="ms-total-usd"]')?.textContent ?? '').trim(),
+      totalUsdRight: (() => {
+        const t = pick('[data-testid="ms-total-usd"]')
+        const cell = pick('.ms-grid-row input[data-testid$="-usd"]')
+        return t && cell
+          ? { total: Math.round(t.getBoundingClientRect().right), col: Math.round(cell.getBoundingClientRect().right),
+              align: getComputedStyle(t).textAlign }
+          : null
+      })(),
       cashRow: (() => {
         const rows = [...(panel?.querySelectorAll('[data-testid^="cf-row-"]') ?? [])].filter(LIVE)
         const r = rows.find((x) => /milestone hardware payment/i.test(x.textContent ?? ''))
@@ -203,21 +214,69 @@ try {
     return { ok: vis && r.top < window.innerHeight && r.bottom > 0, why: `visible=${vis} top=${Math.round(r.top)}` }
   })
   console.log(`\n   capture: the grid is in the region and visible: ${shot.ok} (${shot.why})`)
-  await p.screenshot({ path: `${OUT}n1-disagreement.png` })
+  // RENAMED WITH THE CLAIM IT NOW SHOWS. It was `n1-disagreement.png`, taken
+  // when this probe existed to find the defect; the same file would otherwise
+  // sit under a report describing agreement while carrying a name asserting
+  // the opposite. The old image is not overwritten silently - it is a
+  // different file, and both are evidence of different days.
+  await p.screenshot({ path: `${OUT}n1-agreement.png` })
 
   console.log('\n══ THE ANSWER ═══════════════════════════════════════════════')
-  const disp = Number(String(atSecond.usd0Displayed ?? '').replace(/[^0-9.]/g, '')) || 0
-  const stor = Number(stored2?.usd ?? 0)
-  console.log(`   DISPLAYED on screen after the price change : ${disp}`)
-  console.log(`   STORED in the record after saving that     : ${stor}`)
-  console.log(`   they ${Math.abs(disp - stor) < 1 ? 'AGREE' : 'DISAGREE'}`)
-  if (Math.abs(disp - stor) >= 1) {
-    console.log(`   difference: ${Math.abs(disp - stor)}`)
-    console.log(`\n   N1's STOP CONDITION IS MET: a total over this column would be`)
-    console.log(`   right about one reading and wrong about the other.`)
-  } else {
-    console.log(`\n   N1's stop condition is NOT met on this path.`)
+
+  // ── R-N1: THIS IS A GUARD NOW, NOT A MEASUREMENT ───────────────────────
+  //
+  // It was written to answer N1's stop condition and it found the two
+  // readings 100% apart. The ruling made the percentage authoritative, so the
+  // same drive now asserts AGREEMENT - and the comparison had to be
+  // re-pointed, because the old one compared the screen against a stored
+  // dollar figure that no longer exists and would have read "disagree by the
+  // whole amount" forever.
+  const checks = []
+  const check = (ok, what, detail = '') => {
+    checks.push(ok)
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${what}${detail ? '  ' + detail : ''}`)
   }
+  const num = (t) => Number(String(t ?? '').replace(/[^0-9.]/g, '')) || 0
+  const disp = num(atSecond.usd0Displayed)
+  const warned = num((atSecond.warning ?? '').match(/total \$([\d,]+)/)?.[1])
+  const cash = num((atSecond.cashRow ?? '').match(/([\d,]+)/)?.[1])
+
+  check(disp > 0, 'the drive produced a figure at all, so the checks below are not vacuous',
+    `${disp}`)
+  check(Math.abs(warned - disp) < 1,
+    'R-N1 the schedule warning reads the SAME figure as the grid cell',
+    `cell ${disp}, warning ${warned}`)
+  check(Math.abs(cash - disp) < 1,
+    'R-N1 and so does the cash flow',
+    `cell ${disp}, cash flow ${cash}`)
+
+  // AND THE RECORD. The screen is not the authority about what was saved.
+  const storedPct = Number(stored2?.pct ?? 0)
+  const derivedFromRecord = Math.round((storedPct / 100) * 934286 * 100) / 100
+  check(!('usd' in (stored2 ?? {})),
+    'R-N1 the record carries NO stored usd, so there is no second number to drift',
+    JSON.stringify(stored2))
+  check(storedPct === 50,
+    'R-N1 the record carries the PERCENTAGE the person typed', `pct ${storedPct}`)
+  check(Math.abs(derivedFromRecord - disp) < 1,
+    'R-N1 and the percentage in the record derives to the figure on the screen',
+    `record ${derivedFromRecord}, screen ${disp}`)
+
+  // ── N1: THE TOTAL ROW, now that there is one reading to total ─────────
+  check(atSecond.totalPct === '50%',
+    'N1 the total row states the percentage the schedule adds up to',
+    JSON.stringify(atSecond.totalPct))
+  check(num(atSecond.totalUsd) === disp,
+    'N1 and its amount is the SAME derived figure the cell shows',
+    `total ${atSecond.totalUsd}, cell ${disp}`)
+  check(!!atSecond.totalUsdRight
+    && Math.abs(atSecond.totalUsdRight.total - atSecond.totalUsdRight.col) <= 2,
+    'N1 and it ends where the USD column ends, right-aligned',
+    JSON.stringify(atSecond.totalUsdRight))
+
+  const passed = checks.filter(Boolean).length
+  console.log(`\n${passed}/${checks.length} checks passed`)
+  if (passed !== checks.length) process.exitCode = 1
 } finally {
   await b.close()
   await tearDown([TAG])

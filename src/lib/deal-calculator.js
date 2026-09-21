@@ -18,6 +18,11 @@
  * exactly. See the parity test stub at the bottom of this file.
  */
 
+// R-N1: THE ONE DERIVATION, imported rather than restated. A milestone's
+// dollars are a percentage of the base, computed in one place so the cash
+// flow here, the reconciliation and the grid cell cannot disagree.
+import { milestoneUsd } from './milestone-schedule.js';
+
 /**
  * Builds a month-by-month loan repayment schedule.
  * Direct port of buildLoanSchedule(). This function was already pure
@@ -305,7 +310,20 @@ export function buildCashFlowModel({
     : structure === 'twoPhase' ? (recovRaw !== null && Number.isFinite(recovRaw) ? recovRaw : null)
     : null;
   const msPctTotal = milestones.reduce((s, m) => s + m.pct, 0);
-  const due = milestones.filter((m) => m.month > 0 && m.usd > 0);
+  // ── R-N1: THE CASH FLOW DERIVES, IT DOES NOT READ A STORED FIGURE ──────
+  //
+  // This filtered on `m.usd > 0` and summed `x.usd` below, which is the
+  // reading that went stale: the grid derived its cell from the percentage
+  // while this took the dollars written at the last time somebody retyped
+  // one. Measured, changing the units from 40 to 80 left the panel showing
+  // $467,143 in the cell and this putting $233,572 into the cash flow, at the
+  // same moment.
+  //
+  // `hardwarePriceAll` is the one-off price, the base a customer milestone is
+  // a percentage OF, and it is already in scope here.
+  const due = milestones
+    .map((m) => ({ ...m, usd: milestoneUsd(m.pct, hardwarePriceAll) }))
+    .filter((m) => m.month > 0 && m.usd > 0);
 
   const facRate = (factoringRatePct || 0) / 100;
 

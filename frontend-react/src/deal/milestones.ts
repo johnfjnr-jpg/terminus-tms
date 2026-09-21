@@ -1,5 +1,5 @@
 import { toNumberOrNull } from '../../../src/lib/numeric-payload.js'
-import { scheduleReconciliation } from '../../../src/lib/milestone-schedule.js'
+import { scheduleReconciliation, milestoneUsd } from '../../../src/lib/milestone-schedule.js'
 import { money } from './rows'
 import { readContractorMilestones } from './payload'
 import type { Values } from './payload'
@@ -64,7 +64,8 @@ export function milestoneOptions(selected?: string | null): MilestoneOption[] {
   ]
 }
 
-export const pctToUsd = (pct: number, base: number): number => Math.round((pct / 100) * base)
+/** R-N1: the shared derivation. It computed its own copy of the same rule. */
+export const pctToUsd = (pct: number, base: number): number => milestoneUsd(pct, base)
 export const usdToPct = (usd: number, base: number): number | null => (base ? (usd / base) * 100 : null)
 
 /**
@@ -76,7 +77,11 @@ export const usdToPct = (usd: number, base: number): number | null => (base ? (u
  */
 export function milestoneUsdFor(pctRaw: string | undefined, oneOffPrice: number): string {
   const pct = toNumberOrNull(pctRaw) as number | null
-  return (pct === null || !oneOffPrice) ? '' : ((pct / 100) * oneOffPrice).toFixed(2)
+  // R-N1: THE SHARED DERIVATION, FORMATTED. It computed its own
+  // `(pct / 100) * oneOffPrice` here, which is a second reader of the rule
+  // even while it agreed. The cell now formats the one derivation the
+  // reconciliation and the cash flow read.
+  return (pct === null || !oneOffPrice) ? '' : milestoneUsd(pct, oneOffPrice).toFixed(2)
 }
 
 /**

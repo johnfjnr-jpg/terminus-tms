@@ -50,8 +50,53 @@ export function roundingAllowance(rows) {
  * @param {Array<{usd?: number}>} rows the schedule's rows, blank ones included
  * @param {number} base the total the schedule is a schedule OF
  */
+/**
+ * THE ONE DERIVATION. R-N1, ruled by John 2026-09-21.
+ *
+ * A milestone is a PERCENTAGE of the base it is a schedule of, and its dollar
+ * figure is derived here and nowhere else. Every reader - the grid cell, the
+ * reconciliation below, the cash flow in `deal-calculator.js` - calls this,
+ * so they cannot disagree by construction rather than by a comment saying
+ * they cannot.
+ *
+ * WHAT IT REPLACED, measured rather than argued. The grid derived its cell
+ * from the percentage while the reconciliation and the cash flow read a
+ * STORED dollar figure that was only rewritten when somebody retyped the
+ * percentage. Changing the units from 40 to 80 doubled the price and the
+ * screen then showed $467,143 in the cell, $233,572 in the warning and
+ * $233,572 in the cash flow - at the same moment - with the save writing the
+ * stale figure.
+ *
+ * TO CENTS, and that is not a detail. The cell has always shown two decimal
+ * places, for the reason its own comment gives: a percentage of a six-figure
+ * total lands on cents, and rounding them away makes the column stop summing
+ * to the schedule. A first draft of this function rounded to whole dollars,
+ * which would have put the cell and the cash flow a few cents apart - the
+ * same class of disagreement this ruling exists to remove, reintroduced by
+ * the fix for it.
+ *
+ * Rounding to cents rather than returning the raw product also keeps the
+ * arithmetic exact: three rows of a third each sum to the whole rather than
+ * to the whole plus a floating-point residue.
+ */
+export function milestoneUsd(pct, base) {
+  const p = Number(pct);
+  const b = Number(base);
+  if (!Number.isFinite(p) || !Number.isFinite(b)) return 0;
+  return Math.round((p / 100) * b * 100) / 100;
+}
+
 export function scheduleReconciliation(rows, base) {
-  const filled = (rows ?? []).filter((r) => Number(r?.usd) > 0);
+  // R-N1: DERIVED, NOT READ. This filtered and summed `r.usd` from the stored
+  // row, which is the reading that went stale. It now asks the same question
+  // of the same derivation the cell uses.
+  //
+  // A ROW COUNTS WHEN ITS PERCENTAGE IS NON-ZERO, because the percentage is
+  // what the person entered and the dollars are a consequence of it. With a
+  // base of zero every derived figure is zero and `hasBase` below already
+  // handles that case, so an empty form still reads as an empty form.
+  const filled = (rows ?? []).filter((r) => Number(r?.pct) > 0);
+  const usdOf = (r) => milestoneUsd(r?.pct, base);
   // ── W-C: A DATELESS PAYMENT COUNTS AND CANNOT BE ISSUED ────────────────
   //
   // Round 41, seventh walk. A row with money and no month used to be dropped by
@@ -69,7 +114,7 @@ export function scheduleReconciliation(rows, base) {
   // it is the reason `incomplete` is separate from `reconciles` rather than
   // folded into it - the two block different things.
   const incomplete = filled.filter((r) => !(Number(r?.month) > 0));
-  const totalUsd = filled.reduce((s, r) => s + Number(r.usd), 0);
+  const totalUsd = filled.reduce((s, r) => s + usdOf(r), 0);
   const hasSchedule = filled.length > 0;
   const hasBase = Number(base) > 0;
 

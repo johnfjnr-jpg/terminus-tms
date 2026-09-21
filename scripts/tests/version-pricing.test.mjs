@@ -206,3 +206,79 @@ test('an unlabelled key reads as a named gap, never as a raw key', () => {
   assert.ok(!namedChangedKeys(['zzSomeFutureKey']).includes('zzSomeFutureKey'),
     'the raw key leaked to the screen')
 })
+
+// ──────────────────────────────────────────────────────────────────────
+// R-N1: A FROZEN VERSION KEEPS ITS FROZEN FIGURES
+//
+// Ruled by John 2026-09-21 as a condition on making the percentage
+// authoritative: a version is a commercial commitment and must not move when
+// the deal moves.
+//
+// THE PROPERTY THAT DELIVERS IT is that a version freezes its INPUTS and its
+// RATES together, so the price a percentage is taken against is frozen with
+// the percentage. Deriving therefore reproduces the same dollars from the
+// same snapshot however many times it is asked, and a later change to the
+// live deal cannot reach it.
+//
+// THIS IS THE ASSERTION THE OLD DESIGN COULD NOT MAKE. Storing the dollars
+// looks like the safer way to freeze them and is not: measured across the
+// estate, all six version rows carrying a milestone froze dollars that were
+// NOT their own percentage of their own frozen price - 30% recorded beside
+// $238,847 against a frozen one-off price of $357,143, whose 30% is $107,143.
+// They had gone stale before the version was taken, and freezing preserved
+// the staleness. All six are drafts; no issued version carries a milestone.
+// ──────────────────────────────────────────────────────────────────────
+import { buildDealInputs } from '../../src/lib/deal-inputs.js'
+import { calculateDeal } from '../../src/lib/deal-calculator.js'
+import { milestoneUsd } from '../../src/lib/milestone-schedule.js'
+
+const FROZEN_RATES = {
+  ssUnitCost: 8000, aqUnitCost: 2000, hemirUnitCost: 100000,
+  hoSafesight: 200, hoAqm: 100, hoHemir: 500,
+  inSsExisting: 2000, inSsNew: 20000, inAqm: 500, inHemir: 5000,
+}
+const FROZEN_INPUTS = {
+  ssExisting: 10, ssNew: 0, aqm: 0, hemir: 0, duration: 36,
+  targetMargin: 30, warrantyPct: 2, invoicing: 'annual', structure: 'hybrid',
+  installResp: 'Client Own Installation Team',
+  milestones: [{ month: 3, pct: 50 }, { month: 9, pct: 50 }],
+}
+const priceOf = (inputs, rates) =>
+  calculateDeal(buildDealInputs(inputs, { rates })).totals.oneOffPrice
+
+test('R-N1: a version derives the same figures from its own snapshot, every time', () => {
+  const a = priceOf(FROZEN_INPUTS, FROZEN_RATES)
+  const b = priceOf(FROZEN_INPUTS, FROZEN_RATES)
+  assert.equal(a, b, 'recomputing one snapshot twice gave two prices')
+  assert.ok(a > 0, 'the snapshot prices at nothing, so the checks below are vacuous')
+  assert.equal(milestoneUsd(50, a), milestoneUsd(50, b))
+})
+
+test('R-N1: and the LIVE deal moving does not move the frozen version', () => {
+  // The whole point. The live record gains units; the version does not.
+  const frozenPrice = priceOf(FROZEN_INPUTS, FROZEN_RATES)
+  const frozenFigure = milestoneUsd(50, frozenPrice)
+
+  const livePrice = priceOf({ ...FROZEN_INPUTS, ssExisting: 20 }, FROZEN_RATES)
+  assert.notEqual(livePrice, frozenPrice, 'the live deal did not actually move')
+
+  // Re-derived from the SNAPSHOT after the live deal changed.
+  assert.equal(milestoneUsd(50, priceOf(FROZEN_INPUTS, FROZEN_RATES)), frozenFigure,
+    'the frozen version followed the live deal')
+})
+
+test('R-N1: a version frozen at OLD RATES keeps pricing at them', () => {
+  // The other half of a snapshot: the catalog moving must not reach it either.
+  const then = priceOf(FROZEN_INPUTS, FROZEN_RATES)
+  const now = priceOf(FROZEN_INPUTS, { ...FROZEN_RATES, ssUnitCost: 16000 })
+  assert.notEqual(now, then, 'the rate change did not move the price at all')
+  assert.equal(milestoneUsd(50, then), milestoneUsd(50, priceOf(FROZEN_INPUTS, FROZEN_RATES)))
+})
+
+test('R-N1: the two halves of a full schedule sum to the price it is a schedule of', () => {
+  // What the stored dollars could not guarantee: the estate's own fixture
+  // froze 492,858 of milestones against a 481,429 price and nothing noticed.
+  const price = priceOf(FROZEN_INPUTS, FROZEN_RATES)
+  const total = FROZEN_INPUTS.milestones.reduce((s, m) => s + milestoneUsd(m.pct, price), 0)
+  assert.equal(Math.round(total), Math.round(price))
+})

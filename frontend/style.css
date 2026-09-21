@@ -1692,6 +1692,15 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .ms-grid-row input:nth-child(3),
 .ms-grid-row input:nth-child(4) { text-align: right; }
 
+/* N1: the customer schedule's total row, the same treatment the installation
+   grid's already has, so the two schedules read alike. Its figures sit under
+   the columns they total because it shares the grid's own track list. */
+.ms-grid-total {
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  margin-top: 6px;
+}
+
 /* W10: the base and total rows take the grid's own columns, so the figures
    land under Amount rather than at the left edge of the panel. */
 .cm-grid-total {

@@ -190,8 +190,14 @@ describe('the milestone grids render', () => {
     await mount()
     type('deal-cm-0-pct', '25')
     // Derived, not typed: 25% of the lump cost in the fixture.
+    //
+    // R-N1: TWO DECIMALS NOW, because this cell renders the one shared
+    // derivation rather than its own rounding. The customer grid has always
+    // shown cents, for the reason its own comment gives - a percentage of a
+    // six-figure total lands on cents and rounding them away makes the column
+    // stop summing - and both grids read the same function now.
     expect((must('deal-cm-0-usd') as HTMLInputElement).value)
-      .toBe(String(Math.round((25 / 100) * 200000)))
+      .toBe(((25 / 100) * 200000).toFixed(2))
   })
 
   test('and typing dollars fills the percentage', async () => {
@@ -207,14 +213,18 @@ describe('the milestone grids render', () => {
   })
 
   test('a non-reconciling schedule shows its difference and marks it off', async () => {
-    await mount({ ...V, 'deal-cm-0-month': '1', 'deal-cm-0-usd': '150016' })
+    // R-N1: stated as the PERCENTAGE it is. $150,016 of the $200,000 lump
+    // sum is 75.008%, which is the same non-reconciling schedule said the new
+    // way - the overrun the test is about is untouched.
+    await mount({ ...V, 'deal-cm-0-month': '1', 'deal-cm-0-pct': String((150016 / 200000) * 100) })
     // NON-ZERO RULE: the discrepancy is real.
     expect(must('contractor-total-pct').textContent).not.toBe('100%')
     expect(must('contractor-diff').className).toContain('deal-schedule-off')
   })
 
   test('a dateless contractor row raises the version warning', async () => {
-    await mount({ ...V, 'deal-cm-0-month': '0', 'deal-cm-0-usd': '200000' })
+    // R-N1: $200,000 of $200,000 is the whole lump sum, i.e. 100%.
+    await mount({ ...V, 'deal-cm-0-month': '0', 'deal-cm-0-pct': '100' })
     expect(must('contractor-warn').textContent).toContain('no month')
   })
 })
