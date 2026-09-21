@@ -18,6 +18,22 @@ const app = readCode(new URL('frontend/app.js', ROOT)).replace(/<!--[\s\S]*?-->/
 // by the React card, which adopted-identity.ts already enumerates.
 const ver = ''
 const html = readCode(new URL('frontend/index.html', ROOT))
+// ── WALK 8 ITEM 2: THE CORPUS IS THE REACT TREE NOW ────────────────────
+//
+// These ids were ADOPTED from the vanilla by the React deal panel and version
+// card. Their dependencies were checked against `index.html`, where both
+// surfaces still had a full duplicate - `#deal-form-vanilla` and
+// `#deal-version-vanilla`. Both are removed, so the markup no longer holds a
+// single one of them and every id read as an orphan.
+//
+// CLAUDE.md's standing qualification said this in advance: the green of these
+// suites "is NOT evidence about the live deal form", because they were
+// asserting against markup that rendered nothing. Pointing them at the source
+// that actually renders makes them evidence for the first time.
+const REACT_DEAL = ['deal/census.ts', 'deal/DealPanel.tsx', 'deal/panelParts.tsx',
+  'deal/intake.tsx', 'deal/section36.tsx', 'deal/section4.tsx', 'deal/section5.tsx',
+  'deal/adopted-identity.ts', 'versions/VersionCard.tsx', 'versions/VersionCardHost.tsx']
+  .map((f) => readCode(new URL(`frontend-react/src/${f}`, ROOT))).join('\n')
 
 function listOf(name) {
   const m = ts.match(new RegExp(`export const ${name}: readonly string\\[\\] = \\[([\\s\\S]*?)\\n\\]`))
@@ -70,6 +86,8 @@ test('every adopted ID has a rule, a reader, or a reference from the form markup
     const styled = new RegExp(`#${esc(id)}(?![\\w-])`).test(css)
     const read = new RegExp(`['"\`#]${esc(id)}(?![\\w-])`).test(app)
       || new RegExp(`['"\`#]${esc(id)}(?![\\w-])`).test(ver)
+      // WALK 8: the surface that renders these ids is React's, not the markup.
+      || new RegExp(`['"\`#]${esc(id)}(?![\\w-])`).test(REACT_DEAL)
     // label[for], aria-labelledby, aria-controls: the class of dependency the
     // stated criterion could not see, and the one that breaks silently.
     const pointedAt = new RegExp(`(for|aria-labelledby|aria-controls|aria-describedby)="[^"]*\\b${esc(id)}\\b`).test(panel)
@@ -78,12 +96,28 @@ test('every adopted ID has a rule, a reader, or a reference from the form markup
   assert.deepEqual(orphans, [], 'adopted ids nothing depends on any more')
 })
 
+// ── WALK 8 ITEM 2: THE LABEL TARGETS ARE GENERATED NOW, SO THE MECHANISM
+// IS WHAT IS ASSERTED ───────────────────────────────────────────────────
+//
+// This matched `for="deal-aqm"` in `index.html`. Those six literals lived
+// inside `#deal-form-vanilla`, which rendered nothing and is removed, and the
+// live surface has no literal `for=` for any of them: `DealPanel` renders
+// `<label className="deal-field" htmlFor={field.id}>`, so EVERY field in the
+// census is a label target by construction.
+//
+// So the six names are still checked individually - Round 40's calibration
+// found that renaming one input leaves a COUNT at six and the claim still
+// false - and the thing that MAKES them label targets is checked once.
 test('the six label[for] targets are present, by name', () => {
-  // Named individually rather than counted. Round 40's calibration found that
-  // renaming one input leaves a COUNT at six and the claim still false.
+  const dealPanel = readCode(new URL('frontend-react/src/deal/DealPanel.tsx', ROOT))
+  assert.match(dealPanel, /<label\s[^>]*htmlFor=\{field\.id\}/,
+    'the deal field no longer labels itself from its own id, so NO id in the '
+    + 'census is a label target and click-to-focus is gone estate-wide')
+  const census = readCode(new URL('frontend-react/src/deal/census.ts', ROOT))
   for (const id of ['deal-aqm', 'deal-factoring-ratePct', 'deal-factoring-termMonths',
     'deal-hemir', 'deal-ssExisting', 'deal-ssNew']) {
     assert.ok(IDS.includes(id), `${id} is a label[for] target and is not in the adoption list`)
-    assert.match(panel, new RegExp(`for="${id}"`), `${id} is no longer a label target; re-run the census`)
+    assert.match(census, new RegExp(`id: '${id}'`),
+      `${id} is no longer a field in the census, so nothing labels it; re-run the census`)
   }
 })

@@ -1604,6 +1604,45 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   gap: 12px;
   margin-bottom: 24px;
 }
+/* ── WALK 8 ITEM 2: FINDING 3'S ROW, RESTORED FROM THE DEAD MARKUP ──────
+   The retired `#deal-form-vanilla` carried this inline:
+
+       style="display:flex;gap:24px;align-items:flex-end;margin-top:18px;
+              flex-wrap:wrap"
+
+   and `commercials-wiring` asserted the `flex-wrap:wrap` in it. THE REACT
+   ROW NEVER HAD ANY OF IT: measured live, `#deal-top-schedule-row` computes
+   `display: block, flex-wrap: nowrap`. So FINDING 3's fix - a year cell may
+   not be given less room than its own glyphs, and the row it sits on must be
+   able to wrap it away - existed only in markup that rendered nothing, and
+   the test that guarded it was reading the corpse.
+
+   This is CLAUDE.md's standing qualification arriving exactly as written:
+   "the green of those eight suites is NOT evidence about the live deal form".
+   Removing the block is what made it visible.
+
+   A RULE RATHER THAN AN INLINE STYLE, because the inline one is what let it
+   be lost in the port without anything noticing. */
+#deal-top-schedule-row {
+  display: flex;
+  gap: 24px;
+  align-items: flex-end;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+/* ── WALK 8 ITEM 1: ONE CARD SPANS, THE CAP IS UNTOUCHED ────────────────
+   Ruled by John 2026-09-21. The Tax Adjustments card takes the whole track
+   list so its line has room; `minmax(340px, 460px)` is unchanged and every
+   other card still sits at 460.
+
+   `1 / -1`, NOT `span 2`, and the reason is measured rather than stylistic:
+   `.terms-cards` is `auto-fit`, so the used track list is `460px 460px` at
+   1440 and a single `460px` at 1240. `span 2` against a one-column grid
+   creates an IMPLICIT second column and puts half the card outside the
+   grid. `1 / -1` takes whatever columns exist, which is two where there are
+   two and one where there is one. */
+.terms-cards .pg-card--wide { grid-column: 1 / -1; }
 /* One field per row: label + dimmed note on the left (reuses
    .pg-item-name/.pg-item-note, the same pair already used for the
    Hw/Hosting pricing cards' own item column), input/select fixed-width

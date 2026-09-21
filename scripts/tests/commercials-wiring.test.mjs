@@ -35,6 +35,25 @@ const MARGIN_KEYS_EXPECTED = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty',
   'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
 import { readFileSync, readdirSync } from 'node:fs'
 import { readCode, stripHtml } from '../lib/strip-comments.mjs'
+
+// ── WALK 8 ITEM 2: THE DEAL SURFACE IS THE REACT TREE ───────────────────
+//
+// Eleven assertions in this file read `frontend/index.html` for deal-form
+// markup. All of it lived inside `#deal-form-vanilla`, which rendered NOTHING
+// and has been removed on John's disposition. CLAUDE.md's standing
+// qualification named this file first: 26 of its ids existed only inside that
+// block, and "the green of those eight suites is NOT evidence about the live
+// deal form".
+//
+// So these claims were being checked against a corpse. Pointed at the tree
+// that renders, they are evidence for the first time - and several had to be
+// rewritten rather than re-bound, because JSX writes `className` and computes
+// what the markup stated literally. Where a claim is about GEOMETRY rather
+// than about source, it moves to the live DOM probe instead and says so.
+const DEAL_TREE = ['census.ts', 'DealPanel.tsx', 'panelParts.tsx', 'intake.tsx',
+  'section36.tsx', 'section4.tsx', 'section5.tsx', 'installation.ts', 'sections.ts']
+  .map((f) => readCode(new URL(`../../frontend-react/src/deal/${f}`, import.meta.url)))
+  .join('\n')
 import { changedKeys } from '../../src/lib/payload-diff.js'
 import { toNumberOrNull } from '../../src/lib/numeric-payload.js'
 
@@ -368,19 +387,25 @@ const INSTALL_RESP_LABELS = [
 ]
 
 test('the four installResp labels are exactly as shipped, because they now carry the meaning alone', () => {
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const sel = html.slice(html.indexOf('id="deal-installResp"'))
-  const block = sel.slice(0, sel.indexOf('</select>'))
-  const options = [...block.matchAll(/<option value="([^"]+)">([^<]*)<\/option>/g)]
-  assert.deepEqual(options.map(m => m[1]), INSTALL_RESP_LABELS,
+  // ── WALK 8: THE OPTIONS ARE A LIST, NOT FOUR <option> TAGS ────────────
+  //
+  // The markup wrote out four `<option value="x">x</option>` pairs; React maps
+  // `INSTALL_RESPONSIBILITIES` and renders `value={o}` with `{o}` as the text.
+  // So the four labels come from that one list, and the claim that the VALUE
+  // and the TEXT are the same string is now true by construction - which is
+  // what has to be asserted, because it is what a reword would break.
+  const html = DEAL_TREE
+  const listSrc = html.match(/export const INSTALL_RESPONSIBILITIES = \[([\s\S]*?)\n\]/)
+  assert.ok(listSrc, 'INSTALL_RESPONSIBILITIES is gone, so nothing fills the picklist')
+  const labels = [...listSrc[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+  assert.deepEqual(labels, INSTALL_RESP_LABELS,
     'the installResp picklist values are the four labels the Round 41 removal left carrying the meaning')
-  // The VALUE and the TEXT are the same string on this control, which is what
-  // lets a label be both the stored value and the explanation. Asserted so a
-  // round that reworded the visible text while keeping the value - which would
-  // preserve every payload and silently change what the screen says - fails.
-  for (const m of options) {
-    assert.equal(m[2], m[1], `option value "${m[1]}" and its visible text have diverged`)
-  }
+  // THE VALUE AND THE TEXT ARE ONE STRING, asserted on the render rather than
+  // on four pairs: `value={o}` and `{o}` are the same binding, so a round that
+  // reworded the visible text while keeping the value - which would preserve
+  // every payload and silently change what the screen says - cannot.
+  assert.match(html, /<option key=\{o\} value=\{o\}>\{o\}<\/option>/,
+    'the option value and its visible text are no longer the same binding')
 })
 
 test('no per-option note mechanism survives the removal', () => {
@@ -399,7 +424,7 @@ test('no per-option note mechanism survives the removal', () => {
   // and is still shipped. A container written by nothing is Architecture 9's
   // fourth-variant signature, and that hazard is a property of the markup
   // rather than of whichever renderer ignores it.
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   assert.ok(!html.includes('deal-installResp-note'), 'the per-option note element is still in the markup')
   assert.ok(!html.includes('deal-install-basis'), 'the catalog rates line is still in the markup')
 })
@@ -486,15 +511,32 @@ test('all eleven per-line margin inputs exist, and exactly eleven', () => {
   //
   // Eleven, not seven. Seven is the number that was visible on one sub-tab,
   // which is why both parties said seven twice without counting.
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
-  const inputs = [...html.matchAll(/id="deal-margin-([A-Za-z]+)"/g)].map((m) => m[1]).sort()
-  assert.equal(inputs.length, 11, `expected 11 margin inputs, found ${inputs.length}: ${inputs.join(', ')}`)
+  // WALK 8: THE ELEVEN ARE GENERATED, SO THE SOURCE OF THE ELEVEN IS WHAT IS
+  // ASSERTED. The markup listed `id="deal-margin-x"` eleven times; the census
+  // builds one field per `MARGIN_KEYS` entry, so the count and the names both
+  // come from that list and an input cannot go missing on its own. What CAN
+  // still happen is a key leaving the list, which is the same deletion this
+  // test has always been about, so the list is checked by NAME.
+  //
+  // Round 40's calibration is why the names are checked and not the number:
+  // renaming one input leaves a COUNT at eleven and the claim still false.
+  // Read from the SOURCE rather than imported: the test runner is plain node
+  // and `payload.ts` is TypeScript, so a dynamic import is a syntax error.
+  const payloadSrc = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
+  const keyList = payloadSrc.match(/export const MARGIN_KEYS = \[([\s\S]*?)\]/)
+  assert.ok(keyList, 'MARGIN_KEYS is gone from payload.ts, so nothing generates the inputs')
+  const inputs = [...keyList[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
+  assert.equal(inputs.length, 11, `expected 11 margin keys, found ${inputs.length}: ${inputs.join(', ')}`)
+  assert.match(DEAL_TREE, /id: `deal-margin-\$\{k\}`/,
+    'the census no longer builds a margin field per key, so the count above '
+    + 'no longer describes what the screen renders')
   assert.deepEqual(inputs, [...MARGIN_KEYS_EXPECTED].sort(),
     'the inputs and MARGIN_KEYS must name the same eleven lines')
 
   // The old read-only display cells are gone with the change, not left beside
-  // the inputs as a second reader of the same value.
-  assert.equal((html.match(/class="pg-margin"/g) ?? []).length, 0)
+  // the inputs as a second reader of the same value. WALK 8: `className` in
+  // the tree that renders, rather than `class` in markup that does not.
+  assert.equal((DEAL_TREE.match(/className="pg-margin"/g) ?? []).length, 0)
 })
 // ── RETIRED, Round 6 Phase R: 'a margin box is read from the screen, and a blank one is not a zero'.
 // COVERED. deal-panel.test.tsx asserts all eleven margin inputs by NAME
@@ -523,29 +565,56 @@ test('the three payload consumers are untouched', () => {
 
 test('Units Required is one box of four rows with four-figure inputs', () => {
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   assert.match(css, /\.unit-cards \{[^}]*grid-template-columns: minmax\(0, 320px\)/,
     'one column, so the four counts read as a set rather than as four cards')
   assert.match(css, /\.unit-cards \.unit-card input \{[^}]*width: 72px/,
     'four figures, not a full-width box for a two-digit number')
-  const box = html.slice(html.indexOf('<div class="unit-cards">'), html.indexOf('</div>', html.indexOf('id="deal-hemir"')))
-  assert.equal((box.match(/class="unit-card"/g) || []).length, 4, 'four rows')
+  // WALK 8: the four rows are MAPPED from `UNIT_FIELDS`, so four is a property
+  // of that list and the card is rendered once per member. Both are asserted:
+  // the list has four names, and the renderer turns each into a `unit-card`.
+  const intakeSrc = readCode(new URL('../../frontend-react/src/deal/intake.tsx', import.meta.url))
+  const unitList = intakeSrc.match(/const UNIT_FIELDS = \[([^\]]*)\]/)
+  assert.ok(unitList, 'UNIT_FIELDS is gone, so nothing builds the Units Required box')
+  assert.equal([...unitList[1].matchAll(/'([^']+)'/g)].length, 4, 'four rows')
+  assert.match(intakeSrc, /<div className="unit-card" key=\{id\}>/,
+    'the unit row is no longer one card per field')
 })
 
 test('the ruled layout: two side-by-sides, and cash flow is its own section', () => {
   // Round 41 item 5, on the business's ruling superseding the Phase 0 brief.
   // Asserted on the STRUCTURE rather than on the presence of classes, because
   // "the sections exist" was true before the change and after it.
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
 
-  assert.match(html, /<div class="deal-section deal-section--intake" id="deal-sections-1-2">/)
-  assert.match(html, /<section class="deal-intake-col" id="deal-section-1">/)
-  assert.match(html, /<section class="deal-intake-col" id="deal-section-2">/)
-  assert.match(html, /<section class="deal-section" id="deal-section-6">/)
-  // Section 5 is no longer a pair, and cash flow is not inside it.
-  assert.match(html, /<section class="deal-section" id="deal-section-5">/)
-  assert.ok(html.indexOf('id="deal-cashflow-grid"') > html.indexOf('id="deal-section-6"'),
+  // WALK 8: the section frame is BUILT. `sectionFrame` renders
+  // `className={`deal-section${sec.intake ? ' deal-section--intake' : ''}`}`
+  // with `id={sec.id}`, so what states the intake pairing is the SECTION
+  // config, and the frame is what turns that flag into the class.
+  assert.match(html, /deal-section\$\{sec\.intake \? ' deal-section--intake' : ''\}/,
+    'the intake flag no longer reaches the class, so the side-by-side is gone')
+  assert.match(html, /sectionFrame\(SECTION\['deal-sections-1-2'\]/,
+    'the intake wrapper is no longer rendered as a section frame')
+  assert.match(html, /<section className="deal-intake-col" id="deal-section-1">/)
+  assert.match(html, /<section className="deal-intake-col" id="deal-section-2">/)
+  // WALK 8: sections 5 and 6 are rendered through `sectionFrame` from the
+  // SECTION config, so their identity is the config entry and their frame is
+  // the shared renderer. The nesting claim - the grid is INSIDE section 6 -
+  // is a structural one and moves to the live DOM probe, where the elements
+  // are the ones React renders.
+  assert.match(html, /sectionFrame\(SECTION\['deal-section-5'\]/,
+    'section 5 is no longer rendered as a section frame')
+  assert.match(html, /sectionFrame\(SECTION\['deal-section-6'\]/,
+    'cash flow is no longer its own section')
+  // AND THE GRID IS AFTER SECTION 6 OPENS, NOT BEFORE IT. Written as a pair of
+  // positions rather than a presence: the first draft of this asserted
+  // `indexOf(...) < indexOf(...) + 1e9`, which is true of any two numbers and
+  // could not have failed. Verification 21, in a test I had just written.
+  const sixAt = html.indexOf("sectionFrame(SECTION['deal-section-6']")
+  const gridAt = html.indexOf('id="deal-cashflow-grid"')
+  assert.ok(gridAt > -1, 'the cash flow grid is not rendered at all')
+  assert.ok(gridAt > sixAt,
     'the grid must be inside section 6, not left behind in the payment terms pair')
 
   // ASYMMETRIC ON PURPOSE, which is the brief's own warning made into a rule:
@@ -580,11 +649,26 @@ test('FINDING 3: a year cell may not be given less room than its own glyphs', ()
   // and the head row read "YEAR 1YEAR 2YEAR 3".
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
   assert.match(css, /\.ys-cell, \.ys-total \{ flex-shrink: 0; \}/)
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   // And the row it sits on must be able to wrap it away, which needs a real
   // min-width rather than the min-width:0 that let it shrink to nothing.
-  assert.match(html, /flex:1 1 340px;min-width:340px" id="deal-year-schedule"/)
-  assert.match(html, /id="deal-top-schedule-row"[^>]*flex-wrap:wrap/)
+  // WALK 8: the year schedule is a React element now, and the flex sizing it
+  // relied on inline moved into the stylesheet rule asserted just above.
+  assert.match(html, /<div id="deal-year-schedule">/,
+    'the year schedule is no longer rendered')
+  // ── WALK 8 ITEM 2: THE WRAP WAS LOST IN THE PORT ─────────────────────
+  //
+  // This matched an inline `flex-wrap:wrap` on the markup's own row. That row
+  // lived in `#deal-form-vanilla` and rendered nothing; the REACT row never
+  // carried any of it, and computed `display: block, flex-wrap: nowrap` live.
+  // So this assertion was green against a corpse for the whole of the port.
+  //
+  // The declarations are restored as a RULE - the inline style is what let
+  // them be lost silently - and asserted where they now live.
+  assert.match(css, /#deal-top-schedule-row \{[^}]*flex-wrap: wrap/,
+    'the row can no longer wrap, so a narrow viewport crushes the year cells')
+  assert.match(css, /#deal-top-schedule-row \{[^}]*display: flex/,
+    'the row is not a flex row, so gap and align-items do nothing')
 })
 
 test('FINDING 4: the scroll boundary announces itself, and only when there is one', () => {
@@ -634,14 +718,17 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
   //    and that it refuses by throwing. When the vanilla adapter goes, the
   //    second half FAILS, and that failure is the instruction to re-point it
   //    at the React seam rather than a defect.
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   // ── RE-POINTED AGAIN BY THE CARD SWAP, Round 4 Phase 2 ────────────────
   //
   // D2c split this claim across the form and the version file. Round 4
   // supersedes the version file, so the version half moves to the React card's
   // host, where the same order is enforced for the same reason.
   const ver = readCode(new URL('../../frontend-react/src/versions/VersionCardHost.tsx', import.meta.url))
-  assert.match(html, /Taking a version saves the pricing first, so a version and the record can never disagree\./)
+  // WALK 8: the version card's own note, in the card that renders it. It lived
+  // in `#deal-version-vanilla` and that block is removed.
+  const verSrc = readCode(new URL('../../frontend-react/src/versions/VersionCard.tsx', import.meta.url))
+  assert.match(verSrc, /Taking a version saves the pricing first, so a version and the record can never disagree\./)
 
   // THE VERSION SIDE: it freezes, and it freezes BEFORE the request.
   assert.ok(ver.includes('const onSave = async'), 'the card no longer owns the save')
@@ -681,7 +768,7 @@ test('FINDING 5: the note says what the code does, and the code does it', () => 
 })
 
 test('the factoring selection is on the Payment Terms line', () => {
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   // ── SUPERSEDED BY L3/L7, 2026-09-04, and the reasoning is kept ─────────
   //
   // Round 41 item 5 put the SELECTION on the Payment Terms line and left the
@@ -694,17 +781,30 @@ test('the factoring selection is on the Payment Terms line', () => {
   // those ARE one decision. So factoring is one panel with all of it, beside
   // Payment Terms rather than threaded through it. Verification 29 - the
   // decision is re-taken because its premise changed, not re-weighed.
-  const panel = html.slice(html.indexOf('id="deal-po-factoring"'), html.indexOf('/deal-payment-region'))
+  // WALK 8: the panel is `section5`'s, and its two rate fields go through the
+  // shared field renderer, so their ids are ARGUMENTS rather than attributes.
+  // The region is taken from the file that renders it rather than sliced out
+  // of a concatenated corpus, where the end anchor sits in another file.
+  const s5src = readCode(new URL('../../frontend-react/src/deal/section5.tsx', import.meta.url))
+  const panel = s5src.slice(s5src.indexOf('id="deal-po-factoring"'))
   assert.match(panel, /id="deal-factoring-toggle"/,
     'the switch belongs in the factoring panel with the terms it governs')
-  assert.match(panel, /id="deal-factoring-ratePct"/)
-  assert.match(panel, /id="deal-factoring-termMonths"/)
+  assert.match(panel, /renderField\('deal-factoring-ratePct'\)/)
+  assert.match(panel, /renderField\('deal-factoring-termMonths'\)/)
   assert.match(panel, /id="deal-factoring-method-toggle"/,
     'all of one decision in one panel, or it is threaded through the screen again')
-  assert.equal((html.match(/id="deal-factoring-toggle"/g) || []).length, 1)
+  // ONE CONTROL, counted on the `id` attribute alone. Two traps here, both
+  // met: the concatenated corpus also holds `adopted-identity.ts`, which
+  // LISTS the id as an adopted name and is a ledger entry rather than a
+  // second control; and `data-testid="` ENDS IN `id="`, so an unanchored
+  // pattern counts one element twice.
+  assert.equal((s5src.match(/\sid="deal-factoring-toggle"/g) || []).length, 1)
   // AND THE GUIDANCE IS KEPT, not dropped: the same words, one hover away.
-  assert.match(panel, /reduces margin and brings cash in earlier/)
-  assert.match(panel, /Rate multiplied by term is the total financing cost/)
+  // WALK 8: the help text is DATA now, in `DealPanel`'s help map keyed by the
+  // field id, rather than prose sitting beside the control in the markup.
+  const helpSrc = readCode(new URL('../../frontend-react/src/deal/DealPanel.tsx', import.meta.url))
+  assert.match(helpSrc, /'deal-factoring-ratePct':[^\n]*reduces margin and brings cash in earlier/)
+  assert.match(helpSrc, /'deal-factoring-termMonths':[^\n]*Rate multiplied by term is the total financing cost/)
 })
 
 // ─────────────────────────────────────────────────────────────
@@ -758,13 +858,22 @@ test('the panel is ONE panel: the Result block and the matrix are gone', () => {
   // functions behind as dead code. That question died with the file: there is
   // no renderDealPanel to leave anything behind, so the assertion would now be
   // true by absence (Verification 14).
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
 
-  assert.match(html, /<div class="deal-panel" id="deal-panel">/)
+  assert.match(html, /<div className="deal-panel" id="deal-panel">/)
   assert.ok(!/id="deal-matrix"/.test(html), 'the matrix container is gone')
   assert.ok(!/id="deal-sheet"/.test(html), 'the Result container is gone')
-  assert.equal((html.match(/id="deal-sheet-units"/g) || []).length, 1,
+  // WALK 8: TWO, and both are the live tree's. `section4` renders the id and
+  // `adopted-identity.ts` lists it as an adopted name, which is a LEDGER entry
+  // rather than a second element. Counting occurrences in a concatenated
+  // corpus counts the ledger too, so the count is taken on the file that
+  // RENDERS it - which is the claim: one container, not two.
+  const s4src = readCode(new URL('../../frontend-react/src/deal/section4.tsx', import.meta.url))
+  // ONE ELEMENT, counted on its OPENING tag. `section4` writes the id twice on
+  // the same `<span>` - once as `id` and once as `data-testid` - so counting
+  // the bare string counts one element twice.
+  assert.equal((s4src.match(/<span id="deal-sheet-units"/g) || []).length, 1,
     'the unit count survives the merge, exactly once')
 
   // The removed containers take their rules with them, or the stylesheet grows
@@ -970,7 +1079,7 @@ test('the closing cash position says a negative plainly, and no red', () => {
   //
   // Read from the markup, because the colour was inline rather than in a rule
   // and a stylesheet scan could not have seen it.
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  const html = DEAL_TREE
   const el = html.match(/<span[^>]*id="deal-cashflow-closing"[^>]*>/)
   assert.ok(el, 'the cash flow section no longer renders a closing position')
   assert.ok(!/--green|color:/.test(el[0]),
@@ -1002,19 +1111,23 @@ test('the strip is FOUR figures, achieved margin promoted alone', () => {
   // The business's reason: cash position is a payment-terms question and the
   // strip answers profitability. The superseded assertion is left in the git
   // history rather than in a second test nobody deletes.
-  const html = readCode(new URL('../../frontend/index.html', import.meta.url))
+  // WALK 8: the strip is BUILT rather than written out. `panelParts` declares
+  // one `cell(label, id, text, lead)` helper and calls it four times, so the
+  // labels are the call arguments and the lead treatment is the fourth one.
+  const html = DEAL_TREE
   const strip = html.slice(html.indexOf('stats-grid stats-grid--deal'))
-    .slice(0, html.slice(html.indexOf('stats-grid stats-grid--deal')).indexOf('</div>\n\n'))
-  const labels = [...strip.matchAll(/<span class="label">([^<]+)<\/span>/g)].map((m) => m[1])
-  assert.deepEqual(labels, ['Achieved margin', 'Contract net', 'Total deal cost', 'Finance cost'],
+  const body = strip.slice(0, strip.indexOf('</div>'))
+  const calls = [...body.matchAll(/cell\('([^']+)',\s*'([^']+)'([^)]*)/g)]
+    .map((m) => ({ label: m[1], id: m[2], lead: /,\s*true/.test(m[3]) }))
+  assert.deepEqual(calls.map((c) => c.label),
+    ['Achieved margin', 'Contract net', 'Total deal cost', 'Finance cost'],
     'the strip answers profitability, and closing cash is not one of its questions')
-  // Promoted ALONE. Asserted on the markup rather than the rendered size,
-  // because the class is what the stylesheet reads.
-  assert.match(strip, /stat-value stat-value--lead" id="deal-achieved-margin"/)
-  assert.equal((strip.match(/stat-value--lead/g) || []).length, 1,
-    'exactly one figure carries the lead treatment')
-  assert.ok(!/deal-closing-cash/.test(strip), 'the closing cash cell is still in the strip')
-  assert.ok(!/stat-value--lead" id="deal-finance-cost"/.test(strip))
+  // Promoted ALONE, and the treatment is applied by the helper from that flag.
+  assert.match(html, /lead \? 'stat-value--lead' : ''/,
+    'the lead flag no longer reaches the class, so promoting a figure does nothing')
+  assert.deepEqual(calls.filter((c) => c.lead).map((c) => c.id), ['deal-achieved-margin'],
+    'exactly one figure carries the lead treatment, and it is achieved margin')
+  assert.ok(!/deal-closing-cash/.test(body), 'the closing cash cell is still in the strip')
 
   // A MODIFIER, not an edit to .stats-grid, which the Test Bed detail also
   // uses. Architecture: extend, never fork.

@@ -52,12 +52,18 @@ export function extractBlock(text, openTag) {
 }
 
 export const RECORDED = {
-  'deal-form-vanilla': '3fb0d445b7239901e3c7e0633070fc02a89a4b7e7636972e91e522889abb7f21',
-  'deal-version-vanilla': 'c9f6ec6ef74ed9f6c99fe4b7e1368e51a0435cfb58d9cd4026e0111ff36eb3e7',
-  // `ref-vanilla` WAS HERE AND ITS BLOCK IS NOW REMOVED, hygiene round,
-  // 2026-09-21, on John's disposition. The tripwire existed to catch an edit
-  // landing in markup that renders nothing; with the markup gone there is
-  // nothing to freeze. The other two blocks are still here and still frozen.
+  // ── EMPTY, AND THAT IS THE POINT ──────────────────────────────────────
+  //
+  // All three retired duplicates are gone: `ref-vanilla` in the hygiene round
+  // and `deal-form-vanilla` and `deal-version-vanilla` in walk 8, both on
+  // John's disposition. A frozen hash existed to catch an EDIT landing in
+  // markup that renders nothing; with no such markup there is nothing to
+  // freeze, so the per-block tests below generate none.
+  //
+  // THE FILE IS KEPT, and the check under it is the reason: it fires when a
+  // NEW retired duplicate appears, which is the fault the hashes were a
+  // second line of defence against. An empty map makes that check absolute -
+  // any `*-vanilla` block in the markup is now unknown by construction.
 }
 
 const found = [...src.matchAll(/id="([a-z-]+-vanilla)"/g)].map((m) => m[1])

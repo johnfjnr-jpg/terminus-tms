@@ -1193,12 +1193,25 @@ test('W-E: gross up takes the factoring treatment, and they are the same control
   ].map((f) => readCode(ROOT + f)).join('\n')
   assert.ok(!/Gross up: \$\{uiState\.grossUp \? 'On' : 'Off'\}/.test(app), 'the old label survives')
   assert.match(app, /on \? 'Gross up enabled' : 'Gross up disabled'/, 'the label does not state the state')
-  const html = readCode(ROOT + 'frontend/index.html')
-  // BOTH carry the same class, which is the claim: one treatment, not two that
-  // look alike today.
-  for (const id of ['deal-factoring-toggle', 'deal-grossUp-toggle']) {
-    assert.match(html, new RegExp(`class="btn-ghost deal-toggle" id="${id}"`), `${id} is not a deal-toggle`)
-  }
+  // ── WALK 8 ITEM 2: RE-POINTED FROM THE MARKUP TO THE TREE THAT RENDERS ──
+  //
+  // These two literals lived in `#deal-form-vanilla`, which rendered nothing
+  // and is removed. The claim is unchanged and now has a live subject: BOTH
+  // toggles carry the same treatment, one treatment rather than two that look
+  // alike today.
+  //
+  // They reach it by different routes, which is why both are checked: the
+  // gross-up is a `SwitchButton`, and the factoring toggle writes the class
+  // itself in `section5`. That is the drift this asserts against.
+  const parts = readCode(ROOT + 'frontend-react/src/deal/panelParts.tsx')
+  const s5 = readCode(ROOT + 'frontend-react/src/deal/section5.tsx')
+  const panel = readCode(ROOT + 'frontend-react/src/deal/DealPanel.tsx')
+  assert.match(parts, /className=\{`btn-ghost deal-toggle\$\{[^`]*\}`\}/,
+    'SwitchButton no longer carries the btn-ghost deal-toggle treatment')
+  assert.match(panel, /<SwitchButton id="deal-grossUp-toggle"/,
+    'the gross-up control is no longer a SwitchButton, so it does not inherit the treatment')
+  assert.match(s5, /id="deal-factoring-toggle"[\s\S]{0,160}?className=\{`btn-ghost deal-toggle/,
+    'deal-factoring-toggle is not a deal-toggle')
 })
 
 test('W-G: one control, one indicator, and it says which action it offers', () => {
@@ -1211,8 +1224,13 @@ test('W-G: one control, one indicator, and it says which action it offers', () =
     'frontend-react/src/deal/DealPanel.tsx',
     'frontend-react/src/deal/installation.ts',
   ].map((f) => readCode(ROOT + f)).join('\n')
-  assert.match(html, /<div class="section-title-row">/, 'the control does not sit beside the title')
-  assert.match(html, /class="disclose-chevron"/, 'there is no chevron')
+  // WALK 8 ITEM 2: the row is React's now. `section4.tsx` renders
+  // `<div className="section-title-row">`; the literal this matched lived in
+  // `#deal-form-vanilla` and is removed with it.
+  const s4 = readCode(ROOT + 'frontend-react/src/deal/section4.tsx')
+  assert.match(s4, /<div className="section-title-row">/, 'the control does not sit beside the title')
+  // WALK 8 ITEM 2: the chevron is React's, same as the title row above.
+  assert.match(s4, /className="disclose-chevron"/, 'there is no chevron')
   assert.match(css, /\.disclose\[aria-expanded="true"\] \.disclose-chevron \{ transform: rotate/,
     'the chevron does not rotate on expand')
   // ── THIS HALF DIED WITH THE FILE, Round 6 Phase R ────────────────────

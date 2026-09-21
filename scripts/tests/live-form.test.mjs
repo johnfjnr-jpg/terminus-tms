@@ -66,11 +66,15 @@ test('THE REACT PANEL IS THE LIVE COMMERCIALS FORM, and the vanilla is GONE', ()
 // rather than deleted because the replacement has to say what it now protects:
 // the React card is live, and restoring the tag is a deliberate revert rather
 // than a drift.
-test('and the card has its own mount and its own revert target', () => {
-  // The two reverts are INDEPENDENT: each surface has its own container and its
-  // own hidden markup, so reverting one does not revert the other.
+// WALK 8 ITEM 2: THE REVERT TARGET IS GONE AND SO IS THE CLAIM ABOUT IT.
+// `#deal-version-vanilla` rendered nothing and has been removed on John's
+// disposition, so there is no hidden markup to keep and a revert is a git
+// operation rather than a script tag. What survives is the half that is
+// about the LIVE card: it must have a container to mount into.
+test('and the card has its own mount', () => {
   assert.match(LIVE, /id="deal-version-root"/, 'the React card has no container to mount into')
-  assert.match(LIVE, /id="deal-version-vanilla"/, 'the card\'s revert target markup is gone')
+  assert.doesNotMatch(LIVE, /id="deal-version-vanilla"/,
+    'the retired #deal-version-vanilla block is back in the markup')
 })
 
 // ── SUPERSEDED BY THE SAME SWAP ─────────────────────────────────────────
@@ -95,11 +99,13 @@ test('the card consumes a seam rather than reaching for a form', () => {
     'the card does not talk to the seam at all')
 })
 
-test('the mount container and the hidden vanilla markup both survive', () => {
-  // The revert restores the tag and nothing else, which only works while the
-  // markup it drives is still in the document.
+// WALK 8 ITEM 2, same reasoning as the version card above: the 786-line
+// `#deal-form-vanilla` block is removed, so the mount container is the only
+// part of this claim that still has a subject.
+test('the mount container survives, and the vanilla markup is gone', () => {
   assert.match(LIVE, /id="deal-form-root"/, 'React has no container to mount into')
-  assert.match(LIVE, /id="deal-form-vanilla"/, 'the revert target markup is gone')
+  assert.doesNotMatch(LIVE, /id="deal-form-vanilla"/,
+    'the retired #deal-form-vanilla block is back in the markup')
 })
 
 // ── WHICH REFERENCE SURFACE IS LIVE. Round 5, Phase 2 ───────────────────
