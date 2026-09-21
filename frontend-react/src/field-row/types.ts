@@ -83,6 +83,14 @@ export interface FieldDescriptor {
    * argument is a to-do list that has to be completed again on every new field.
    */
   min?: string
+  /**
+   * AUDIT L8. The ceiling, and it is declared here for exactly the reason
+   * `min` is. `dateBounds` computes a `max` for the installation date - it
+   * may not fall after a set go-live - and the panel already spread it into
+   * the descriptor, but nothing declared it and the editor rendered `min`
+   * only, so the bound existed in the data and nowhere on the screen.
+   */
+  max?: string
   /** The textarea editor's height. Display only. */
   rows?: number
   /**

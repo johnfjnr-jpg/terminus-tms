@@ -106,6 +106,24 @@ describe('D: the date editor', () => {
     expect(ed().getAttribute('min')).toBe(null)
   })
 
+  // ── AUDIT L8: THE CEILING, which was computed and never rendered ──────
+  //
+  // `dateBounds` returns a `max` for the installation date - it may not fall
+  // after a set go-live - and the panel already spreads it into the
+  // descriptor. `FieldDescriptor` declared no `max` and this editor rendered
+  // `min` only, so the ceiling existed in the data and nowhere on the screen.
+  // The server refuses both directions either way; this is the half that
+  // tells somebody BEFORE they type.
+  test('L8 A4: `max` comes from the DESCRIPTOR the same way `min` does', async () => {
+    await mount(field({ name: 'estClose', editor: 'date', max: '2026-12-31' }))
+    expect(ed().getAttribute('max')).toBe('2026-12-31')
+  })
+
+  test('L8 and a date field that declares no ceiling renders none', async () => {
+    await mount(field({ name: 'actualClose', editor: 'date' }))
+    expect(ed().getAttribute('max')).toBe(null)
+  })
+
   test('D4 it reports a candidate and cannot own dirty', async () => {
     const onChange = vi.fn()
     await mount(field({ name: 'd', editor: 'date' }), '', { onChange })

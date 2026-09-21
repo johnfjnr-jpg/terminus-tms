@@ -677,6 +677,7 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
       linkedTechTeam={(record.buyer_contacts ?? [])
         .find((c) => c.role === 'Test Bed Tech Team')?.contact_id ?? null}
       notes={record.payload?.installNotes as InstallNote[] | undefined}
+      stage={record.status ?? undefined}
       author={shell.currentUserEmail()}
       now={() => new Date().toISOString()}
       onSetInstaller={async (accountId) => {

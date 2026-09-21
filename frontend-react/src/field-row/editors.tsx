@@ -244,6 +244,7 @@ export function DateEditor({ field, value, onChange, onRequestClose, onRequestMo
       data-testid={testId}
       value={value}
       min={field.min}
+      max={field.max}
       onChange={(e) => onChange(e.target.value)}
       onFocus={(e) => offerPicker(e.currentTarget)}
       onKeyDown={editorKeyDown(field, { onRequestClose, onRequestMove })}
