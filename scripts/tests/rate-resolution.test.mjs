@@ -52,7 +52,23 @@ test('recovery period is two-phase only, and hybrid is otherwise unchanged', () 
   const base = { ssExisting: 12, ssNew: 3, aqm: 5, hemir: 2, duration: 36,
     targetMargin: 30, warrantyPct: 2, invoicing: 'annual',
     installResp: 'Client Own Installation Team',
-    milestones: [{ month: 1, usd: 200000, pct: 0 }, { month: 6, usd: 292858, pct: 0 }] }
+    // ── R-N1: THE SCHEDULE IS PERCENTAGES NOW ──────────────────────────
+    //
+    // This read `[{ month: 1, usd: 200000, pct: 0 }, { month: 6, usd: 292858,
+    // pct: 0 }]` - dollars, with the percentage left at zero because nothing
+    // consulted it. Under John's ruling of 2026-09-21 the percentage is
+    // authoritative and the dollars are derived, so a row carrying pct 0 now
+    // correctly recovers nothing.
+    //
+    // The two figures are the same two dollar amounts, expressed as the
+    // fractions of the one-off price they are: 200,000 and 292,858 of
+    // 492,858, which is the total this test goes on to assert. Written as the
+    // division rather than as decimals so the arithmetic is visible and the
+    // pair cannot silently stop summing to the whole.
+    milestones: [
+      { month: 1, pct: (200000 / 492858) * 100 },
+      { month: 6, pct: (292858 / 492858) * 100 },
+    ] }
   const cf = (structure, recoveryMonths, extra = {}) => {
     const p = { ...base, structure, ...extra, ...(recoveryMonths === undefined ? {} : { recoveryMonths }) }
     return calculateDeal(buildDealInputs(p, { rates: resolveRates(p, CAT).rates }))
@@ -69,8 +85,27 @@ test('recovery period is two-phase only, and hybrid is otherwise unchanged', () 
 
   // STILL WORKING: hybrid's own figures are untouched by the removal.
   const h = cf('hybrid', 12).cashFlow
-  assert.equal(Math.round(h.rows.reduce((s, x) => s + x.hardwareIn, 0)), 492858,
+  // ── MOVED 492,858 -> 481,429 BY R-N1, AND THE GAP IS THE FINDING ──────
+  //
+  // ANCHORED TO ITS CAUSE rather than restated as a fresh literal. The old
+  // fixture typed two dollar amounts, 200,000 and 292,858, which summed to
+  // 492,858 - and the deal's one-off price is 481,429. They did not match,
+  // NOTHING MADE THEM MATCH, and the cash flow recovered 11,429 of hardware
+  // the deal never priced.
+  //
+  // That is the defect R-N1 removes, visible in this estate's own fixture: a
+  // schedule of 100% now recovers exactly the price it is a schedule OF,
+  // whatever that price is, because the dollars are derived from the
+  // percentages rather than typed beside them.
+  //
+  // Asserted against the computed one-off price rather than a literal, so the
+  // claim is "a full schedule recovers the whole price" rather than "the
+  // total is this number".
+  const oneOff = cf('hybrid', 12).totals.oneOffPrice
+  assert.equal(Math.round(h.rows.reduce((s, x) => s + x.hardwareIn, 0)), Math.round(oneOff),
     'hybrid still recovers hardware through its milestone schedule')
+  assert.equal(Math.round(oneOff), 481429,
+    'the one-off price moved; the schedule assertion above would follow it silently')
   // ── MOVED 217,302 -> 222,302 BY THE WARRANTY RULING, John 2026-09-16 ───
   //
   // ANCHORED TO ITS CAUSE, not restated as a fresh literal. This deal carries
@@ -88,8 +123,22 @@ test('recovery period is two-phase only, and hybrid is otherwise unchanged', () 
   const warrantyBefore = 15000  // 1 unit x the old mix average
   assert.equal(cf('hybrid', 12).hardware.warrantyCost, 10000,
     'a warranty unit is a SafeSight spare plus existing-infra install')
-  assert.equal(Math.round(h.rows.at(-1).cum), 217302 + (warrantyBefore - 10000))
-  assert.equal(Math.round(h.rows.at(-1).cum), 222302)
+  // ── AND MOVED AGAIN, 222,302 -> 210,873, BY R-N1 ──────────────────────
+  //
+  // The difference is 11,429, which is EXACTLY the hardware the old fixture
+  // recovered and never priced: its two typed milestone dollars summed to
+  // 492,858 against a one-off price of 481,429. Deriving the dollars from the
+  // percentages removes the phantom, and the closing cash falls by precisely
+  // the amount of it.
+  //
+  // ASSERTED AS THE CHAIN rather than as a new literal, so the three figures
+  // have to stay consistent with each other: if anything else had moved, the
+  // arithmetic below would not close.
+  const phantomHardware = 492858 - 481429
+  assert.equal(phantomHardware, 11429)
+  assert.equal(Math.round(h.rows.at(-1).cum),
+    217302 + (warrantyBefore - 10000) - phantomHardware)
+  assert.equal(Math.round(h.rows.at(-1).cum), 210873)
 
   // SUPERSEDED BY RULING 5, and left visible rather than deleted, because the
   // superseded reasoning is what tells a later reader that a premise changed

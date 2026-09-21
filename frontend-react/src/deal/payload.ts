@@ -97,35 +97,65 @@ export function numOrUndefined(values: Values, id: string): number | undefined {
   return Number.isFinite(v) ? v : undefined
 }
 
-export interface Milestone { month: number; label: string; usd: number; pct: number | null }
+/** R-N1: no `usd`. The dollars are derived from `pct` at every reader. */
+export interface Milestone { month: number; label: string; pct: number | null }
 export interface ContractorMilestone extends Milestone { incomplete: boolean }
 
-// A milestone row counts only when it has BOTH a month and an amount.
+// ── R-N1: THE PERCENTAGE IS WHAT IS RECORDED ─────────────────────────────
+//
+// Ruled by John 2026-09-21. A milestone is a percentage of the deal's one-off
+// price and the dollars are derived at every reader, so the stored dollar
+// figure is GONE FROM THE PAYLOAD rather than kept as a cache.
+//
+// REMOVED RATHER THAN CACHED, and the reason is this estate's own history.
+// The defect was a second number that readers consulted; a cache is that same
+// second number with a promise attached, and the promise is exactly what the
+// comment at the grid cell used to make. A field no reader consults is also a
+// field nothing can keep correct, and the next person to find it will read it.
+// There is no longer a second number to read.
+//
+// MEASURED BEFORE REMOVING: zero live opportunities carry a customer
+// milestone, and the six version rows that do are all drafts, so nothing in
+// the estate depends on the stored figure today.
+//
+// A ROW COUNTS ON ITS MONTH AND ITS PERCENTAGE, the two things a person
+// enters. It counted on `usd > 0` before, which is the derived figure, so a
+// row was kept or dropped according to a number nobody typed.
 export function readMilestones(values: Values): Milestone[] {
   const rows: Milestone[] = []
   for (let i = 0; i < MILESTONE_ROWS; i++) {
     const month = num(values, `deal-ms-${i}-month`)
     const label = values[`deal-ms-${i}-label`] ?? ''
-    const usd = num(values, `deal-ms-${i}-usd`)
     const pct = (toNumberOrNull(values[`deal-ms-${i}-pct`]) as number | null) ?? 0
-    if (month > 0 && usd > 0) rows.push({ month, label, usd, pct })
+    if (month > 0 && pct > 0) rows.push({ month, label, pct })
   }
   return rows
 }
 
-// ── AND THE CONTRACTOR READER IS DELIBERATELY DIFFERENT IN THREE WAYS ────
-// It counts a row on the AMOUNT alone, it does NOT default pct to 0, and it
-// carries `incomplete` for a row with no month. A reader that treated the two
-// alike would silently drop a contractor row somebody had half-entered, which
-// is the row the schedule warning exists to surface.
+// ── THE CONTRACTOR READER, AND WHAT R-N1 CHANGED ABOUT IT ────────────────
+//
+// It read: "It counts a row on the AMOUNT alone, it does NOT default pct to
+// 0, and it carries `incomplete` for a row with no month." The second and
+// third still hold. THE FIRST DOES NOT, because the amount is no longer
+// something a row carries.
+//
+// MEASURED: the contractor grid shares the defect in mirror image. With a
+// lump sum of 200,000 a row typed at 50% stored 100,000; changing the lump
+// sum to 400,000 left the row's own two figures saying 50% and $100,000,
+// which against that base is 25% - and the total line read 25% while the
+// input still read 50. One row, two answers.
+//
+// So it counts on the PERCENTAGE now, the same as the customer reader, and
+// `incomplete` still fires for a row with money and no date - which is the
+// row the schedule warning exists to surface and the reason a version cannot
+// be taken from it.
 export function readContractorMilestones(values: Values): ContractorMilestone[] {
   const rows: ContractorMilestone[] = []
   for (let i = 0; i < MILESTONE_ROWS; i++) {
     const month = num(values, `deal-cm-${i}-month`)
     const label = values[`deal-cm-${i}-label`] ?? ''
-    const usd = num(values, `deal-cm-${i}-usd`)
     const pct = toNumberOrNull(values[`deal-cm-${i}-pct`]) as number | null
-    if (usd > 0) rows.push({ month, label, usd, pct, incomplete: !(month > 0) })
+    if ((pct ?? 0) > 0) rows.push({ month, label, pct, incomplete: !(month > 0) })
   }
   return rows
 }

@@ -1692,6 +1692,15 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .ms-grid-row input:nth-child(3),
 .ms-grid-row input:nth-child(4) { text-align: right; }
 
+/* N1: the customer schedule's total row, the same treatment the installation
+   grid's already has, so the two schedules read alike. Its figures sit under
+   the columns they total because it shares the grid's own track list. */
+.ms-grid-total {
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  margin-top: 6px;
+}
+
 /* W10: the base and total rows take the grid's own columns, so the figures
    land under Amount rather than at the left edge of the panel. */
 .cm-grid-total {
@@ -2107,6 +2116,66 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   gap: 16px;
   margin-bottom: 20px;
 }
+
+/* ── N2: THE INSTALLATION PANEL COLLAPSES TO ITS CONTENT ────────────────
+   Ruled 2026-09-21, measured first. `.form-grid` is `1fr 1fr`, so the two
+   controls took half the section each whatever they held: at 1440 the
+   responsibility select was 344px against a longest option needing 207px of
+   text, and the lump sum field was 344px against 66px for a nine-figure
+   amount - 137px and 278px of slack, on a panel spanning the full 704px row.
+
+   THE ESTATE'S OWN PATTERN, not a new one: content-sized columns with
+   `justify-content: start`, which is what `.terms-cards`, `.pg-cards` and the
+   hybrid group already do. The section keeps its width; the CONTROLS stop
+   claiming it.
+
+   SCOPED TO THIS SECTION rather than loosening `.form-grid`, which dresses
+   forms across the estate. Walk 5 recorded what a document-wide reach costs:
+   a selector written for one surface closing a menu on another.
+
+   THE LUMP FIELD TAKES 104px, THE SAME NUMBER W5 GAVE THE FOUR INSTALLATION
+   RATE FIELDS, so the money boxes on this screen are one size rather than
+   two. It is 66px of digits plus room for separators and padding.
+
+   THE SECOND COLUMN IS `minmax(0, max-content)`, NOT `max-content`, and the
+   difference is 64px of overflow at 1240. A plain `max-content` sizes that
+   column to the explanatory note below the field, which is capped at 320px,
+   so the row asked for 232 + 16 + 320 = 568px of a 504px section and the
+   note ran off the right edge. `minmax(0, ...)` lets the column shrink when
+   the row cannot afford its content; the note wraps and the field, which
+   carries its own width, is unaffected.
+
+   Found by this round's own guard rather than by looking, which is the one
+   direction that works here: the overflow is offscreen at 1240 and a
+   screenshot of the section does not show what is past its edge. */
+#deal-section-2 .form-grid {
+  grid-template-columns: max-content minmax(0, max-content);
+  justify-content: start;
+}
+#deal-installResp { width: 232px; }
+#deal-lumpCost { width: 104px; }
+
+/* AND TWO THINGS THE SIZING BROKE, FOUND BY OPENING THE SCREENSHOT.
+   `.deal-field` has no base layout rule of its own - only scoped variants -
+   so it is a plain `<label>`, and its text and its input sat on one line.
+   That was invisible while the input filled the row at `width: 100%`; at
+   104px the label ran straight into the value and the panel read
+   "LUMP SUM COST250000". Stacked here, the way `.form-group` beside it
+   already stacks its own label and control. */
+#deal-section-2 .deal-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* And the note. With `max-content` columns the widest thing in the column
+   sets its width, and the widest thing is this sentence - so the column blew
+   out and the note ran off the right edge of the screen instead of wrapping
+   inside the panel. Capping it keeps the column at the size of the CONTROLS,
+   which is what N2 asked for. Same tool, same mistake as walk 5's hybrid
+   column: `max-content` measures the prose, not the fields. */
+#deal-lump-summary { max-width: 320px; }
 
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1 / -1; }
@@ -5944,12 +6013,36 @@ input.input-invalid {
    rather than wrap the day somebody adds a seventh. A floor degrades; a count
    breaks. The one-row claim is asserted by test instead, which is what catches
    a seventh cell. */
-.opp-headline {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+/* ── N4: ONE BORDER TREATMENT, TWO BANNERS ──────────────────────────────
+   Ruled 2026-09-21. The Opportunity's headline strip drew a hairline grid -
+   a 1px gap over a hairline background, with each cell painting its own dark
+   ground so the gaps read as rules - and the Test Bed's stats banner drew
+   nothing, with a 24px gap and no border.
+
+   ONE RULE, NOT A COPIED LITERAL, which is what the ruling asked for and what
+   Architecture 3 asks for anyway: the two banners are the same thing on two
+   record types, so a second copy of the three declarations would agree today
+   and drift at the first adjustment. The declarations live here once and both
+   selectors carry them.
+
+   THE CELL RULE IS PART OF THE TREATMENT, not a detail of it. The gaps are
+   only visible because the cells paint over the background; a banner given
+   the border and not the cell ground renders as one solid hairline block. */
+.opp-headline,
+.stats-grid--testbed {
   gap: 1px;
   background: var(--hairline-strong);
   border: 1px solid var(--hairline-strong);
+}
+.opp-headline > *,
+.stats-grid--testbed > * {
+  background: var(--dark);
+  padding: 12px 14px;
+}
+
+.opp-headline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   margin: 20px 0 4px;
 }
 .ohl-figure {
@@ -6598,9 +6691,10 @@ input.input-invalid {
  * A modifier rather than a change to the shared rule, which is the pattern
  * `.stats-grid--deal` already sets. Hardware is widest because it holds two or
  * three name-and-number pairs. */
+/* N4: the gap is the shared rule's 1px now, so the banner reads as a grid of
+   ruled cells like the Opportunity's rather than four floating columns. */
 .stats-grid--testbed {
   grid-template-columns: 1fr 1fr 1.4fr 1fr 1fr;
-  gap: 24px;
   margin-bottom: 28px;
 }
 

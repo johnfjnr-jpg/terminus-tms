@@ -224,9 +224,23 @@ describe('surface 3: the two milestone grids', () => {
 })
 
 describe('surface 3: reconciliation rendering', () => {
-  const rows = (specs: [number, number][]): Values => {
+  // ── R-N1: A ROW IS A PERCENTAGE, AND THE SPECS STAY IN DOLLARS ─────────
+  //
+  // Each test below is a claim about DOLLAR arithmetic - a $16 overrun that
+  // must not print as 100%, a dateless row that still counts toward the
+  // total. Under John's ruling of 2026-09-21 a row carries a percentage and
+  // its dollars are derived, so the helper converts here rather than every
+  // test being rewritten around new numbers.
+  //
+  // THE BASE IS A PARAMETER, not the literal 200000, because a helper that
+  // hardcoded the base would silently produce the wrong percentages the day
+  // a test used a different one.
+  const rows = (specs: [number, number][], base = 200000): Values => {
     const v: Values = {}
-    specs.forEach(([m, usd], i) => { v[`deal-cm-${i}-month`] = String(m); v[`deal-cm-${i}-usd`] = String(usd) })
+    specs.forEach(([m, usd], i) => {
+      v[`deal-cm-${i}-month`] = String(m)
+      v[`deal-cm-${i}-pct`] = String((usd / base) * 100)
+    })
     return v
   }
 
@@ -269,10 +283,10 @@ describe('surface 3: reconciliation rendering', () => {
   })
 
   test('the CUSTOMER schedule warns against the one-off price', () => {
-    const warn = customerScheduleWarning([{ month: 1, usd: 90000, pct: 0 }], 100000)
+    const warn = customerScheduleWarning([{ month: 1, pct: 90 }], 100000)
     expect(warn).toContain('Customer milestones total $90,000')
     expect(warn).toContain('hardware and installation price of $100,000')
-    expect(customerScheduleWarning([{ month: 1, usd: 100000, pct: 0 }], 100000)).toBeNull()
+    expect(customerScheduleWarning([{ month: 1, pct: 100 }], 100000)).toBeNull()
   })
 })
 

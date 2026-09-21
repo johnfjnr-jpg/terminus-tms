@@ -345,7 +345,13 @@ export function DealPanel({
   const onMilestoneTyped = (id: string, v: string) => {
     setValue(id, v)
     const m = id.match(/^deal-ms-(\d+)-pct$/)
-    if (m) setValue(`deal-ms-${m[1]}-usd`, milestoneUsdFor(v, oneOffPrice))
+    // R-N1: THE DERIVED DOLLARS NO LONGER REACH THE STATE. This wrote
+    // `deal-ms-i-usd` so `readMilestones` could keep the row and send the
+    // figure, and that write is the whole defect: it happened only when a
+    // percentage was typed, so any later change to the PRICE left the stored
+    // dollars where they were while the cell moved. The percentage is what is
+    // recorded now and the dollars are derived at every reader.
+    if (m) { /* the USD cell is derived; nothing to write */ }
   }
 
   const rows = result ? buildDealRows(result as never, payload, ui.grossUp) : []
@@ -507,6 +513,9 @@ export function DealPanel({
               <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
                 options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
                 onTyped={onContractorTyped}
+                // R-N1: the base the amounts derive from, so the grid holds
+                // percentages and shows dollars rather than storing both.
+                base={lumpCost}
                 view={contractorReconciliation(values, lumpCost)} />
             } />
           {/* The seven catalog readouts. A readonly input here is a DISPLAY of
@@ -559,6 +568,9 @@ export function DealPanel({
                 // stored value, so the two can never offer different names.
                 options={(i) => milestoneOptions(values[`deal-ms-${i}-label`])}
                 usdFor={(i) => milestoneUsdFor(values[`deal-ms-${i}-pct`], oneOffPrice)}
+                // N1: the base the total is taken against, the same one the
+                // cells derive from.
+                base={oneOffPrice}
                 onChange={onMilestoneTyped}
                 warning={customerScheduleWarning(
                   (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />

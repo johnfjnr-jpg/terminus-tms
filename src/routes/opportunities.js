@@ -631,17 +631,31 @@ export default async function opportunitiesRoutes(app) {
       }
     }
     // milestones/contractorMilestones: month is a real count (integer),
-    // usd is a dollar figure (percent validator, i.e. up to 2 decimal
-    // places, despite the name - same shared non-negative/precision rule
-    // as an actual percentage, just applied to currency here).
+    // ── R-N1: A MILESTONE IS A MONTH AND A PERCENTAGE ─────────────────────
+    //
+    // Ruled by John 2026-09-21. The dollar figure is DERIVED from the
+    // percentage at every reader, so it is no longer sent and is no longer
+    // validated: a rule requiring a key nothing writes would refuse every
+    // save.
+    //
+    // `usd` IS STILL REFUSED IF IT ARRIVES, rather than ignored. A caller
+    // sending one is either an old client or a mistake, and accepting it
+    // silently would put the stale second number back into the payload for a
+    // future reader to find - which is exactly how this defect existed.
+    // Refusing names the reason, so the caller is not left guessing.
     for (const listKey of ['milestones', 'contractorMilestones']) {
       if (!Array.isArray(payload[listKey])) continue
       for (const m of payload[listKey]) {
         if (!isValidNonNegativeInteger(m?.month)) {
           return reply.code(400).send({ error: `${listKey} month must be a non-negative whole number` })
         }
-        if (!isValidNonNegativePercent(m?.usd)) {
-          return reply.code(400).send({ error: `${listKey} usd must be a non-negative number with at most 2 decimal places` })
+        if (m && 'usd' in m) {
+          return reply.code(400).send({
+            error: `${listKey} carries usd, which is derived from pct and is no longer stored`,
+          })
+        }
+        if (!isValidNonNegativePercent(m?.pct)) {
+          return reply.code(400).send({ error: `${listKey} pct must be a non-negative number with at most 2 decimal places` })
         }
       }
     }
