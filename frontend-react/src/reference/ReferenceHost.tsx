@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ReferencePanel } from './ReferencePanel'
 import { SAME_AS_ACCOUNT } from './descriptors'
 import type { ReferenceSource } from './descriptors'
-import type { KcLink } from './KeyContacts'
+import type { KcLink, KcLinkRow } from './KeyContacts'
+import { linkRow } from './KeyContacts'
 import { useShell } from '../ShellContext'
 import { NotesHistory } from '../contact/NotesHistory'
 import { FollowUpTask } from '../contact/FollowUpTask'
@@ -26,6 +27,7 @@ interface OppLike {
   reference_code?: string | null
   status?: string | null
   created_at?: string | null
+  key_contacts?: KcLinkRow[] | null
 }
 
 declare global {
@@ -50,13 +52,23 @@ export function ReferenceHost({ opp, registerReload }: {
   const [feedback, setFeedback] = useState<
     { text: string | null, html?: string | null, ok: boolean } | null>(null)
 
+  // ── F1: THE LINKED CONTACTS COME OFF THE RECORD ───────────────────────
+  //
+  // This asked `GET /opportunities/:id/key-contacts`, WHICH DOES NOT EXIST.
+  // There is a POST, a DELETE and a POST .../stance, and no GET: the call
+  // answered 404 on every load, so `links` was always empty and the table
+  // was always blank. You could add a contact and watch nothing appear.
+  //
+  // The data was already in hand. `GET /opportunities/:id` returns
+  // `key_contacts` on the record this same load already fetches, so the
+  // second request was a second reader of a value the first one carried -
+  // and the only one of the two that could fail.
   const load = useCallback(async () => {
-    const [r, kc] = await Promise.all([
-      shell.api<OppLike>('GET', `/api/opportunities/${opp.id}`),
-      shell.api<KcLink[]>('GET', `/api/opportunities/${opp.id}/key-contacts`),
-    ])
-    if (r.ok && r.data) setRecord(r.data)
-    if (kc.ok && Array.isArray(kc.data)) setLinks(kc.data)
+    const r = await shell.api<OppLike>('GET', `/api/opportunities/${opp.id}`)
+    if (r.ok && r.data) {
+      setRecord(r.data)
+      setLinks((r.data.key_contacts ?? []).map(linkRow))
+    }
   }, [shell, opp.id])
 
   useEffect(() => { void load() }, [load])

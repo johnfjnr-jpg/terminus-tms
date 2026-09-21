@@ -17,6 +17,7 @@ let host: HTMLElement
 let root: Root
 let patches: { id: string, body: unknown }[] = []
 let posts: { path: string, body: unknown }[] = []
+let gets: string[] = []
 let reasonOpts: ChangeReasonOptions | null = null
 /** Per-test override for what a close-date POST answers. */
 let closeDateReply: { ok: boolean, status?: number, data?: unknown } = { ok: true, status: 200, data: {} }
@@ -35,12 +36,30 @@ const OPP = {
   reference_code: 'TT-SGP-AIRPRT-1',
   status: 'Qualification',
   created_at: '2026-03-04T10:00:00.000Z',
+  // AS THE RECORD CARRIES THEM: `GET /opportunities/:id` already returns
+  // `key_contacts`, with `name`, `stance` and `note` - not `contact_name`,
+  // `stance_id` and `stance_note`, which is what the component reads.
+  key_contacts: [
+    { id: 'lnk-a', contact_id: 'c-a', name: 'Tan Jun', role: 'Executive Sponsor',
+      stance: null, note: null, linked_at: '2026-08-27T00:51:17.502826+00:00' },
+    { id: 'lnk-b', contact_id: 'c-b', name: 'Kim Zhang', role: 'Technical Buyer',
+      stance: null, note: null, linked_at: '2026-08-27T00:52:17.502826+00:00' },
+  ],
 }
 
 const services: ShellServices = shellServices({
   api: (async (m: string, path: string, body?: unknown) => {
+    if (m === 'GET') gets.push(path)
     if (path.includes('close-date-move')) { posts.push({ path, body }); return closeDateReply }
-    if (path.includes('key-contacts')) return { ok: true, status: 200, data: [] }
+    // MODELS THE REAL SERVER. There is no GET for this path: the route file
+    // has a POST, a DELETE and a POST .../stance, and no GET. This stub used
+    // to answer `{ ok: true, data: [] }`, which made a route that does not
+    // exist look like a route with nothing in it - a fixture shaped to the
+    // implementation, and the reason the 404 survived unnoticed.
+    if (m === 'GET' && path.includes('key-contacts')) {
+      return { ok: false, status: 404, data: { error: 'Not Found' } }
+    }
+    if (path.includes('key-contacts')) { posts.push({ path, body }); return { ok: true, status: 200, data: {} } }
     if (path.includes('terminus-staff')) return { ok: true, status: 200, data: [{ name: 'Brad Kerr' }] }
     return { ok: true, status: 200, data: currentOpp }
   }) as ShellServices['api'],
@@ -62,6 +81,7 @@ const mount = async (opp: typeof OPP = OPP) => {
   currentOpp = opp
   patches = []
   posts = []
+  gets = []
   reasonOpts = null
   closeDateReply = { ok: true, status: 200, data: {} }
   ;(window as unknown as { oppPatch: unknown }).oppPatch = async (id: string, body: unknown) => {
@@ -92,6 +112,25 @@ const editRow = async (name: string, value: string) => {
 const save = async () => { await act(async () => { must('[data-testid="save-all"]').click() }) }
 
 beforeEach(() => { document.body.innerHTML = '' })
+
+// ── F1: THE LINKED CONTACTS RENDER ──────────────────────────────────────
+describe('F1: the key contacts table', () => {
+  test('F1 the linked contacts come off the RECORD and render by name', async () => {
+    await mount()
+    expect(must('[data-testid="kc-row-lnk-a"]')).toBeTruthy()
+    expect(must('[data-testid="kc-name-lnk-a"]').textContent).toBe('Tan Jun')
+    expect(must('[data-testid="kc-name-lnk-b"]').textContent).toBe('Kim Zhang')
+  })
+
+  // AND NOTHING ASKS THE ROUTE THAT DOES NOT EXIST. Asserted separately,
+  // because rendering the rows and having stopped calling the 404 are two
+  // claims and the first can be true while the second is not.
+  test('F1 and no GET is made to the key-contacts route, which has none', async () => {
+    await mount()
+    expect(gets.filter((p) => p.includes('key-contacts')),
+      'it asked a route that answers 404 on every load').toHaveLength(0)
+  })
+})
 
 describe('H: what the host actually sends', () => {
   test('H1 ONLY WHAT MOVED. An untouched key is never in the payload', async () => {

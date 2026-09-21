@@ -30,6 +30,31 @@ export interface KcVocabItem { id: string, name: string }
  * this card BLANK while the fetches were returning the right rows.
  */
 export interface KcVocabRow { id: string, label?: string | null }
+
+/**
+ * A key-contact row AS THE RECORD CARRIES IT. `GET /opportunities/:id`
+ * already returns `key_contacts`, and its field names are not the ones this
+ * component reads: `name` not `contact_name`, `stance` not `stance_id`,
+ * `note` not `stance_note`.
+ */
+export interface KcLinkRow {
+  id: string
+  contact_id: string
+  name?: string | null
+  role?: string | null
+  stance?: string | null
+  note?: string | null
+  linked_at?: string | null
+}
+export const linkRow = (k: KcLinkRow): KcLink => ({
+  id: k.id,
+  contact_id: k.contact_id,
+  contact_name: k.name?.trim() || 'Unnamed contact',
+  role: k.role ?? null,
+  stance_id: k.stance ?? null,
+  stance_note: k.note ?? null,
+  linked_at: k.linked_at ?? null,
+})
 export const vocabOption = (v: KcVocabRow): KcVocabItem => ({
   id: v.id, name: v.label?.trim() || v.id,
 })
