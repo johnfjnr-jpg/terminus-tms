@@ -36,6 +36,58 @@ pushed from the session.
 
 ---
 
+## RULING R-N1, John, 2026-09-21, verbatim
+
+**APPENDED AT THE CLOSE, WHICH IS THE FAULT BUILD DISCIPLINE 7 NAMES.** The
+rule is that a ruling given in conversation is appended to the brief at the
+phase it launches, not discovered when the close counts them. This one
+launched the round's third phase and was written down at its sixth. The
+reconciliation is what caught it, which is the detector working and the fix
+not having been applied.
+
+> the PERCENTAGE is authoritative. A customer milestone is a percentage of the
+> deal's one-off price; its USD is DERIVED at every reader from pct x current
+> price. The grid cell, the schedule warning and the cash flow all read the
+> same derivation: one source, three readers, disagreement impossible by
+> construction rather than by comment. Stored USD ceases to be authoritative:
+> remove it from the payload, or reduce it to a non-authoritative cache that no
+> reader consults (state which the code makes cleaner and why). The false
+> "cannot disagree" comment is corrected to describe the built truth. Measure
+> whether the CONTRACTOR grid shares the defect against the lump sum and fix it
+> the same way if so. Live proof re-runs the committed probe: the same drive
+> (40 units, 50%, units to 80) now shows grid, warning and cash flow agreeing
+> at the derived figure, read from the screen AND the record. Issued-version
+> snapshots are asserted unaffected: a frozen version keeps its frozen figures.
+> Then N1 as originally ruled: the total row totals the single derived reading,
+> hosting-panel shape, right-aligned. N2, N3, N4 continue as instructed; then
+> close-out, CURRENT_STATE, branch gate --round-close, merge --no-ff,
+> merged-tree gate, "ready for John's push". Any red: STOP. Reports per M6.
+
+**Taken as REMOVE rather than cache**, and the reasoning is in the R-N1 commit:
+zero live opportunities carry a customer milestone and the six version rows
+that do are all drafts, so there is nothing to preserve, and a cache no reader
+consults is a second reader waiting to be written.
+
+---
+
+## THE PHASES, RECONCILED BY COUNTING
+
+Six phases, six commits, two rulings in force.
+
+| Phase | Commit |
+|---|---|
+| The brief, with John's findings verbatim | `f1ddb8e` |
+| N1 STOPPED: the measurement | `2e7b562` |
+| R-N1 and N1: the percentage is authoritative | `115ad60` |
+| N2, N3 and N4 | `a52269f` |
+| Close-out | `0c58ab4` |
+| `CURRENT_STATE.md` | `02eaa6c` |
+
+**Rulings in force: 2** - the walk 6 instruction (N1 to N4) and R-N1. Both are
+now in this file.
+
+---
+
 ## O1 IS CLOSED
 
 Walk 4 carried **O1** deferred, in John's words at the time:
