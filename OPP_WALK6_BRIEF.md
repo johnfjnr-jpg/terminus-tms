@@ -109,16 +109,59 @@ true. The three possible answers lead to different rounds:
 
 ## Exit gate
 
-| Point | To answer at the close |
+| Point | Answered at the close |
 |---|---|
-| Every finding built, stopped or recorded | |
-| N1's stop condition measured rather than assumed | |
-| Every new guard calibrated both directions | |
-| Live proof at 1440 and 1240 | |
-| Screenshots opened and read | |
-| Database read-back where a write is involved | |
-| Fixtures torn down, re-queried | |
-| O1's closure recorded | |
-| `CURRENT_STATE.md` regenerated and reconciled | |
-| Full gate with `--round-close`, branch and merged | |
+| Every finding built, stopped or recorded | **Yes.** N1 stopped, then ruled and built as R-N1 + N1. N2, N3, N4 built |
+| N1's stop condition measured rather than assumed | **Yes.** Driven at 40 then 80 units: displayed 467,143 against stored 233,571.50, a 100% disagreement, saved with no indication |
+| Every new guard calibrated both directions | **Yes.** 10/10 on N2/N3/N4, every injection firing on its NAMED check; N1's and the contractor grid's calibrated in their own phase |
+| Live proof at 1440 and 1240 | **Yes.** 11/11 installation panel, 20/20 band and banners, both widths |
+| Screenshots opened and read | **Yes**, and three of them changed the work: the N2 note overflow, the `max-content` blow-out and the label collision |
+| Database read-back where a write is involved | **Yes.** The milestone payload read back from the record after every save |
+| Fixtures torn down, re-queried | **Yes.** 132 of 132 live records walked, zero created in the last three hours, three owners all real accounts |
+| O1's closure recorded | **Yes**, in this brief and at the band's own markup |
+| `CURRENT_STATE.md` regenerated and reconciled | see the close-out |
+| Full gate with `--round-close`, branch and merged | see the close-out |
 | Merged or pushed | **No push from the session** |
+
+---
+
+## WHAT THIS ROUND FOUND IN ITS OWN WORK
+
+Recorded because the calibration found each of them and reading the probe did
+not.
+
+1. **The `1fr 1fr` injection came back SILENT with the whole probe green.**
+   `#deal-installResp` carries its own width, so reverting the grid template
+   reverted the COLUMNS and left the CONTROLS their size. Every check was a
+   property of a control; the dead space N2 is about opens BETWEEN them. The
+   replacement asserts the two controls sit 16px apart, and the injection puts
+   them 128px apart.
+2. **The first replacement for it was also wrong.** It asserted the row leaves
+   a quarter of itself unclaimed, which the explanatory note legitimately
+   fills. N2 does not ask the note to be narrow.
+3. **N2's own `max-content` overflowed the section by 64px at 1240**, because
+   the second column sized to that 320px note. Mine, so it is part of the
+   change rather than a carried finding: fixed with `minmax(0, max-content)`.
+   **The overflow is offscreen and no screenshot of the section can show it.**
+4. **An "empty chevron strip" was my instrument, not a defect.** The Test Bed's
+   chevron is async and the stats banner is not, so a wait on the banner is
+   satisfied before the chevron paints: 0 children at the shutter and 8 a
+   moment later. It was about to be recorded as a finding.
+
+---
+
+## CARRIED, NOT BUILT
+
+Everything below was walked past rather than caused, so it goes on the list
+rather than into this round.
+
+1. An empty contractor schedule displays **`TOTAL 100% $0`**, because
+   `scheduleReconciliation` returns `exact: true` with no rows.
+2. At 1240 the Test Bed chevron clips **`DECOMMISSIONING`** to
+   `)ECOMMISSIONING` against its own clip-path.
+3. At 1240 the PO factoring toggle clips **`FACTORING DISABLED`**.
+4. `#ref-vanilla`'s eleven ids; `ref-save-feedback`'s dual naming; the orphaned
+   `.tab-action-idle` rule; `input.input-invalid` with no applier.
+5. The project-milestone vocabulary table as a future configuration item.
+6. Walk 5's WHT placeholder wording: WHT reads `--` where GST reads
+   `not recorded`.

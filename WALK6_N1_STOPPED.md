@@ -1,5 +1,15 @@
 # N1 is STOPPED, and the reason is worse than N1 anticipated
 
+> **SUPERSEDED 2026-09-21 by ruling R-N1, and left standing in full because
+> this is the measurement the ruling rests on.** John ruled that the
+> PERCENTAGE is authoritative: a customer milestone is a percentage of the
+> deal's one-off price, its USD is DERIVED at every reader, and the stored
+> `usd` is gone from the payload with the route refusing one that arrives.
+> **The "two candidate fixes" section below is the decision as it stood before
+> the ruling**; the ruling took option 1 and went further than this document
+> proposed, removing the stored figure rather than recomputing it at save.
+> N1's total row was then built on the single derived reading.
+
 N1 asked for a total on the customer milestone USD column, and stopped the
 round on that finding if the carried two-readers defect made the total
 ambiguous.
@@ -114,7 +124,8 @@ rule, and it wants its own round with the cash-flow consequences measured.
 
 ## Disposition
 
-- **N1 is NOT BUILT.** No total was added.
+- **N1 was NOT BUILT AT THE TIME OF THIS REPORT.** No total was added. It was
+  built after R-N1, on the derived reading.
 - The defect is recorded here, measured rather than reasoned, with the probe
   committed so the measurement can be re-run in one command:
   `scripts/walk6/probe-n1-ambiguity.mjs`.
