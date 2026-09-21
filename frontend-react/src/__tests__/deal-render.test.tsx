@@ -82,6 +82,8 @@ const mount = async (values: Values = V, ui: UiState = UI, testBedCost = 25000) 
 }
 const $ = (id: string) => host.querySelector(`[data-testid="${id}"]`) as HTMLElement | null
 const must = (id: string) => { const el = $(id); if (!el) throw new Error(`no ${id}`); return el }
+/** For asserting ABSENCE, where `must` would throw before the expectation. */
+const q = (id: string) => $(id)
 const type = (id: string, v: string) => {
   const el = must(id) as HTMLInputElement
   const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!
@@ -220,6 +222,28 @@ describe('the milestone grids render', () => {
     // NON-ZERO RULE: the discrepancy is real.
     expect(must('contractor-total-pct').textContent).not.toBe('100%')
     expect(must('contractor-diff').className).toContain('deal-schedule-off')
+  })
+
+  // ── LEDGER 5: AN EMPTY SCHEDULE HAS NOTHING TO TOTAL ─────────────────
+  //
+  // REPRODUCED BEFORE IT WAS FIXED, which is what the disposition asks for.
+  // With no contractor row the panel printed `TOTAL 100% $0`, because
+  // `scheduleReconciliation` returns `exact: true` on an empty schedule and
+  // `exact` is what prints "100%". A hundred per cent of nothing, stated as
+  // confidently as a real reconciliation.
+  //
+  // The customer grid beside it already renders its total only when there is
+  // something to total; this is the same rule on the other grid.
+  test('LEDGER 5 an EMPTY contractor schedule prints no total row at all', async () => {
+    await mount(V)
+    expect(q('contractor-total-row'),
+      'an empty schedule still prints TOTAL 100% $0').toBeNull()
+  })
+
+  test('LEDGER 5 and the total returns the moment a row exists', async () => {
+    await mount({ ...V, 'deal-cm-0-month': '1', 'deal-cm-0-pct': '100' })
+    expect(must('contractor-total-row')).toBeTruthy()
+    expect(must('contractor-total-pct').textContent).toBe('100%')
   })
 
   test('a dateless contractor row raises the version warning', async () => {

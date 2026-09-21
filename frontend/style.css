@@ -1007,7 +1007,22 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   overflow: hidden;
 }
 
+/* ── LEDGER 6: THE NOTCH IS DECLARED ONCE ──────────────────────────────
+   Hygiene round, 2026-09-21. The arrow is cut out of each chevron by a
+   `clip-path` that bites `--chevron-notch` into the LEFT edge. Any padding
+   smaller than that notch puts the text underneath the cut.
+
+   That is exactly what `.many` did: the notch is 11px and `.many` set
+   `padding: 0 10px`, one pixel short, so at 1240 the Test Bed's ten stages
+   squeezed every item and `DECOMMISSIONING` rendered as `)ECOMMISSIONING`.
+
+   FIXED AT THE MECHANISM rather than by nudging one number: the notch is a
+   variable, every clip-path and margin is derived from it, and each padding
+   is `calc(var(--chevron-notch) + ...)` so it CANNOT be set below the cut.
+   A literal 11px in one place and a literal 10px in another is Verification
+   20's two readers, in a stylesheet. */
 .chevron-item {
+  --chevron-notch: 11px;
   flex: 1;
   display: flex;
   align-items: center;
@@ -1018,19 +1033,19 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   text-transform: uppercase;
   color: var(--muted-2);
   background: var(--black);
-  clip-path: polygon(0% 0%, calc(100% - 11px) 0%, 100% 50%, calc(100% - 11px) 100%, 0% 100%, 11px 50%);
-  margin-right: -11px;
-  padding: 0 18px;
+  clip-path: polygon(0% 0%, calc(100% - var(--chevron-notch)) 0%, 100% 50%, calc(100% - var(--chevron-notch)) 100%, 0% 100%, var(--chevron-notch) 50%);
+  margin-right: calc(-1 * var(--chevron-notch));
+  padding: 0 calc(var(--chevron-notch) + 7px);
   position: relative;
   text-align: center;
   overflow: hidden;
   white-space: nowrap;
 }
 .chevron-item:first-child {
-  clip-path: polygon(0% 0%, calc(100% - 11px) 0%, 100% 50%, calc(100% - 11px) 100%, 0% 100%);
+  clip-path: polygon(0% 0%, calc(100% - var(--chevron-notch)) 0%, 100% 50%, calc(100% - var(--chevron-notch)) 100%, 0% 100%);
 }
 .chevron-item:last-child {
-  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 11px 50%);
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, var(--chevron-notch) 50%);
   margin-right: 0;
 }
 .chevron-item.done {
@@ -1063,8 +1078,18 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    actually readable there. */
 .chevron-strip.many .chevron-item {
   font-size: 10.5px;
-  padding: 0 10px;
+  /* LEDGER 6: WAS `0 10px`, one pixel INSIDE the 11px notch, which is what
+     clipped `DECOMMISSIONING` to `)ECOMMISSIONING` at 1240. Derived from the
+     notch now, so it cannot be set under the cut again. */
+  padding: 0 calc(var(--chevron-notch) + 2px);
   white-space: normal;
+  /* AND A SINGLE LONG WORD MUST BE ALLOWED TO BREAK, or padding cannot save
+     it. `white-space: normal` wraps between words; `DECOMMISSIONING` is ONE
+     word wider than its content box at 1240, so it overflowed the padding and
+     the clip-path cut its first character whatever the padding was. Measured:
+     with the notch fix alone it still started 2px inside the cut. The strip is
+     already two lines tall for exactly this reason. */
+  overflow-wrap: anywhere;
   line-height: 1.3;
   text-align: center;
 }
@@ -1606,10 +1631,44 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .terms-field-row.terms-wht-pair {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
-  flex-wrap: nowrap;
+  gap: 12px;
+  /* ── LEDGER 8: IT WRAPS RATHER THAN OVERFLOWS, AND THE NUMBERS ARE WHY ──
+     The ruling is ONE LINE, in the order WHT, gross-up, GST. Measured with
+     all three on the line and the labels stacked: 155 + 201 + 75 plus gaps
+     is 463px against roughly 430px of usable card, so it is about 33px
+     short. `nowrap` does not make it fit, it makes it hang 18px OUTSIDE the
+     card, which is worse than the wrap it was avoiding.
+
+     THE THREE WAYS TO CLOSE 33px ARE ALL DESIGN CHOICES, so they are
+     reported rather than taken: shorten the gross-up label, which is 201px
+     of the 463 and by far the largest piece; let the Tax card span two
+     columns where two exist, which is free at 1440 and impossible at 1240;
+     or raise `.terms-cards`'s deliberate 460px cap, which dresses every
+     card in the section.
+
+     The ORDER and the WORDING are ruled and are built. The single line is
+     what the card cannot afford today. */
+  flex-wrap: wrap;
 }
 .terms-field-row.terms-wht-pair .deal-field { flex: 0 0 auto; }
+/* ── LEDGER 8: THE LABEL SITS ABOVE ITS BOX, AND THAT IS WHAT MAKES ONE
+   LINE POSSIBLE. `.deal-field` has no base layout rule, only scoped
+   variants, so inside this flex row it laid out as an inline label: the
+   words sat BESIDE the box and each item carried its full label width.
+
+   MEASURED with the labels inline and all three items on the line: 219 +
+   201 + 138 plus gaps is 590px against a 460px card, so the row ran 146px
+   OUTSIDE its own card at both widths. Stacking the label puts each item at
+   the width of its WIDER half instead of the sum of both.
+
+   NOT SOLVED BY WIDENING THE CARD: `.terms-cards` caps at 460px on purpose,
+   and that cap dresses every card in the section. */
+.terms-field-row.terms-wht-pair .deal-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
 /* SPECIFICITY, MEASURED RATHER THAN ASSUMED. Written as
    `.terms-field-row.terms-wht-pair input` this ties with
    `.deal-section input:not(.is-computed)` at (0,2,1) and LOSES on source
@@ -1617,7 +1676,13 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    measured 300.484px against a declared 64. Naming the input by its id wins
    on specificity rather than on position, which is the part that survives
    somebody moving a block. */
-#deal-whtPct { width: 64px; }
+/* LEDGER 8: 75px, NOT 64. A two-digit rate needs 17px of glyphs, but the box
+   also has to show what an EMPTY one means, and "not recorded" measures 75px
+   including the input's own padding. At 64px both boxes clipped it to
+   "not recorde" - which is walk 5's recorded departure, now closed by giving
+   the wording the room it needs rather than by shortening the wording. */
+#deal-whtPct,
+#deal-gstPct { width: 75px; }
 
 /* ── W5: THE INSTALLATION FIELDS ARE SIZED TO THEIR DATA ────────────────
    Measured at 144px on a 1440 screen and 46px at 1240 - the same field

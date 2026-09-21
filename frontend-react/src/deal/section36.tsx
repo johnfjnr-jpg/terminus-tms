@@ -58,15 +58,19 @@ export function StructuralTermsSection({ renderField, achievedMargin, payload, g
               of one decision were split by a pass-through that has nothing to
               do with either. Whether tax is grossed up is a fact ABOUT the
               withholding rate and reads as one thing beside it. */}
+          {/* LEDGER 8, 2026-09-21: ONE LINE, in this order - the withholding
+              rate, the gross-up selector, then GST. W4 had already put the
+              first two together, for the reason above; this brings GST onto
+              the same line so the whole tax position reads across rather than
+              down. Both rates are two-digit fields and the selector is short,
+              so the line holds all three at both widths. */}
           {card.title === 'Tax Adjustments'
             ? (
-              <>
-                <div className="terms-field-row terms-wht-pair">
-                  {renderField('deal-whtPct')}
-                  {grossUpToggle}
-                </div>
-                {row('deal-gstPct')}
-              </>)
+              <div className="terms-field-row terms-wht-pair">
+                {renderField('deal-whtPct')}
+                {grossUpToggle}
+                {renderField('deal-gstPct')}
+              </div>)
             : null}
           {/* THE ACHIEVED MARGIN SITS AMONG THE CONTROLS THAT MOVE IT. Round 39
               measured 578px between the margin controls and the figure they
