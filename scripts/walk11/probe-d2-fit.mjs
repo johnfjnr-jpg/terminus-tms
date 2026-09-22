@@ -148,8 +148,40 @@ try {
     check(m.cardW <= 460, 'the Tax card is a STANDARD card, not a spanning one', `${m.cardW}px`)
     check(m.lines === 1, 'the tax line is ONE line', `${m.lines} line(s), ${m.sum}px into ${m.usable}px`)
     console.log(`  headroom: ${m.usable - m.sum}px`)
+
+    // THE POSITION IS A RELATIONSHIP BETWEEN TWO CARDS, not a property of one
+    // (Verification 4). "Beside Currency" is only answerable by comparing the
+    // two boxes, and at one column it is answerable only as "directly below".
+    const pos = await p.evaluate(() => {
+      const cards = [...document.querySelectorAll('.terms-cards > .pg-card')].map((c) => {
+        const r = c.getBoundingClientRect()
+        return { t: c.querySelector('.pg-card-title')?.textContent.trim(),
+          x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width) }
+      })
+      const cur = cards.find((c) => c.t === 'Currency')
+      const tax = cards.find((c) => c.t === 'Tax Adjustments')
+      return { cards, sameRow: cur && tax ? cur.y === tax.y : null,
+        order: cards.map((c) => c.t),
+        taxFollowsCurrency: cards.findIndex((c) => c.t === 'Tax Adjustments')
+          === cards.findIndex((c) => c.t === 'Currency') + 1 }
+    })
+    console.log(`  cards: ${pos.cards.map((c) => `${c.t} @${c.x},${c.y}`).join('  |  ')}`)
+    check(pos.taxFollowsCurrency, 'Tax Adjustments takes the grid position immediately after Currency')
+    console.log(`  Currency and Tax on the SAME ROW: ${pos.sameRow}`
+      + (pos.sameRow ? '' : '  (a 3-card, 2-column grid puts the third on row 2)'))
+
+    await p.evaluate(() => document.querySelector('.terms-cards')?.scrollIntoView({ block: 'center' }))
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    // MEASURE FIRST, CAPTURE SECOND, and capture the PAGE: an element capture
+    // suppresses the scrollbar and does not put it back.
+    const shot = `${OUT}d2-${TAG}-${width}.png`
+    await p.screenshot({ path: shot })
+    const inView = await p.evaluate(() => {
+      const r = document.querySelector('.terms-cards').getBoundingClientRect()
+      return r.top < innerHeight && r.bottom > 0 && r.width > 0
+    })
+    check(inView, `the cards are inside the captured region at ${width}`, shot)
   }
-  await p.screenshot({ path: `${OUT}d2-${TAG}.png`, fullPage: false })
 } finally { await b.close() }
 const bad = checks.filter((c) => !c).length
 console.log(`\n${checks.length - bad}/${checks.length} checks passed`)

@@ -1642,7 +1642,10 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    creates an IMPLICIT second column and puts half the card outside the
    grid. `1 / -1` takes whatever columns exist, which is two where there are
    two and one where there is one. */
-.terms-cards .pg-card--wide { grid-column: 1 / -1; }
+/* WALK 11 D2: `.pg-card--wide` is GONE, not merely unused. John's ruling
+   superseded the walk-8 span, and a class with no applier is the escape route
+   Verification 7's retirement clause is about. Nothing in the tree carries the
+   name now, in markup or in a calibration anchor. */
 /* One field per row: label + dimmed note on the left (reuses
    .pg-item-name/.pg-item-note, the same pair already used for the
    Hw/Hosting pricing cards' own item column), input/select fixed-width
@@ -1685,8 +1688,19 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
      or raise `.terms-cards`'s deliberate 460px cap, which dresses every
      card in the section.
 
-     The ORDER and the WORDING are ruled and are built. The single line is
-     what the card cannot afford today. */
+     WALK 11 D2 CLOSED IT A FOURTH WAY THE LIST DID NOT CONTAIN: shorten the
+     WHT label. Measured, `Withholding Tax %` was 155px against a 90px box,
+     so 65px of that item was LABEL. `WHT %` returns the item to its box and
+     the row to one line inside a standard 460px card at both widths.
+
+     The list above is left standing because it is the reasoning walk 8's
+     span rested on, and the premise that failed is visible in it: every
+     option named assumed the WHT item's width was fixed. It was not.
+
+     `flex-wrap: wrap` STAYS. It is not what makes the line fit - the label
+     is - and it is the difference between a future overflow wrapping and
+     hanging outside the card. The probe asserts ONE LINE, so a wrap is a
+     red rather than a silent degradation. */
   flex-wrap: wrap;
 }
 .terms-field-row.terms-wht-pair .deal-field { flex: 0 0 auto; }
