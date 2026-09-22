@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deal sheet, option C mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#1A1B23; --panel:#15161C; --line:#2A2C36; --line-soft:#22242d;
+  --text:#F2F2F0; --dim:#8A8D98; --faint:#5C5F6A;
+  --green:#66CC99; --amber:#EDB45A; --red:#e06c6c;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:'Satoshi','General Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:calc(96px + env(safe-area-inset-top,0px))}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.45}
+.wrap{max-width:980px;margin:0 auto;padding:20px 20px 80px}
+
+.masthead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin:8px 0 4px}
+h1{font-size:22px;font-weight:600;margin:0}
+h1 small{display:block;font-family:var(--mono);font-size:11px;font-weight:400;color:var(--dim);letter-spacing:.08em;margin-top:4px}
+.mock-tag{font-family:var(--mono);font-size:10px;color:var(--amber);border:1px solid var(--amber);padding:3px 8px;letter-spacing:.1em}
+
+/* the reconciling strip: stays visible while any drawer is edited */
+.strip{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:14px 0 22px}
+.strip>div{padding:10px 14px;border-right:1px solid var(--line-soft)}
+.strip>div:last-child{border-right:0}
+.strip .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--dim)}
+.strip .v{font-family:var(--mono);font-size:17px;margin-top:3px}
+#s-margin.good{color:var(--green)} #s-margin.low{color:var(--amber)}
+.strip .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
+
+.sheet{border:1px solid var(--line);background:var(--panel)}
+.sec{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--green);
+  padding:12px 16px 8px;border-bottom:1px solid var(--line-soft)}
+.sec.mid{border-top:1px solid var(--line)}
+
+.row{border-bottom:1px solid var(--line-soft)}
+.row-line{display:grid;grid-template-columns:18px 1fr 130px 130px 130px;gap:10px;align-items:baseline;
+  padding:11px 16px;cursor:default}
+.row.has-drawer .row-line{cursor:pointer}
+.row.has-drawer .row-line:hover{background:#191a22}
+.row.has-drawer .row-line:focus-visible{outline:2px solid var(--green);outline-offset:-2px}
+.tw{font-family:var(--mono);font-size:11px;color:var(--faint);transition:transform .15s}
+.row.open .tw{transform:rotate(90deg)}
+.lbl{font-size:14px}
+.lbl small{display:block;font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:1px}
+.num{font-family:var(--mono);font-size:13px;text-align:right;color:var(--text)}
+.num.dash{color:var(--faint)}
+.num.neg{color:var(--dim)}
+.colhead{display:grid;grid-template-columns:18px 1fr 130px 130px 130px;gap:10px;
+  padding:10px 16px 6px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim)}
+.colhead span{text-align:right}
+.total .row-line{background:#191b21}
+.total .lbl{font-weight:600}
+.total .num{font-weight:700}
+.grand .num.money{color:var(--green)}
+.result .row-line{grid-template-columns:18px 1fr 130px}
+.margin-final{font-family:var(--mono);font-size:20px;font-weight:700;text-align:right}
+.margin-final.good{color:var(--green)} .margin-final.low{color:var(--amber)}
+
+/* drawers: the drivers live under the line they drive */
+.drawer{display:none;background:#12131a;border-top:1px dashed var(--line);padding:14px 16px 16px 44px}
+.row.open .drawer{display:block}
+.drawer table{border-collapse:collapse;width:100%;max-width:640px}
+.drawer th{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--dim);
+  text-align:right;font-weight:400;padding:4px 10px;border-bottom:1px solid var(--line-soft)}
+.drawer th:first-child{text-align:left}
+.drawer td{font-family:var(--mono);font-size:12.5px;text-align:right;padding:6px 10px;
+  border-bottom:1px solid var(--line-soft);color:var(--text)}
+.drawer td:first-child{text-align:left}
+.drawer td small{display:block;font-size:10px;color:var(--faint)}
+.drawer tr.sum td{border-bottom:0;font-weight:700}
+.drawer .note{font-family:var(--mono);font-size:11px;color:var(--faint);margin:10px 0 0;max-width:640px;line-height:1.6}
+input.m{width:56px;background:var(--bg);border:1px solid var(--line);color:var(--text);
+  font-family:var(--mono);font-size:12.5px;text-align:right;padding:4px 6px}
+input.m:focus{outline:1px solid var(--green);border-color:var(--green)}
+.hint{font-family:var(--mono);font-size:11px;color:var(--dim);margin:14px 2px 0;line-height:1.7}
+@media (max-width:720px){
+  .row-line,.colhead{grid-template-columns:14px 1fr 92px 92px 92px;gap:6px;padding:10px 10px}
+  .num,.drawer td{font-size:11.5px}
+  .drawer{padding-left:12px}
+  .strip{grid-template-columns:repeat(2,1fr)}
+  .strip>div:nth-child(2){border-right:0}
+}
+@media (prefers-reduced-motion:reduce){.tw{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <h1>Deal sheet<small>LOONEY TUNES CARTOONS · 24 UNITS · USD · 60 MONTHS</small></h1>
+    <span class="mock-tag">OPTION C MOCKUP · NOT WIRED</span>
+  </div>
+
+  <div class="strip" id="strip">
+    <div><div class="k">REVENUE</div><div class="v" id="s-rev"></div></div>
+    <div><div class="k">TOTAL COST</div><div class="v" id="s-cost"></div></div>
+    <div><div class="k">PROFIT</div><div class="v" id="s-profit"></div></div>
+    <div><div class="k">ACHIEVED MARGIN</div><div class="v" id="s-margin"></div><div class="sub" id="s-target"></div></div>
+  </div>
+
+  <div class="sheet">
+    <div class="colhead"><span></span><span style="text-align:left">LINE</span><span>HARDWARE</span><span>HOSTING</span><span>TOTAL</span></div>
+
+    <div class="sec">MONEY IN · click a line to open its drivers</div>
+
+    <!-- hardware -->
+    <div class="row has-drawer" id="r-hw">
+      <div class="row-line" role="button" tabindex="0" aria-expanded="false">
+        <span class="tw">▶</span>
+        <span class="lbl">One-off price, hardware and warranty<small>drivers: unit costs and per-line margin</small></span>
+        <span class="num" id="hw-price"></span><span class="num dash">–</span><span class="num" id="hw-price2"></span>
+      </div>
+      <div class="drawer">
+        <table>
+          <tr><th>ITEM</th><th>COST</th><th>MARGIN %</th><th>PRICE</th></tr>
+          <tr><td>SafeSight<small>20 units × $8,000</small></td><td>$160,000</td>
+              <td><input class="m" id="m-ss" type="number" value="30" min="0" max="90"></td><td id="p-ss"></td></tr>
+          <tr><td>AQ Sensor<small>2 units × $2,000</small></td><td>$4,000</td>
+              <td><input class="m" id="m-aq" type="number" value="30" min="0" max="90"></td><td id="p-aq"></td></tr>
+          <tr><td>HEMIR<small>2 units × $100,000</small></td><td>$200,000</td>
+              <td><input class="m" id="m-he" type="number" value="30" min="0" max="90"></td><td id="p-he"></td></tr>
+          <tr><td>Warranty provision<small>2% of SafeSight units, at cost</small></td><td>$10,000</td>
+              <td style="color:var(--faint)">at cost</td><td>$10,000</td></tr>
+          <tr class="sum"><td>Hardware price</td><td>$374,000</td><td></td><td id="p-hwsum"></td></tr>
+        </table>
+        <p class="note">Change a margin and watch the line, the revenue and the strip above move together. One derivation feeds every reader.</p>
+      </div>
+    </div>
+
+    <!-- installation -->
+    <div class="row has-drawer" id="r-in">
+      <div class="row-line" role="button" tabindex="0" aria-expanded="false">
+        <span class="tw">▶</span>
+        <span class="lbl">Installation<small>drivers: contractor cost, margin, milestone schedule</small></span>
+        <span class="num" id="in-price"></span><span class="num dash">–</span><span class="num" id="in-price2"></span>
+      </div>
+      <div class="drawer">
+        <table>
+          <tr><th>DRIVER</th><th>COST</th><th>MARGIN %</th><th>PRICE</th></tr>
+          <tr><td>Lump sum contractor<small>Terminus contractor, lump sum</small></td><td>$200,000</td>
+              <td><input class="m" id="m-in" type="number" value="30" min="0" max="90"></td><td id="p-in"></td></tr>
+        </table>
+        <table style="margin-top:12px">
+          <tr><th>MONTH</th><th>MILESTONE</th><th>%</th><th>AMOUNT</th></tr>
+          <tr><td>2</td><td style="text-align:right">Contract start</td><td>40</td><td id="in-a1"></td></tr>
+          <tr><td>6</td><td style="text-align:right">Installation complete</td><td>40</td><td id="in-a2"></td></tr>
+          <tr><td>12</td><td style="text-align:right">Go live</td><td>20</td><td id="in-a3"></td></tr>
+        </table>
+        <p class="note">This is walk-11's D3 living where it belongs: installation margin adjustable at the line it prices, schedule underneath it.</p>
+      </div>
+    </div>
+
+    <!-- hosting -->
+    <div class="row has-drawer" id="r-ho">
+      <div class="row-line" role="button" tabindex="0" aria-expanded="false">
+        <span class="tw">▶</span>
+        <span class="lbl">Hosting, 60 months<small>drivers: per-unit monthly rates and margin</small></span>
+        <span class="num dash">–</span><span class="num" id="ho-price"></span><span class="num" id="ho-price2"></span>
+      </div>
+      <div class="drawer">
+        <table>
+          <tr><th>ITEM</th><th>COST / MONTH</th><th>MARGIN %</th><th>PRICE / MONTH</th></tr>
+          <tr><td>SafeSight<small>20 × $200</small></td><td>$4,000</td>
+              <td rowspan="3" style="vertical-align:middle"><input class="m" id="m-ho" type="number" value="30" min="0" max="90"></td>
+              <td rowspan="3" style="vertical-align:middle" id="p-homo"></td></tr>
+          <tr><td>AQ Sensor<small>2 × $100</small></td><td>$200</td></tr>
+          <tr><td>HEMIR<small>2 × $500</small></td><td>$1,000</td></tr>
+          <tr class="sum"><td>Over 60 months</td><td>$312,000</td><td></td><td id="p-hosum"></td></tr>
+        </table>
+        <p class="note">Annual in advance: five year-rows and their total would sit here too, exactly as the payment panel shows them today.</p>
+      </div>
+    </div>
+
+    <!-- revenue -->
+    <div class="row total grand">
+      <div class="row-line">
+        <span class="tw"></span>
+        <span class="lbl">Revenue, contract value net</span>
+        <span class="num" id="rev-hw"></span><span class="num" id="rev-ho"></span><span class="num money" id="rev-tot"></span>
+      </div>
+    </div>
+
+    <div class="sec mid">MONEY OUT</div>
+
+    <div class="row"><div class="row-line"><span class="tw"></span>
+      <span class="lbl">Hardware cost</span><span class="num neg">- $364,000</span><span class="num dash">–</span><span class="num neg">- $364,000</span></div></div>
+    <div class="row"><div class="row-line"><span class="tw"></span>
+      <span class="lbl">Warranty provision, at cost</span><span class="num neg">- $10,000</span><span class="num dash">–</span><span class="num neg">- $10,000</span></div></div>
+    <div class="row"><div class="row-line"><span class="tw"></span>
+      <span class="lbl">Installation cost</span><span class="num neg">- $200,000</span><span class="num dash">–</span><span class="num neg">- $200,000</span></div></div>
+    <div class="row"><div class="row-line"><span class="tw"></span>
+      <span class="lbl">Hosting cost, 60 months</span><span class="num dash">–</span><span class="num neg">- $312,000</span><span class="num neg">- $312,000</span></div></div>
+
+    <div class="row has-drawer" id="r-po">
+      <div class="row-line" role="button" tabindex="0" aria-expanded="false">
+        <span class="tw">▶</span>
+        <span class="lbl">PO factoring interest<small>drivers: factored milestones and rate</small></span>
+        <span class="num dash">–</span><span class="num dash">–</span><span class="num neg">- $236,708</span>
+      </div>
+      <div class="drawer">
+        <p class="note">In the real build this drawer holds the factoring basis: which milestone receipts are factored, the rate, and the interest computed from the same payment schedule the revenue lines carry. Static in this mockup.</p>
+      </div>
+    </div>
+
+    <div class="row has-drawer" id="r-wht">
+      <div class="row-line" role="button" tabindex="0" aria-expanded="false">
+        <span class="tw">▶</span>
+        <span class="lbl">Withholding tax, grossed up and recovered<small>drivers: WHT %, gross-up, GST</small></span>
+        <span class="num dash">–</span><span class="num dash">–</span><span class="num">$0 net</span>
+      </div>
+      <div class="drawer">
+        <p class="note">WHT 15%, gross up enabled, GST 9%. Grossed up and recovered from the customer, so the net effect on the deal is zero; the drawer is where that stops being mysterious.</p>
+      </div>
+    </div>
+
+    <div class="row total">
+      <div class="row-line"><span class="tw"></span>
+        <span class="lbl">Total cost</span><span class="num"></span><span class="num"></span><span class="num neg" id="cost-tot"></span></div>
+    </div>
+
+    <div class="sec mid">RESULT</div>
+    <div class="row total result"><div class="row-line"><span class="tw"></span>
+      <span class="lbl">Profit</span><span class="num" id="profit"></span></div></div>
+    <div class="row total result" style="border-bottom:0"><div class="row-line"><span class="tw"></span>
+      <span class="lbl">Achieved margin <small id="tgt-note"></small></span><span class="margin-final" id="margin"></span></div></div>
+  </div>
+
+  <p class="hint">HOW TO READ THIS MOCKUP · Every line with ▶ opens its drivers underneath it. Change any margin and the line, the revenue, the profit and the sticky strip recompute together. The long scroll of separate panels becomes one statement you read top to bottom and edit in place.</p>
+</div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const fmt=n=>'$'+Math.round(n).toLocaleString('en-US');
+const TARGET=30;
+const HW_COST=364000, WARR=10000, IN_COST=200000, HO_COST_MO=5200, MONTHS=60, PO=236708;
+const price=(c,m)=>c/(1-Math.min(Math.max(m,0),90)/100);
+
+function recalc(){
+  const mss=+$('m-ss').value||0, maq=+$('m-aq').value||0, mhe=+$('m-he').value||0;
+  const min_=+$('m-in').value||0, mho=+$('m-ho').value||0;
+  const pss=price(160000,mss), paq=price(4000,maq), phe=price(200000,mhe);
+  const hw=pss+paq+phe+WARR;
+  const inst=price(IN_COST,min_);
+  const homo=price(HO_COST_MO,mho), ho=homo*MONTHS;
+  const rev=hw+inst+ho;
+  const cost=HW_COST+WARR+IN_COST+HO_COST_MO*MONTHS+PO;
+  const profit=rev-cost, margin=rev?profit/rev*100:0;
+
+  $('p-ss').textContent=fmt(pss); $('p-aq').textContent=fmt(paq); $('p-he').textContent=fmt(phe);
+  $('p-hwsum').textContent=fmt(hw);
+  $('hw-price').textContent=fmt(hw); $('hw-price2').textContent=fmt(hw);
+  $('p-in').textContent=fmt(inst);
+  $('in-price').textContent=fmt(inst); $('in-price2').textContent=fmt(inst);
+  $('in-a1').textContent=fmt(inst*.4); $('in-a2').textContent=fmt(inst*.4); $('in-a3').textContent=fmt(inst*.2);
+  $('p-homo').textContent=fmt(homo)+' / mo'; $('p-hosum').textContent=fmt(ho);
+  $('ho-price').textContent=fmt(ho); $('ho-price2').textContent=fmt(ho);
+  $('rev-hw').textContent=fmt(hw+inst); $('rev-ho').textContent=fmt(ho); $('rev-tot').textContent=fmt(rev);
+  $('cost-tot').textContent='- '+fmt(cost).slice(1).replace(/^/,'$');
+  $('cost-tot').textContent='- '+fmt(cost);
+  $('profit').textContent=fmt(profit);
+  const m=$('margin'); m.textContent=margin.toFixed(1)+'%';
+  m.className='margin-final '+(margin>=TARGET?'good':'low');
+  $('tgt-note').textContent='against target '+TARGET+'%'+(margin<TARGET?', down '+(TARGET-margin).toFixed(1)+' pts':'');
+  $('s-rev').textContent=fmt(rev); $('s-cost').textContent=fmt(cost); $('s-profit').textContent=fmt(profit);
+  const sm=$('s-margin'); sm.textContent=margin.toFixed(1)+'%';
+  sm.className='v '+(margin>=TARGET?'good':'low');
+  $('s-target').textContent='TARGET '+TARGET+'%';
+}
+
+document.querySelectorAll('.row.has-drawer .row-line').forEach(line=>{
+  const toggle=()=>{ const r=line.parentElement; r.classList.toggle('open');
+    line.setAttribute('aria-expanded', r.classList.contains('open')); };
+  line.addEventListener('click',e=>{ if(e.target.tagName!=='INPUT') toggle(); });
+  line.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target===line){e.preventDefault();toggle();} });
+});
+document.querySelectorAll('input.m').forEach(i=>i.addEventListener('input',recalc));
+recalc();
+document.getElementById('r-hw').classList.add('open');
+document.querySelector('#r-hw .row-line').setAttribute('aria-expanded','true');
+</script>
+</body>
+</html>

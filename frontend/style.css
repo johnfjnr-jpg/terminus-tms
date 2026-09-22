@@ -8006,3 +8006,195 @@ textarea.lead-field-input,
   caret-color: var(--white);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* ── DEAL SHEET STATEMENT (C1, read-only). Option C, John 2026-09-22 ──────
+
+   ── THE PREFIX IS `stmt-`, AND IT WAS `ds-` FOR ONE MEASUREMENT ─────────
+   `.ds-row` ALREADY EXISTS at line 2064, six thousand lines above: it is the
+   approval page's deal-sheet row, `display: flex`, worn by `ApprovalRow.tsx`
+   and listed in `adopted-identity.ts`. "ds" means deal sheet there too, which
+   is exactly why the collision was easy to walk into.
+   The cost was not theoretical: my `.ds-row` inherited `display: flex`, so
+   every `.ds-row-line` became a flex ITEM and shrank to its content. The
+   header sat 327px from its own column at 1440 and 227px at 1240, and the
+   probe caught it as a RELATIONSHIP - the header's right edge against its
+   column's - which is the one measure that could see it. A rule asserting
+   `display: grid` would have passed: the grid was there, in a box the wrong
+   size.
+   Renamed WHOLE, not just the colliding member: a partial rename leaves the
+   trap for whoever adds the next `ds-` class. */
+
+   MONEY IN / MONEY OUT / RESULT, read top to bottom, each line's drivers in a
+   drawer underneath it, and a reconciling strip pinned while the tab scrolls.
+
+   EVERY COLOUR IS AN EXISTING TOKEN. The mockup declares its own palette and
+   its values are this estate's: its `--amber` is #EDB45A, which is
+   `--attention`, the one amber in this stylesheet. Nothing is minted here.
+
+   THE DRAWER IS NEVER GIVEN A `display`. It is hidden by the `hidden`
+   ATTRIBUTE, and `scripts/tests/hidden-not-overridden.test.mjs` refuses a
+   rule that gives a display to a class the application hides that way -
+   because `display: block` beats the user agent's `[hidden] { display: none }`
+   and the element renders while every attribute assertion passes. A div is
+   already block; there is nothing to declare. */
+.ds { margin-top: 4px; }
+
+/* THE EXISTING SHEET, BEHIND A CLOSED DISCLOSURE. C1 puts the statement in
+   the summary's position without retiring the matrix, because the matrix's
+   own presentation contract is what C2 has to decide about. Closed by
+   default, so the page a reviewer opens is the statement. */
+.stmt-legacy { margin-top: 22px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+.stmt-legacy > summary {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+.stmt-legacy > summary:hover { color: var(--white); }
+.stmt-legacy[open] > summary { margin-bottom: 12px; }
+
+.stmt-strip {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 20px;
+}
+.stmt-strip > div { padding: 10px 14px; border-right: 1px solid var(--hairline); }
+.stmt-strip > div:last-child { border-right: 0; }
+.stmt-k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--muted); }
+.stmt-v { font-family: var(--mono); font-size: 17px; margin-top: 3px; color: var(--white); }
+.stmt-v.on-target { color: var(--green); }
+.stmt-v.under-target { color: var(--attention); }
+.stmt-sub { font-family: var(--mono); font-size: 10px; color: var(--muted-2); margin-top: 2px; }
+
+.stmt-sheet { border: 1px solid var(--hairline-strong); background: var(--black); }
+
+/* FIVE TRACKS, FOUR FIGURES. The first is the twisty, which is why the label
+   column starts at track two and the head below uses the same template: a
+   header that does not share its rows' track list is the drift walk 4's O5/O6
+   is about. */
+.stmt-colhead,
+.stmt-row-line {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) repeat(4, minmax(0, 118px));
+  gap: 10px;
+  align-items: baseline;
+}
+.stmt-colhead {
+  padding: 10px 16px 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.stmt-colhead span { text-align: right; }
+.stmt-colhead .stmt-colhead-line { text-align: left; }
+
+.stmt-sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--green);
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+.stmt-sec.stmt-mid { border-top: 1px solid var(--hairline-strong); }
+
+.stmt-row { border-bottom: 1px solid var(--hairline); }
+.stmt-row.stmt-last { border-bottom: 0; }
+.stmt-row-line { padding: 11px 16px; }
+.stmt-has-drawer > .stmt-row-line { cursor: pointer; }
+.stmt-has-drawer > .stmt-row-line:hover { background: rgba(242,242,240,0.03); }
+.stmt-has-drawer > .stmt-row-line:focus-visible { outline: 1px solid var(--green); outline-offset: -1px; }
+
+.stmt-tw {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-2);
+  transition: transform 0.15s;
+  display: inline-block;
+}
+.stmt-open > .stmt-row-line .stmt-tw { transform: rotate(90deg); }
+
+.stmt-lbl { font-size: 14px; color: var(--white); min-width: 0; }
+.stmt-lbl small {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted-2);
+  margin-top: 2px;
+}
+.stmt-num { font-family: var(--mono); font-size: 13px; text-align: right; color: var(--white); }
+.stmt-num.stmt-dash { color: var(--muted-2); }
+.stmt-num.stmt-neg { color: var(--muted); }
+
+.stmt-total > .stmt-row-line { background: rgba(242,242,240,0.03); }
+.stmt-total .stmt-lbl { font-weight: 600; }
+.stmt-total .stmt-num { font-weight: 700; }
+.stmt-grand .stmt-num:last-child { color: var(--green); }
+.stmt-result > .stmt-row-line { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 118px); }
+.stmt-margin-final { font-family: var(--mono); font-size: 20px; font-weight: 700; text-align: right; }
+.stmt-margin-final.on-target { color: var(--green); }
+.stmt-margin-final.under-target { color: var(--attention); }
+
+.stmt-drawer {
+  background: rgba(0,0,0,0.25);
+  border-top: 1px dashed var(--hairline);
+  padding: 14px 16px 16px 44px;
+}
+.stmt-drawer-table { border-collapse: collapse; width: 100%; max-width: 640px; }
+.stmt-drawer-second { margin-top: 12px; }
+.stmt-drawer-table th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-align: right;
+  font-weight: 400;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.stmt-drawer-table th:first-child { text-align: left; }
+.stmt-drawer-table td {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--white);
+}
+.stmt-drawer-table td:first-child { text-align: left; }
+.stmt-drawer-table tr.stmt-sum td { border-bottom: 0; font-weight: 700; }
+.stmt-note {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-2);
+  margin: 10px 0 0;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* AT 1240 THE FOUR MONEY COLUMNS DO NOT ALL FIT BESIDE A READABLE LABEL.
+   The mockup's own answer at its narrow width is the same one: tighten the
+   tracks rather than drop a figure, because a statement with a column missing
+   is not the thing being reviewed. */
+@media (max-width: 1400px) {
+  .stmt-colhead,
+  .stmt-row-line { grid-template-columns: 16px minmax(0, 1fr) repeat(4, minmax(0, 96px)); gap: 8px; }
+  .stmt-result > .stmt-row-line { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 96px); }
+  .stmt-num { font-size: 12px; }
+  .stmt-drawer { padding-left: 24px; }
+}
+
+
+

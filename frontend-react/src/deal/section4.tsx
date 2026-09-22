@@ -31,6 +31,8 @@ export function SummaryNotices({ n }: { n: Notices }) {
   )
 }
 import type { InstallVisibility } from './installation'
+import { DealStatement } from './DealStatement'
+import type { Statement } from './statement'
 // THE SAME PRESENTERS THE VANILLA USES, never a second expression of the rule.
 // perMonthFigure is the one wording rule and it is shared with the
 // over-the-term labels durationPresentation produces, so the two surfaces
@@ -424,8 +426,10 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
 
 export function DealSummarySection({
   result, payload, values, onMargin, matrix, notices, install, basis,
-  hostingPriceMode, onHostingPriceMode,
+  hostingPriceMode, onHostingPriceMode, statement,
 }: {
+  /** C1: the read-only statement. Null while the deal has not computed. */
+  statement: Statement | null
   result: PricingResult
   payload: Record<string, unknown>
   values: Record<string, string | undefined>
@@ -454,13 +458,43 @@ export function DealSummarySection({
         </button>
       </div>
 
+      {/* ── THE STATEMENT IS FULL WIDTH, ABOVE THE ROW ───────────────────
+          It was inside `.deal-summary-col`, which is HALF the width once the
+          detail disclosure is open. Measured there: the column is 628px, and
+          18 + four 118px money columns + five 10px gaps leaves 88px for the
+          label - so "One-off price, hardware and warranty" set one word per
+          line and the sheet was unreadable at the exact moment somebody has
+          the pricing cards open beside it.
+          Found by opening the screenshot. Every assertion passed on it: the
+          headers sat over their columns to the pixel, the strip agreed with
+          the sheet, the drawers opened. None of them is about whether a label
+          is legible, which is Verification 4's whole point. */}
+      {statement ? <DealStatement statement={statement} /> : null}
+
       {/* B2: `detail-open` goes on the ROW. The row has to become two columns,
           and hiding the panel alone leaves a one-column grid with a gap. */}
       <div className={`deal-summary-row${open ? ' detail-open' : ''}`} id="deal-summary-row">
         <div className="deal-summary-col">
           <p className="label">Deal Sheet (USD) &middot; <span id="deal-sheet-units"
             data-testid="deal-sheet-units">{result?.hardware?.totalUnits ?? 0}</span> units</p>
-          <div className="deal-panel" id="deal-panel">{matrix}</div>
+          {/* ── C1: THE STATEMENT TAKES THE SUMMARY'S POSITION ────────────
+              Option C, read-only. It renders from `buildDealStatement`, which
+              reads the same expressions `buildDealRows` does, so the two
+              cannot disagree - and a test asserts them EQUAL figure by figure
+              rather than trusting the sentence.
+
+              THE MATRIX IS NOT RETIRED, AND THAT IS DELIBERATE. Retiring it
+              would retire its CONTRACT: eleven assertions in
+              deal-panel.test.tsx are about the matrix's own presentation -
+              full-width rows, memo rows, group cells - and the statement has
+              no such concepts to re-point them onto. That is a decision about
+              what the deal sheet IS, and it belongs to C2, after John has a
+              verdict on this page. It sits in a CLOSED disclosure underneath,
+              so the default view is the statement alone. */}
+          <details className="stmt-legacy" data-testid="stmt-legacy">
+            <summary>The existing deal sheet</summary>
+            <div className="deal-panel" id="deal-panel">{matrix}</div>
+          </details>
           <span className="field-note">Contract prices are quoted exclusive of GST. GST is added to the invoice and passed straight through, so the rate never touches margin.</span>
           {notices}
         </div>
@@ -489,3 +523,4 @@ export function DealSummarySection({
     </section>
   )
 }
+
