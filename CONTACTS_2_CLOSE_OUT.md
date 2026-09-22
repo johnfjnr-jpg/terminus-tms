@@ -1,69 +1,103 @@
-# Contacts polish (walk 10): close-out
+# Contacts polish (walk 10): PARKED, built but ungated
 
 Branch `contacts-2`, off `main` at `ea0fa96`, confirmed equal to `origin/main`
-by `git ls-remote` against the real remote rather than the local tracking ref.
+by `git ls-remote`.
 
-Rule 18 governs: this round ends **"ready for John's push"** and nothing is
-pushed from the session.
+**The round parks as built-but-ungated, on John's own stop condition.** `main`
+is untouched at `ea0fa96`. Nothing merged, nothing pushed.
 
 ---
 
-## Item 1: the alignment, and what it actually was
+## The three items are built and independently green
 
-**The first measurement did not reproduce it.** Every header BOX and every
-header GLYPH read drift 0 against its column, at 1440 and 1240, resting and
-armed. Both axes, exact.
-
-**The misalignment is one column DOWN, not across.** The base rule gives every
-`select` `width: 100%` and a flex item shrinks by default, so each row's
-stance select took whatever its own row had left - and Record is `hidden`
-until a stance is changed.
-
-| | armed row | the other three |
+| | State | Evidence |
 |---|---|---|
-| stance select | 104px | **183px** |
-| note starts at | x 665 | **x 744** |
+| **1** header alignment | **built** | 34/34 live at 1440 and 1240; every cell and header computes `table-cell` |
+| **2** Add button treatment | **built** | `btn-sm`, and Record beside it |
+| **3** duplicated contact ids | **built** | **zero** duplicated ids anywhere in the document |
 
-A 79px step down the card, and no two rows agreeing.
+Calibrated **6/6**, every injection firing on its NAMED check, revert green.
+Pure 626/626, react 1292/1292, typecheck clean.
 
-**Fixed with stated sizes**: `flex: 0 0 auto` and a width on each control, so
-a row's layout cannot depend on what else is in that row. All four rows now
-read select 118px at x 555 and note 150px at x 679.
-
-**And the mechanism is fixed where it was fragile.** K4 made the `<td>` itself
-`display: flex`, which stops it being a table-cell: the row then carried four
-real cells and an ANONYMOUS box, and whether the header columns still
-corresponded was left to the engine. The flex row is a DIV inside the cell
-now, so headers and rows are the same columns by construction. The guard
-asserts every cell and every header computes `table-cell`.
-
-**Walk 9 removed that select width as "not load-bearing"**, having measured
-only the resting state. With three controls in the cell it is load-bearing. A
-calibration that exercises one state of two can prove a rule dead and be wrong
-about it.
+**Item 1's finding is worth keeping**: the first measurement did NOT reproduce
+the reported misalignment. Header boxes and header GLYPHS both read drift 0,
+both widths, resting and armed. What was actually wrong ran DOWN the card: the
+armed row's stance select measured 104px and the other three 183px, with the
+note starting at x 665 on one row and 744 on the rest, because a flex item
+shrinks by default and Record is hidden until a stance changes.
 
 ---
 
-## Item 2: the Add button
+## The gate: red on the same stage, twice
 
-`btn-sm`, the estate's treatment for an add-row action and what
-`tb-install-note-add` already carries. **Record takes it too**: styling one
-and leaving its neighbour a white browser default is worse than the uniform
-default it replaced.
+| | stage result | duration |
+|---|---|---|
+| first gate, dirty machine | **FAIL** `HTTP readonly-view probe` | 69,162ms |
+| second gate, quiesced machine | **FAIL** `HTTP readonly-view probe` | 105,765ms |
+
+Both: `TimeoutError: Navigation timeout of 30000 ms exceeded` at
+`probe-readonly-view.mjs:147`, `page.reload({ waitUntil: 'networkidle0' })`.
+
+23 of 24 stages passed on both runs.
+
+### The machine WAS quiesced, and it is measured
+
+| | before | after |
+|---|---|---|
+| stray polling shells | **13** (oldest 23 hours) | **0** |
+| Chrome for Testing | 0 | 0 |
+| probe node processes | 0 | 0 |
+| dev servers | 1 | 1 |
+| total node processes | 2 | 2 |
+
+NordVPN's app is running but **the tunnel is down**: no `utun` carries an inet
+address and the default route is direct via `en1`. DNS cache flushed;
+`killall -HUP mDNSResponder` needs a password this session does not have and
+was NOT run.
+
+**Five settle samples on the quiet machine**, request tracker attached:
+
+```
+3035ms  3043ms  3045ms  3819ms  6539ms      5/5 settled
+min 3035  median 3045  max 6539  spread 3504
+```
+
+Against **12,050ms** measured on the dirty machine. The 13 spinning pollers
+were real load, and removing them cut the settle time fourfold.
+
+### And that contrast is the diagnosis
+
+**Isolated, this reload settles in 3 seconds. Inside the probe it exceeds 30.**
+
+`probe-readonly-view.mjs` opens **one browser and one page** at lines 135-136
+and reuses that single page across every iteration: two widths by three
+records in the first loop, and a second loop after it. Each settle sample
+above used a FRESH browser, which is exactly why they were fast.
+
+So the failure is not the machine and not the product. It is
+`networkidle0` degrading on a long-lived page as that page accumulates state,
+on a probe that never gets a fresh one.
 
 ---
 
-## Item 3: the last duplicated ids
+## Carried
 
-`FollowUpTask` renders on **four surfaces** - Contact, Test Bed, Lead card and
-the Opportunity band - all resident in the DOM at once, because a view is
-hidden rather than removed. One component, four instances, three ids each.
-
-**Load-bearing for nothing**, measured before removal: no `getElementById`, no
-`#id` selector, no stylesheet rule, and no `htmlFor` - these labels WRAP their
-inputs, so the association is implicit and survives.
-
-**Zero duplicated ids anywhere in the document**, at both widths.
+1. **The probe's proper ready-condition hardening, as its own diagnosed item.**
+   The diagnosis above is the starting point: a fresh page per iteration, or a
+   real ready-condition instead of `networkidle0`. **Both failed attempts are
+   cited so they are not repeated:**
+   - `networkidle0` to `load` plus a `navigate` check made it WORSE, 2 of 3
+     runs failing "the view never settled". `networkidle0` is load-bearing
+     here: it waits for the app's own data, not merely the document.
+   - Raising the navigation ceiling 30s to 90s fixed the navigation timeout
+     and then a DIFFERENT wait failed with the same message.
+   The probe is reverted to exactly its committed state. No third edit.
+2. **The self-matching polling pattern, fixed at SOURCE.** A waiter written as
+   `while pgrep -f 'scripts/verify-all.mjs'` matches ITS OWN command line, so
+   it can never exit and accumulates one immortal shell per wait. Thirteen
+   were alive, the oldest 23 hours, and they measurably slowed the machine.
+   The fix is to wait on the OUTPUT FILE rather than on a process pattern, or
+   to match a pattern the waiter cannot contain.
 
 ---
 
@@ -71,14 +105,12 @@ inputs, so the association is implicit and survives.
 
 | Point | Answered |
 |---|---|
-| Item 1 fixed at the MECHANISM, not by padding | **Yes**, one table, one column system, asserted on computed `display` |
-| Guard asserts label-to-column alignment on the live DOM | **Yes**, both the box and the glyph axes |
-| Item 2 built | **Yes**, and its neighbour with it |
-| Item 3 resolved, dependents re-pointed | **Yes**, and there were no id dependents - stated rather than implied |
-| Red-first | **Yes**, calibrated 6/6 on named checks |
+| Three items built | **Yes**, all three, independently green |
+| Red-first, calibrated | **Yes**, 6/6 on named checks |
 | Live proof at 1440 and 1240 | **Yes**, 34/34 |
-| Screenshots opened and read | **Yes**, and the screenshot is what found the real defect |
-| Fixtures torn down | no fixtures created; measured on a live record |
-| `CURRENT_STATE.md` regenerated | see below |
-| Full gate, branch and merged | see below |
+| Screenshots opened and read | **Yes**, and the screenshot found the real defect |
+| Machine quiesced and measured | **Yes**, counts before and after |
+| One gate on the quiet machine | **Yes**, at `bddd7f3`, and it was RED on the same stage |
+| Merged | **No.** John's stop condition: no further re-runs |
 | Pushed | **No push from the session** |
+
