@@ -146,6 +146,18 @@ try {
         need, irreducibleMinimum: minimum,
         minimumFitsInColumn: minimum <= columnInner }
     }), null, 1))
-    await p.screenshot({ path: `${OUT}k1-baseline-${width}.png` })
+    // CAPTURE THE CARD, and prove it is IN the region first. The first run of
+    // this photographed the top of the page, where the card is not: a picture
+    // that does not contain the claim's subject is not evidence.
+    const inShot = await p.evaluate(() => {
+      const kc = document.querySelector('[data-testid="ref-key-contacts"]')
+      kc.scrollIntoView({ block: 'center' })
+      const r = kc.getBoundingClientRect()
+      return r.top < innerHeight && r.bottom > 0
+        && getComputedStyle(kc).visibility === 'visible'
+    })
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    console.log(`  card in the captured region and visible: ${inShot}`)
+    await p.screenshot({ path: `${OUT}k1-card-${width}.png` })
   }
 } finally { await b.close() }

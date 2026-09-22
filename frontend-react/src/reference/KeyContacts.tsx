@@ -18,6 +18,7 @@
 // panel, so it shares no markup with the row mechanism either.
 import { useCallback, useEffect, useState } from 'react'
 import { useShell } from '../ShellContext'
+import { Modal, ModalClose } from '../ui/Modal'
 // R7: the one formatter, replacing a raw ISO render.
 import { formatTimestamp } from '../../../src/lib/format-dates.js'
 
@@ -119,6 +120,8 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
   const [armed, setArmed] = useState<Record<string, boolean>>({})
   const [draftStance, setDraftStance] = useState<Record<string, string>>({})
   const [draftNote, setDraftNote] = useState<Record<string, string>>({})
+  /** K3: the link the x has asked about, or null. */
+  const [confirming, setConfirming] = useState<KcLink | null>(null)
   const [addContact, setAddContact] = useState('')
   const [addRole, setAddRole] = useState('')
   const [addOther, setAddOther] = useState('')
@@ -218,7 +221,15 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
                   }}>{l.contact_name}</span>
               </td>
               <td>{l.role ?? '--'}</td>
-              <td>
+              {/* K4, ruled by John: THE STANCE CELL IS ONE ROW. The select,
+                  the note and Record were three inline controls in a plain
+                  `<td>`, so they stacked: measured at 1240 the select sat at
+                  y 1915 and the note at y 1950, two lines deep on every row.
+                  The class makes the cell a flex row; the Record button keeps
+                  its `hidden` attribute and the rule deliberately gives it no
+                  `display`, because a display on a hidden-by-attribute child
+                  overrides the user agent and renders it. */}
+              <td className="kc-stance">
                 <select data-testid={`kc-stance-${l.id}`}
                   value={draftStance[l.id] ?? l.stance_id ?? ''}
                   onChange={(e) => {
@@ -241,11 +252,17 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
               </td>
               <td>{formatTimestamp(l.linked_at) || '--'}</td>
               <td>
+                {/* K3: THE x ASKS FIRST. It used to remove on a single click.
+                    Measured before it was changed, per Verification 52: one
+                    click took record_contacts 2 to 1 and the link's stance
+                    entries 2 to 0, with no confirmation of any kind - no
+                    native confirm(), no in-page dialogue. */}
                 <span className="kc-remove" role="button" tabIndex={0}
                   data-testid={`kc-remove-${l.id}`}
-                  onClick={() => { void remove(l.id) }}
+                  aria-label={`Remove ${l.contact_name} from this opportunity`}
+                  onClick={() => setConfirming(l)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void remove(l.id) }
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setConfirming(l) }
                   }}>&times;</span>
               </td>
             </tr>
@@ -292,6 +309,53 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
       </div>
 
       <p data-testid="kc-feedback" className="kc-feedback">{feedback ?? ''}</p>
+
+      {/* ── K3: THE CONFIRMATION, AND ITS WORDING IS THE MEASUREMENT ──────
+          Verification 52: a warning is a claim and needs the same evidence as
+          one. Driven before this was built, a single click on the x took
+          `record_contacts` from 2 to 1 and that link's `record_contact_stances`
+          from 2 to 0, with NO confirmation of any kind.
+
+          SO THE WORDING SAYS WHAT WAS MEASURED AND NOT A WORD MORE. The role
+          and the stance history do go. It cannot be undone FROM THIS SCREEN,
+          which is the true claim: the route writes a `key_contact_removed`
+          audit row carrying the contact, the role and the full stance history,
+          so the DATA survives - but nothing in the product reads that row and
+          there is no restore path anywhere, measured across src, frontend,
+          frontend-react and scripts. Saying "gone forever" would overclaim;
+          saying "you can undo this" would be false.
+
+          `dirty` is false deliberately. This dialogue holds no form fields, so
+          dismissing it - Escape, Cancel, or the backdrop - IS the cancel, and
+          Section 5's confirm-and-discard would be a second question about
+          nothing. The Modal gives focus-on-open, Tab confinement, Escape and
+          focus return; they are not re-implemented here. */}
+      {confirming ? (
+        <Modal title="Remove contact" testid="kc-confirm-remove"
+          regionId="kc-confirm-remove-region"
+          onClose={() => setConfirming(null)}
+          footer={(requestClose) => (
+            <>
+              <ModalClose onRequestClose={requestClose} label="Cancel"
+                regionId="kc-confirm-remove-region" testid="kc-confirm-cancel" />
+              <button type="button" className="btn-primary" disabled={busy}
+                data-testid="kc-confirm-remove-go"
+                onClick={() => { const id = confirming.id; setConfirming(null); void remove(id) }}>
+                Remove contact
+              </button>
+            </>
+          )}>
+          <p data-testid="kc-confirm-body">
+            Remove <strong>{confirming.contact_name}</strong> from this
+            opportunity{confirming.role ? ` as ${confirming.role}` : ''}?
+          </p>
+          <p className="field-note" data-testid="kc-confirm-detail">
+            This removes their role on this opportunity and any stance recorded
+            against it. It cannot be undone from this screen. The removal is
+            recorded in the audit log.
+          </p>
+        </Modal>
+      ) : null}
     </div>
   )
 }
