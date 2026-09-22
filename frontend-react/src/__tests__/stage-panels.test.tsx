@@ -10,6 +10,13 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+// PERF ROUND: production wraps every ShellProvider in a QueryClientProvider
+// (main.tsx does, at all five mount points), and this harness did not - so a
+// host reading the query client worked in the app and threw here.
+// Verification 47: the harness reproduces how production INVOKES the code.
+// A FRESH CLIENT PER RENDER, so one test's cached list cannot answer for the
+// next, which a shared module-level client would have allowed.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TestBedHost } from '../testbed/TestBedHost'
 import { ShellProvider } from '../ShellContext'
 import { scoreButton, scoreGroup } from './scoreControl'
@@ -62,7 +69,7 @@ const mount = async ({ scored = true }: { scored?: boolean } = {}) => {
     if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
     return { ok: true, status: 200, data: [] }
   }) as ShellServices['api']
-  act(() => { root.render(<ShellProvider services={shellServices({ currentUserId: () => bed.owner_id, api })}><TestBedHost bed={bed as never} /></ShellProvider>) })
+  act(() => { root.render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ShellProvider services={shellServices({ currentUserId: () => bed.owner_id, api })}><TestBedHost bed={bed as never} /></ShellProvider></QueryClientProvider>) })
   await settle()
   return calls
 }
@@ -145,7 +152,7 @@ describe('R1: the relocated control is INTACT, which means it can grant', () => 
       if (path.endsWith('/history')) return { ok: true, status: 200, data: { entries: [] } }
       return { ok: true, status: 200, data: [] }
     }) as ShellServices['api']
-    act(() => { root.render(<ShellProvider services={shellServices({ currentUserId: () => 'somebody-else', api })}><TestBedHost bed={bed as never} /></ShellProvider>) })
+    act(() => { root.render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ShellProvider services={shellServices({ currentUserId: () => 'somebody-else', api })}><TestBedHost bed={bed as never} /></ShellProvider></QueryClientProvider>) })
     await settle()
     await openStage(QUAL)
     const row = host.querySelector('[data-testid="tb-stage-approvals-section"] .sa-approval-row.clickable') as HTMLElement | null

@@ -17,6 +17,10 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+// PERF ROUND: production wraps every ShellProvider in a QueryClientProvider,
+// and this harness did not. Verification 47: the harness reproduces how
+// production INVOKES the code. A fresh client per render.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TestBedHost } from '../testbed/TestBedHost'
 import { ShellProvider } from '../ShellContext'
 import { shellServices } from './fixtures'
@@ -51,9 +55,11 @@ const api = (async (_m: string, path: string) => {
 const mount = async (over: Partial<ShellServices> = {}) => {
   await act(async () => {
     root.render(
-      <ShellProvider services={shellServices({ api, ...over })}>
-        <TestBedHost bed={BED} />
-      </ShellProvider>)
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ShellProvider services={shellServices({ api, ...over })}>
+          <TestBedHost bed={BED} />
+        </ShellProvider>
+      </QueryClientProvider>)
   })
   // The Next Stage action does not render until the stage list has ARRIVED, so
   // this waits on the state that fetch produces rather than on a tick count.
@@ -104,9 +110,11 @@ describe('W1: the account name is on the title line', () => {
     // without. Re-asserted here because W1 changed what it sits beside.
     await act(async () => {
       root.render(
-        <ShellProvider services={shellServices({ api })}>
-          <TestBedHost bed={{ ...BED, payload: { name: 'A bed' } }} />
-        </ShellProvider>)
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ShellProvider services={shellServices({ api })}>
+            <TestBedHost bed={{ ...BED, payload: { name: 'A bed' } }} />
+          </ShellProvider>
+        </QueryClientProvider>)
     })
     expect(q('tb-detail-client'), 'the client element vanished when empty').toBeTruthy()
     expect(q('tb-detail-client')!.textContent).toBe('')

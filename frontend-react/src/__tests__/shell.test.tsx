@@ -112,11 +112,23 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // formatter is published here rather than reimplemented there. Phase 0
     // measured three copies of a formatter claiming to agree with one already
     // drifted, which is what a second implementation costs.
+    // THE PERF ROUND ADDS ONE, `tmsContacts`, and this guard refusing it is
+    // the guard working: an enumeration that fails on an UNRECORDED instance
+    // is Verification 19's own remedy, and adding a name here is a decision
+    // somebody reads in a diff.
+    //
+    // It belongs on the seam for the same reason `tmsFormatDate` does, one
+    // step further: that is a helper which must not have two
+    // implementations, this is a REQUEST which must not be made twice.
+    // Phase 0 measured a boot making it five times, four of them from
+    // `loadContactsData` because `showApp` calls `navigate` four times. A
+    // cache in the bundle that the shell cannot reach would have left the
+    // vanilla's four in place.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
       'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList',
-      'mountNewLeadGrid', 'tmsFormatDate', 'tmsFormatTimestamp'])
+      'mountNewLeadGrid', 'tmsContacts', 'tmsFormatDate', 'tmsFormatTimestamp'])
   })
 })
 

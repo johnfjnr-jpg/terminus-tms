@@ -3,6 +3,8 @@
 // The panel does not fetch, save, or know about routes. This holds those, the
 // same split the Reference tab and the version card use.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { fetchContacts } from '../data/contacts'
 import { createRecordQueue } from '../shared/recordQueue'
 import { ContactPanel } from './ContactPanel'
 import type { ContactSource } from './descriptors'
@@ -161,12 +163,20 @@ export function ContactHost({ contact, registerReload, navToken }: {
     return () => { live = false }
   }, [shell])
 
+  // ── PERF ROUND: THE SHARED FETCH, FORCED ───────────────────────────────
+  //
+  // This is the POST-WRITE reload the host registers, so it forces: the whole
+  // point is to see what the save just wrote, and the shared cache serves
+  // inside its stale window. An unforced read here would repaint the value
+  // the save replaced, which is the one way a shared cache is worse than
+  // none.
+  const qc = useQueryClient()
   const load = useCallback(async () => {
-    const r = await shell.api<ContactLike[]>('GET', '/api/contacts')
-    if (!r.ok || !Array.isArray(r.data)) return
-    const fresh = r.data.find((c) => c.id === contact.id)
+    let rows: unknown[]
+    try { rows = await fetchContacts(qc, shell.api as never, { force: true }) } catch { return }
+    const fresh = (rows as ContactLike[]).find((c) => c.id === contact.id)
     if (fresh) setRecord(fresh)
-  }, [shell, contact.id])
+  }, [qc, shell, contact.id])
 
   useEffect(() => { registerReload?.(() => { void load() }) }, [registerReload, load])
 

@@ -7,6 +7,7 @@ import { ShellProvider } from './ShellContext'
 import { LeadsList } from './leads/LeadsList'
 import { NewLeadGrid } from './leads/NewLeadGrid'
 import { shellServices } from './shell-services'
+import { fetchContacts } from './data/contacts'
 import { ApprovalView } from './ApprovalView'
 import { AccountView } from './account/AccountView'
 import { ContactView } from './contact/ContactView'
@@ -71,6 +72,22 @@ declare global {
      */
     tmsFormatDate?: (v: unknown) => string
     tmsFormatTimestamp?: (v: unknown) => string
+    /**
+     * PERF ROUND: the ONE contacts fetch, published for `app.js`.
+     *
+     * Same argument as `tmsFormatDate` above and a stronger one: that is a
+     * helper that must not have two implementations, this is a REQUEST that
+     * must not be made twice. Phase 0 measured a boot making it five times,
+     * four of them from `loadContactsData` because `showApp` calls `navigate`
+     * four times.
+     *
+     * It answers `{ ok, data }` rather than the array, because `app.js` has
+     * an error branch that paints "Failed to load leads." and rewriting that
+     * branch is not this round's business.
+     *
+     * `force` invalidates before fetching, for the post-write reloads.
+     */
+    tmsContacts?: (opts?: { force?: boolean }) => Promise<{ ok: boolean, data: unknown[] | null }>
     loadApprovalPage?: (oppId: string) => void
     loadAccountDetail?: (accountId: string) => void
     loadContactDetail?: (contactId: string) => void
@@ -179,6 +196,20 @@ function register(view: string, render: (id: string, navToken: number) => React.
 // app.js parses immediately after this bundle.
 window.tmsFormatDate = fmtDate
 window.tmsFormatTimestamp = fmtTimestamp
+
+// THE SEAM'S SHAPE IS THE VANILLA'S, not this tree's. `loadContactsData`
+// reads `{ ok, data }` from its own `api()` and branches on `ok`; handing it
+// a bare array would make the error branch unreachable, which is the shape
+// Architecture 8 names - a path that is correct for every caller it has until
+// a new one arrives.
+window.tmsContacts = async (opts) => {
+  try {
+    const data = await fetchContacts(queryClient, shellServices.api, opts ?? {})
+    return { ok: true, data }
+  } catch {
+    return { ok: false, data: null }
+  }
+}
 
 window.loadApprovalPage = register(APPROVAL_VIEW,
   (id, navToken) => <ApprovalView oppId={id} navToken={navToken} />)

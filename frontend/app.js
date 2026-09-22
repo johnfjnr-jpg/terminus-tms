@@ -5383,10 +5383,34 @@ document.getElementById('contacts-mine-toggle').addEventListener('click', () => 
 // started call is allowed to apply its result.
 let contactsLoadToken = 0
 
-async function loadContactsData() {
+/**
+ * @param {boolean} [force] - true after a WRITE. The shared cache serves
+ *   inside its stale window, so a save followed by an unforced reload would
+ *   repaint the value the save replaced. Freshness is therefore a property of
+ *   the write rather than of the stale window's length.
+ */
+async function loadContactsData(force) {
   const myToken = ++contactsLoadToken
+  // ── PERF ROUND: ONE FETCH, THROUGH THE SHARED CACHE ────────────────────
+  //
+  // THE TOKEN ABOVE WAS NEVER THE PROBLEM AND IS NOT THE FIX. It drops a
+  // stale RENDER, which is correct and stays. It does not drop a stale
+  // REQUEST, so boot paid for four full lists and threw three away:
+  // `showApp` calls `navigate` four times - twice from Supabase's auth
+  // `_notifyAllSubscribers` and twice from `init` - and `navigate` calls this
+  // for both the leads and contacts views. Measured by reading the initiator
+  // stack of every request, not inferred.
+  //
+  // `window.tmsContacts` is the React bundle's query cache, which
+  // deduplicates in flight and serves inside its stale window. The bundle
+  // loads BEFORE this file, so it is there; the fallback is kept anyway,
+  // because a seam that has to exist is a seam that fails silently when it
+  // does not.
+  const contactsCall = window.tmsContacts
+    ? window.tmsContacts({ force: !!force })
+    : api('GET', '/api/contacts')
   const [result, accResult, indResult] = await Promise.all([
-    api('GET', '/api/contacts'),
+    contactsCall,
     api('GET', '/api/accounts'),
     api('GET', '/api/industries'),
   ])
@@ -5656,11 +5680,11 @@ window.onLeadAddNoteClick = async function (btn, contactId) {
     // so this is a silent refusal followed by a visible refresh. Every other
     // failure on this path was already silent before this change; a 409 is the
     // first one where the person needs to know why nothing happened.
-    if (result.status === 409) await loadContactsData()
+    if (result.status === 409) await loadContactsData(true)
     return
   }
 
-  await loadContactsData()
+  await loadContactsData(true)
 }
 
 window.discardLeadNote = function (discardEl) {
@@ -6122,7 +6146,7 @@ window.deleteContact = (id) => {
   openConfirmDelete(name, async () => {
     const result = await api('DELETE', `/api/contacts/${id}`)
     if (!result.ok) return
-    await loadContactsData()
+    await loadContactsData(true)
   })
 }
 
@@ -6436,7 +6460,9 @@ document.getElementById('btn-new-contact').addEventListener('click', openNewLead
 // P5: the grid creates leads and asks the shell to refresh the list. The shell
 // owns loadContactsData, so the shell is what re-reads - the grid does not
 // reach into a cache it does not own.
-window.renderLeadsCardsAfterCreate = () => { loadContactsData() }
+// AFTER A CREATE, so it forces: the row it exists to show is one the shared
+// cache has never seen.
+window.renderLeadsCardsAfterCreate = () => { loadContactsData(true) }
 // P5: the country/region autofill and the Cancel button went with the
 // single-record form. `regionForCountry` still has live callers on the Lead
 // Detail address block, so the helper stays and only this call site goes.
