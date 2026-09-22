@@ -48,16 +48,24 @@ export function StructuralTermsSection({ renderField, achievedMargin, payload, g
   )
 
   return (
-    // WALK 8 ITEM 1, ruled by John: the Tax Adjustments card SPANS the track
-    // list, so the tax line has room to be ONE line. `pg-card--wide` carries
-    // `grid-column: 1 / -1` rather than `span 2`, deliberately: `.terms-cards`
-    // is `auto-fit`, so the used track list is two columns at 1440 and ONE at
-    // 1240, and `span 2` against a one-column grid creates an implicit second
-    // column and pushes half the card outside the grid.
+    // ── WALK 11 D2, SUPERSEDING WALK 8 ITEM 1 ─────────────────────────────
+    //
+    // Walk 8 made the Tax Adjustments card SPAN the track list, because the
+    // tax line needed 455px and a standard card offers 430px. The span bought
+    // the line at 1440 and bought nothing at 1240, where `.terms-cards` has
+    // one column and a span is a span of one.
+    //
+    // John ruled the other way: shorten the LABEL instead, and let the card be
+    // an ordinary card beside Currency. `Withholding Tax %` was 155px against
+    // its own 90px box, so the label was setting the width; `WHT %` returns
+    // the item to the box.
+    //
+    // The superseded reasoning is left above rather than deleted, per
+    // Verification 29: a premise failed - that the line could not be made
+    // narrower - and the decision was re-taken rather than re-weighed.
     <div className="terms-cards">
       {CARDS.map((card) => (
-        <div className={`pg-card${card.title === 'Tax Adjustments' ? ' pg-card--wide' : ''}`}
-          key={card.title}>
+        <div className="pg-card" key={card.title}>
           <p className="pg-card-title">{card.title}</p>
           {card.fields.map(row)}
           {/* W4: THE WHT PAIR, ON ONE LINE, ABOVE GST. It rendered WHT, then

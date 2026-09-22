@@ -24,9 +24,26 @@ import { toNumberOrNull } from '../../../src/lib/numeric-payload.js'
 //   numOrUndefined  empty -> undefined  the key is ABSENT, which the record
 //                                       reads as DELETION. Eleven margin keys.
 
+// ── WALK 11 D3: `inLump` IS THE TWELFTH, AND ITS ABSENCE WAS INVISIBLE ───
+//
+// `marginFor('inLump')` has read `marginOverrides.inLump` since the lump-sum
+// line existed. This list is what BUILDS `marginOverrides` from the screen,
+// and it did not contain the key - so the override could never be written,
+// and every lump-sum installation priced at the target margin with no control
+// anywhere able to change it. Measured: all four live lump-sum opportunities
+// carry no `inLump`, and TT-SGP-MANUFI-004's $285,714 is exactly
+// round(200000 / (1 - 30/100)).
+//
+// ARCHITECTURE 9, and it is why the box and this line had to land together:
+// an allowlist gives no feedback when it excludes something. A margin input
+// added to the card with the id `deal-margin-inLump` would have rendered,
+// accepted typing, and been discarded at save, with nothing failing.
+//
+// The list is read TWICE, by `readDealPayload` and by `hydrate`, so one entry
+// serves the write and the read and they cannot disagree about the key set.
 export const MARGIN_KEYS = [
   'hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'inSsEx', 'inSsNew',
-  'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir',
+  'inAqm', 'inHemir', 'inLump', 'hoSs', 'hoAqm', 'hoHemir',
 ] as const
 
 export const COMMERCIALS_OWNED_KEYS = [

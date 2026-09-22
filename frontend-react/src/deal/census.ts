@@ -69,7 +69,13 @@ export const CENSUS: CensusInput[] = [
   // clipped the wording to "not recorde", and recorded it as a departure
   // wanting a wording decision. This is that decision: the words match and the
   // LAYOUT gives them room.
-  { id: 'deal-whtPct', label: 'Withholding Tax %', contract: 'numOrNull', section: 'risk' },
+  // WALK 11 D2, John's ruling: WHT %, the estate's own abbreviation, which it
+  // already uses in the Deal Sheet's own rows ("Net receipt after WHT",
+  // "No gross up, WHT absorbed"). The long form was 155px against a 90px box,
+  // so the LABEL set the item's width and the tax line could not fit a
+  // standard card. The approval page keeps the long form: it has the room, and
+  // a reader there is not the person who set the rate.
+  { id: 'deal-whtPct', label: 'WHT %', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-gstPct', label: 'GST %', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-fxContingency', label: '% Currency Contingency', contract: 'numOrNull', section: 'risk' },
   { id: 'deal-bidCurrency', label: 'Bid Currency', contract: 'emptyToNull', section: 'risk' },
@@ -80,8 +86,13 @@ export const CENSUS: CensusInput[] = [
   { id: 'deal-factoring-termMonths', label: 'Factoring term (months)', contract: 'num', section: 'payment' },
 
   // `numOrUndefined`: an empty box DROPS THE KEY, which the record reads as
-  // deletion of that override. Eleven of them, and breaking this contract fails
-  // 49 of the 97 parity tests - more than the other three combined.
+  // deletion of that override. Breaking this contract fails 49 of the 97
+  // parity tests, more than the other three combined.
+  //
+  // THE COUNT IS NOT STATED HERE ANY MORE. It read "Eleven of them" and walk
+  // 11 D3 made it twelve, which is Architecture 9's fourth variant: a literal
+  // with nothing to disagree with it. The list is `MARGIN_KEYS` and that is
+  // where to look.
   ...MARGIN_KEYS.map((k): CensusInput => ({
     id: `deal-margin-${k}`, label: `Margin override, ${k}`, contract: 'numOrUndefined', section: 'structural',
   })),

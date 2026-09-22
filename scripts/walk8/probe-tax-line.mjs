@@ -80,7 +80,10 @@ try {
     console.log(`  children end ${m.childrenRight} against the card's inner edge ${m.innerRight}`)
     check(m.visible, `the card is in the captured region and visible at ${width}`)
     check(JSON.stringify(m.order) ===
-      JSON.stringify(['Withholding Tax % ?', 'Gross up disabled', 'GST % ?']),
+      // RE-POINTED BY WALK 11 D2. The ruled order is unchanged; the WHT
+      // label shortened to the estate's abbreviation so the line fits a
+      // standard card, which is the same ruling that retired the span.
+      JSON.stringify(['WHT % ?', 'Gross up disabled', 'GST % ?']),
       `ITEM 1 the ruled ORDER: WHT, gross-up, GST at ${width}`, JSON.stringify(m.order))
     check(m.childrenRight <= m.innerRight + 1,
       `ITEM 1 and the line stays inside its card at ${width}`,

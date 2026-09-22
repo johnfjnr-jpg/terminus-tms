@@ -31,8 +31,13 @@ import { calculateDeal } from '../../src/lib/deal-calculator.js'
 // The eleven lines that carry a per-line margin. Named here so the markup and
 // the screen's own MARGIN_KEYS are checked against one list rather than each
 // other, and a line added to one and not the other fails.
+// WALK 11 D3 ADDED `inLump`, THE TWELFTH. It is written out here on purpose:
+// this list is the INDEPENDENT statement of what the screen must carry, and
+// deriving it from `payload.ts` would make the test compare that file with
+// itself. The count below moves with it; the NAMES are the guard, because
+// Round 40's calibration showed a rename leaves a count intact.
 const MARGIN_KEYS_EXPECTED = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty',
-  'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'hoSs', 'hoAqm', 'hoHemir']
+  'inSsEx', 'inSsNew', 'inAqm', 'inHemir', 'inLump', 'hoSs', 'hoAqm', 'hoHemir']
 import { readFileSync, readdirSync } from 'node:fs'
 import { readCode, stripHtml } from '../lib/strip-comments.mjs'
 
@@ -496,7 +501,7 @@ test('price to customer is contract net plus GST, and GST has a row', () => {
 // must not delete the data it edited
 // ─────────────────────────────────────────────────────────────
 
-test('all eleven per-line margin inputs exist, and exactly eleven', () => {
+test('all twelve per-line margin inputs exist, and exactly twelve', () => {
   // ── THE COUNT IS THE GUARD. Round 40 Phase 3 ────────────────────────
   //
   // Phase 1 removed these and asserted they were gone. Phase 3 returns them ON
@@ -526,12 +531,13 @@ test('all eleven per-line margin inputs exist, and exactly eleven', () => {
   const keyList = payloadSrc.match(/export const MARGIN_KEYS = \[([\s\S]*?)\]/)
   assert.ok(keyList, 'MARGIN_KEYS is gone from payload.ts, so nothing generates the inputs')
   const inputs = [...keyList[1].matchAll(/'([^']+)'/g)].map((m) => m[1]).sort()
-  assert.equal(inputs.length, 11, `expected 11 margin keys, found ${inputs.length}: ${inputs.join(', ')}`)
+  assert.equal(inputs.length, MARGIN_KEYS_EXPECTED.length,
+    `expected ${MARGIN_KEYS_EXPECTED.length} margin keys, found ${inputs.length}: ${inputs.join(', ')}`)
   assert.match(DEAL_TREE, /id: `deal-margin-\$\{k\}`/,
     'the census no longer builds a margin field per key, so the count above '
     + 'no longer describes what the screen renders')
   assert.deepEqual(inputs, [...MARGIN_KEYS_EXPECTED].sort(),
-    'the inputs and MARGIN_KEYS must name the same eleven lines')
+    'the inputs and MARGIN_KEYS must name the same twelve lines')
 
   // The old read-only display cells are gone with the change, not left beside
   // the inputs as a second reader of the same value. WALK 8: `className` in
