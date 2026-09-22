@@ -9,6 +9,7 @@
 // which is what the latches are FOR. Hiding it would hide the answer rather
 // than the inputs.
 import { CENSUS } from './census'
+import { MARGIN_KEYS } from './payload'
 import { dealDirtyKeys, sectionOfKey } from './dirty'
 
 export interface VanillaSection {
@@ -63,8 +64,23 @@ export function vanillaSectionOf(fieldId: string, censusSection: string): string
 // the vanilla does. Excluded HERE rather than at the call site, so there is one
 // place that decides it: rendering them in both produces one id with two
 // elements, and readPayload reads whichever the DOM returns first.
+// ── WALK 11 D3: DERIVED, BECAUSE THE TYPED LIST CAUGHT ME WITHIN THE HOUR ─
+//
+// This was seven keys written out, and the comment above says exactly what a
+// miss costs: one id with two elements, and `readPayload` reading whichever
+// the DOM returns first. Adding `inLump` to `MARGIN_KEYS` created a census
+// field that was in NEITHER exclusion set, so the generic section renderer
+// rendered a SECOND `deal-margin-inLump` beside section 4's own. A D3 test
+// caught it; nothing else in the estate could have, because the duplicate-id
+// suite reads `frontend/index.html` and this is React's tree.
+//
+// Verification 19: a list used as an enumeration fails by SILENT OMISSION, so
+// it is derived from the one place the keys live. The four per-unit
+// installation margins are the exception and they are named once, below.
+export const INTAKE_MARGIN_KEYS: readonly string[] =
+  ['inSsEx', 'inSsNew', 'inAqm', 'inHemir']
 export const PRICING_CARD_MARGIN_IDS = new Set(
-  ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'hoSs', 'hoAqm', 'hoHemir']
+  MARGIN_KEYS.filter((k) => !INTAKE_MARGIN_KEYS.includes(k))
     .map((k) => `deal-margin-${k}`))
 
 // Section 5 renders these three itself, inside the payment card and the
@@ -87,7 +103,9 @@ export const INTAKE_OWNED_IDS = new Set([
   'deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir',
   'deal-lumpCost',
   'deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
-  'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir',
+  // The same four, from the same constant, so the two sets cannot disagree
+  // about who renders them.
+  ...INTAKE_MARGIN_KEYS.map((k) => `deal-margin-${k}`),
 ])
 
 export function censusBySection(): Record<string, typeof CENSUS> {

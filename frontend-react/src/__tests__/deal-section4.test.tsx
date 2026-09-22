@@ -185,6 +185,73 @@ describe('the pricing cards', () => {
   })
 })
 
+// ── WALK 11 D3: INSTALLATION IS A LINE WITH A MARGIN ────────────────────
+//
+// RED FIRST, all five. Before the change the card had four rows and no
+// Installation among them, no `deal-margin-inLump` existed anywhere, and
+// `MARGIN_KEYS` could not carry the key even if a box had been added.
+//
+// THE MECHANISM THIS IS ABOUT: a lump-sum installation priced at
+// `marginFor('inLump')`, which is `marginOverrides.inLump ?? targetMargin`,
+// against a `marginOverrides` built by looping an ELEVEN-key allowlist that
+// did not contain `inLump`. Architecture 9: adding the box is a no-op until
+// the definition names the key too, so both halves are asserted here.
+describe('D3: the installation line', () => {
+  const LUMP: UiState = { ...UI, installResp: 'Terminus Contractor - Lump Sum' }
+  // THE ID IS THE SYSTEM'S, not the payload key's: the census calls this box
+  // `deal-lumpCost` and it writes `lumpSumCost`. The first fixture used the
+  // payload key, so the cost never reached the calculator and the line read
+  // $0 - Verification 47, a fixture shaped by the reader rather than by the
+  // thing that produces the state.
+  const LUMP_VALUES: Values = { ...VALUES, 'deal-lumpCost': '200000' }
+  const num = (id: string) => Number((must(id).textContent ?? '').replace(/[^0-9.]/g, ''))
+
+  test('D3a the Unit cost and warranty card carries an Installation row', async () => {
+    await mount(LUMP_VALUES, LUMP)
+    expect(must('pg-cost-inGroup')).toBeTruthy()
+    expect(must('pg-price-inGroup')).toBeTruthy()
+  })
+
+  test('D3b on a LUMP SUM deal its margin is an adjustable box named inLump', async () => {
+    await mount(LUMP_VALUES, LUMP)
+    const box = must('deal-margin-inLump') as unknown as HTMLInputElement
+    expect(box.tagName).toBe('INPUT')
+    expect(box.disabled, 'the control D3 exists to add cannot be disabled').toBe(false)
+    // The placeholder carries the target, which is the estate's own contract
+    // for every other margin box: blank prices at target.
+    expect(box.placeholder).toBe('30')
+  })
+
+  test('D3c the price is the TARGET-margin derivation, to the dollar', async () => {
+    await mount(LUMP_VALUES, LUMP)
+    // Expressed, never restated: 200000 at a 30% margin. A hand-typed 285714
+    // would be a second reader of the calculator (Verification 20).
+    expect(num('pg-cost-inGroup')).toBe(200000)
+    expect(num('pg-price-inGroup')).toBe(Math.round(200000 / (1 - 30 / 100)))
+  })
+
+  test('D3d the card TOTAL includes the installation line it now shows', async () => {
+    await mount(LUMP_VALUES, LUMP)
+    const rows = ['hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'inGroup']
+    const sum = (what: string) => rows.reduce((s, k) => s + num(`pg-${what}-${k}`), 0)
+    // A card whose rows do not add up to its own total is the defect
+    // Verification 21 is about: a total that cannot be checked against
+    // anything is not a total.
+    expect(num('pg-total-cost-hw')).toBe(sum('cost'))
+    expect(num('pg-total-price-hw')).toBe(sum('price'))
+  })
+
+  test('D3e PER UNIT: the margin is a READOUT, never a second writer', async () => {
+    await mount(VALUES, UI)   // UI is Per Unit
+    expect(host.querySelector('#deal-margin-inLump'),
+      'a single box driving four independently-controlled install lines is two writers')
+      .toBeNull()
+    // The line is still shown, and still derived from the same group.
+    expect(must('pg-price-inGroup')).toBeTruthy()
+    expect(must('pg-margin-inGroup').textContent).toMatch(/%|--/)
+  })
+})
+
 describe('the summary notices', () => {
   test('whichever mood is showing carries the SAME trough sentence', async () => {
     // The sign is the calculator's business and is not guessed here: an earlier

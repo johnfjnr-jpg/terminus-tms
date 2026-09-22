@@ -47,7 +47,9 @@ type Row = {
 }
 type Group = { rows?: Row[], rawTotalCost: number, rawTotalPrice: number }
 export type PricingResult = {
-  groups: { hardwareGroup: Group, hostingGroup: Group }
+  // D3: `installGroup` was always on the object the calculator returns; only
+  // this type omitted it, which is why the card could not see the line.
+  groups: { hardwareGroup: Group, installGroup?: Group, hostingGroup: Group }
   hardware: { totalUnits: number, warrantyUnits: number, warrantyBasisUnits: number }
 } | null
 
@@ -108,6 +110,27 @@ function noteFor(key: string, payload: Record<string, unknown>, result: PricingR
     case 'hoHemir': return per(hemirUnits, payload.hoHemir)
     default: return ''
   }
+}
+
+// ── D3: WHAT THE INSTALLATION LINE IS, IN ITS OWN NOTE ──────────────────
+//
+// Every other row in this card carries a note saying where its cost comes
+// from. Installation's differs by PATH, and saying so is what stops the line
+// reading as a fifth hardware item: on a lump sum it is one quoted price, on
+// per-unit it is four lines priced in the section above, and on neither there
+// is no installation at all.
+//
+// DERIVED from `installResp`, the same string `buildDealInputs` branches on,
+// rather than from a flag beside it. `deal-inputs.js` records a separately
+// stored boolean here that never matched the real picklist and was always
+// false, which is what a second reader of this string costs.
+function installNote(payload: Record<string, unknown>): string {
+  const resp = String(payload.installResp ?? '')
+  if (resp.includes('Lump Sum')) {
+    return `lump sum, $${money(numericOrDefault(payload, 'lumpSumCost'))} quoted`
+  }
+  if (resp.includes('Per Unit')) return 'four per-unit lines, priced in Installation above'
+  return 'no installation on this deal'
 }
 
 // THE RULING'S OWN THREE ROWS, in its own words: Safesight, Air Quality,
@@ -196,6 +219,16 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
         const find = (k: string) => group?.rows?.find((r) => r.key === k)
         const fig = (n: number | undefined) => n === undefined ? '--' : card.period(`$${money(n)}`)
         const isHosting = card.group === 'hostingGroup'
+        // D3: the installation line joins THIS card, so the card's own total
+        // has to total it too. A card whose rows do not add up to its total
+        // is the reconciliation Verification 21 calls no reconciliation.
+        const isHardware = card.group === 'hardwareGroup'
+        const isLumpSum = String(payload.installResp ?? '').includes('Lump Sum')
+        const ig = isHardware ? result?.groups?.installGroup : undefined
+        const plus = (n: number | undefined, add: number | undefined) =>
+          n === undefined ? undefined : n + (add ?? 0)
+        const totalCost = plus(group?.rawTotalCost, ig?.rawTotalCost)
+        const totalPrice = plus(group?.rawTotalPrice, ig?.rawTotalPrice)
         return (
           <div className="pg-card" key={card.title}>
             <div className="pg-card-head">
@@ -246,6 +279,71 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
                 </div>
               )
             })}
+            {/* ── WALK 11 D3: INSTALLATION IS A LINE HERE ────────────────
+                One derivation, all readers (R-N1). The figures are
+                `installGroup`'s own totals, the same object the summary
+                matrix, the Deal Sheet's one-off price row and the cash flow
+                read through `calculateContractTotals`. Nothing is recomputed.
+
+                THE MARGIN CELL IS A BOX ON ONE PATH AND A READOUT ON THE
+                OTHER, and that asymmetry is the point rather than an
+                oversight:
+
+                - LUMP SUM is one line, `inLump`, and nothing else on the
+                  screen controls it. A box here is the only control it has
+                  ever had.
+                - PER UNIT is four lines, each with its own margin box in the
+                  Installation section above. A single box here would write
+                  four keys and then disagree with them the moment one was
+                  edited: two writers of one value, which is what R-N1 and
+                  Verification 20 forbid. So it READS the group's own margin,
+                  derived from the cost and price already shown, and the
+                  existing signpost points at the four controls.
+
+                The readout is derived the way the hosting card's total is,
+                from the group's own two figures, so it cannot disagree with
+                the price beside it. */}
+            {isHardware ? (() => {
+              // `ig` IS THE CARD'S, NOT A SECOND ONE. This block declared its
+              // own `const ig` reading the same group, and a calibration
+              // injection aimed at the card's copy came back SILENT because
+              // the row was reading the other one. Two readers of one value,
+              // eight lines apart, in code written the same hour: Verification
+              // 20, found by the injection rather than by reading it.
+              const id = 'deal-margin-inLump'
+              const raw = values[id] ?? ''
+              const over = toNumberOrNull(raw)
+              return (
+                <div className="pg-row" key="inGroup">
+                  <div>
+                    <div className="pg-item-name">Installation</div>
+                    <div className="pg-item-note" id="pg-note-inGroup"
+                      data-testid="pg-note-inGroup">{installNote(payload)}</div>
+                  </div>
+                  <div className="pg-cost" id="pg-cost-inGroup"
+                    data-testid="pg-cost-inGroup">{fig(ig?.rawTotalCost)}</div>
+                  {isLumpSum ? (
+                    <input type="text" id={id} data-testid={id} data-contract="numOrUndefined"
+                      className={`pg-margin-input${over !== null ? ' pg-margin-override' : ''}`}
+                      placeholder={String(target)} value={raw}
+                      title={over === null
+                        ? `Blank prices the lump sum at the target margin, ${target}%.`
+                        : `Priced at ${over}% against a target of ${target}%.`}
+                      onChange={(e) => onMargin(id, e.target.value)} />
+                  ) : (
+                    <div className="pg-price pg-margin-readout" id="pg-margin-inGroup"
+                      data-testid="pg-margin-inGroup"
+                      title="Each installation line carries its own margin in the Installation section above.">
+                      {ig && ig.rawTotalPrice > 0
+                        ? `${((1 - ig.rawTotalCost / ig.rawTotalPrice) * 100).toFixed(1)}%`
+                        : '--'}
+                    </div>
+                  )}
+                  <div className="pg-price" id="pg-price-inGroup"
+                    data-testid="pg-price-inGroup">{fig(ig?.rawTotalPrice)}</div>
+                </div>
+              )
+            })() : null}
             </>)}
             {/* ── R-O8: WHAT AN OVERRIDDEN PRICE INCLUDES, SAID ON THE PANEL ──
                 Ruled by John, 2026-09-20: warranty is OUT of the pricing
@@ -297,10 +395,10 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
             <div className="pg-row pg-total">
               <div className="pg-item-name">Total</div>
               <div className="pg-cost" id={card.totalCostId}
-                data-testid={card.totalCostId}>{fig(group?.rawTotalCost)}</div>
+                data-testid={card.totalCostId}>{fig(totalCost)}</div>
               <div />
               <div className="pg-price" id={card.totalPriceId}
-                data-testid={card.totalPriceId}>{fig(group?.rawTotalPrice)}</div>
+                data-testid={card.totalPriceId}>{fig(totalPrice)}</div>
             </div>
             )}
           </div>

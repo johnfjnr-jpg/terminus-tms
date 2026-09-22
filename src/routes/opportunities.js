@@ -606,7 +606,10 @@ export default async function opportunitiesRoutes(app) {
       }
     }
     // marginOverrides (Unit Cost/Warranty, Hosting, and Installation
-    // "Margin %" columns, all 11 line keys) - every entry is a percentage,
+    // "Margin %" columns, all 12 line keys - `inLump` joined them at walk 11
+    // D3, and this sentence is the kind of hardcoded count Architecture 9's
+    // fourth variant is about: nothing could have failed on it) - every entry
+    // is a percentage,
     // none are counts, so unlike the two lists above this object has no
     // integer members to split out.
     // A quoted installation rate is money, so it takes the same shape as the

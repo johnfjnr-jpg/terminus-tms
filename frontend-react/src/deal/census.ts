@@ -86,8 +86,13 @@ export const CENSUS: CensusInput[] = [
   { id: 'deal-factoring-termMonths', label: 'Factoring term (months)', contract: 'num', section: 'payment' },
 
   // `numOrUndefined`: an empty box DROPS THE KEY, which the record reads as
-  // deletion of that override. Eleven of them, and breaking this contract fails
-  // 49 of the 97 parity tests - more than the other three combined.
+  // deletion of that override. Breaking this contract fails 49 of the 97
+  // parity tests, more than the other three combined.
+  //
+  // THE COUNT IS NOT STATED HERE ANY MORE. It read "Eleven of them" and walk
+  // 11 D3 made it twelve, which is Architecture 9's fourth variant: a literal
+  // with nothing to disagree with it. The list is `MARGIN_KEYS` and that is
+  // where to look.
   ...MARGIN_KEYS.map((k): CensusInput => ({
     id: `deal-margin-${k}`, label: `Margin override, ${k}`, contract: 'numOrUndefined', section: 'structural',
   })),
