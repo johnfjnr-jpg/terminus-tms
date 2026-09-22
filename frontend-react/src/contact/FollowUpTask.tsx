@@ -44,6 +44,27 @@ export function FollowUpTask({ date, description, onSave, resetKey }: {
 
   const dirty = d !== lastSaved.date || t !== lastSaved.description
 
+  // ── WALK 10 ITEM 3: THE THREE ids ARE GONE, AND NOTHING LOST A READER ──
+  //
+  // `cd-followUpDate`, `cd-followUpDescription` and `cd-followup-save` were
+  // the last three duplicated ids in the live document, and the cause is that
+  // THIS COMPONENT RENDERS ON FOUR SURFACES - the Contact, the Test Bed, the
+  // Lead card and the Opportunity band - all of which sit in the DOM at once,
+  // because a view is hidden rather than removed. One component, four
+  // instances, three ids each.
+  //
+  // THEY WERE LOAD-BEARING FOR NOTHING, measured before removal: no
+  // `getElementById`, no `#id` selector, no stylesheet rule, and no
+  // `htmlFor` - these labels WRAP their inputs, so the association is
+  // implicit and survives. The two tests that name them go through a helper
+  // that reads `data-testid`.
+  //
+  // THE TESTIDS STAY SHARED, deliberately. A testid identifies a part of a
+  // COMPONENT, and every probe in this estate already scopes its query to the
+  // visible view - which it must anyway, for exactly this reason. An id is
+  // different: duplicate ids are invalid, and `getElementById` silently
+  // answers with whichever copy is first in document order, which this
+  // estate has been caught by three times.
   return (
     <div className="cd-card" data-testid="cd-card-followup">
       <div className="cd-card-head">
@@ -58,7 +79,6 @@ export function FollowUpTask({ date, description, onSave, resetKey }: {
           <span className="label">Date</span>
           <input
             type="date"
-            id="cd-followUpDate"
             data-testid="cd-followUpDate"
             value={d}
             onChange={(e) => setD(e.target.value)} />
@@ -68,7 +88,6 @@ export function FollowUpTask({ date, description, onSave, resetKey }: {
           <span className="label">Description</span>
           <input
             type="text"
-            id="cd-followUpDescription"
             data-testid="cd-followUpDescription"
             placeholder="What needs doing"
             value={t}
@@ -93,7 +112,6 @@ export function FollowUpTask({ date, description, onSave, resetKey }: {
         <button
           type="button"
           className="btn-sm"
-          id="cd-followup-save"
           data-testid="cd-followup-save"
           disabled={!dirty}
           onClick={() => {

@@ -6645,9 +6645,18 @@ textarea::placeholder { color: var(--muted-2); }
    number would be wrong and nothing would say so. */
 .kc-table { width: auto; border-collapse: collapse; }
 
-/* K4: the stance cell is ONE ROW. No `display` is given to any child, so the
-   Record button's `hidden` attribute still hides it. */
-td.kc-stance {
+/* K4: the stance controls are ONE ROW, and the flex box is a DIV INSIDE the
+   cell rather than the cell itself.
+
+   ITEM 1, walk 10: `display: flex` on a `<td>` stops it being a table-cell.
+   The row then carries four real cells and an ANONYMOUS box wrapping the
+   flex container, and whether the header columns still correspond to the
+   body's is left to the engine rather than stated by the markup. One column
+   system means the table's, for every row including the head.
+
+   No `display` is given to any child, so the Record button's `hidden`
+   attribute still hides it. */
+.kc-stance {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -6661,7 +6670,30 @@ td.kc-stance {
    is the state K2 and K4 were both about.
 
    The note keeps a width because it is free text with no content to size to. */
-td.kc-stance input[type="text"] { width: 150px; }
+/* ── ITEM 1, walk 10: STATED SIZES, SO NO ROW CAN DIFFER ────────────────
+   THIS IS THE MISALIGNMENT JOHN SAW, and the header boxes were exact the
+   whole time. The base rule gives every `select` `width: 100%`, and a flex
+   item shrinks by default, so each row's select took whatever its own row
+   had left - and the Record button is `hidden` until a stance is CHANGED.
+   Measured: the armed row's select 104px and the other three 183px, with the
+   note starting at x 665 on one row and 744 on the rest. A 79px step down the
+   card, and no two rows agreeing.
+
+   `flex: 0 0 auto` with a stated width on each control means a row's layout
+   does not depend on what else is in that row. The column takes the width of
+   the widest - the armed one - so every row's controls sit at the same x and
+   the unarmed rows simply carry empty space where Record will appear.
+
+   AND WALK 9 REMOVED THIS SELECT WIDTH as "not load-bearing", having measured
+   only the RESTING state. With three controls in the cell it is load-bearing.
+   A calibration that exercises one state of two can prove a rule dead and be
+   wrong about it.
+
+   No `display` is given to any child, so the Record button's `hidden`
+   attribute still hides it. */
+.kc-stance select { flex: 0 0 auto; width: 118px; }
+.kc-stance input[type="text"] { flex: 0 0 auto; width: 150px; }
+.kc-stance button { flex: 0 0 auto; }
 .kc-table th {
   font-family: var(--mono);
   font-size: 9px;

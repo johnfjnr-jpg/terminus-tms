@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-09-22T01:39:32.817Z`
-- Git commit: `8d7930b85bc6c7609b15b0656643e4f4f2b62efe`
+- Generated at: `2026-09-22T04:35:02.561Z`
+- Git commit: `c9e694bb97771d08b8ea6eb8c79ae4cd18c858b9`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 482,011 bytes
-- sha256: `1529d2492a5c296e8d82e6e0755ef67bc846ba04041618ec0f1030debda6796b`
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 482,006 bytes
+- sha256: `6bb7f9cb8ee668192ae6efb52c78c8721251e9237983de0962e2f58591a12202`
 - React suite: 1292/1292 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 838 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 809 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 842 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 813 | yes |
 
 ## `stage_definitions`
 
@@ -407,36 +407,36 @@ _None._
 
 ## Record counts by type and status
 
-132 live, 95821 soft deleted, 95953 rows in total.
+132 live, 96156 soft deleted, 96288 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1539 |
-| contact | Active | 0 | 2745 |
+| account | active | 7 | 1543 |
+| contact | Active | 0 | 2754 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 9062 |
+| contact | Qualified | 12 | 9123 |
 | contact | Unqualified | 5 | 757 |
-| document | approved | 65 | 4822 |
+| document | approved | 65 | 4834 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 229 |
+| opportunity | Evaluation | 0 | 231 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1402 |
-| opportunity | Qualification | 5 | 7905 |
-| opportunity | Solution Alignment | 7 | 1123 |
+| opportunity | Proposal | 3 | 1414 |
+| opportunity | Qualification | 5 | 7950 |
+| opportunity | Solution Alignment | 7 | 1131 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 3 | 1359 |
+| test_bed | Qualification | 3 | 1363 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 18336 |
+| unit | Planned | 9 | 18391 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -447,20 +447,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 5732 | 0 | 46301 |
+| 5747 | 0 | 46424 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-4051 rows, of which 3 carry a null `stage`.
+4077 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2002 | 0 |
-| approved | Legal | 1116 | 1 |
+| approved | Commercial | 2014 | 0 |
+| approved | Legal | 1124 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 924 | 0 |
+| approved | Technical | 930 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
