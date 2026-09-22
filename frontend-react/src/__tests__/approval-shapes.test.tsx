@@ -284,9 +284,9 @@ describe('shape 12: a conditional disclosure fires, and stays silent', () => {
     const row = rows.notRecorded.find((r) => r.key === 'whtPct')
     expect(row?.sentence).toBeTruthy()
     const t = notRec(rows)
-    expect(t).toContain('Withholding tax %')
+    expect(t).toContain('WHT %')
     expect(t).toContain(row!.sentence as string)
-    expect(t).not.toMatch(/Withholding tax % --/)
+    expect(t).not.toMatch(/WHT % --/)
   })
 })
 

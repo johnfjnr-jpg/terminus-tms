@@ -225,7 +225,13 @@ const detail = (await api('GET', `/opportunities/${oppId}`)).data ?? {}
 const tcv = detail.total_contract_value
 const figs = await page.evaluate(() => {
   const n = (id) => Number((document.getElementById(id)?.textContent ?? '').replace(/[^0-9.]/g, ''))
-  return { hardware: n('pg-total-price-hw') }
+  // RE-POINTED by the perf round's step 0. The id was `pg-total-price-hw`
+  // and the total stopped being hardware when walk 11 D3 put the
+  // installation line on that card. The precondition below is kept and is no
+  // longer load-bearing for this inference: the figure IS the one-off total
+  // now, whatever the fixture's installation spend. It still asserts
+  // something true about the fixture, so it is left rather than deleted.
+  return { hardware: n('pg-total-price-oneoff') }
 })
 // FROM THE PAYLOAD, not from the hosting figure beside it: pg-total-price-ho
 // renders a PER-MONTH number, so tcv === hardware + hosting could never

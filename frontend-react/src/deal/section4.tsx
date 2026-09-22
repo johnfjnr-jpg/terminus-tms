@@ -57,8 +57,22 @@ const CARDS = [
   {
     title: 'Unit cost and warranty',
     period: (s: string) => s,
-    totalCostId: 'pg-total-cost-hw',
-    totalPriceId: 'pg-total-price-hw',
+    // ── PERF ROUND STEP 0: THE IDS SAY WHAT THEY TOTAL ────────────────────
+    //
+    // They were `pg-total-cost-hw` and `pg-total-price-hw`, and walk 11 D3
+    // added the installation line to this card - so the totals stopped being
+    // hardware and the names went on saying they were. Verification 19: a
+    // name asserting a property nobody re-measured.
+    //
+    // `oneoff` is the calculator's own word for it. `oneOffPrice` in
+    // `calculateContractTotals` is hardware plus installation, which is
+    // exactly what this card now shows and totals.
+    //
+    // BOTH MOVE, not only the price. The ruling named the price id, and
+    // renaming one of a pair while its twin keeps the wrong word is the
+    // half-fix that reads as a decision.
+    totalCostId: 'pg-total-cost-oneoff',
+    totalPriceId: 'pg-total-price-oneoff',
     group: 'hardwareGroup' as const,
     rows: [
       { key: 'hwSs', name: 'SafeSight' },

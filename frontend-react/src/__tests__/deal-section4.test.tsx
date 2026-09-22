@@ -237,8 +237,8 @@ describe('D3: the installation line', () => {
     // A card whose rows do not add up to its own total is the defect
     // Verification 21 is about: a total that cannot be checked against
     // anything is not a total.
-    expect(num('pg-total-cost-hw')).toBe(sum('cost'))
-    expect(num('pg-total-price-hw')).toBe(sum('price'))
+    expect(num('pg-total-cost-oneoff')).toBe(sum('cost'))
+    expect(num('pg-total-price-oneoff')).toBe(sum('price'))
   })
 
   test('D3e PER UNIT: the margin is a READOUT, never a second writer', async () => {

@@ -97,7 +97,7 @@ try {
       return {
         cost: n('pg-cost-inGroup'), price: n('pg-price-inGroup'),
         note: document.querySelector('[data-testid="pg-note-inGroup"]')?.textContent.trim(),
-        totalPrice: n('pg-total-price-hw'),
+        totalPrice: n('pg-total-price-oneoff'),
         hwPrice: n('pg-price-hwSs') + n('pg-price-hwAqm') + n('pg-price-hwHemir') + n('pg-price-hwWarranty'),
         boxes: document.querySelectorAll('[data-testid="deal-margin-inLump"]').length,
         boxValue: box ? box.value : null,

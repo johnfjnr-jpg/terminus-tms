@@ -4459,8 +4459,14 @@ function renderOppAssessSaveBar() {
   const count = document.getElementById('opp-assess-savebar-count')
   if (count) {
     count.textContent = dirty.length === 1
-      ? '1 assessment ready to record'
-      : `${dirty.length} assessments ready to record`
+      // NOT ONE OF THE FOUR THE RULING NAMED, and changed anyway. It sits
+      // directly beside the button, so leaving it would have put "ready to
+      // record" next to a control saying Save - the panel contradicting
+      // itself because of what this change did to its neighbour. Build
+      // discipline 10's limit: a defect the change makes visible is part of
+      // the change.
+      ? '1 assessment ready to save'
+      : `${dirty.length} assessments ready to save`
   }
 }
 
@@ -4501,7 +4507,7 @@ window.saveAllOppAssess = async function () {
   // the mount, so the node captured at the start was detached by the end.
   // Measured rather than reasoned about, by wrapping the handler and comparing
   // node identity across the call: sameNode false, beforeStillConnected false,
-  // and the captured node holding "Recorded 1 of 1." while the live one was
+  // and the captured node holding "Saved 1 of 1." while the live one was
   // empty. The writes had all succeeded; only the confirmation was posted to a
   // node nobody could see.
   //
@@ -4533,7 +4539,11 @@ window.saveAllOppAssess = async function () {
 
   const btn = document.getElementById('opp-assess-savebar-record')
   if (btn) btn.disabled = true
-  setFb(`Recording ${keys.length}...`, '')
+  // ── PERF ROUND STEP 0: ONE VOCABULARY FOR ONE ACT ──────────────────────
+  // The estate says Save everywhere a write lands. This panel said Record,
+  // Recording and Recorded, and the key contacts card said the same until
+  // walk 11 D1. Two words for one act teach somebody they are two acts.
+  setFb(`Saving ${keys.length}...`, '')
 
   const failed = []
   let saved = 0
@@ -4570,9 +4580,9 @@ window.saveAllOppAssess = async function () {
   if (btn) btn.disabled = false
 
   if (!failed.length) {
-    setFb(`Recorded ${saved} of ${keys.length}.`, 'msg-ok')
+    setFb(`Saved ${saved} of ${keys.length}.`, 'msg-ok')
   } else {
-    setFb(`Recorded ${saved} of ${keys.length}. Not recorded: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
+    setFb(`Saved ${saved} of ${keys.length}. Not saved: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
     for (const f of failed) {
       const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
       if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
@@ -4674,7 +4684,7 @@ async function mountOppAssessmentLenses() {
     bar.innerHTML = `
       <span id="opp-assess-savebar-count" class="opp-assess-savebar-count"></span>
       <button type="button" class="btn-primary" id="opp-assess-savebar-record"
-              onclick="saveAllOppAssess()">Record</button>
+              onclick="saveAllOppAssess()">Save</button>
       <button type="button" class="btn-ghost" id="opp-assess-savebar-cancel"
               onclick="cancelAllOppAssess()">Cancel</button>
       <span id="opp-assess-savebar-feedback" class="opp-assess-savebar-feedback"></span>`
