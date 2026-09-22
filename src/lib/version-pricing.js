@@ -177,7 +177,14 @@ export const PRICING_KEY_LABELS = Object.freeze({
   ssNew: 'SafeSight, new infra',
   targetMargin: 'Target margin %',
   warrantyPct: 'Warranty %',
-  whtPct: 'Withholding Tax %',
+  // WALK 11 D2 shortened this on the deal form and the perf round's step 0
+  // unifies the other two. THREE readers held three spellings of one label -
+  // `WHT %` here, `Withholding tax %` on the approval page, `Withholding Tax
+  // %` on the form - and this map already says `WHT gross-up` two lines
+  // below, so the abbreviation was the estate's own before it was a ruling.
+  // A LABEL MAP, not a stored value: nothing persists this, so no frozen
+  // version snapshot moves.
+  whtPct: 'WHT %',
   // Named by the business, because the screen had no name to inherit.
   factoring: 'PO factoring',
   grossUp: 'WHT gross-up',

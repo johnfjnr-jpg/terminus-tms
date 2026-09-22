@@ -27,7 +27,9 @@ const KEY_LABELS: Record<string, string> = {
   recoveryMonths: 'Recovery months', invoicing: 'Invoicing', structure: 'Payment structure',
   milestones: 'Milestones', targetMargin: 'Target margin', marginOverrides: 'Per-line margins',
   installResp: 'Installation responsibility', lumpSumCost: 'Lump sum cost',
-  warrantyPct: 'Warranty %', whtPct: 'Withholding tax %', gstPct: 'GST %',
+  // `WHT %`: one label for one key, across the form, the approval page and
+  // the version diff. Display only; no frozen snapshot carries it.
+  warrantyPct: 'Warranty %', whtPct: 'WHT %', gstPct: 'GST %',
   grossUp: 'Gross up', fxContingency: 'FX contingency', factoring: 'PO factoring',
   contractorMilestones: 'Contractor milestones', factoringRatePct: 'Factoring rate',
   ssUnitCost: 'SafeSight unit cost', aqUnitCost: 'Air Quality unit cost',

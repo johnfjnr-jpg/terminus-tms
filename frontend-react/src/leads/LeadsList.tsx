@@ -11,7 +11,9 @@
 // which is exactly what happened to Parked/Nurture three phases ago.
 import { useEffect, useMemo, useState } from 'react'
 import { NurtureDialog } from './NurtureDialog'
+import { useQueryClient } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
+import { fetchContacts } from '../data/contacts'
 import { LeadCard, type LeadRecord } from './LeadCard'
 
 interface Stage { stage_name: string, sort_order: number }
@@ -56,14 +58,27 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   const [sources, setSources] = useState<string[]>([])
   const [regions, setRegions] = useState<string[]>([])
 
-  const load = useMemo(() => async () => {
+  const qc = useQueryClient()
+  const load = useMemo(() => async (force = false) => {
     // R1: the completion popup renders real inputs, so the list fetches the
     // picklists once for every card rather than each card fetching its own.
     // `sources` comes from creation-requirements, which is the same endpoint
     // the New Lead grid derives its mandatory markers from - one source for
     // what a lead may be, not two.
+    // ── PERF ROUND: THE CONTACTS LEG GOES THROUGH THE SHARED CACHE ───────
+    //
+    // The other four legs are left alone: they are small, cheap and not what
+    // Phase 0 measured. `/api/contacts` is 867ms median against 119ms for
+    // `/stage-definitions`, and it is the one five readers were each fetching
+    // for themselves.
+    //
+    // `force` is passed by the WRITE paths below. A navigation serves the
+    // shared list, which is the sharing this round exists for; a save does
+    // not, because a save must show what it wrote.
     const [c, s, a, ind, req] = await Promise.all([
-      shell.api<LeadRecord[]>('GET', '/api/contacts'),
+      fetchContacts(qc, shell.api as never, { force })
+        .then((data) => ({ ok: true, data: data as LeadRecord[] }))
+        .catch(() => ({ ok: false, data: null as LeadRecord[] | null })),
       shell.api<Stage[]>('GET', '/api/stage-definitions?record_type=contact'),
       shell.api<Array<{ id: string, payload?: { name?: string } }>>('GET', '/api/accounts'),
       shell.api<Array<{ id: string, name: string }>>('GET', '/api/industries'),
@@ -80,6 +95,7 @@ export function LeadsList({ navToken }: { navToken?: number }) {
     setFetches((n) => n + 1)
   }, [shell])
 
+  // A NAVIGATION, not a write: it may serve the shared list.
   useEffect(() => { void load() }, [load, navToken])
 
   const me = shell.currentUserId()
@@ -136,7 +152,7 @@ export function LeadsList({ navToken }: { navToken?: number }) {
   // inline writes do rather than inventing one.
   const saveSummary = async (id: string, text: string) => {
     const r = await shell.api('PATCH', `/api/contacts/${id}`, { payload: { summary: text } })
-    if (r.ok) await load()
+    if (r.ok) await load(true)
     return r.ok
   }
 
@@ -148,13 +164,13 @@ export function LeadsList({ navToken }: { navToken?: number }) {
         notes: [{ text, at: new Date().toISOString(), by: shell.currentUserEmail() }, ...existing],
       },
     })
-    if (r.ok) await load()
+    if (r.ok) await load(true)
     return r.ok
   }
 
   const saveFollowUp = async (id: string, next: { followUpDate: string, followUpDescription: string }) => {
     const r = await shell.api('PATCH', `/api/contacts/${id}`, { payload: next })
-    if (r.ok) await load()
+    if (r.ok) await load(true)
   }
 
   if (!loaded) return <p className="sub" data-testid="leads-loading">Loading leads.</p>
@@ -172,7 +188,7 @@ export function LeadsList({ navToken }: { navToken?: number }) {
           <NurtureDialog
             leadId={nurturing}
             onCancel={() => setNurturing(null)}
-            onDone={() => { setNurturing(null); void load() }} />
+            onDone={() => { setNurturing(null); void load(true) }} />
         )
         : null}
 

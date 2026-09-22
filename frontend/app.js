@@ -4459,8 +4459,14 @@ function renderOppAssessSaveBar() {
   const count = document.getElementById('opp-assess-savebar-count')
   if (count) {
     count.textContent = dirty.length === 1
-      ? '1 assessment ready to record'
-      : `${dirty.length} assessments ready to record`
+      // NOT ONE OF THE FOUR THE RULING NAMED, and changed anyway. It sits
+      // directly beside the button, so leaving it would have put "ready to
+      // record" next to a control saying Save - the panel contradicting
+      // itself because of what this change did to its neighbour. Build
+      // discipline 10's limit: a defect the change makes visible is part of
+      // the change.
+      ? '1 assessment ready to save'
+      : `${dirty.length} assessments ready to save`
   }
 }
 
@@ -4501,7 +4507,7 @@ window.saveAllOppAssess = async function () {
   // the mount, so the node captured at the start was detached by the end.
   // Measured rather than reasoned about, by wrapping the handler and comparing
   // node identity across the call: sameNode false, beforeStillConnected false,
-  // and the captured node holding "Recorded 1 of 1." while the live one was
+  // and the captured node holding "Saved 1 of 1." while the live one was
   // empty. The writes had all succeeded; only the confirmation was posted to a
   // node nobody could see.
   //
@@ -4533,7 +4539,11 @@ window.saveAllOppAssess = async function () {
 
   const btn = document.getElementById('opp-assess-savebar-record')
   if (btn) btn.disabled = true
-  setFb(`Recording ${keys.length}...`, '')
+  // ── PERF ROUND STEP 0: ONE VOCABULARY FOR ONE ACT ──────────────────────
+  // The estate says Save everywhere a write lands. This panel said Record,
+  // Recording and Recorded, and the key contacts card said the same until
+  // walk 11 D1. Two words for one act teach somebody they are two acts.
+  setFb(`Saving ${keys.length}...`, '')
 
   const failed = []
   let saved = 0
@@ -4570,9 +4580,9 @@ window.saveAllOppAssess = async function () {
   if (btn) btn.disabled = false
 
   if (!failed.length) {
-    setFb(`Recorded ${saved} of ${keys.length}.`, 'msg-ok')
+    setFb(`Saved ${saved} of ${keys.length}.`, 'msg-ok')
   } else {
-    setFb(`Recorded ${saved} of ${keys.length}. Not recorded: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
+    setFb(`Saved ${saved} of ${keys.length}. Not saved: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
     for (const f of failed) {
       const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
       if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
@@ -4674,7 +4684,7 @@ async function mountOppAssessmentLenses() {
     bar.innerHTML = `
       <span id="opp-assess-savebar-count" class="opp-assess-savebar-count"></span>
       <button type="button" class="btn-primary" id="opp-assess-savebar-record"
-              onclick="saveAllOppAssess()">Record</button>
+              onclick="saveAllOppAssess()">Save</button>
       <button type="button" class="btn-ghost" id="opp-assess-savebar-cancel"
               onclick="cancelAllOppAssess()">Cancel</button>
       <span id="opp-assess-savebar-feedback" class="opp-assess-savebar-feedback"></span>`
@@ -5373,10 +5383,34 @@ document.getElementById('contacts-mine-toggle').addEventListener('click', () => 
 // started call is allowed to apply its result.
 let contactsLoadToken = 0
 
-async function loadContactsData() {
+/**
+ * @param {boolean} [force] - true after a WRITE. The shared cache serves
+ *   inside its stale window, so a save followed by an unforced reload would
+ *   repaint the value the save replaced. Freshness is therefore a property of
+ *   the write rather than of the stale window's length.
+ */
+async function loadContactsData(force) {
   const myToken = ++contactsLoadToken
+  // ── PERF ROUND: ONE FETCH, THROUGH THE SHARED CACHE ────────────────────
+  //
+  // THE TOKEN ABOVE WAS NEVER THE PROBLEM AND IS NOT THE FIX. It drops a
+  // stale RENDER, which is correct and stays. It does not drop a stale
+  // REQUEST, so boot paid for four full lists and threw three away:
+  // `showApp` calls `navigate` four times - twice from Supabase's auth
+  // `_notifyAllSubscribers` and twice from `init` - and `navigate` calls this
+  // for both the leads and contacts views. Measured by reading the initiator
+  // stack of every request, not inferred.
+  //
+  // `window.tmsContacts` is the React bundle's query cache, which
+  // deduplicates in flight and serves inside its stale window. The bundle
+  // loads BEFORE this file, so it is there; the fallback is kept anyway,
+  // because a seam that has to exist is a seam that fails silently when it
+  // does not.
+  const contactsCall = window.tmsContacts
+    ? window.tmsContacts({ force: !!force })
+    : api('GET', '/api/contacts')
   const [result, accResult, indResult] = await Promise.all([
-    api('GET', '/api/contacts'),
+    contactsCall,
     api('GET', '/api/accounts'),
     api('GET', '/api/industries'),
   ])
@@ -5646,11 +5680,11 @@ window.onLeadAddNoteClick = async function (btn, contactId) {
     // so this is a silent refusal followed by a visible refresh. Every other
     // failure on this path was already silent before this change; a 409 is the
     // first one where the person needs to know why nothing happened.
-    if (result.status === 409) await loadContactsData()
+    if (result.status === 409) await loadContactsData(true)
     return
   }
 
-  await loadContactsData()
+  await loadContactsData(true)
 }
 
 window.discardLeadNote = function (discardEl) {
@@ -6112,7 +6146,7 @@ window.deleteContact = (id) => {
   openConfirmDelete(name, async () => {
     const result = await api('DELETE', `/api/contacts/${id}`)
     if (!result.ok) return
-    await loadContactsData()
+    await loadContactsData(true)
   })
 }
 
@@ -6426,7 +6460,9 @@ document.getElementById('btn-new-contact').addEventListener('click', openNewLead
 // P5: the grid creates leads and asks the shell to refresh the list. The shell
 // owns loadContactsData, so the shell is what re-reads - the grid does not
 // reach into a cache it does not own.
-window.renderLeadsCardsAfterCreate = () => { loadContactsData() }
+// AFTER A CREATE, so it forces: the row it exists to show is one the shared
+// cache has never seen.
+window.renderLeadsCardsAfterCreate = () => { loadContactsData(true) }
 // P5: the country/region autofill and the Cancel button went with the
 // single-record form. `regionForCountry` still has live callers on the Lead
 // Detail address block, so the helper stays and only this call site goes.

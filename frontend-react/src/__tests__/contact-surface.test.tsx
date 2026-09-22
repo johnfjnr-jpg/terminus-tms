@@ -6,6 +6,13 @@ import { describe, test, expect, beforeEach, vi } from 'vitest'
 import { shellServices } from './fixtures'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+// PERF ROUND: production wraps every ShellProvider in a QueryClientProvider
+// (main.tsx does, at all five mount points), and this harness did not - so a
+// host reading the query client worked in the app and threw here.
+// Verification 47: the harness reproduces how production INVOKES the code.
+// A FRESH CLIENT PER RENDER, so one test's cached list cannot answer for the
+// next, which a shared module-level client would have allowed.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ContactHost, returnViewFor, WRITABLE_ELSEWHERE } from '../contact/ContactHost'
 import { ShellProvider } from '../ShellContext'
 import type { ShellServices } from '../shell-services'
@@ -70,7 +77,7 @@ const mount = async (c = CONTACT) => {
   host = document.getElementById('host')!
   root = createRoot(host)
   await act(async () => {
-    root.render(<ShellProvider services={services}><ContactHost contact={c} /></ShellProvider>)
+    root.render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ShellProvider services={services}><ContactHost contact={c} /></ShellProvider></QueryClientProvider>)
   })
   await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 }

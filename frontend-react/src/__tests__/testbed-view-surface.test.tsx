@@ -6,6 +6,13 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+// PERF ROUND: production wraps every ShellProvider in a QueryClientProvider
+// (main.tsx does, at all five mount points), and this harness did not - so a
+// host reading the query client worked in the app and threw here.
+// Verification 47: the harness reproduces how production INVOKES the code.
+// A FRESH CLIENT PER RENDER, so one test's cached list cannot answer for the
+// next, which a shared module-level client would have allowed.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ViewHeader } from '../testbed/ViewHeader'
 import { TestBedHost } from '../testbed/TestBedHost'
 import { ShellProvider } from '../ShellContext'
@@ -82,7 +89,7 @@ describe('L1/L4/L5: the host\'s load path', () => {
       ...over,
     })
     act(() => {
-      root.render(<ShellProvider services={services}><TestBedHost bed={bed} /></ShellProvider>)
+      root.render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ShellProvider services={services}><TestBedHost bed={bed} /></ShellProvider></QueryClientProvider>)
     })
     return { calls, services }
   }
@@ -204,7 +211,7 @@ describe('the cost preview follows the drafts from any tab', () => {
       currentUserId: () => 'user-1',
     })
     act(() => {
-      root.render(<ShellProvider services={services}><TestBedHost bed={BED2} /></ShellProvider>)
+      root.render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ShellProvider services={services}><TestBedHost bed={BED2} /></ShellProvider></QueryClientProvider>)
     })
     return posts
   }

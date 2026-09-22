@@ -2,6 +2,8 @@
 //
 // The panel does not fetch, save, or know about routes. This holds those.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { fetchContacts } from '../data/contacts'
 import { TestBedPanel } from './TestBedPanel'
 import { PAYLOAD_ONLY_KEYS, testBedDescriptors, type TestBedSource } from './descriptors'
 import { useFieldRows } from '../field-row/useFieldRows'
@@ -118,6 +120,7 @@ export function buildPayload(changes: Record<string, string>): Record<string, un
 
 export function TestBedHost({ bed }: { bed: BedLike }) {
   const shell = useShell()
+  const qc = useQueryClient()
   const [record, setRecord] = useState<BedLike>(bed)
 
   // ── W5: ONE QUEUE FOR THIS RECORD'S OWN WRITES ────────────────────────
@@ -252,12 +255,15 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     // built. Verification 41's enumeration: a superseded or fabricated route
     // is found by listing its callers, not by fixing the one that was
     // reported.
-    void shell.api<Array<ContactOption & { parent_record_id?: string | null }>>(
-      'GET', '/api/contacts').then((r) => {
-      if (live && r.ok && Array.isArray(r.data)) {
-        setInstallerContacts(r.data.filter((c) => c.parent_record_id === installerAccountId))
-      }
-    })
+    // PERF ROUND: the shared fetch. A MOUNT read, not a write, so it may
+    // serve the shared list - and this effect asks for the whole estate to
+    // keep one account's worth, which is why it was one of five readers
+    // fetching the same thing.
+    void fetchContacts(qc, shell.api as never).then((rows) => {
+      if (!live) return
+      const list = rows as Array<ContactOption & { parent_record_id?: string | null }>
+      setInstallerContacts(list.filter((c) => c.parent_record_id === installerAccountId))
+    }).catch(() => {})
     return () => { live = false }
   }, [shell, installerAccountId])
 
@@ -334,14 +340,15 @@ export function TestBedHost({ bed }: { bed: BedLike }) {
     let live = true
     const accountId = record.account_id ?? record.account?.id
     if (!accountId) return
-    void shell.api<Array<{ id: string, parent_record_id?: string | null, payload?: { name?: string } }>>(
-      'GET', '/api/contacts').then((r) => {
-      if (live && r.ok && Array.isArray(r.data)) {
-        setContacts(r.data
-          .filter((c) => c.parent_record_id === accountId)
-          .map((c) => ({ id: c.id, name: c.payload?.name ?? c.id })))
-      }
-    })
+    // PERF ROUND: the shared fetch, same reasoning as the installer picker
+    // above. Two effects in one file were each fetching the whole list.
+    void fetchContacts(qc, shell.api as never).then((rows) => {
+      if (!live) return
+      const list = rows as Array<{ id: string, parent_record_id?: string | null, payload?: { name?: string } }>
+      setContacts(list
+        .filter((c) => c.parent_record_id === accountId)
+        .map((c) => ({ id: c.id, name: c.payload?.name ?? c.id })))
+    }).catch(() => {})
     return () => { live = false }
   }, [shell, record.account_id, record.account?.id])
 

@@ -8,6 +8,7 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
+import { contactsOptions } from '../data/contacts'
 import { ContactHost } from './ContactHost'
 import { returnViewFor } from './ContactHost'
 import { notMine } from '../testbed/viewLoad'
@@ -30,12 +31,25 @@ interface ContactRecord {
 export function ContactView({ contactId, navToken }: { contactId: string, navToken?: number }) {
   const shell = useShell()
 
+  // ── PERF ROUND: THE SHARED KEY, AND A SELECTOR ────────────────────────
+  //
+  // The key was `['contact', contactId]` and the queryFn fetched the WHOLE
+  // list to `.find()` one row - a per-contact cache entry for a whole-estate
+  // resource, so two contacts meant two identical requests and nothing was
+  // shared with the four other readers of the same list.
+  //
+  // One key, and `select` narrows it. The fetch is the estate's single
+  // contacts fetch; the "not found" case moves into the selector, where it is
+  // the same error the caller already renders.
+  //
+  // THE NAVIGATION REFETCH BELOW IS UNCHANGED AND STILL LOAD-BEARING.
+  // `refetch()` ignores `staleTime`, so the walk-measured defect it exists to
+  // prevent - a qualified contact reading "Unqualified" on the next visit -
+  // cannot come back through the stale window.
   const contact = useQuery({
-    queryKey: ['contact', contactId],
-    queryFn: async (): Promise<ContactRecord> => {
-      const r = await shell.api<ContactRecord[]>('GET', '/api/contacts')
-      if (!r.ok || !Array.isArray(r.data)) throw new Error('The Contact could not be loaded.')
-      const found = r.data.find((c) => c.id === contactId)
+    ...contactsOptions(shell.api as never),
+    select: (rows: unknown[]): ContactRecord => {
+      const found = (rows as ContactRecord[]).find((c) => c.id === contactId)
       if (!found) throw new Error('That Contact no longer exists.')
       return found
     },
