@@ -167,7 +167,11 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
         stance_id: draftStance[linkId] || null,
         note: draftNote[linkId] || null,
       })
-      setFeedback(r.ok ? 'Recorded.' : 'Could not record that.')
+      // WALK 11 D1: ONE VOCABULARY. The card said "Recorded." where every
+      // other write in the estate says saved, and the control beside it said
+      // "Record". Two words for one act on one card teaches somebody that
+      // they are two acts.
+      setFeedback(r.ok ? 'Saved.' : 'Could not save that.')
       if (r.ok) { setArmed((a) => ({ ...a, [linkId]: false })); onChanged() }
     } finally { setBusy(false) }
   }
@@ -203,7 +207,20 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
 
   return (
     <div className="kc-panel" data-testid="key-contacts">
-      <table className="kc-table">
+      {/* ── WALK 11 D1: THE ESTATE'S DATA GRID, NOT A BESPOKE ONE ────────
+          `.kc-table` had grown its own header and cell treatment: 9px mono
+          against the estate's 10.5px, `--muted` against `--muted-2`, a plain
+          hairline under the head where every other grid uses the strong one,
+          and 6px/13px cell padding against 13px/12px. Five small departures,
+          none of them decided, all of them drift.
+
+          `doc-table` is the estate's data grid and is what the installation
+          milestone table already wears. `.kc-table` stays on the element
+          beside it for the ONE thing that is genuinely this card's own: the
+          width is `auto`, because K1 measured this column at 392px against an
+          irreducible 711px and a 100% table would be sized by a box that
+          cannot hold it. */}
+      <table className="doc-table kc-table">
         <thead>
           <tr><th>Contact</th><th>Role</th><th>Stance</th><th>Linked</th><th /></tr>
         </thead>
@@ -253,7 +270,25 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
                   <option value="">--</option>
                   {stances.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
+                {/* ── WALK 11 D1: THE NOTE SAYS WHAT IT IS ────────────────
+                    It was a bare box between a dropdown and a button, with
+                    no placeholder, no label and no accessible name: three
+                    controls in a cell headed `Stance`, and only one of them
+                    was the stance.
+
+                    BOTH, and they do different jobs. The placeholder is the
+                    visible hint and it is gone the moment somebody types.
+                    The aria-label survives a value, carries the contact's
+                    name so one row's note is distinguishable from another's
+                    to a screen reader, and is what the test asserts.
+
+                    THE PLACEHOLDER IS SHORT BECAUSE THE BOX IS 150px.
+                    Walk 8 recorded a placeholder wider than its box being
+                    cut silently, so the probe asserts this one is not
+                    clipped rather than trusting that it reads well here. */}
                 <input data-testid={`kc-note-${l.id}`} type="text"
+                  placeholder="Stance note"
+                  aria-label={`Stance note for ${l.contact_name}, saved with the stance`}
                   value={draftNote[l.id] ?? l.stance_note ?? ''}
                   onChange={(e) => {
                     setDraftNote((d) => ({ ...d, [l.id]: e.target.value }))
@@ -266,7 +301,7 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
                     the uniform default it replaced. */}
                 <button type="button" className="btn-sm" data-testid={`kc-record-${l.id}`}
                   hidden={!armed[l.id]} disabled={busy}
-                  onClick={() => { void record(l.id) }}>Record</button>
+                  onClick={() => { void record(l.id) }}>Save</button>
                </div>
               </td>
               <td>{formatTimestamp(l.linked_at) || '--'}</td>

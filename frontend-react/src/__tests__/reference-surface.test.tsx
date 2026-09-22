@@ -500,6 +500,55 @@ describe('K: key contacts', () => {
     expect(must('[data-testid="kc-row-lnk1"]')).toBeTruthy()
   })
 
+  // ── WALK 11 D1: THE CARD'S VOCABULARY AND ITS NOTE ────────────────────
+  //
+  // RED FIRST. Every one of these failed before the component changed: the
+  // control said `Record`, the feedback said `Recorded.`, and the note input
+  // had no placeholder and no accessible name at all.
+  //
+  // THEY ARE AT THIS LAYER ON PURPOSE (Verification 47's layer clause). The
+  // claim is what the component RENDERS and what it SAYS after a write, and
+  // both are held here. A browser probe can read the label, and it cannot
+  // make the POST answer `ok` without writing to a real record.
+  test('D1a the stance control is labelled Save, not Record', async () => {
+    await mount()
+    const btn = must('[data-testid="kc-record-lnk1"]')
+    expect(btn.textContent?.trim()).toBe('Save')
+    // BOTH HALVES (Verification 14): the word must be present as Save AND
+    // absent as Record. "It does not say Record" is satisfied by a button
+    // that says nothing at all.
+    expect(btn.textContent).not.toMatch(/Record/i)
+  })
+
+  test('D1b the stance note says what it is, by placeholder AND by name', async () => {
+    await mount()
+    const note = must('[data-testid="kc-note-lnk1"]') as HTMLInputElement
+    // A placeholder disappears the moment somebody types, so it cannot be
+    // the only answer. The accessible name is what survives a value.
+    expect(note.placeholder, 'the note had no placeholder').toBeTruthy()
+    expect(note.getAttribute('aria-label'), 'the note had no accessible name').toBeTruthy()
+    expect(note.getAttribute('aria-label')).toMatch(/note/i)
+  })
+
+  test('D1c a saved stance reports Saved, and never Recorded', async () => {
+    await mount({ stances: [{ id: 's1', label: 'Champion' }] })
+    const sel = must('[data-testid="kc-stance-lnk1"]') as HTMLSelectElement
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype, 'value')!.set!
+      setter.call(sel, 's1')
+      sel.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await click(must('[data-testid="kc-record-lnk1"]'))
+    // GATED ON THE WRITE HAVING BEEN MADE. "The feedback does not say
+    // Recorded" is exactly what a run where nothing happened reports.
+    const posted = apiCalls.find((c) => c.method === 'POST' && c.path.includes('/stance'))
+    expect(posted, 'no stance POST was made, so the feedback proves nothing').toBeTruthy()
+    const fb = host.querySelector('.kc-feedback')?.textContent ?? ''
+    expect(fb).toMatch(/Saved/)
+    expect(fb, 'the retired vocabulary survived').not.toMatch(/Record/i)
+  })
+
   test('K2 it loads its three vocabularies on mount', async () => {
     await mount()
     const paths = apiCalls.map((c) => c.path)

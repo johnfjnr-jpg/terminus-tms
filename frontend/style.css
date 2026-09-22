@@ -6708,17 +6708,21 @@ textarea::placeholder { color: var(--muted-2); }
 .kc-stance select { flex: 0 0 auto; width: 118px; }
 .kc-stance input[type="text"] { flex: 0 0 auto; width: 150px; }
 .kc-stance button { flex: 0 0 auto; }
-.kc-table th {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-  text-align: left;
-  padding: 6px 8px 6px 0;
-  border-bottom: 1px solid var(--hairline);
-}
-.kc-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; }
+/* ── WALK 11 D1: THE HEADER AND CELL TREATMENT COME FROM `doc-table` ─────
+   These two rules were a bespoke copy of the estate's data grid, five
+   properties adrift: 9px against 10.5px, 0.06em against 0.1em, `--muted`
+   against `--muted-2`, a plain hairline under the head where the estate uses
+   the strong one, and 13px cells against 14px. Nothing decided any of it.
+
+   The element now carries `doc-table kc-table`, so the treatment is the
+   estate's and what remains here is only what this card genuinely differs
+   in. `.kc-table` sits at line 6660 and `doc-table` at 1220, so the width
+   below wins on source order at equal specificity - which is why the width
+   override is stated here rather than relying on it being inherited.
+
+   THE HORIZONTAL PADDING IS THE ESTATE'S 12px ON BOTH SIDES. Measured after
+   the change rather than reasoned: the table is sized to its content and the
+   probe asserts it does not overflow its panel at 1440 or 1240. */
 .kc-add { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
 .kc-feedback { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
