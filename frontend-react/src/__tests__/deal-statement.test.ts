@@ -175,6 +175,25 @@ describe('C1: the statement equals the derivation layer', () => {
     const good = build({ factoring: { enabled: false }, warrantyPct: 0 }, true, 0)
     expect(good.st.margin.state).toBe('on-target')
     expect(good.st.strip.state).toBe('on-target')
+
+    // ── THE NOTE IS WHAT PROVES WHOSE RULE THIS IS ──────────────────────
+    //
+    // A CALIBRATION INJECTION CAME BACK SILENT HERE. Replacing
+    // `marginPresentation` with a local `achievedMargin >= 30` passed every
+    // assertion above, because both fixtures carry a target of 30 - so the
+    // test proved the two STATES were right for one threshold and nothing at
+    // all about where the rule came from.
+    //
+    // The note is `marginPresentation`'s alone: it names the target, and at
+    // the boundary it says "at target" rather than a movement of zero, which
+    // is the rounding rule Round 39 calibrated. A second implementation
+    // cannot produce it by coincidence.
+    expect(low.st.margin.note).toMatch(/against target 30%, down [\d.]+ pts/)
+    expect(good.st.margin.note).toMatch(/target 1?30?%/)
+    // And the TARGET on the strip is read from the payload, not from the
+    // accent, so a deal with a different target says so.
+    const other = build({ targetMargin: 45 })
+    expect(other.st.strip.target).toBe('TARGET 45%')
   })
 
   test('the drawers carry the GROUP\'s own implied margin, not a recomputation', () => {
