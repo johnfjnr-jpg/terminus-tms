@@ -458,6 +458,19 @@ export function DealSummarySection({
         </button>
       </div>
 
+      {/* ── THE STATEMENT IS FULL WIDTH, ABOVE THE ROW ───────────────────
+          It was inside `.deal-summary-col`, which is HALF the width once the
+          detail disclosure is open. Measured there: the column is 628px, and
+          18 + four 118px money columns + five 10px gaps leaves 88px for the
+          label - so "One-off price, hardware and warranty" set one word per
+          line and the sheet was unreadable at the exact moment somebody has
+          the pricing cards open beside it.
+          Found by opening the screenshot. Every assertion passed on it: the
+          headers sat over their columns to the pixel, the strip agreed with
+          the sheet, the drawers opened. None of them is about whether a label
+          is legible, which is Verification 4's whole point. */}
+      {statement ? <DealStatement statement={statement} /> : null}
+
       {/* B2: `detail-open` goes on the ROW. The row has to become two columns,
           and hiding the panel alone leaves a one-column grid with a gap. */}
       <div className={`deal-summary-row${open ? ' detail-open' : ''}`} id="deal-summary-row">
@@ -478,8 +491,7 @@ export function DealSummarySection({
               what the deal sheet IS, and it belongs to C2, after John has a
               verdict on this page. It sits in a CLOSED disclosure underneath,
               so the default view is the statement alone. */}
-          {statement ? <DealStatement statement={statement} /> : null}
-          <details className="ds-legacy" data-testid="ds-legacy">
+          <details className="stmt-legacy" data-testid="stmt-legacy">
             <summary>The existing deal sheet</summary>
             <div className="deal-panel" id="deal-panel">{matrix}</div>
           </details>
@@ -511,3 +523,4 @@ export function DealSummarySection({
     </section>
   )
 }
+

@@ -177,8 +177,8 @@ const AMBER_FAMILY = [
   // The state names are `marginPresentation`'s - `on-target` and
   // `under-target` - not the mockup's `good` and `low`. One vocabulary for
   // one decision, and the calibrated owner of the comparison keeps it.
-  '.ds-v.under-target',
-  '.ds-margin-final.under-target',
+  '.stmt-v.under-target',
+  '.stmt-margin-final.under-target',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

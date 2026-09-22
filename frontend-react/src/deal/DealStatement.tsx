@@ -23,21 +23,21 @@ import type { Statement, StatementLine, Drawer } from './statement'
 const COLS = ['HARDWARE', 'HOSTING', 'INSTALLATION', 'TOTAL']
 
 function DrawerBody({ drawer }: { drawer: Drawer }) {
-  if (drawer.kind === 'note') return <p className="ds-note">{drawer.note}</p>
+  if (drawer.kind === 'note') return <p className="stmt-note">{drawer.note}</p>
   return (
     <>
-      <table className="ds-drawer-table">
+      <table className="stmt-drawer-table">
         <thead><tr>{drawer.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
         <tbody>
           {drawer.rows.map((r, i) => (
-            <tr key={i} className={r.sum ? 'ds-sum' : undefined}>
+            <tr key={i} className={r.sum ? 'stmt-sum' : undefined}>
               {r.cells.map((c, j) => <td key={j}>{c}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
       {drawer.second ? (
-        <table className="ds-drawer-table ds-drawer-second">
+        <table className="stmt-drawer-table stmt-drawer-second">
           <thead><tr>{drawer.second.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
           <tbody>
             {drawer.second.rows.map((r, i) => (
@@ -46,7 +46,7 @@ function DrawerBody({ drawer }: { drawer: Drawer }) {
           </tbody>
         </table>
       ) : null}
-      {drawer.note ? <p className="ds-note">{drawer.note}</p> : null}
+      {drawer.note ? <p className="stmt-note">{drawer.note}</p> : null}
     </>
   )
 }
@@ -60,34 +60,34 @@ function Line({ line, open, onToggle, variant }: {
   const has = !!line.drawer
   const cells = [line.hardware, line.hosting, line.installation, line.total]
   return (
-    <div className={`ds-row${has ? ' ds-has-drawer' : ''}${open ? ' ds-open' : ''}${variant ? ' ds-' + variant : ''}`}
-      data-testid={`ds-row-${line.key}`}>
+    <div className={`stmt-row${has ? ' stmt-has-drawer' : ''}${open ? ' stmt-open' : ''}${variant ? ' stmt-' + variant : ''}`}
+      data-testid={`stmt-row-${line.key}`}>
       {/* THE ROW IS A BUTTON ONLY WHEN IT OPENS SOMETHING. A role of button on
           a line that does nothing is a promise to a screen reader that the
           page does not keep. */}
-      <div className="ds-row-line"
+      <div className="stmt-row-line"
         {...(has ? {
           role: 'button', tabIndex: 0, 'aria-expanded': open ? 'true' : 'false',
-          'aria-controls': `ds-drawer-${line.key}`,
+          'aria-controls': `stmt-drawer-${line.key}`,
           onClick: onToggle,
           onKeyDown: (e: React.KeyboardEvent) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle() }
           },
         } : {})}>
-        <span className="ds-tw" aria-hidden="true">{has ? '›' : ''}</span>
-        <span className="ds-lbl">
+        <span className="stmt-tw" aria-hidden="true">{has ? '›' : ''}</span>
+        <span className="stmt-lbl">
           {line.label}
           {line.sub ? <small>{line.sub}</small> : null}
         </span>
         {cells.map((c, i) => (
           <span key={i}
-            className={`ds-num${c === '-' ? ' ds-dash' : ''}${line.negative && c !== '-' && c !== '' ? ' ds-neg' : ''}`}
-            data-testid={`ds-${line.key}-${COLS[i].toLowerCase()}`}>{c}</span>
+            className={`stmt-num${c === '-' ? ' stmt-dash' : ''}${line.negative && c !== '-' && c !== '' ? ' stmt-neg' : ''}`}
+            data-testid={`stmt-${line.key}-${COLS[i].toLowerCase()}`}>{c}</span>
         ))}
       </div>
       {has ? (
-        <div className="ds-drawer" id={`ds-drawer-${line.key}`} hidden={!open}
-          data-testid={`ds-drawer-${line.key}`}>
+        <div className="stmt-drawer" id={`stmt-drawer-${line.key}`} hidden={!open}
+          data-testid={`stmt-drawer-${line.key}`}>
           <DrawerBody drawer={line.drawer!} />
         </div>
       ) : null}
@@ -113,27 +113,27 @@ export function DealStatement({ statement }: { statement: Statement }) {
           SCROLLS. Round 39 measured 578px between a margin control and the
           figure it moves; this is the same problem answered by pinning the
           figure rather than by shortening the distance. */}
-      <div className="ds-strip" data-testid="ds-strip">
-        <div><div className="ds-k">REVENUE</div>
-          <div className="ds-v" data-testid="ds-strip-revenue">{statement.strip.revenue}</div></div>
-        <div><div className="ds-k">TOTAL COST</div>
-          <div className="ds-v" data-testid="ds-strip-cost">{statement.strip.cost}</div></div>
-        <div><div className="ds-k">PROFIT</div>
-          <div className="ds-v" data-testid="ds-strip-profit">{statement.strip.profit}</div></div>
-        <div><div className="ds-k">ACHIEVED MARGIN</div>
-          <div className={`ds-v ${statement.strip.state}`} data-testid="ds-strip-margin">{statement.strip.margin}</div>
-          <div className="ds-sub" data-testid="ds-strip-target">{statement.strip.target}</div></div>
+      <div className="stmt-strip" data-testid="stmt-strip">
+        <div><div className="stmt-k">REVENUE</div>
+          <div className="stmt-v" data-testid="stmt-strip-revenue">{statement.strip.revenue}</div></div>
+        <div><div className="stmt-k">TOTAL COST</div>
+          <div className="stmt-v" data-testid="stmt-strip-cost">{statement.strip.cost}</div></div>
+        <div><div className="stmt-k">PROFIT</div>
+          <div className="stmt-v" data-testid="stmt-strip-profit">{statement.strip.profit}</div></div>
+        <div><div className="stmt-k">ACHIEVED MARGIN</div>
+          <div className={`stmt-v ${statement.strip.state}`} data-testid="stmt-strip-margin">{statement.strip.margin}</div>
+          <div className="stmt-sub" data-testid="stmt-strip-target">{statement.strip.target}</div></div>
       </div>
 
-      <div className="ds-sheet">
-        <div className="ds-colhead">
-          <span /><span className="ds-colhead-line">LINE</span>
+      <div className="stmt-sheet">
+        <div className="stmt-colhead">
+          <span /><span className="stmt-colhead-line">LINE</span>
           {COLS.map((c) => <span key={c}>{c}</span>)}
         </div>
 
-        <div className="ds-sec">
+        <div className="stmt-sec">
           <span>MONEY IN</span>
-          <button type="button" className="btn-text" data-testid="ds-expand-all"
+          <button type="button" className="btn-text" data-testid="stmt-expand-all"
             aria-expanded={allOpen ? 'true' : 'false'}
             onClick={() => setOpen(allOpen ? {} : Object.fromEntries(openable.map((k) => [k, true])))}>
             {allOpen ? 'Collapse all' : 'Expand all'}
@@ -142,28 +142,29 @@ export function DealStatement({ statement }: { statement: Statement }) {
         {statement.moneyIn.map((l) => line(l))}
         {line(statement.revenue, 'grand')}
 
-        <div className="ds-sec ds-mid"><span>MONEY OUT</span></div>
+        <div className="stmt-sec stmt-mid"><span>MONEY OUT</span></div>
         {statement.moneyOut.map((l) => line(l))}
         {line(statement.totalCost, 'total')}
 
-        <div className="ds-sec ds-mid"><span>RESULT</span></div>
-        <div className="ds-row ds-total ds-result" data-testid="ds-row-profit">
-          <div className="ds-row-line">
-            <span className="ds-tw" aria-hidden="true" />
-            <span className="ds-lbl">Profit</span>
-            <span className="ds-num" data-testid="ds-profit">{statement.profit}</span>
+        <div className="stmt-sec stmt-mid"><span>RESULT</span></div>
+        <div className="stmt-row stmt-total stmt-result" data-testid="stmt-row-profit">
+          <div className="stmt-row-line">
+            <span className="stmt-tw" aria-hidden="true" />
+            <span className="stmt-lbl">Profit</span>
+            <span className="stmt-num" data-testid="stmt-profit">{statement.profit}</span>
           </div>
         </div>
-        <div className="ds-row ds-total ds-result ds-last" data-testid="ds-row-margin">
-          <div className="ds-row-line">
-            <span className="ds-tw" aria-hidden="true" />
-            <span className="ds-lbl">Achieved margin
-              <small data-testid="ds-margin-note">{statement.margin.note}</small></span>
-            <span className={`ds-margin-final ${statement.margin.state}`}
-              data-testid="ds-margin">{statement.margin.text}</span>
+        <div className="stmt-row stmt-total stmt-result stmt-last" data-testid="stmt-row-margin">
+          <div className="stmt-row-line">
+            <span className="stmt-tw" aria-hidden="true" />
+            <span className="stmt-lbl">Achieved margin
+              <small data-testid="stmt-margin-note">{statement.margin.note}</small></span>
+            <span className={`stmt-margin-final ${statement.margin.state}`}
+              data-testid="stmt-margin">{statement.margin.text}</span>
           </div>
         </div>
       </div>
     </div>
   )
 }
+
