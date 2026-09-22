@@ -26,7 +26,9 @@
 //
 // ── THE TESTID DISPOSITION, Verification 41 ──────────────────────────────
 //
-// `tb-card-sensors` is RETAINED, unchanged, on Sensor Counts.
+// `tb-card-sensors` is RETAINED, unchanged, on the card now titled UNIT
+// COUNTS (C9, ruled 2026-09-22). The title moved and the testId did not,
+// which is what a display rename means.
 //
 // `tb-card-commercials` is RETIRED. It named one card holding nine rows and
 // there is no such card now, so keeping the name on any one of the three would
@@ -139,7 +141,15 @@ export function CommercialsCards({ rows, fields, units = [] }: {
     // order rather than the controller's field list - most of which is on the
     // Reference tab. See FieldRow's `neighbourInPanel`.
     <div className="ref-cards" data-field-panel="commercials" data-testid="tb-commercials-cards">
-      <Card title="Sensor Counts" testId="tb-card-sensors">
+      {/* ── C9, ruled by John 2026-09-22: "Unit Counts", because A CAMERA IS
+          NOT A SENSOR. The card holds SafeSight CAMERAS alongside air quality
+          and HEMIR sensors, so "Sensor Counts" is wrong about a third of its
+          own rows. This restores the vanilla's own title.
+
+          `tb-card-sensors` is UNCHANGED. The testId is how every assertion
+          and every draft key reaches this card, and a display rename is a
+          display rename: CLAUDE.md architecture 6. */}
+      <Card title="Unit Counts" testId="tb-card-sensors">
         {SENSORS.map(row)}
       </Card>
       {RATE_CARDS.map((c) => (
