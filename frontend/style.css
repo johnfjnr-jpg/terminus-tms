@@ -8006,3 +8006,179 @@ textarea.lead-field-input,
   caret-color: var(--white);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+/* ── DEAL SHEET STATEMENT (C1, read-only). Option C, John 2026-09-22 ──────
+
+   MONEY IN / MONEY OUT / RESULT, read top to bottom, each line's drivers in a
+   drawer underneath it, and a reconciling strip pinned while the tab scrolls.
+
+   EVERY COLOUR IS AN EXISTING TOKEN. The mockup declares its own palette and
+   its values are this estate's: its `--amber` is #EDB45A, which is
+   `--attention`, the one amber in this stylesheet. Nothing is minted here.
+
+   THE DRAWER IS NEVER GIVEN A `display`. It is hidden by the `hidden`
+   ATTRIBUTE, and `scripts/tests/hidden-not-overridden.test.mjs` refuses a
+   rule that gives a display to a class the application hides that way -
+   because `display: block` beats the user agent's `[hidden] { display: none }`
+   and the element renders while every attribute assertion passes. A div is
+   already block; there is nothing to declare. */
+.ds { margin-top: 4px; }
+
+/* THE EXISTING SHEET, BEHIND A CLOSED DISCLOSURE. C1 puts the statement in
+   the summary's position without retiring the matrix, because the matrix's
+   own presentation contract is what C2 has to decide about. Closed by
+   default, so the page a reviewer opens is the statement. */
+.ds-legacy { margin-top: 22px; border-top: 1px solid var(--hairline); padding-top: 12px; }
+.ds-legacy > summary {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ds-legacy > summary:hover { color: var(--white); }
+.ds-legacy[open] > summary { margin-bottom: 12px; }
+
+.ds-strip {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--black);
+  border: 1px solid var(--hairline-strong);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 20px;
+}
+.ds-strip > div { padding: 10px 14px; border-right: 1px solid var(--hairline); }
+.ds-strip > div:last-child { border-right: 0; }
+.ds-k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--muted); }
+.ds-v { font-family: var(--mono); font-size: 17px; margin-top: 3px; color: var(--white); }
+.ds-v.on-target { color: var(--green); }
+.ds-v.under-target { color: var(--attention); }
+.ds-sub { font-family: var(--mono); font-size: 10px; color: var(--muted-2); margin-top: 2px; }
+
+.ds-sheet { border: 1px solid var(--hairline-strong); background: var(--black); }
+
+/* FIVE TRACKS, FOUR FIGURES. The first is the twisty, which is why the label
+   column starts at track two and the head below uses the same template: a
+   header that does not share its rows' track list is the drift walk 4's O5/O6
+   is about. */
+.ds-colhead,
+.ds-row-line {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) repeat(4, minmax(0, 118px));
+  gap: 10px;
+  align-items: baseline;
+}
+.ds-colhead {
+  padding: 10px 16px 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.ds-colhead span { text-align: right; }
+.ds-colhead .ds-colhead-line { text-align: left; }
+
+.ds-sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--green);
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+.ds-sec.ds-mid { border-top: 1px solid var(--hairline-strong); }
+
+.ds-row { border-bottom: 1px solid var(--hairline); }
+.ds-row.ds-last { border-bottom: 0; }
+.ds-row-line { padding: 11px 16px; }
+.ds-has-drawer > .ds-row-line { cursor: pointer; }
+.ds-has-drawer > .ds-row-line:hover { background: rgba(242,242,240,0.03); }
+.ds-has-drawer > .ds-row-line:focus-visible { outline: 1px solid var(--green); outline-offset: -1px; }
+
+.ds-tw {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-2);
+  transition: transform 0.15s;
+  display: inline-block;
+}
+.ds-open > .ds-row-line .ds-tw { transform: rotate(90deg); }
+
+.ds-lbl { font-size: 14px; color: var(--white); min-width: 0; }
+.ds-lbl small {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted-2);
+  margin-top: 2px;
+}
+.ds-num { font-family: var(--mono); font-size: 13px; text-align: right; color: var(--white); }
+.ds-num.ds-dash { color: var(--muted-2); }
+.ds-num.ds-neg { color: var(--muted); }
+
+.ds-total > .ds-row-line { background: rgba(242,242,240,0.03); }
+.ds-total .ds-lbl { font-weight: 600; }
+.ds-total .ds-num { font-weight: 700; }
+.ds-grand .ds-num:last-child { color: var(--green); }
+.ds-result > .ds-row-line { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 118px); }
+.ds-margin-final { font-family: var(--mono); font-size: 20px; font-weight: 700; text-align: right; }
+.ds-margin-final.on-target { color: var(--green); }
+.ds-margin-final.under-target { color: var(--attention); }
+
+.ds-drawer {
+  background: rgba(0,0,0,0.25);
+  border-top: 1px dashed var(--hairline);
+  padding: 14px 16px 16px 44px;
+}
+.ds-drawer-table { border-collapse: collapse; width: 100%; max-width: 640px; }
+.ds-drawer-second { margin-top: 12px; }
+.ds-drawer-table th {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-align: right;
+  font-weight: 400;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.ds-drawer-table th:first-child { text-align: left; }
+.ds-drawer-table td {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--white);
+}
+.ds-drawer-table td:first-child { text-align: left; }
+.ds-drawer-table tr.ds-sum td { border-bottom: 0; font-weight: 700; }
+.ds-note {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-2);
+  margin: 10px 0 0;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+/* AT 1240 THE FOUR MONEY COLUMNS DO NOT ALL FIT BESIDE A READABLE LABEL.
+   The mockup's own answer at its narrow width is the same one: tighten the
+   tracks rather than drop a figure, because a statement with a column missing
+   is not the thing being reviewed. */
+@media (max-width: 1400px) {
+  .ds-colhead,
+  .ds-row-line { grid-template-columns: 16px minmax(0, 1fr) repeat(4, minmax(0, 96px)); gap: 8px; }
+  .ds-result > .ds-row-line { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 96px); }
+  .ds-num { font-size: 12px; }
+  .ds-drawer { padding-left: 24px; }
+}
+
+

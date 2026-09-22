@@ -1,0 +1,169 @@
+// ── THE DEAL SHEET STATEMENT, C1: READ-ONLY ─────────────────────────────
+//
+// Option C rendered. MONEY IN, MONEY OUT, RESULT, read top to bottom, each
+// line's drivers in a drawer underneath it, and a reconciling strip pinned
+// while the tab scrolls.
+//
+// READ-ONLY IS THE WHOLE OF C1. The mockup's drawers carry margin INPUTS;
+// these carry the same figures as text. Editing is C2 and does not begin
+// without John's verdict on this page, so a control that looks editable here
+// would be the page making a promise the round has not built.
+//
+// EVERY FIGURE COMES FROM `buildDealStatement`, which reads the same
+// expressions `buildDealRows` reads. This file formats and lays out; it
+// computes nothing. The one thing it decides is which rows are open.
+import { useState } from 'react'
+import type { Statement, StatementLine, Drawer } from './statement'
+
+// FOUR COLUMNS, NOT THE MOCKUP'S THREE. The mockup folds installation into
+// the hardware column and shows HARDWARE | HOSTING | TOTAL. The data has four
+// figures and the existing matrix shows four, so folding would either drop
+// the installation figure or compute a sum here - and this file computes
+// nothing. Reported in the brief as a departure from the mockup.
+const COLS = ['HARDWARE', 'HOSTING', 'INSTALLATION', 'TOTAL']
+
+function DrawerBody({ drawer }: { drawer: Drawer }) {
+  if (drawer.kind === 'note') return <p className="ds-note">{drawer.note}</p>
+  return (
+    <>
+      <table className="ds-drawer-table">
+        <thead><tr>{drawer.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+        <tbody>
+          {drawer.rows.map((r, i) => (
+            <tr key={i} className={r.sum ? 'ds-sum' : undefined}>
+              {r.cells.map((c, j) => <td key={j}>{c}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {drawer.second ? (
+        <table className="ds-drawer-table ds-drawer-second">
+          <thead><tr>{drawer.second.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+          <tbody>
+            {drawer.second.rows.map((r, i) => (
+              <tr key={i}>{r.cells.map((c, j) => <td key={j}>{c}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+      {drawer.note ? <p className="ds-note">{drawer.note}</p> : null}
+    </>
+  )
+}
+
+function Line({ line, open, onToggle, variant }: {
+  line: StatementLine
+  open: boolean
+  onToggle(): void
+  variant?: 'total' | 'grand'
+}) {
+  const has = !!line.drawer
+  const cells = [line.hardware, line.hosting, line.installation, line.total]
+  return (
+    <div className={`ds-row${has ? ' ds-has-drawer' : ''}${open ? ' ds-open' : ''}${variant ? ' ds-' + variant : ''}`}
+      data-testid={`ds-row-${line.key}`}>
+      {/* THE ROW IS A BUTTON ONLY WHEN IT OPENS SOMETHING. A role of button on
+          a line that does nothing is a promise to a screen reader that the
+          page does not keep. */}
+      <div className="ds-row-line"
+        {...(has ? {
+          role: 'button', tabIndex: 0, 'aria-expanded': open ? 'true' : 'false',
+          'aria-controls': `ds-drawer-${line.key}`,
+          onClick: onToggle,
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle() }
+          },
+        } : {})}>
+        <span className="ds-tw" aria-hidden="true">{has ? '›' : ''}</span>
+        <span className="ds-lbl">
+          {line.label}
+          {line.sub ? <small>{line.sub}</small> : null}
+        </span>
+        {cells.map((c, i) => (
+          <span key={i}
+            className={`ds-num${c === '-' ? ' ds-dash' : ''}${line.negative && c !== '-' && c !== '' ? ' ds-neg' : ''}`}
+            data-testid={`ds-${line.key}-${COLS[i].toLowerCase()}`}>{c}</span>
+        ))}
+      </div>
+      {has ? (
+        <div className="ds-drawer" id={`ds-drawer-${line.key}`} hidden={!open}
+          data-testid={`ds-drawer-${line.key}`}>
+          <DrawerBody drawer={line.drawer!} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export function DealStatement({ statement }: { statement: Statement }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const openable = [...statement.moneyIn, ...statement.moneyOut]
+    .filter((l) => l.drawer).map((l) => l.key)
+  const allOpen = openable.length > 0 && openable.every((k) => open[k])
+  const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
+
+  const line = (l: StatementLine, variant?: 'total' | 'grand') => (
+    <Line key={l.key} line={l} open={!!open[l.key]} variant={variant}
+      onToggle={() => toggle(l.key)} />
+  )
+
+  return (
+    <div className="ds" data-testid="deal-statement">
+      {/* THE STRIP IS STICKY SO THE RECONCILIATION STAYS WHILE THE SHEET
+          SCROLLS. Round 39 measured 578px between a margin control and the
+          figure it moves; this is the same problem answered by pinning the
+          figure rather than by shortening the distance. */}
+      <div className="ds-strip" data-testid="ds-strip">
+        <div><div className="ds-k">REVENUE</div>
+          <div className="ds-v" data-testid="ds-strip-revenue">{statement.strip.revenue}</div></div>
+        <div><div className="ds-k">TOTAL COST</div>
+          <div className="ds-v" data-testid="ds-strip-cost">{statement.strip.cost}</div></div>
+        <div><div className="ds-k">PROFIT</div>
+          <div className="ds-v" data-testid="ds-strip-profit">{statement.strip.profit}</div></div>
+        <div><div className="ds-k">ACHIEVED MARGIN</div>
+          <div className={`ds-v ${statement.strip.state}`} data-testid="ds-strip-margin">{statement.strip.margin}</div>
+          <div className="ds-sub" data-testid="ds-strip-target">{statement.strip.target}</div></div>
+      </div>
+
+      <div className="ds-sheet">
+        <div className="ds-colhead">
+          <span /><span className="ds-colhead-line">LINE</span>
+          {COLS.map((c) => <span key={c}>{c}</span>)}
+        </div>
+
+        <div className="ds-sec">
+          <span>MONEY IN</span>
+          <button type="button" className="btn-text" data-testid="ds-expand-all"
+            aria-expanded={allOpen ? 'true' : 'false'}
+            onClick={() => setOpen(allOpen ? {} : Object.fromEntries(openable.map((k) => [k, true])))}>
+            {allOpen ? 'Collapse all' : 'Expand all'}
+          </button>
+        </div>
+        {statement.moneyIn.map((l) => line(l))}
+        {line(statement.revenue, 'grand')}
+
+        <div className="ds-sec ds-mid"><span>MONEY OUT</span></div>
+        {statement.moneyOut.map((l) => line(l))}
+        {line(statement.totalCost, 'total')}
+
+        <div className="ds-sec ds-mid"><span>RESULT</span></div>
+        <div className="ds-row ds-total ds-result" data-testid="ds-row-profit">
+          <div className="ds-row-line">
+            <span className="ds-tw" aria-hidden="true" />
+            <span className="ds-lbl">Profit</span>
+            <span className="ds-num" data-testid="ds-profit">{statement.profit}</span>
+          </div>
+        </div>
+        <div className="ds-row ds-total ds-result ds-last" data-testid="ds-row-margin">
+          <div className="ds-row-line">
+            <span className="ds-tw" aria-hidden="true" />
+            <span className="ds-lbl">Achieved margin
+              <small data-testid="ds-margin-note">{statement.margin.note}</small></span>
+            <span className={`ds-margin-final ${statement.margin.state}`}
+              data-testid="ds-margin">{statement.margin.text}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

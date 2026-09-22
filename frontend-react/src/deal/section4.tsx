@@ -31,6 +31,8 @@ export function SummaryNotices({ n }: { n: Notices }) {
   )
 }
 import type { InstallVisibility } from './installation'
+import { DealStatement } from './DealStatement'
+import type { Statement } from './statement'
 // THE SAME PRESENTERS THE VANILLA USES, never a second expression of the rule.
 // perMonthFigure is the one wording rule and it is shared with the
 // over-the-term labels durationPresentation produces, so the two surfaces
@@ -424,8 +426,10 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
 
 export function DealSummarySection({
   result, payload, values, onMargin, matrix, notices, install, basis,
-  hostingPriceMode, onHostingPriceMode,
+  hostingPriceMode, onHostingPriceMode, statement,
 }: {
+  /** C1: the read-only statement. Null while the deal has not computed. */
+  statement: Statement | null
   result: PricingResult
   payload: Record<string, unknown>
   values: Record<string, string | undefined>
@@ -460,7 +464,25 @@ export function DealSummarySection({
         <div className="deal-summary-col">
           <p className="label">Deal Sheet (USD) &middot; <span id="deal-sheet-units"
             data-testid="deal-sheet-units">{result?.hardware?.totalUnits ?? 0}</span> units</p>
-          <div className="deal-panel" id="deal-panel">{matrix}</div>
+          {/* ── C1: THE STATEMENT TAKES THE SUMMARY'S POSITION ────────────
+              Option C, read-only. It renders from `buildDealStatement`, which
+              reads the same expressions `buildDealRows` does, so the two
+              cannot disagree - and a test asserts them EQUAL figure by figure
+              rather than trusting the sentence.
+
+              THE MATRIX IS NOT RETIRED, AND THAT IS DELIBERATE. Retiring it
+              would retire its CONTRACT: eleven assertions in
+              deal-panel.test.tsx are about the matrix's own presentation -
+              full-width rows, memo rows, group cells - and the statement has
+              no such concepts to re-point them onto. That is a decision about
+              what the deal sheet IS, and it belongs to C2, after John has a
+              verdict on this page. It sits in a CLOSED disclosure underneath,
+              so the default view is the statement alone. */}
+          {statement ? <DealStatement statement={statement} /> : null}
+          <details className="ds-legacy" data-testid="ds-legacy">
+            <summary>The existing deal sheet</summary>
+            <div className="deal-panel" id="deal-panel">{matrix}</div>
+          </details>
           <span className="field-note">Contract prices are quoted exclusive of GST. GST is added to the invoice and passed straight through, so the rate never touches margin.</span>
           {notices}
         </div>

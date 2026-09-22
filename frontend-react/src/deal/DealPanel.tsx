@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import { useDealForm } from './useDealForm'
 import { buildDealRows, money } from './rows'
+import { buildDealStatement } from './statement'
 import { catalogToRates } from '../../../src/lib/base-costs.js'
 import { resolveRates } from '../../../src/lib/rate-resolution.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -595,6 +596,9 @@ export function DealPanel({
           invention with no rule anywhere in style.css. */}
       <DealSummarySection
         result={result as never}
+        // C1: built from the SAME result the matrix is built from, so the two
+        // presentations read one derivation rather than two.
+        statement={result ? buildDealStatement(result as never, payload, ui.grossUp) : null}
         payload={payload}
         values={values}
         onMargin={setValue}

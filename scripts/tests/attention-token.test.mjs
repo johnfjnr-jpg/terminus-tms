@@ -162,6 +162,23 @@ const AMBER_FAMILY = [
   // the pre-commit hook refused the commit. That is the whole point of a list
   // that asserts its own completeness rather than one that merely enumerates.
   '.anchor-defn-l',
+  // ── DEAL SHEET C1, 2026-09-22: THE STATEMENT'S UNDER-TARGET MARGIN ─────
+  //
+  // Two sites, and they are one decision said twice: the achieved margin
+  // reads amber below target and green at or above, on the sticky strip and
+  // on the RESULT line. John's option C mockup declares its own `--amber` and
+  // its value is #EDB45A, which is this token - so nothing was minted, the
+  // mockup had simply arrived at the estate's own amber.
+  //
+  // THE LIST REFUSED THE COMMIT UNTIL THEY WERE WRITTEN HERE, which is the
+  // second time this round a completeness guard has caught an unrecorded
+  // addition and the reason to keep writing them this way.
+  //
+  // The state names are `marginPresentation`'s - `on-target` and
+  // `under-target` - not the mockup's `good` and `low`. One vocabulary for
+  // one decision, and the calibrated owner of the comparison keeps it.
+  '.ds-v.under-target',
+  '.ds-margin-final.under-target',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries
