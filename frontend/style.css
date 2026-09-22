@@ -5520,20 +5520,38 @@ textarea::placeholder { color: var(--muted-2); }
 /* The add row sits below the list and below the legend, separated by the
    same hairline the header uses, so it reads as an action on the list rather
    than as another row of it. */
-.kc-add-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+/* ── K2: THE ADD ROW, SIZED TO ITS DATA - AND THE RULES THAT MEANT TO ───
+   WERE DEAD ──────────────────────────────────────────────────────────────
+
+   `.kc-add-row` and its three `#kc-add-*` rules are REMOVED. Nothing renders
+   any of them: the React card renders `className="kc-add"` and identifies its
+   controls by `data-testid`, so the class never matched and neither did the
+   three ids. Measured across `frontend`, `frontend-react/src` and `scripts`:
+   the only hits are this stylesheet and three test lookups BY TESTID.
+
+   They were the right intent - a contact picker that does not eat the row, a
+   role select beside it - keyed on names the surface stopped carrying at the
+   migration. So the intent moves onto the class that IS rendered, and the
+   base rule is what made it matter: `select { width: 100% }` at the top of
+   this file, which fills whatever a flex row leaves. Measured before: the
+   two selects took 390px each on a 1240 screen.
+
+   KEYED ON THE TESTID, which is the DECLARED property here. Verification 19:
+   an exemption or a hook keyed on a name somebody can mint silently stops
+   matching, and that is exactly what happened to the rules above. */
+.kc-add {
   flex-wrap: wrap;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--hairline-strong);
 }
-.kc-add-row select,
-.kc-add-row input { font-size: 13px; padding: 4px 8px; min-width: 0; }
-.kc-add-row #kc-add-contact { flex: 1 1 240px; max-width: 320px; }
-.kc-add-row #kc-add-role    { flex: 0 1 220px; }
-.kc-add-row #kc-add-other   { flex: 1 1 220px; max-width: 300px; }
+.kc-add select,
+.kc-add input { font-size: 13px; padding: 4px 8px; min-width: 0; }
+/* Sized to the data each holds: a contact name, a role label, a typed role. */
+.kc-add [data-testid="kc-add-contact"] { flex: 0 1 220px; }
+.kc-add [data-testid="kc-add-role"]    { flex: 0 1 180px; }
+.kc-add [data-testid="kc-add-other"]   { flex: 0 1 180px; }
+
 
 
 /* ── Commercial approval page (Round 38) ──────────────────────────────────
@@ -6611,7 +6629,39 @@ textarea::placeholder { color: var(--muted-2); }
   padding: 8px 0;
   border-bottom: 1px solid var(--hairline);
 }
-.kc-table { width: 100%; border-collapse: collapse; }
+/* ── K2, ruled by John: EVERY FIELD SIZED TO THE DATA IT DISPLAYS ───────
+   `width: 100%` made each column take a share of the row rather than the
+   width of what it holds: measured at 1240, Contact took 163px for a longest
+   name of 122, Role 156 for 117, Linked 170 for 128, and the stance select
+   324px for a longest option of "Pain Owner".
+
+   `width: auto` lets a table shrink to its content, which is the estate's own
+   pattern - `.terms-cards`, `.pg-cards` and the installation grid all size to
+   content and leave genuine leftover space empty rather than distributing it.
+
+   THE COLUMN WIDTHS ARE NOT SET HERE, deliberately. A table already sizes its
+   columns to their widest cell; naming a pixel width per column would be a
+   second reader of the same data, and the day a longer role is added the
+   number would be wrong and nothing would say so. */
+.kc-table { width: auto; border-collapse: collapse; }
+
+/* K4: the stance cell is ONE ROW. No `display` is given to any child, so the
+   Record button's `hidden` attribute still hides it. */
+td.kc-stance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Sized to their data. THE SELECT CARRIES NO WIDTH, deliberately: in a flex
+   row it shrinks to its own content, and a calibration proved a 118px rule
+   here was not load-bearing - removing it moved the control from 118px to
+   104px and the guard could not tell the two apart. What CONSTRAINS it is
+   `display: flex` on the cell above; in a `table-cell` the base rule's
+   `select { width: 100% }` applies against the cell and it took 324px, which
+   is the state K2 and K4 were both about.
+
+   The note keeps a width because it is free text with no content to size to. */
+td.kc-stance input[type="text"] { width: 150px; }
 .kc-table th {
   font-family: var(--mono);
   font-size: 9px;

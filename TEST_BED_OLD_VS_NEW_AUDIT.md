@@ -229,6 +229,16 @@ Ordered by what matters. Items marked GATE feed a stage gate.
   accepts (`InstallSection.tsx:139` vs `installNotes.ts:16`). Existing
   install-note chips still display (`InstallSection.tsx:130`); main-note
   chips do not.
+  **CLOSED 2026-09-22, walk 9, in two halves.** The INSTALL half was built in
+  the hygiene round: `InstallSection` now passes the stage its own helper
+  already accepted, so an install note is stamped as it is written.
+  **The MAIN-NOTE half is closed as RETIRED BY DESIGN, on John's ruling:**
+  main notes carry no stage chip and the shared helper STAYS SHARED.
+  `contact/notes.ts` exports `note(text, by, at)` and serves the CONTACT
+  surface as well, where a stage has no meaning - so stamping one there would
+  be inventing a value to satisfy a type. Two writers of one helper, with one
+  of them supplying a field that means nothing to it, is the drift this
+  estate has a rule about.
 - L8. The install-date ceiling. `dateBounds` computes `max` (install date
   never after a set go-live) but `FieldDescriptor` declares no `max` and
   the date editor renders `min` only (`dateBounds.ts:28-33`;
@@ -249,6 +259,12 @@ Ordered by what matters. Items marked GATE feed a stage gate.
   with it (`app.js:424`), and no React back control exists (grep zero).
   Navigation back is browser or sidebar only.
 - L12. The R&D tag in the header (old index.html:694). Cosmetic.
+  **CLOSED 2026-09-22, walk 9, John's ruling: NOT RESTORED.** The tag was a
+  hardcoded `<span class="tag">R&amp;D</span>` in the markup - a literal that
+  asserted something about every Test Bed and was true of none of them in
+  particular, which is Architecture 9's fourth variant waiting to happen.
+  Record-level tags, if they are ever wanted, are **a feature to scope** -
+  where the value lives, who sets it, what it means - **not a restoration**.
 
 ## SECTION 4: CHANGED (both do it, differently; for ruling, not necessarily fixing)
 
@@ -292,6 +308,11 @@ Ordered by what matters. Items marked GATE feed a stage gate.
 - C8. Stage documents. NEW adds the approve:false URL save beside Confirm
   (`TestBedHost.tsx:704-713`). Improvement, recorded.
 - C9. Unit-count card title "Sensor Counts" vs OLD "Unit Counts".
+  **CLOSED 2026-09-22, walk 9: the title is "Unit Counts".** John's reason is
+  the argument: a camera is not a sensor, and the card holds SafeSight CAMERAS
+  beside air quality and HEMIR sensors, so the old title was wrong about a
+  third of its own rows. `tb-card-sensors` is unchanged - a display rename
+  stays a display rename.
 - C10. Exit tick concurrency. OLD serialized ticks through a per-record
   queue; NEW fires `patchPayload` per tick with the last-loaded revision,
   so two rapid ticks make the second 409 and reload. At this product's

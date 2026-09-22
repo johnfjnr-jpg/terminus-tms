@@ -659,12 +659,39 @@ describe('K: key contacts', () => {
       .toContain('POST /api/opportunities/opp1/key-contacts/lnk1/stance')
   })
 
-  test('K5 removing writes immediately, on its own route', async () => {
+  // ── K3, 2026-09-22: THE x ASKS FIRST, SO THIS TEST INVERTS ────────────
+  //
+  // It asserted that the x wrote IMMEDIATELY, which was true and was the
+  // defect. Measured before the change, per Verification 52: one click took
+  // `record_contacts` from 2 to 1 and that link's stance entries from 2 to 0,
+  // with no confirmation of any kind.
+  //
+  // The claim is now in two halves, and the first is the one that matters:
+  // the click must write NOTHING.
+  test('K5 the x writes nothing on its own, and asks first', async () => {
     await mount()
     apiCalls = []
     await click(must('[data-testid="kc-remove-lnk1"]'))
+    expect(apiCalls, 'the x still removes on a single click').toHaveLength(0)
+    expect(q('[data-testid="kc-confirm-remove"]'), 'no confirmation was offered').not.toBeNull()
+  })
+
+  test('K5 and confirming writes, on its own route', async () => {
+    await mount()
+    await click(must('[data-testid="kc-remove-lnk1"]'))
+    apiCalls = []
+    await click(must('[data-testid="kc-confirm-remove-go"]'))
     expect(apiCalls.map((c) => `${c.method} ${c.path}`))
       .toContain('DELETE /api/opportunities/opp1/key-contacts/lnk1')
+  })
+
+  test('K5 and cancelling writes nothing at all', async () => {
+    await mount()
+    await click(must('[data-testid="kc-remove-lnk1"]'))
+    apiCalls = []
+    await click(must('[data-testid="kc-confirm-cancel"]'))
+    expect(apiCalls, 'cancel sent a request').toHaveLength(0)
+    expect(q('[data-testid="kc-confirm-remove"]'), 'the dialogue stayed open').toBeNull()
   })
 
   test('K6 adding refuses with no contact chosen, and writes when there is one', async () => {
