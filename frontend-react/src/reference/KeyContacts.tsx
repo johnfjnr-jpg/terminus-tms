@@ -229,7 +229,21 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
                   its `hidden` attribute and the rule deliberately gives it no
                   `display`, because a display on a hidden-by-attribute child
                   overrides the user agent and renders it. */}
-              <td className="kc-stance">
+              <td>
+               {/* ── ITEM 1: THE FLEX ROW IS A DIV INSIDE THE CELL ────────
+                   K4 made the `<td>` ITSELF `display: flex`, which stops it
+                   being a table-cell: the row then carries four real cells
+                   and an ANONYMOUS one wrapping the flex box, and whether the
+                   header columns still correspond is left to the engine.
+                   Chrome recovers - measured at drift 0 on both axes, both
+                   widths, resting and armed - and nothing in the markup makes
+                   that true.
+
+                   A div inside the cell keeps ONE column system: the table's.
+                   Headers and rows cannot drift apart because they are the
+                   same columns, which is the milestone grid's lesson in the
+                   shape a table already offers. */}
+               <div className="kc-stance">
                 <select data-testid={`kc-stance-${l.id}`}
                   value={draftStance[l.id] ?? l.stance_id ?? ''}
                   onChange={(e) => {
@@ -246,9 +260,14 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
                     setArmed((a) => ({ ...a, [l.id]: true }))
                   }} />
                 {/* ARMED, not dirty-by-comparison. Behaviour 1 is not this. */}
-                <button type="button" data-testid={`kc-record-${l.id}`}
+                {/* ITEM 2: the SAME treatment, for the same reason. Styling
+                    Add and leaving Record bare would put a dressed button
+                    beside an undressed one in one card, which is worse than
+                    the uniform default it replaced. */}
+                <button type="button" className="btn-sm" data-testid={`kc-record-${l.id}`}
                   hidden={!armed[l.id]} disabled={busy}
                   onClick={() => { void record(l.id) }}>Record</button>
+               </div>
               </td>
               <td>{formatTimestamp(l.linked_at) || '--'}</td>
               <td>
@@ -304,7 +323,14 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
           <input data-testid="kc-add-other" type="text" value={addOther}
             onChange={(e) => setAddOther(e.target.value)} placeholder="Role" />
         )}
-        <button type="button" data-testid="kc-add" disabled={busy}
+        {/* ── ITEM 2: THE ESTATE'S TREATMENT FOR THIS ROLE ────────────────
+            It shipped as a bare `<button>`, which renders as a WHITE browser
+            default on a dark screen. Verification 7's clause: a control that
+            replaces another inherits the ROLE, and a role carries a
+            treatment - the same fault the retired New Lead Save had.
+            `btn-sm` is what this estate puts on an add-row action:
+            `tb-install-note-add` is the direct analogue. */}
+        <button type="button" className="btn-sm" data-testid="kc-add" disabled={busy}
           onClick={() => { void add() }}>Add</button>
       </div>
 

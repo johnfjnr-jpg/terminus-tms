@@ -91,7 +91,11 @@ try {
       const longestStance = Math.max(...[...sel.options].map((o) => textW(o.text)))
       probe.remove()
 
-      const stanceTd = kc.querySelector('tbody tr td.kc-stance')
+      // RE-POINTED, walk 10 item 1: the flex row is a DIV INSIDE the cell now,
+      // not the cell itself, so that the table keeps one column system for its
+      // headers and its rows. The claim is unchanged - these controls share
+      // one row - and the element carrying it moved.
+      const stanceTd = kc.querySelector('tbody tr .kc-stance')
       const bits = [...stanceTd.querySelectorAll('select, input')]
         .map((e) => e.getBoundingClientRect())
       const oneRow = bits.length > 1 && bits.every((a) =>
