@@ -108,7 +108,7 @@ export function DealStatement({ statement }: { statement: Statement }) {
   )
 
   return (
-    <div className="ds" data-testid="deal-statement">
+    <div className="stmt" data-testid="deal-statement">
       {/* THE STRIP IS STICKY SO THE RECONCILIATION STAYS WHILE THE SHEET
           SCROLLS. Round 39 measured 578px between a margin control and the
           figure it moves; this is the same problem answered by pinning the

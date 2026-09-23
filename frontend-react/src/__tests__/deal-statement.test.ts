@@ -119,6 +119,27 @@ describe('C1: the statement equals the derivation layer', () => {
     expect(st.totalCost.total).toBe(cellOf(rows, 'Total cost').total)
   })
 
+  // ── C2 STEP 0: THE PROPERTY THE DELETED CONSTANTS ONLY DESCRIBED ──────
+  //
+  // `COST_ROW_COUNT = 6` claimed the cost rows sum to Total cost and said SIX
+  // against seven, exported and read by nobody. The claim was right and the
+  // number was wrong, which is the worst combination: nothing could fail on
+  // it. Asserted here instead, where it can.
+  //
+  // Verification 21: a reconciliation that cannot fail is not a
+  // reconciliation. This one can - drop a line from `moneyOut` and it goes
+  // red, which is exactly the accident a statement must not have.
+  test('STEP 0: the MONEY OUT lines add up to Total cost', () => {
+    const { st } = build()
+    const num = (s: string) => Number(s.replace(/[^0-9.]/g, '')) || 0
+    const sum = st.moneyOut.reduce((a, l) => a + num(l.total), 0)
+    // Non-zero first, or "0 === 0" would pass on an empty statement.
+    expect(sum).toBeGreaterThan(0)
+    expect(sum).toBe(num(st.totalCost.total))
+    // And every line is accounted for: seven, not the six the constant said.
+    expect(st.moneyOut).toHaveLength(7)
+  })
+
   test('PROFIT equals the Gross margin row', () => {
     const { rows, st } = build()
     expect(st.profit).toBe(cellOf(rows, 'Gross margin').total)
