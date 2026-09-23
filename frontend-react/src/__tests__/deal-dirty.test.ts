@@ -56,7 +56,13 @@ describe('B1: dirty is a comparison against a baseline, computed', () => {
     expect(dirty).toEqual([
       'aqm', 'contractorMilestones', 'duration', 'factoring', 'grossUp', 'gstPct',
       'hostingPriceMode', 'hostingUnitFees',
-      'installResp', 'invoicing', 'marginOverrides', 'milestones', 'ssExisting',
+      // R-C2b adds `priceOverrides`, beside `marginOverrides` and
+      // `hostingUnitFees` and for the same reason: `readDealPayload` always
+      // emits the collection, so with no baseline it reads as carrying a
+      // value. Recorded here deliberately - this list is an enumeration and
+      // an enumeration fails by silent omission.
+      'installResp', 'invoicing', 'marginOverrides', 'milestones',
+      'priceOverrides', 'ssExisting',
       'structure', 'targetMargin', 'warrantyPct',
     ])
     // And the unset ones are quiet, which is the half worth naming.

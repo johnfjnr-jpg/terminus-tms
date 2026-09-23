@@ -598,7 +598,9 @@ export function DealPanel({
         result={result as never}
         // C1: built from the SAME result the matrix is built from, so the two
         // presentations read one derivation rather than two.
-        statement={result ? buildDealStatement(result as never, payload, ui.grossUp) : null}
+        statement={result
+          ? buildDealStatement(result as never, payload, ui.grossUp, catalogData?.batches ?? {})
+          : null}
         payload={payload}
         values={values}
         onMargin={setValue}

@@ -30,6 +30,24 @@ import {
 } from '../../../src/lib/deal-inputs.js'
 import { numericOrDefault } from '../../../src/lib/numeric-payload.js'
 
+// ── R-C2a: WHICH CATALOG PRODUCT A LINE COSTS FROM ──────────────────────
+//
+// The boundary this round was stopped on: unit costs are the CATALOG's, one
+// row per product in `base_cost_batches`, shared by every deal. The drawer
+// says so, and names the batch and its effective date, so a reader can see
+// which numbers belong to this deal and which do not.
+//
+// THE PRODUCTS ARE `PRODUCT_RATE_KEYS`' OWN KEYS and the map asserts its own
+// completeness in `deal-statement.test.ts` - Verification 19, a list used as
+// an enumeration fails by silent omission, so a product renamed in the
+// catalog turns a test red rather than dropping a basis line quietly.
+export const LINE_PRODUCT: Record<string, string> = {
+  hwSs: 'safesight', hwAqm: 'air_quality', hwHemir: 'hemir',
+  hoSs: 'safesight', hoAqm: 'air_quality', hoHemir: 'hemir',
+}
+
+export type Batches = Record<string, { batch_label?: string, effective_from?: string }>
+
 type GroupRow = { key: string, rawCost: number, rawPrice: number, impliedMarginPct: number | null }
 type Group = { rawTotalPrice: number, rawTotalCost: number, rows?: GroupRow[] }
 export type StatementResult = {
@@ -43,7 +61,15 @@ export type StatementResult = {
   costIncomplete?: boolean
 }
 
-export type DrawerRow = { cells: string[], sub?: string, sum?: boolean }
+export type DrawerRow = {
+  cells: string[]
+  sub?: string
+  sum?: boolean
+  /** R-C2a: the catalog batch a COST came from, rendered under it. */
+  basis?: string
+  /** R-C2a: this cost is a catalog value and is not editable on a deal. */
+  costReadOnly?: boolean
+}
 export type Drawer =
   | { kind: 'table', head: string[], rows: DrawerRow[], second?: { head: string[], rows: DrawerRow[] }, note?: string }
   | { kind: 'note', note: string }
@@ -90,8 +116,25 @@ const IN_NAMES: Record<string, string> = {
   inNone: 'No installation on this deal',
 }
 
-const lineRows = (g: Group, names: Record<string, string>, perMonth = false): DrawerRow[] =>
+// R-C2a: `batches` is the catalog's own answer, product to batch. A line with
+// no product in the map - the installation lines, which are quoted per deal -
+// gets no basis note and is NOT marked read-only, because its rate genuinely
+// is the deal's.
+const basisFor = (key: string, batches: Batches): string | undefined => {
+  const product = LINE_PRODUCT[key]
+  if (!product) return undefined
+  const b = batches[product]
+  if (!b) return 'catalog, no batch recorded'
+  const label = b.batch_label ?? 'catalog'
+  return b.effective_from ? `${label}, from ${String(b.effective_from).slice(0, 10)}` : label
+}
+
+const lineRows = (
+  g: Group, names: Record<string, string>, perMonth = false, batches: Batches = {},
+): DrawerRow[] =>
   (g.rows ?? []).map((r) => ({
+    basis: basisFor(r.key, batches),
+    costReadOnly: !!LINE_PRODUCT[r.key],
     cells: [
       names[r.key] ?? r.key,
       perMonth ? `${m(r.rawCost)} / mo` : m(r.rawCost),
@@ -106,6 +149,7 @@ const lineRows = (g: Group, names: Record<string, string>, perMonth = false): Dr
 
 export function buildDealStatement(
   result: StatementResult, payload: Record<string, unknown>, grossUp: boolean,
+  batches: Batches = {},
 ): Statement {
   const dur = durationPresentation(payload) as { months: number | null, recorded: boolean, value: string, priceLabel: string, costLabel: string }
   const months = dur.months ?? 0
@@ -152,9 +196,19 @@ export function buildDealStatement(
         kind: 'table',
         head: ['ITEM', 'COST', 'MARGIN %', 'PRICE'],
         rows: [
-          ...lineRows(hardwareGroup, HW_NAMES),
+          ...lineRows(hardwareGroup, HW_NAMES, false, batches),
           { cells: ['Hardware price', m(hwCost), '', m(hwPrice)], sum: true },
         ],
+        // R-C2a: SAID ON THE PANEL, not left to be inferred from a box that
+        // will not accept typing. A cost here is the catalog's, one row per
+        // product shared by every deal, so changing it would reprice the
+        // estate rather than this deal. There is no link because there is no
+        // Base Cost Data screen to link to: Product Management is a disabled
+        // nav button, and a link to nothing is the escape route Verification 7
+        // is about.
+        note: 'Unit costs are catalog values, shared by every deal, and are not'
+          + ' editable here. The batch and its effective date are shown beneath'
+          + ' each cost.',
       },
     },
     {
@@ -186,11 +240,13 @@ export function buildDealStatement(
         kind: 'table',
         head: ['ITEM', 'COST / MONTH', 'MARGIN %', 'PRICE / MONTH'],
         rows: [
-          ...lineRows(hostingGroup, HO_NAMES, true),
+          ...lineRows(hostingGroup, HO_NAMES, true, batches),
           { cells: [dur.recorded ? `Over ${months} months` : 'Over the term',
             dur.recorded ? m(hoCost) : dur.value, '',
             dur.recorded ? m(hoPrice) : dur.value], sum: true },
         ],
+        note: 'Hosting costs are catalog values, shared by every deal, and are'
+          + ' not editable here.',
       },
     },
   ]

@@ -94,8 +94,14 @@ export const BRIDGE_STEPS = [
     // that every key the calculation reads belongs to a step, and it went red
     // naming both keys the moment the calculator started reading them. That is
     // the bridge inheriting the override, which is what the ruling asked for.
+    // R-C2b, 2026-09-23: `priceOverrides` joins them for the identical
+    // reason, one generalisation later. R-O7 gave hosting the either-or; this
+    // gives it to the hardware and installation lines. The same guard went
+    // red the same way the moment the calculator read the key, which is the
+    // bridge inheriting the override rather than somebody remembering to
+    // tell it.
     keys: ['targetMargin', 'marginOverrides', 'installResp', 'lumpSumCost',
-      'hostingPriceMode', 'hostingUnitFees'],
+      'hostingPriceMode', 'hostingUnitFees', 'priceOverrides'],
   },
   {
     step: 'risk terms',

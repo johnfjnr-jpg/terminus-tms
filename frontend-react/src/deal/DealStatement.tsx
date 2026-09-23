@@ -31,7 +31,15 @@ function DrawerBody({ drawer }: { drawer: Drawer }) {
         <tbody>
           {drawer.rows.map((r, i) => (
             <tr key={i} className={r.sum ? 'stmt-sum' : undefined}>
-              {r.cells.map((c, j) => <td key={j}>{c}</td>)}
+              {r.cells.map((c, j) => (
+                <td key={j} className={j === 1 && r.costReadOnly ? 'stmt-catalog' : undefined}>
+                  {c}
+                  {/* R-C2a: the basis sits under the COST it explains, not in
+                      a legend somewhere else. A reader asking "why is this
+                      number what it is" is looking at the number. */}
+                  {j === 1 && r.basis ? <small data-testid="stmt-basis">{r.basis}</small> : null}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

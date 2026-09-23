@@ -123,6 +123,41 @@ export function priceFromCost(cost, marginPct) {
  * @param {Array<{key: string, cost: number, marginPct: number, priceOverride?: number|null}>} lineItems
  * @returns {{rows: Array<{key: string, rawCost: number, rawPrice: number, overridden: boolean, impliedMarginPct: number|null}>, rawTotalCost: number, rawTotalPrice: number}}
  */
+// ── R-C2b: WHICH LINES MAY CARRY A PRICE OVERRIDE ───────────────────────
+//
+// R-O7 gave hosting an either-or: type the price and the margin derives, type
+// the margin and the price derives. C2 generalises it to the hardware and
+// installation lines, which had no such key at all - `priceOverride` was
+// attached by exactly one function, `hostingLine`, and no other line ever
+// received one.
+//
+// `hwWarranty` IS DELIBERATELY ABSENT, and this constant is where that is
+// enforced rather than remembered. The warranty provision reaches the
+// customer at exactly what it cost (John's rule, 2026-09-16, `marginPct: 0`
+// on its own line). An overridable warranty price would be a margin on it by
+// another name, which is the rule inverted rather than extended.
+//
+// NAMED, NOT DERIVED, for the same reason `CATALOG_ONLY_RATE_KEYS` is: a new
+// line acquiring a permission by being added to a list is how a boundary is
+// crossed without anybody deciding to.
+export const PRICE_OVERRIDE_KEYS = [
+  'hwSs', 'hwAqm', 'hwHemir',
+  'inLump', 'inSsEx', 'inSsNew', 'inAqm', 'inHemir',
+];
+
+/**
+ * The override for one line, or null. Reads ONLY the allowed keys, so a
+ * payload carrying `hwWarranty` cannot price with it whatever the route let
+ * through - the same two-layer shape the catalog boundary uses.
+ */
+export function priceOverrideFor(overrides, key) {
+  if (!PRICE_OVERRIDE_KEYS.includes(key)) return null;
+  const v = overrides?.[key];
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 export function buildCostGroup(lineItems) {
   const rows = lineItems.map(({ key, cost, marginPct, priceOverride }) => {
     const overridden = priceOverride !== undefined && priceOverride !== null
@@ -533,6 +568,8 @@ export function calculateDeal(input) {
     structure, recoveryMonths, annualInvoicing, milestones,
     lumpSumDeal, lumpCost, contractorMilestones,
     factoringEnabled, factoringRatePct, factoringTermMonths, factoringMethod,
+    // R-C2b: line key to overridden PRICE. Absent keys price from margin.
+    priceOverrides = {},
     whtPct = 0, gstPct = 0, grossUp = false,
     testBedCost = 0, // Milestone 5: carried unchanged from opportunity_details.test_bed_cost
     // when this Opportunity was converted from a Test Bed. Deliberately
@@ -551,10 +588,18 @@ export function calculateDeal(input) {
     ssInstallExistingCost,
   });
 
+  // R-C2b: the three priced hardware lines may carry an override. The key is
+  // attached ONLY when one is recorded, so a deal with none translates byte
+  // for byte as it always did - the same additive shape R-O7 chose, and for
+  // the same reason: the shared-translation golden compares this structure.
+  const hwOverride = (key) => {
+    const v = priceOverrideFor(priceOverrides, key);
+    return v === null ? {} : { priceOverride: v };
+  };
   const hardwareGroup = buildCostGroup([
-    { key: 'hwSs', cost: ssUnitCost * ssUnits, marginPct: hardwareMargins?.hwSs },
-    { key: 'hwAqm', cost: aqUnitCost * aqUnits, marginPct: hardwareMargins?.hwAqm },
-    { key: 'hwHemir', cost: hemirUnitCost * hemirUnits, marginPct: hardwareMargins?.hwHemir },
+    { key: 'hwSs', cost: ssUnitCost * ssUnits, marginPct: hardwareMargins?.hwSs, ...hwOverride('hwSs') },
+    { key: 'hwAqm', cost: aqUnitCost * aqUnits, marginPct: hardwareMargins?.hwAqm, ...hwOverride('hwAqm') },
+    { key: 'hwHemir', cost: hemirUnitCost * hemirUnits, marginPct: hardwareMargins?.hwHemir, ...hwOverride('hwHemir') },
     // ── WARRANTY CARRIES NO MARGIN, ruled by John 2026-09-16 ─────────────
     //
     // A hardcoded 0, NOT hardwareMargins.hwWarranty. The warranty is a cost

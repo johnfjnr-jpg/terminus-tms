@@ -4,6 +4,9 @@ import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
 import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, isNotPastIsoDate } from '../lib/field-validation.js'
+// R-C2b: the SAME list the calculator honours, so the route cannot accept a
+// key the pricing will silently ignore.
+import { PRICE_OVERRIDE_KEYS } from '../lib/deal-calculator.js'
 import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 import { totalContractValue, weightedValue, issuedMajor } from '../lib/opportunity-headline.js'
@@ -630,6 +633,29 @@ export default async function opportunitiesRoutes(app) {
       for (const [key, value] of Object.entries(payload.marginOverrides)) {
         if (!isValidNonNegativePercent(value)) {
           return reply.code(400).send({ error: `marginOverrides.${key} must be a non-negative number with at most 2 decimal places` })
+        }
+      }
+    }
+    // ── R-C2b: priceOverrides, and the KEY SET IS VALIDATED TOO ───────────
+    //
+    // Unlike marginOverrides, which accepts any key because every line may
+    // carry a margin, this one refuses a key outside PRICE_OVERRIDE_KEYS.
+    // `hwWarranty` is the reason: the warranty provision reaches the customer
+    // at exactly what it cost, and a price override on it would be a margin
+    // by another name.
+    //
+    // THE CALCULATOR ALSO REFUSES IT, in `priceOverrideFor`, and the
+    // duplication is deliberate - the same two-layer shape the catalog
+    // boundary uses. The route decides what reaches the record; the
+    // calculator decides what can price a deal. Either alone is a single
+    // point of failure, and this one is a pricing rule the business ruled.
+    if (payload.priceOverrides && typeof payload.priceOverrides === 'object') {
+      for (const [key, value] of Object.entries(payload.priceOverrides)) {
+        if (!PRICE_OVERRIDE_KEYS.includes(key)) {
+          return reply.code(400).send({ error: `priceOverrides.${key} is not an overridable line` })
+        }
+        if (!isValidNonNegativePercent(value)) {
+          return reply.code(400).send({ error: `priceOverrides.${key} must be a non-negative number with at most 2 decimal places` })
         }
       }
     }

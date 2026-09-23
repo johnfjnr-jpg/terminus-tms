@@ -152,6 +152,9 @@ const SECTION_BY_PAYLOAD_KEY: Record<string, string> = {
   lumpSumCost: 'deal-sections-1-2',
   contractorMilestones: 'deal-sections-1-2',
   marginOverrides: 'deal-section-4',
+  // R-C2b: the price override is edited in the same drawers the margin is,
+  // so a dirty price raises the same section's save.
+  priceOverrides: 'deal-section-4',
   // R-O7: the hosting override lives in section 4's own pricing cards, beside
   // the margin boxes it replaces, so it raises the same section's save.
   // FOUND BY THE GUARD rather than remembered: `deal-save-routes` asserts that
