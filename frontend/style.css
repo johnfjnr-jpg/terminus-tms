@@ -8228,6 +8228,56 @@ textarea.lead-field-input,
 }
 .stmt-drawer-table td:first-child { text-align: left; }
 .stmt-drawer-table tr.stmt-sum td { border-bottom: 0; font-weight: 700; }
+/* ── C2: THE EDITORS ─────────────────────────────────────────────────────
+   Sized to what they hold - a two or three digit percentage, a count, a
+   price - rather than stretched to the cell, because a box wider than its
+   content reads as an invitation to type more than belongs in it. */
+.stmt-edit {
+  width: 84px;
+  background: var(--dark);
+  border: 1px solid var(--hairline-strong);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: right;
+  padding: 3px 6px;
+}
+.stmt-edit:focus { outline: 1px solid var(--green); border-color: var(--green); }
+
+/* R-C2a: a catalog cost is not an editor and must not look like one. It
+   carries the dimmer treatment the estate already uses for a figure somebody
+   did not choose, and its basis sits under it. */
+.stmt-catalog { color: var(--muted); }
+.stmt-catalog small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted-2);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── C2: MODIFIED, NOT SAVED ─────────────────────────────────────────────
+   Under the strip, which is what a person watches while typing, so the fact
+   that nothing is written yet does not need scrolling for. Present only when
+   dirty: a bar that is always there stops being read. */
+.stmt-unsaved {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--attention);
+  background: rgba(237,180,90,0.08);
+  padding: 8px 14px;
+  margin-bottom: 16px;
+}
+.stmt-unsaved-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--attention);
+  flex: 1 1 auto;
+}
+
 .stmt-note {
   font-family: var(--mono);
   font-size: 11px;

@@ -69,6 +69,17 @@ export type DrawerRow = {
   basis?: string
   /** R-C2a: this cost is a catalog value and is not editable on a deal. */
   costReadOnly?: boolean
+  /**
+   * C2: one entry per cell. A value id makes that cell an EDITOR bound to the
+   * deal form's own store; null leaves it text.
+   *
+   * The ids are the ones the existing panels already use - `deal-margin-*`,
+   * `deal-hofee-*`, `deal-ssExisting` - so an edit here and an edit there are
+   * the same write. That is what makes "the statement, the strip and the old
+   * panels all reflect an edit live" true by construction rather than by
+   * three listeners agreeing.
+   */
+  editIds?: (string | null)[]
 }
 export type Drawer =
   | { kind: 'table', head: string[], rows: DrawerRow[], second?: { head: string[], rows: DrawerRow[] }, note?: string }
@@ -135,6 +146,16 @@ const lineRows = (
   (g.rows ?? []).map((r) => ({
     basis: basisFor(r.key, batches),
     costReadOnly: !!LINE_PRODUCT[r.key],
+    // C2: margin and price are editable; COST IS NOT, per R-C2a. The warranty
+    // line is editable in neither: it prices at cost by rule, so a margin box
+    // on it would be a margin the calculator refuses to read and a price box
+    // would be that rule inverted.
+    editIds: r.key === 'hwWarranty' ? [null, null, null, null] : [
+      null,
+      null,
+      `deal-margin-${r.key}`,
+      perMonth ? `deal-hofee-${r.key}` : `deal-price-${r.key}`,
+    ],
     cells: [
       names[r.key] ?? r.key,
       perMonth ? `${m(r.rawCost)} / mo` : m(r.rawCost),
@@ -206,6 +227,20 @@ export function buildDealStatement(
         // Base Cost Data screen to link to: Product Management is a disabled
         // nav button, and a link to nothing is the escape route Verification 7
         // is about.
+        // C2: the unit counts are the deal's own and are edited here, in the
+        // drawer of the line they drive. SafeSight carries TWO, existing and
+        // new infrastructure, because the calculator prices them from two
+        // separate counts - collapsing them into one box would be a second
+        // reader inventing a number neither field holds.
+        second: {
+          head: ['UNIT', 'COUNT'],
+          rows: [
+            { cells: ['SafeSight, existing infra', ''], editIds: [null, 'deal-ssExisting'] },
+            { cells: ['SafeSight, new infra', ''], editIds: [null, 'deal-ssNew'] },
+            { cells: ['AQ Sensor', ''], editIds: [null, 'deal-aqm'] },
+            { cells: ['HEMIR', ''], editIds: [null, 'deal-hemir'] },
+          ],
+        },
         note: 'Unit costs are catalog values, shared by every deal, and are not'
           + ' editable here. The batch and its effective date are shown beneath'
           + ' each cost.',

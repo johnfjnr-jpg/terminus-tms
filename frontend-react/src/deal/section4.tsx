@@ -31,7 +31,7 @@ export function SummaryNotices({ n }: { n: Notices }) {
   )
 }
 import type { InstallVisibility } from './installation'
-import { DealStatement } from './DealStatement'
+import { DealStatement, type EditSeam } from './DealStatement'
 import type { Statement } from './statement'
 // THE SAME PRESENTERS THE VANILLA USES, never a second expression of the rule.
 // perMonthFigure is the one wording rule and it is shared with the
@@ -426,10 +426,14 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
 
 export function DealSummarySection({
   result, payload, values, onMargin, matrix, notices, install, basis,
-  hostingPriceMode, onHostingPriceMode, statement,
+  hostingPriceMode, onHostingPriceMode, statement, seam, saved,
 }: {
   /** C1: the read-only statement. Null while the deal has not computed. */
   statement: Statement | null
+  /** C2: the form's own store. Absent leaves the statement read-only. */
+  seam?: EditSeam
+  /** C2: the values as the RECORD holds them, for Escape to revert to. */
+  saved?: Record<string, string | undefined>
   result: PricingResult
   payload: Record<string, unknown>
   values: Record<string, string | undefined>
@@ -469,7 +473,7 @@ export function DealSummarySection({
           headers sat over their columns to the pixel, the strip agreed with
           the sheet, the drawers opened. None of them is about whether a label
           is legible, which is Verification 4's whole point. */}
-      {statement ? <DealStatement statement={statement} /> : null}
+      {statement ? <DealStatement statement={statement} seam={seam} saved={saved} /> : null}
 
       {/* B2: `detail-open` goes on the ROW. The row has to become two columns,
           and hiding the panel alone leaves a one-column grid with a gap. */}
