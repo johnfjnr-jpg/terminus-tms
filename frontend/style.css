@@ -2146,6 +2146,35 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   overflow-x: auto;
 }
 
+/* ── G8: THE SCROLL BAR IS VISIBLE WITHOUT TOUCHING ANYTHING ─────────────
+   macOS renders overlay scrollbars: the bar appears while you scroll and
+   then vanishes, so a table that scrolls looks exactly like a table that
+   does not until somebody tries. The Round 41 fade already says "there is
+   more to the right"; a bar says how much more and where you are in it.
+
+   STYLING `::-webkit-scrollbar` AT ALL is what opts a container out of
+   overlay rendering - a pixel width or height is the switch, not a colour.
+   The estate learned that on `.new-lead-scroll`, where `scrollbar-color` and
+   `scrollbar-width` were tried first and did not take.
+
+   PALETTE TOKENS, NO LITERALS. `.new-lead-scroll` predates that rule and
+   still carries `rgba(242,242,240,0.30)` in four places; reported rather
+   than swept, because it is a different surface and not this finding.
+
+   THE THUMB IS `--muted` ON A `--hairline` TRACK, and the ratio between them
+   is MEASURED by the probe rather than asserted here. A scroll bar is a
+   non-text interface component, so the bar somebody has to find must stand
+   off the groove it sits in. */
+.cashflow-scroll::-webkit-scrollbar { height: 12px; width: 12px; }
+.cashflow-scroll::-webkit-scrollbar-track { background: var(--hairline); }
+.cashflow-scroll::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 6px;
+  border: 2px solid var(--black);
+}
+.cashflow-scroll::-webkit-scrollbar-thumb:hover { background: var(--white); }
+.cashflow-scroll::-webkit-scrollbar-corner { background: transparent; }
+
 /* ── A CUT NUMBER READS AS A VALUE, NOT AS A BOUNDARY. Round 41, finding 4 ──
    Measured at 1240: the grid is 3,244px of content in a 422px column, and the
    Cumulative cash position row ended "379,622  350,127  3". A figure sliced
@@ -6462,7 +6491,25 @@ textarea::placeholder { color: var(--muted); }
 }
 /* The left panel of the region. It carries the schedule and the milestone
    tables, so its job is to take the space the capped panel beside it does not. */
-.payment-terms-panel { min-width: 0; }
+/* ── G7: THE PANEL REDUCES TO ITS CONTENT ────────────────────────────────
+   Measured before, as dead space - the gap between the right edge of the
+   panel's widest real content and the right edge of its own content box:
+
+       1240    17px
+       1440    95px
+       3440  1504px      and the hybrid group inside it, 1578px
+
+   The region is `minmax(0, 1fr)` beside the factoring aside, so the left
+   panel takes whatever the viewport gives and its content stays where it
+   started. At 3440 that is fifteen hundred pixels of nothing between a
+   radio's label and the panel's edge.
+
+   THE CAP IS SIZED FROM THE CONTENT, not from the result: the widest thing
+   the panel holds measured 783px at 3440, so 820px clears it with a gutter
+   and does not bite at 1440, where the panel is already 787px. The 1240 and
+   1440 cases were inside the ceiling before this change and are untouched by
+   it; this is for the width where the fault lives. */
+.payment-terms-panel { min-width: 0; max-width: 820px; }
 .po-factoring-panel {
   min-width: 0;
   border: 1px solid var(--hairline-strong);
