@@ -335,7 +335,7 @@ body {
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   background: none;
   border: none;
   text-align: left;
@@ -418,7 +418,7 @@ h2 {
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   display: block;
 }
 
@@ -600,7 +600,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .record-card-meta-faint {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--muted-2);
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -785,7 +785,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   color: var(--green);
   cursor: default;
 }
-.count-zero { color: var(--muted-2); }
+.count-zero { color: var(--muted); }
 
 /* Count hover preview (2026-08-16, Phase 5) - replaces the click-to-open
    modal. The wrapper (not the label) carries the mouseenter/mouseleave
@@ -1031,7 +1031,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   background: var(--black);
   clip-path: polygon(0% 0%, calc(100% - var(--chevron-notch)) 0%, 100% 50%, calc(100% - var(--chevron-notch)) 100%, 0% 100%, var(--chevron-notch) 50%);
   margin-right: calc(-1 * var(--chevron-notch));
@@ -1226,7 +1226,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   text-align: left;
   font-weight: 400;
   padding: 8px 12px;
@@ -1259,7 +1259,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--muted-2);
+  color: var(--muted);
   display: block;
   margin-top: 3px;
 }
@@ -1270,7 +1270,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.doc-status--notstarted { color: var(--muted-2); }
+.doc-status--notstarted { color: var(--muted); }
 .doc-status--started    { color: var(--muted); }
 .doc-status--approved   { color: var(--green); }
 
@@ -1343,7 +1343,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   opacity: 0.5;
   cursor: default;
   background: none;
-  color: var(--muted-2);
+  color: var(--muted);
   border-color: var(--hairline);
 }
 
@@ -1405,7 +1405,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   padding-bottom: 10px;
   border-bottom: 1px solid var(--hairline-strong);
 }
@@ -1457,7 +1457,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 
 /* A memo row is derived from rows above rather than being a step in the walk.
    Dimmed so the arithmetic reads as the arithmetic. */
-.dm-row--memo .dm-label, .dm-row--memo .dm-cell { color: var(--muted-2); }
+.dm-row--memo .dm-label, .dm-row--memo .dm-cell { color: var(--muted); }
 
 /* ── A TRUNCATED LABEL IS A FACT THE PANEL SILENTLY DROPS ──────────────────
    .dm-label is nowrap with an ellipsis, which was right for the old matrix's
@@ -1544,12 +1544,27 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border: 1px solid var(--hairline-strong);
   padding: 12px;
 }
+/* ── G9: A FIELD LABEL IS ONE ROLE, SO IT IS ONE COLOUR ──────────────────
+   Measured before: `Contract duration` rendered #f2f2f0 at 15.29:1 and
+   `SafeSight, existing infra` rendered #5f6065 at 2.73:1 - and BOTH are
+   `label.deal-field`, from the same census entry list. The only difference
+   was the ANCESTOR: this rule set a colour and `.terms-field-row` set none,
+   so the label inherited white there. The colour of a label was a property
+   of which card it landed in.
+
+   The two compute the same token now, and a probe asserts it rather than a
+   comment claiming it.
+
+   THE HIERARCHY SURVIVES IN TYPOGRAPHY, NOT IN DIMNESS. This label stays 9px
+   mono uppercase, which is what makes it read as a caption. Dimming it to
+   2.73:1 was doing that job with contrast, and contrast is the one property
+   a reader with poor eyesight cannot recover. */
 .unit-card label {
   font-family: var(--mono);
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--white);
   display: block;
   margin-bottom: 8px;
 }
@@ -1832,7 +1847,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .cm-total-figure {
   font-family: var(--mono);
@@ -1877,7 +1892,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .pg-head span:not(:first-child) { text-align: right; }
 
@@ -1926,7 +1941,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .pg-item-note {
   font-family: var(--mono);
   font-size: 9px;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-top: 2px;
 }
 .pg-cost, .pg-price {
@@ -2033,7 +2048,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 
 .ys-total {
@@ -2052,7 +2067,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 
 /* ── Deal sheet (Structural Terms) ─────────────────────────────
@@ -2143,7 +2158,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   padding: 10px 14px;
 }
 
@@ -2158,7 +2173,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 .cf-row.head .cf-cell {
   font-size: 10px;
-  color: var(--muted-2);
+  color: var(--muted);
   padding: 10px 10px;
 }
 
@@ -2208,7 +2223,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 10.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   display: block;
   margin-top: 3px;
 }
@@ -2303,7 +2318,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 
 input[type="text"],
@@ -2355,7 +2370,7 @@ textarea {
 }
 
 input::placeholder,
-textarea::placeholder { color: var(--muted-2); }
+textarea::placeholder { color: var(--muted); }
 
 .form-actions { display: flex; gap: 12px; align-items: center; }
 
@@ -2843,7 +2858,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-right: 6px;
 }
 
@@ -3060,7 +3075,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -3154,7 +3169,7 @@ textarea::placeholder { color: var(--muted-2); }
 .ref-field-edit.dirty input, .ref-field-edit.dirty textarea { border-bottom-color: var(--green); }
 .ref-field-discard {
   cursor: pointer;
-  color: var(--muted-2);
+  color: var(--muted);
   font-size: 14px;
   line-height: 1.4;
   flex-shrink: 0;
@@ -3200,7 +3215,7 @@ textarea::placeholder { color: var(--muted-2); }
   flex-shrink: 0;
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .ref-notes-author {
   flex-shrink: 0;
@@ -3336,7 +3351,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .sa-stage { display: flex; align-items: center; gap: 8px; }
 .sa-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
@@ -3372,7 +3387,7 @@ textarea::placeholder { color: var(--muted-2); }
 .sa-stage-name { font-family: var(--body); font-size: 13px; color: var(--white); }
 .sa-criteria { font-family: var(--body); font-size: 13px; color: var(--white); }
 .sa-criteria div { padding: 3px 0; }
-.sa-empty { color: var(--muted-2); font-family: var(--mono); font-size: 12px; }
+.sa-empty { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 .sa-approvers { display: flex; flex-direction: column; gap: 8px; }
 .sa-approval-row { display: flex; align-items: center; gap: 8px; }
 .sa-approval-row.clickable { cursor: pointer; }
@@ -3401,7 +3416,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   padding-bottom: 8px;
   border-bottom: 1px solid var(--hairline-strong);
 }
@@ -3429,7 +3444,7 @@ textarea::placeholder { color: var(--muted-2); }
   color: var(--muted);
 }
 .tb-matrix-tot { color: var(--white); }
-.tb-matrix-cell-zero { color: var(--muted-2); }
+.tb-matrix-cell-zero { color: var(--muted); }
 .tb-matrix-popup {
   position: absolute;
   top: 100%;
@@ -3466,7 +3481,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 13px;
   color: var(--white);
 }
-.sa-approval-meta { font-family: var(--mono); font-size: 9px; color: var(--muted-2); }
+.sa-approval-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); }
 
 /* Round 7 Phase 2.1 (2026-08-18): a numeric field holding a value the
    server would refuse. Deliberately marks the field rather than
@@ -3889,7 +3904,7 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .tb-doc-nogate {
   font-size: 11px;
-  color: var(--muted-2);
+  color: var(--muted);
   white-space: nowrap;
 }
 .tb-doc-feedback {
@@ -4087,7 +4102,7 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .tb-score-value--none {
   font-size: 13px;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .tb-score-history { margin-top: 8px; }
 .tb-score-entry { padding: 6px 0; }
@@ -4265,7 +4280,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-left: auto;
   text-align: right;
 }
@@ -4342,7 +4357,7 @@ textarea::placeholder { color: var(--muted-2); }
    rather than hidden or given text this project invented. The dimmed number
    is the only treatment: it says "no definition here", which is the finding,
    without writing an anchor that the business did not write. */
-.tb-score-anchor--nowording .tb-score-anchor-n { color: var(--muted-2); }
+.tb-score-anchor--nowording .tb-score-anchor-n { color: var(--muted); }
 .tb-score-anchor--nowording .tb-score-anchor-text { min-height: 18px; }
 .tb-score-anchor-ver { margin-top: 8px; }
 .tb-score-entry-anchor {
@@ -4350,7 +4365,7 @@ textarea::placeholder { color: var(--muted-2); }
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 
 /* Comment required at 1 or 2, enforced at entry. Round 13 Phase 1
@@ -4444,7 +4459,7 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .tb-score-current-text em {
   font-style: normal;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 
 /* ── Sub-tab strip (Round 16 Phase 1) ──────────────────────────────────
@@ -4491,7 +4506,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   text-align: left;
   padding: 0 10px 6px 0;
   border-bottom: 1px solid var(--hairline-strong);
@@ -4501,7 +4516,7 @@ textarea::placeholder { color: var(--muted-2); }
 .tb-units-table th:nth-child(5), .tb-units-table td:nth-child(5) { width: 130px; }
 .tb-units-table input, .tb-units-table select { padding: 5px 0; font-size: 13px; }
 .tb-unit-index { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.tb-unit-feedback { font-family: var(--mono); font-size: 10px; color: var(--muted-2); width: 90px; }
+.tb-unit-feedback { font-family: var(--mono); font-size: 10px; color: var(--muted); width: 90px; }
 
 /* Count correction (Round 17 Phase 3). */
 .tb-count-correct { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -4926,7 +4941,7 @@ textarea::placeholder { color: var(--muted-2); }
   outline-offset: 2px;
 }
 .opp-assess-level-input:disabled + .opp-assess-level {
-  color: var(--muted-2);
+  color: var(--muted);
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -4986,7 +5001,7 @@ textarea::placeholder { color: var(--muted-2); }
 .opp-assess-reason-cell:focus {
   overflow-y: auto;
 }
-.opp-assess-reason-cell::placeholder { color: var(--muted-2); font-style: italic; }
+.opp-assess-reason-cell::placeholder { color: var(--muted); font-style: italic; }
 /* Round 30 Phase 4: .opp-assess-underrow is gone. It was one line carrying the
    provenance and two controls, 27px plus a 6px gap, 231px across seven
    criteria and a third of the row height at 1920. Its three subjects moved
@@ -5013,7 +5028,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   margin: 14px 0 6px;
 }
 .opp-assess-detail > .opp-assess-detail-h:first-child { margin-top: 0; }
@@ -5124,20 +5139,20 @@ textarea::placeholder { color: var(--muted-2); }
   color: var(--green);
   text-align: right;
 }
-.opp-assess-anchor--nowording .opp-assess-anchor-n { color: var(--muted-2); }
+.opp-assess-anchor--nowording .opp-assess-anchor-n { color: var(--muted); }
 .opp-assess-anchor-t { font-size: 12px; color: var(--muted); }
 /* The same fault, in the two paragraphs the definitions block and the
    unanchored notice carry. Fixed here rather than when a later phase happens
    to open the block: cleanup scoped to the instance the failure named is the
    shape build discipline rule 8 exists to stop. */
-.opp-assess-ver { font-size: 11px; color: var(--muted-2); margin-top: 10px; margin-bottom: 0; }
-.opp-assess-note { font-size: 12px; color: var(--muted-2); margin-top: 10px; margin-bottom: 0; }
+.opp-assess-ver { font-size: 11px; color: var(--muted); margin-top: 10px; margin-bottom: 0; }
+.opp-assess-note { font-size: 12px; color: var(--muted); margin-top: 10px; margin-bottom: 0; }
 
 /* Round 30 Phase 2: .opp-assess-reason, its label, its textarea and
    .opp-assess-actions are gone. The reason is a cell on the row now, and a
    moved thing has to leave the place it came from or the next reader finds two
    sources for one element. */
-.opp-assess-history { margin-top: 10px; font-size: 12px; color: var(--muted-2); }
+.opp-assess-history { margin-top: 10px; font-size: 12px; color: var(--muted); }
 .opp-assess-entry { display: flex; gap: 12px; padding: 3px 0; }
 
 /* Round 26 Phase 1 put the current reason in a bordered block beneath the
@@ -5157,7 +5172,7 @@ textarea::placeholder { color: var(--muted-2); }
    119 of 225 paragraph sites still declare no bottom margin. */
 .opp-assess-current-meta {
   font-size: 11px;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-top: 0;
   margin-bottom: 0;
 }
@@ -5401,7 +5416,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   padding-bottom: 8px;
   border-bottom: 1px solid var(--hairline-strong);
   margin-bottom: 4px;
@@ -5459,7 +5474,7 @@ textarea::placeholder { color: var(--muted-2); }
 .kc-legend {
   margin: 14px 0 0;
   font-size: 12px;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 
 
@@ -5496,7 +5511,7 @@ textarea::placeholder { color: var(--muted-2); }
   color: var(--white);
   padding-left: 6px;
 }
-.kc-note input::placeholder { color: var(--muted-2); }
+.kc-note input::placeholder { color: var(--muted); }
 
 .kc-act {
   display: flex;
@@ -5514,7 +5529,7 @@ textarea::placeholder { color: var(--muted-2); }
 .kc-hist {
   font-family: var(--mono);
   font-size: 9.5px;
-  color: var(--muted-2);
+  color: var(--muted);
   cursor: help;
   white-space: nowrap;
 }
@@ -5523,7 +5538,7 @@ textarea::placeholder { color: var(--muted-2); }
 
 .kc-remove {
   cursor: pointer;
-  color: var(--muted-2);
+  color: var(--muted);
   font-size: 16px;
   line-height: 1;
   text-align: right;
@@ -5646,7 +5661,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 /* The value reads at full weight. It is a fact about the deal, and the whole
    point of decision 3 is that it stops being a dim sentence. */
@@ -5842,7 +5857,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   background: none;
   border: 1px solid var(--hairline);
   padding: 4px 10px;
@@ -6304,7 +6319,7 @@ textarea::placeholder { color: var(--muted-2); }
   padding: 3px 8px;
   margin-right: 6px;
   white-space: nowrap;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .queue-track--approved { color: var(--green); border-color: var(--hairline-strong); }
 .queue-track--rejected { color: var(--white); border-color: var(--hairline-strong); }
@@ -6315,7 +6330,7 @@ textarea::placeholder { color: var(--muted-2); }
 }
 .queue-ok { color: var(--green); }
 .queue-warn { color: var(--white); }
-.queue-kind { color: var(--muted-2); }
+.queue-kind { color: var(--muted); }
 
 /* ── THE CLOCK ─────────────────────────────────────────────────────────────
    Walk 2026-09-03. Always visible so every screenshot carries its time.
@@ -6448,7 +6463,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
 }
 .po-field input { width: 100%; }
 .po-factoring-panel .view-toggle--stacked button { font-size: 13px; font-family: var(--body); }
@@ -7765,7 +7780,7 @@ textarea::placeholder { color: var(--muted-2); }
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.06em;
-  color: var(--muted-2);
+  color: var(--muted);
   margin: 0;
   white-space: nowrap;
 }
@@ -8116,7 +8131,7 @@ textarea.lead-field-input,
 .stmt-v { font-family: var(--mono); font-size: 17px; margin-top: 3px; color: var(--white); }
 .stmt-v.on-target { color: var(--green); }
 .stmt-v.under-target { color: var(--attention); }
-.stmt-sub { font-family: var(--mono); font-size: 10px; color: var(--muted-2); margin-top: 2px; }
+.stmt-sub { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
 
 .stmt-sheet { border: 1px solid var(--hairline-strong); background: var(--black); }
 
@@ -8173,7 +8188,7 @@ textarea.lead-field-input,
 .stmt-tw {
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--muted-2);
+  color: var(--muted);
   transition: transform 0.15s;
   display: inline-block;
 }
@@ -8184,11 +8199,11 @@ textarea.lead-field-input,
   display: block;
   font-family: var(--mono);
   font-size: 10px;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-top: 2px;
 }
 .stmt-num { font-family: var(--mono); font-size: 13px; text-align: right; color: var(--white); }
-.stmt-num.stmt-dash { color: var(--muted-2); }
+.stmt-num.stmt-dash { color: var(--muted); }
 .stmt-num.stmt-neg { color: var(--muted); }
 
 .stmt-total > .stmt-row-line { background: rgba(242,242,240,0.03); }
@@ -8251,7 +8266,7 @@ textarea.lead-field-input,
 .stmt-catalog small {
   display: block;
   font-size: 10px;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-top: 2px;
   white-space: nowrap;
 }
@@ -8281,7 +8296,7 @@ textarea.lead-field-input,
 .stmt-note {
   font-family: var(--mono);
   font-size: 11px;
-  color: var(--muted-2);
+  color: var(--muted);
   margin: 10px 0 0;
   max-width: 640px;
   line-height: 1.6;
@@ -8298,6 +8313,7 @@ textarea.lead-field-input,
   .stmt-num { font-size: 12px; }
   .stmt-drawer { padding-left: 24px; }
 }
+
 
 
 
