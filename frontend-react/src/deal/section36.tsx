@@ -19,8 +19,16 @@ import { marginPresentation } from '../../../src/lib/deal-inputs.js'
 // eight notes: the controls were there and the explanation of what they do was
 // not, which is what the comparison against the vanilla found.
 const CARDS = [
-  { title: 'Margin and Warranty', achieved: true,
-    fields: ['deal-targetMargin', 'deal-warrantyPct', 'deal-duration'] },
+  // ── G2 and G3, John's walk 2026-09-23 ─────────────────────────────────
+  //
+  // Renamed "Duration and Margin", and Contract duration becomes the FIRST
+  // row: the card's name now says what it holds in the order it holds it,
+  // and duration is the term everything else on the card is a rate against.
+  //
+  // The title is asserted in `reference-surface` and `deal-section4`'s card
+  // enumerations, which move with it rather than being loosened.
+  { title: 'Duration and Margin', achieved: true,
+    fields: ['deal-duration', 'deal-targetMargin', 'deal-warrantyPct'] },
   { title: 'Currency', achieved: false,
     fields: ['deal-bidCurrency', 'deal-proposalCurrency', 'deal-fxContingency'] },
   // W4, ruled 2026-09-20: this card places its own fields, so the list is
@@ -79,13 +87,30 @@ export function StructuralTermsSection({ renderField, achievedMargin, payload, g
               the same line so the whole tax position reads across rather than
               down. Both rates are two-digit fields and the selector is short,
               so the line holds all three at both widths. */}
+          {/* ── G6, John's walk 2026-09-23: TWO LINES EXACTLY ─────────────
+              "WHT % [value] [Gross up toggle]" then "GST % [value]".
+
+              THIS SUPERSEDES THE ONE-LINE-FOR-THREE RULING, and the earlier
+              reasoning is left in the comments above rather than deleted: it
+              was right that the three belong together and wrong that they
+              belong on one line. Verification 29 - a premise failed, so the
+              decision is re-taken rather than re-weighed, and the superseded
+              reasoning stays visible so a reader can tell which happened.
+
+              The gross-up toggle stays ON the WHT line, because whether tax
+              is grossed up is a fact ABOUT the withholding rate. GST is a
+              pass-through and gets its own line. */}
           {card.title === 'Tax Adjustments'
             ? (
-              <div className="terms-field-row terms-wht-pair">
-                {renderField('deal-whtPct')}
-                {grossUpToggle}
-                {renderField('deal-gstPct')}
-              </div>)
+              <>
+                <div className="terms-field-row terms-wht-pair">
+                  {renderField('deal-whtPct')}
+                  {grossUpToggle}
+                </div>
+                <div className="terms-field-row">
+                  {renderField('deal-gstPct')}
+                </div>
+              </>)
             : null}
           {/* THE ACHIEVED MARGIN SITS AMONG THE CONTROLS THAT MOVE IT. Round 39
               measured 578px between the margin controls and the figure they

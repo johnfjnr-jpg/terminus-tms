@@ -1669,14 +1669,42 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    slightly to 90px here, comfortable for both a 3-letter currency code
    with its select arrow and a 2-3 digit percentage, not present in the
    prototype's narrower percentage-only version of this row). */
+/* ── G1, G4, G5: ONE LINE PER ROW, LABEL THEN VALUE ──────────────────────
+   Measured before: every row in these cards rendered the label ABOVE its
+   control, and every control was 328px wide for a two-digit percentage.
+
+   THE ROW'S OWN TWO-COLUMN GRID WAS DOING NOTHING. A row holds exactly one
+   child, the `.deal-field` label wrapper, so the 90px track was empty and the
+   stacking happened INSIDE that wrapper - where `.deal-section input` makes
+   every input `width: 100%`. The layout therefore belongs on the wrapper, not
+   on the row.
+
+   AND THE FIRST MEASURE OF THIS MISSED IT: comparing the row's height with
+   its tallest CHILD reads "one line" for a one-child row whatever the child
+   contains. The claim is a RELATIONSHIP - label and control on one band - and
+   that is what the probe asserts now. */
 .terms-field-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px;
-  gap: 12px;
-  align-items: start;
+  display: block;
   padding: 9px 0;
   border-bottom: 1px solid var(--hairline);
 }
+.terms-field-row .deal-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+/* G1: SIZED TO THE DATA. A percentage is two or three digits, a duration is
+   a month count, a currency is a three-letter code plus a select arrow. The
+   width is the content's, not the card's. */
+/* SCOPED THROUGH `.pg-card` TO WIN ON SPECIFICITY, not by being moved to the
+   end of the file. `.deal-section input:not(.is-computed)` sets `width: 100%`
+   and lives six thousand lines later, so an equally specific rule here loses
+   on source order - the control then took the grid track's auto width, 145px
+   for a two-digit percentage. One extra class settles it where the rule
+   belongs rather than relocating the block and hoping nothing moves again. */
+.pg-card .terms-field-row .deal-field input { width: 76px; text-align: right; }
+.pg-card .terms-field-row .deal-field select { width: 104px; }
 .terms-field-row:last-child { border-bottom: none; }
 
 /* ── W4: THE WHT PAIR IS ONE LINE ───────────────────────────────────────
@@ -1731,11 +1759,20 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 
    NOT SOLVED BY WIDENING THE CARD: `.terms-cards` caps at 460px on purpose,
    and that cap dresses every card in the section. */
+/* ── G6 SUPERSEDES THE STACKED LABEL ─────────────────────────────────────
+   The column direction existed to make THREE items fit one line: stacking a
+   label over its box puts each item at the width of its wider half rather
+   than the sum of both, and that is what bought the room.
+
+   G6 rules two lines, so the room is no longer needed and the reason is
+   gone with it. The pair inherits the card's own one-line row - label then
+   value, on a band - like every other row. The superseded reasoning is left
+   above rather than deleted (Verification 29). */
 .terms-field-row.terms-wht-pair .deal-field {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
 }
 /* SPECIFICITY, MEASURED RATHER THAN ASSUMED. Written as
    `.terms-field-row.terms-wht-pair input` this ties with
