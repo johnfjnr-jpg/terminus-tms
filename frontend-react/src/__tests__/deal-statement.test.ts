@@ -119,6 +119,27 @@ describe('C1: the statement equals the derivation layer', () => {
     expect(st.totalCost.total).toBe(cellOf(rows, 'Total cost').total)
   })
 
+  // ── C2 STEP 0: THE PROPERTY THE DELETED CONSTANTS ONLY DESCRIBED ──────
+  //
+  // `COST_ROW_COUNT = 6` claimed the cost rows sum to Total cost and said SIX
+  // against seven, exported and read by nobody. The claim was right and the
+  // number was wrong, which is the worst combination: nothing could fail on
+  // it. Asserted here instead, where it can.
+  //
+  // Verification 21: a reconciliation that cannot fail is not a
+  // reconciliation. This one can - drop a line from `moneyOut` and it goes
+  // red, which is exactly the accident a statement must not have.
+  test('STEP 0: the MONEY OUT lines add up to Total cost', () => {
+    const { st } = build()
+    const num = (s: string) => Number(s.replace(/[^0-9.]/g, '')) || 0
+    const sum = st.moneyOut.reduce((a, l) => a + num(l.total), 0)
+    // Non-zero first, or "0 === 0" would pass on an empty statement.
+    expect(sum).toBeGreaterThan(0)
+    expect(sum).toBe(num(st.totalCost.total))
+    // And every line is accounted for: seven, not the six the constant said.
+    expect(st.moneyOut).toHaveLength(7)
+  })
+
   test('PROFIT equals the Gross margin row', () => {
     const { rows, st } = build()
     expect(st.profit).toBe(cellOf(rows, 'Gross margin').total)
@@ -208,6 +229,100 @@ describe('C1: the statement equals the derivation layer', () => {
     expect(ss!.impliedMarginPct, 'hwSs priced at zero, so there is no margin to show').not.toBeNull()
     const shown = hw.rows.find((r) => r.cells[0] === 'SafeSight')!
     expect(shown.cells[2]).toBe(`${ss!.impliedMarginPct!.toFixed(1)}%`)
+  })
+
+  // ── R-C2b: THE EITHER-OR, GENERALISED TO HARDWARE AND INSTALLATION ────
+  test('R-C2b: an overridden hardware PRICE moves the line and derives the margin', () => {
+    const base = build()
+    const ssBefore = base.result.groups.hardwareGroup.rows.find((r: { key: string }) => r.key === 'hwSs')
+    const target = Math.round(ssBefore.rawPrice * 2)
+    const over = build({ priceOverrides: { hwSs: target } })
+    const ssAfter = over.result.groups.hardwareGroup.rows.find((r: { key: string }) => r.key === 'hwSs')
+    expect(ssAfter.rawPrice).toBe(target)
+    expect(ssAfter.overridden).toBe(true)
+    // R-O7 semantics: type the price, the MARGIN derives. Expressed from the
+    // two figures rather than restated, so it cannot agree by coincidence.
+    expect(ssAfter.impliedMarginPct)
+      .toBeCloseTo((1 - ssAfter.rawCost / target) * 100, 6)
+    // And the statement shows the derived margin rather than the target.
+    const hw = over.st.moneyIn[0].drawer as {
+      rows: Array<{ cells: string[], editIds?: (string | null)[] }> }
+    const row = hw.rows.find((r) => r.cells[0] === 'SafeSight')!
+    // SAID TO BE DERIVED, not merely shown. An overridden line's margin is a
+    // readout of the price, and a bare percentage beside an editable price
+    // reads as a second thing somebody could type.
+    expect(row.cells[2]).toBe(`${ssAfter.impliedMarginPct.toFixed(1)}% derived`)
+    // AND THE MARGIN STOPS BEING AN EDITOR while the price drives it, which
+    // is what makes this an either-or rather than two boxes fighting.
+    expect(row.editIds?.[2]).toBeNull()
+    // The un-overridden lines keep theirs.
+    const aq = hw.rows.find((r) => r.cells[0] === 'AQ Sensor')!
+    expect(aq.editIds?.[2]).toBe('deal-margin-hwAqm')
+  })
+
+  test('R-C2b: THE WARRANTY PROVISION IS UNTOUCHED by a hardware override', () => {
+    // The ruling's own requirement. The warranty reaches the customer at
+    // exactly what it cost, and an overridable warranty price would be a
+    // margin on it by another name.
+    const base = build()
+    const wBefore = base.result.groups.hardwareGroup.rows.find((r: { key: string }) => r.key === 'hwWarranty')
+    const over = build({ priceOverrides: { hwSs: 999999, hwAqm: 888888 } })
+    const wAfter = over.result.groups.hardwareGroup.rows.find((r: { key: string }) => r.key === 'hwWarranty')
+    expect(wBefore.rawCost).toBeGreaterThan(0)          // not vacuous
+    expect(wAfter.rawCost).toBe(wBefore.rawCost)
+    expect(wAfter.rawPrice).toBe(wBefore.rawPrice)
+    expect(wAfter.rawPrice).toBe(wAfter.rawCost)        // still at cost
+    expect(wAfter.overridden).toBe(false)
+  })
+
+  test('R-C2b: a warranty override is REFUSED BY THE PRICING, not merely unasked', () => {
+    // The second layer. Even a payload that carries it - however it got there
+    // - cannot price with it, which is the catalog boundary's shape applied
+    // to a rule the business ruled.
+    const base = build()
+    const wBefore = base.result.groups.hardwareGroup.rows.find((r: { key: string }) => r.key === 'hwWarranty')
+    const sneaky = build({ priceOverrides: { hwWarranty: 500000 } })
+    const wAfter = sneaky.result.groups.hardwareGroup.rows.find((r: { key: string }) => r.key === 'hwWarranty')
+    expect(wAfter.rawPrice).toBe(wBefore.rawPrice)
+    expect(wAfter.overridden).toBe(false)
+  })
+
+  test('R-C2b: an overridden INSTALLATION line prices at the override', () => {
+    const base = build()
+    const inBefore = base.result.groups.installGroup.rawTotalPrice
+    expect(inBefore).toBeGreaterThan(0)
+    const over = build({ priceOverrides: { inLump: 400000 } })
+    expect(over.result.groups.installGroup.rawTotalPrice).toBe(400000)
+    expect(over.st.moneyIn[1].total).toBe('$400,000')
+  })
+
+  test('R-C2b: clearing the override returns the line to its margin', () => {
+    // The other half of the either-or: an absent key is the state that means
+    // "price from the margin", which is why the writer drops it rather than
+    // sending a zero.
+    const withOver = build({ priceOverrides: { hwSs: 999999 } })
+    const cleared = build({ priceOverrides: {} })
+    const plain = build()
+    const ss = (b: typeof plain) => b.result.groups.hardwareGroup.rows
+      .find((r: { key: string }) => r.key === 'hwSs').rawPrice
+    expect(ss(withOver)).toBe(999999)
+    expect(ss(cleared)).toBe(ss(plain))
+  })
+
+  // ── R-C2a: THE CATALOG BOUNDARY, ON THE STATEMENT ─────────────────────
+  test('R-C2a: a catalog cost carries its batch and is marked read-only', () => {
+    const { st } = build()
+    const hw = st.moneyIn[0].drawer as {
+      rows: Array<{ cells: string[], basis?: string, costReadOnly?: boolean }>, note?: string }
+    const ss = hw.rows.find((r) => r.cells[0] === 'SafeSight')!
+    expect(ss.costReadOnly).toBe(true)
+    expect(ss.basis).toBeTruthy()
+    expect(hw.note).toMatch(/catalog values.*not.*editable here/i)
+    // The warranty is NOT a catalog line - it is derived from the deal's own
+    // unit count and warranty percentage - so it must not claim a batch.
+    const w = hw.rows.find((r) => r.cells[0] === 'Warranty provision')!
+    expect(w.costReadOnly).toBeFalsy()
+    expect(w.basis).toBeUndefined()
   })
 
   test('the installation drawer carries the milestone schedule, derived per R-N1', () => {

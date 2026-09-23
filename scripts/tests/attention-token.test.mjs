@@ -179,6 +179,11 @@ const AMBER_FAMILY = [
   // one decision, and the calibrated owner of the comparison keeps it.
   '.stmt-v.under-target',
   '.stmt-margin-final.under-target',
+  // C2: the modified-unsaved bar. The estate's one amber, for the estate's
+  // one meaning - something needs attention - on a bar that exists only while
+  // a change is unwritten.
+  '.stmt-unsaved',
+  '.stmt-unsaved-text',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

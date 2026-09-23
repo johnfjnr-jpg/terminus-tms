@@ -170,6 +170,23 @@ export function buildDealRows(
   ]
 }
 
-/** The six cost rows the ruling says Total cost is the visible sum of. */
-export const COST_ROW_LABELS_FROM = 3
-export const COST_ROW_COUNT = 6
+// ── DELETED AT C2's STEP 0, AND THE PROPERTY MOVED TO A TEST ─────────────
+//
+// They were:
+//
+//     /** The six cost rows the ruling says Total cost is the visible sum of. */
+//     export const COST_ROW_LABELS_FROM = 3
+//     export const COST_ROW_COUNT = 6
+//
+// `COST_ROW_COUNT` said SIX against SEVEN actual cost rows - R-O8 split the
+// warranty out and the comment forty lines above already says "SEVEN cost
+// rows, contiguous" - and BOTH were exported and read by nobody. A false
+// number nothing consults is Architecture 9's fourth variant sitting on
+// Verification 9's dead guard: it cannot be falsified by anything, and the
+// next reader would have trusted it.
+//
+// MADE TRUE RATHER THAN MERELY DELETED. The ruling behind them is real: the
+// cost rows are contiguous and Total cost is their visible sum. A constant
+// could only ever restate that; `deal-statement.test.ts` now ASSERTS it, by
+// adding the money-out lines up and comparing with the total. A property that
+// can go red is worth more than a number that agrees.

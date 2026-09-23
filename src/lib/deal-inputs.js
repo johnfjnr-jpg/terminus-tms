@@ -33,6 +33,7 @@
  */
 
 import { numericOrDefault, toNumberOrNull } from './numeric-payload.js';
+import { priceOverrideFor } from './deal-calculator.js';
 
 /**
  * @param {object} payload - a record payload, with catalog rates merged in
@@ -392,8 +393,18 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
   // meaning installGroup (and everything downstream: the Deal Summary
   // matrix's Installation column, the Deal sheet's installation cost
   // line) silently priced Lump Sum installation at $0.
+  // R-C2b: an installation line may carry a price override, same either-or as
+  // hosting. Attached only when recorded, so a deal with none is unchanged.
+  // NOT `overrides` - that name is already the MARGIN overrides forty lines
+  // above, and reusing it was a redeclaration the whole pure suite caught at
+  // once. Two different override families in one function, so both are named.
+  const priceOverrides = payload.priceOverrides ?? {}
+  const inLine = (key, cost) => {
+    const o = priceOverrideFor(priceOverrides, key)
+    return { key, cost, marginPct: marginFor(key), ...(o === null ? {} : { priceOverride: o }) }
+  }
   const installLineItems = lumpSumDeal ? [
-    { key: 'inLump', cost: numericOrDefault(payload, 'lumpSumCost'), marginPct: marginFor('inLump') },
+    inLine('inLump', numericOrDefault(payload, 'lumpSumCost')),
   ] : isPerUnit ? [
     // THE `?? 0` IS DELIBERATE, AND THE ON-SCREEN WARNING IS WHAT MAKES IT
     // HONEST. resolveRates omits an absent key entirely rather than inventing a
@@ -408,10 +419,10 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     // literal half was false, which is worse than a plainly wrong comment: it
     // describes a guarantee the code does not give, and a reader checking the
     // absent-rate path would have stopped here satisfied.
-    { key: 'inSsEx', cost: (rates.inSsExisting ?? 0) * ssExisting, marginPct: marginFor('inSsEx') },
-    { key: 'inSsNew', cost: (rates.inSsNew ?? 0) * ssNew, marginPct: marginFor('inSsNew') },
-    { key: 'inAqm', cost: (rates.inAqm ?? 0) * aqmUnits, marginPct: marginFor('inAqm') },
-    { key: 'inHemir', cost: (rates.inHemir ?? 0) * hemirUnits, marginPct: marginFor('inHemir') },
+    inLine('inSsEx', (rates.inSsExisting ?? 0) * ssExisting),
+    inLine('inSsNew', (rates.inSsNew ?? 0) * ssNew),
+    inLine('inAqm', (rates.inAqm ?? 0) * aqmUnits),
+    inLine('inHemir', (rates.inHemir ?? 0) * hemirUnits),
   ] : [
     { key: 'inNone', cost: 0, marginPct: marginFor('inNone') },
   ]
@@ -474,6 +485,17 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     ssInstallExistingCost: rates.inSsExisting ?? 0,
     installLineItems,
     hostingLineItems,
+    // R-C2b: passed through for the HARDWARE lines, which `calculateDeal`
+    // builds itself. The installation lines already carry theirs above.
+    //
+    // ATTACHED ONLY WHEN THERE IS ONE, and the shared-translation golden is
+    // why: it compares this whole structure against the output it had before,
+    // and an unconditional `priceOverrides: {}` went red on every shape. It
+    // was RIGHT to - that IS an output change - and R-O7 met the same guard
+    // the same way. A deal with no override translates byte for byte as it
+    // always did, so the golden goes on guarding what it was written to guard
+    // rather than being re-blessed to accommodate this round.
+    ...(Object.keys(priceOverrides).length ? { priceOverrides } : {}),
     hardwareMargins: {
       hwSs: marginFor('hwSs'),
       hwAqm: marginFor('hwAqm'),

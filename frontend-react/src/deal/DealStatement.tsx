@@ -22,8 +22,78 @@ import type { Statement, StatementLine, Drawer } from './statement'
 // nothing. Reported in the brief as a departure from the mockup.
 const COLS = ['HARDWARE', 'HOSTING', 'INSTALLATION', 'TOTAL']
 
-function DrawerBody({ drawer }: { drawer: Drawer }) {
+/** C2: the deal form's own store, handed down so an edit here IS an edit there. */
+export type EditSeam = {
+  values: Record<string, string | undefined>
+  onValue(id: string, v: string): void
+  dirty: boolean
+  onSave(): void
+  onReset(): void
+}
+
+// ── R-K: THE KEYBOARD, INSIDE A PANEL RATHER THAN A FORM ─────────────────
+//
+// The statement is a FIELD PANEL - each box is its own editor and there is no
+// form to submit - so R-K governs rather than the Enter-submits standard:
+// Enter and ArrowDown commit and move to the NEXT editor, ArrowUp moves back,
+// Enter on the last commits and closes, firing NO record-wide save. Escape
+// reverts the box to what the record holds.
+//
+// "COMMITS" MEANS THE DRAFT, NOT THE RECORD. The value is already in the form
+// store as it is typed; moving on does not write anything. The record-wide
+// Save is the bar's, pressed deliberately - a key that saved a record would
+// make Enter a write, which is exactly what R-K does not want in a panel
+// where somebody is filling in eight numbers.
+function onEditorKey(e: React.KeyboardEvent<HTMLInputElement>, revert: () => void) {
+  const move = (dir: 1 | -1) => {
+    const all = [...document.querySelectorAll<HTMLInputElement>('.stmt-edit')]
+      .filter((el) => !el.disabled)
+    const i = all.indexOf(e.currentTarget)
+    if (i === -1) return
+    const next = all[i + dir]
+    if (next) { next.focus(); next.select() } else e.currentTarget.blur()
+  }
+  if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); move(1) }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
+  else if (e.key === 'Escape') { e.preventDefault(); revert() }
+}
+
+function Editor({ id, seam, saved }: { id: string, seam: EditSeam, saved: string }) {
+  return (
+    // ── NO `id`, AND THAT IS THE POINT ────────────────────────────────────
+    //
+    // The binding is React state, not the DOM, so this editor needs no id -
+    // and giving it the old panel's id would put TWO elements on one
+    // identity. `deal-identity.test.tsx` caught exactly that, and
+    // `sections.ts` already warns why it matters: "rendering them in both
+    // produces one id with two elements, and readPayload reads whichever the
+    // DOM returns first". The test id is prefixed so a probe can address this
+    // editor without colliding either.
+    <input type="text" className="stmt-edit" data-testid={`stmt-edit-${id}`}
+      data-contract="numOrUndefined"
+      value={seam.values[id] ?? ''}
+      onChange={(e) => seam.onValue(id, e.target.value)}
+      onKeyDown={(e) => onEditorKey(e, () => seam.onValue(id, saved))} />
+  )
+}
+
+function DrawerBody({ drawer, seam, saved }: {
+  drawer: Drawer, seam?: EditSeam, saved: Record<string, string | undefined>,
+}) {
   if (drawer.kind === 'note') return <p className="stmt-note">{drawer.note}</p>
+  const cell = (r: { cells: string[], editIds?: (string | null)[], costReadOnly?: boolean, basis?: string },
+    c: string, j: number) => {
+    const id = seam ? r.editIds?.[j] ?? null : null
+    return (
+      <td key={j} className={j === 1 && r.costReadOnly ? 'stmt-catalog' : undefined}>
+        {id ? <Editor id={id} seam={seam!} saved={saved[id] ?? ''} /> : c}
+        {/* R-C2a: the basis sits under the COST it explains, not in a legend
+            somewhere else. A reader asking "why is this number what it is" is
+            looking at the number. */}
+        {j === 1 && r.basis ? <small data-testid="stmt-basis">{r.basis}</small> : null}
+      </td>
+    )
+  }
   return (
     <>
       <table className="stmt-drawer-table">
@@ -31,7 +101,7 @@ function DrawerBody({ drawer }: { drawer: Drawer }) {
         <tbody>
           {drawer.rows.map((r, i) => (
             <tr key={i} className={r.sum ? 'stmt-sum' : undefined}>
-              {r.cells.map((c, j) => <td key={j}>{c}</td>)}
+              {r.cells.map((c, j) => cell(r, c, j))}
             </tr>
           ))}
         </tbody>
@@ -41,7 +111,7 @@ function DrawerBody({ drawer }: { drawer: Drawer }) {
           <thead><tr>{drawer.second.head.map((h) => <th key={h}>{h}</th>)}</tr></thead>
           <tbody>
             {drawer.second.rows.map((r, i) => (
-              <tr key={i}>{r.cells.map((c, j) => <td key={j}>{c}</td>)}</tr>
+              <tr key={i}>{r.cells.map((c, j) => cell(r, c, j))}</tr>
             ))}
           </tbody>
         </table>
@@ -51,11 +121,13 @@ function DrawerBody({ drawer }: { drawer: Drawer }) {
   )
 }
 
-function Line({ line, open, onToggle, variant }: {
+function Line({ line, open, onToggle, variant, seam, saved }: {
   line: StatementLine
   open: boolean
   onToggle(): void
   variant?: 'total' | 'grand'
+  seam?: EditSeam
+  saved: Record<string, string | undefined>
 }) {
   const has = !!line.drawer
   const cells = [line.hardware, line.hosting, line.installation, line.total]
@@ -88,14 +160,20 @@ function Line({ line, open, onToggle, variant }: {
       {has ? (
         <div className="stmt-drawer" id={`stmt-drawer-${line.key}`} hidden={!open}
           data-testid={`stmt-drawer-${line.key}`}>
-          <DrawerBody drawer={line.drawer!} />
+          <DrawerBody drawer={line.drawer!} seam={seam} saved={saved} />
         </div>
       ) : null}
     </div>
   )
 }
 
-export function DealStatement({ statement }: { statement: Statement }) {
+export function DealStatement({ statement, seam, saved = {} }: {
+  statement: Statement
+  /** C2: absent means READ-ONLY, which is what C1 shipped. */
+  seam?: EditSeam
+  /** The values as the RECORD holds them, for Escape to revert to. */
+  saved?: Record<string, string | undefined>
+}) {
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const openable = [...statement.moneyIn, ...statement.moneyOut]
     .filter((l) => l.drawer).map((l) => l.key)
@@ -104,11 +182,11 @@ export function DealStatement({ statement }: { statement: Statement }) {
 
   const line = (l: StatementLine, variant?: 'total' | 'grand') => (
     <Line key={l.key} line={l} open={!!open[l.key]} variant={variant}
-      onToggle={() => toggle(l.key)} />
+      seam={seam} saved={saved} onToggle={() => toggle(l.key)} />
   )
 
   return (
-    <div className="ds" data-testid="deal-statement">
+    <div className="stmt" data-testid="deal-statement">
       {/* THE STRIP IS STICKY SO THE RECONCILIATION STAYS WHILE THE SHEET
           SCROLLS. Round 39 measured 578px between a margin control and the
           figure it moves; this is the same problem answered by pinning the
@@ -124,6 +202,26 @@ export function DealStatement({ statement }: { statement: Statement }) {
           <div className={`stmt-v ${statement.strip.state}`} data-testid="stmt-strip-margin">{statement.strip.margin}</div>
           <div className="stmt-sub" data-testid="stmt-strip-target">{statement.strip.target}</div></div>
       </div>
+
+      {/* ── C2: MODIFIED, UNSAVED ────────────────────────────────────────
+          It sits under the strip rather than at the foot of the sheet,
+          because the strip is what a person is watching while they type and
+          the one thing they must not have to scroll for is the fact that
+          nothing is written yet.
+
+          IT APPEARS ONLY WHEN DIRTY. A bar that is always there stops being
+          read, and a Save that is always available says nothing about whether
+          there is anything to save - which is the state the old panel's
+          disabled button already carries and this must not contradict. */}
+      {seam?.dirty ? (
+        <div className="stmt-unsaved" data-testid="stmt-unsaved" role="status">
+          <span className="stmt-unsaved-text">Modified, not saved</span>
+          <button type="button" className="btn-sm" data-testid="stmt-reset"
+            onClick={seam.onReset}>Reset</button>
+          <button type="button" className="btn-sm btn-primary" data-testid="stmt-save"
+            onClick={seam.onSave}>Save changes</button>
+        </div>
+      ) : null}
 
       <div className="stmt-sheet">
         <div className="stmt-colhead">

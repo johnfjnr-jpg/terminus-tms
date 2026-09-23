@@ -30,7 +30,28 @@ import {
 } from '../../../src/lib/deal-inputs.js'
 import { numericOrDefault } from '../../../src/lib/numeric-payload.js'
 
-type GroupRow = { key: string, rawCost: number, rawPrice: number, impliedMarginPct: number | null }
+// ── R-C2a: WHICH CATALOG PRODUCT A LINE COSTS FROM ──────────────────────
+//
+// The boundary this round was stopped on: unit costs are the CATALOG's, one
+// row per product in `base_cost_batches`, shared by every deal. The drawer
+// says so, and names the batch and its effective date, so a reader can see
+// which numbers belong to this deal and which do not.
+//
+// THE PRODUCTS ARE `PRODUCT_RATE_KEYS`' OWN KEYS and the map asserts its own
+// completeness in `deal-statement.test.ts` - Verification 19, a list used as
+// an enumeration fails by silent omission, so a product renamed in the
+// catalog turns a test red rather than dropping a basis line quietly.
+export const LINE_PRODUCT: Record<string, string> = {
+  hwSs: 'safesight', hwAqm: 'air_quality', hwHemir: 'hemir',
+  hoSs: 'safesight', hoAqm: 'air_quality', hoHemir: 'hemir',
+}
+
+export type Batches = Record<string, { batch_label?: string, effective_from?: string }>
+
+type GroupRow = {
+  key: string, rawCost: number, rawPrice: number,
+  impliedMarginPct: number | null, overridden?: boolean,
+}
 type Group = { rawTotalPrice: number, rawTotalCost: number, rows?: GroupRow[] }
 export type StatementResult = {
   groups: { hardwareGroup: Group, installGroup: Group, hostingGroup: Group }
@@ -43,7 +64,26 @@ export type StatementResult = {
   costIncomplete?: boolean
 }
 
-export type DrawerRow = { cells: string[], sub?: string, sum?: boolean }
+export type DrawerRow = {
+  cells: string[]
+  sub?: string
+  sum?: boolean
+  /** R-C2a: the catalog batch a COST came from, rendered under it. */
+  basis?: string
+  /** R-C2a: this cost is a catalog value and is not editable on a deal. */
+  costReadOnly?: boolean
+  /**
+   * C2: one entry per cell. A value id makes that cell an EDITOR bound to the
+   * deal form's own store; null leaves it text.
+   *
+   * The ids are the ones the existing panels already use - `deal-margin-*`,
+   * `deal-hofee-*`, `deal-ssExisting` - so an edit here and an edit there are
+   * the same write. That is what makes "the statement, the strip and the old
+   * panels all reflect an edit live" true by construction rather than by
+   * three listeners agreeing.
+   */
+  editIds?: (string | null)[]
+}
 export type Drawer =
   | { kind: 'table', head: string[], rows: DrawerRow[], second?: { head: string[], rows: DrawerRow[] }, note?: string }
   | { kind: 'note', note: string }
@@ -90,22 +130,61 @@ const IN_NAMES: Record<string, string> = {
   inNone: 'No installation on this deal',
 }
 
-const lineRows = (g: Group, names: Record<string, string>, perMonth = false): DrawerRow[] =>
+// R-C2a: `batches` is the catalog's own answer, product to batch. A line with
+// no product in the map - the installation lines, which are quoted per deal -
+// gets no basis note and is NOT marked read-only, because its rate genuinely
+// is the deal's.
+const basisFor = (key: string, batches: Batches): string | undefined => {
+  const product = LINE_PRODUCT[key]
+  if (!product) return undefined
+  const b = batches[product]
+  if (!b) return 'catalog, no batch recorded'
+  const label = b.batch_label ?? 'catalog'
+  return b.effective_from ? `${label}, from ${String(b.effective_from).slice(0, 10)}` : label
+}
+
+const lineRows = (
+  g: Group, names: Record<string, string>, perMonth = false, batches: Batches = {},
+): DrawerRow[] =>
   (g.rows ?? []).map((r) => ({
+    basis: basisFor(r.key, batches),
+    costReadOnly: !!LINE_PRODUCT[r.key],
+    // C2: margin and price are editable; COST IS NOT, per R-C2a. The warranty
+    // line is editable in neither: it prices at cost by rule, so a margin box
+    // on it would be a margin the calculator refuses to read and a price box
+    // would be that rule inverted.
+    // ── R-C2b, THE EITHER-OR MADE VISIBLE ──────────────────────────────
+    //
+    // Type the price and the MARGIN derives; type the margin and the price
+    // derives. So a line carrying a price override shows its margin as the
+    // DERIVED figure rather than as an empty box: two editors both blank,
+    // with the price driving, is the state a reader cannot account for - and
+    // it is what the first build shipped until the screenshot showed it.
+    //
+    // Clearing the price returns the margin to an editor, which is what makes
+    // this an either-or rather than a one-way door.
+    editIds: r.key === 'hwWarranty' ? [null, null, null, null] : [
+      null,
+      null,
+      r.overridden ? null : `deal-margin-${r.key}`,
+      perMonth ? `deal-hofee-${r.key}` : `deal-price-${r.key}`,
+    ],
     cells: [
       names[r.key] ?? r.key,
       perMonth ? `${m(r.rawCost)} / mo` : m(r.rawCost),
       // THE IMPLIED MARGIN IS THE GROUP'S OWN, returned beside the price it
       // priced. A display computing `1 - cost/price` here would be the second
       // reader Verification 20 is about, and would disagree the day a line is
-      // priced by override rather than by margin.
-      pct(r.impliedMarginPct),
+      // priced by override rather than by margin - which is now exactly when
+      // it is SHOWN, so it has to be the group's.
+      r.overridden ? `${pct(r.impliedMarginPct)} derived` : pct(r.impliedMarginPct),
       perMonth ? `${m(r.rawPrice)} / mo` : m(r.rawPrice),
     ],
   }))
 
 export function buildDealStatement(
   result: StatementResult, payload: Record<string, unknown>, grossUp: boolean,
+  batches: Batches = {},
 ): Statement {
   const dur = durationPresentation(payload) as { months: number | null, recorded: boolean, value: string, priceLabel: string, costLabel: string }
   const months = dur.months ?? 0
@@ -152,9 +231,33 @@ export function buildDealStatement(
         kind: 'table',
         head: ['ITEM', 'COST', 'MARGIN %', 'PRICE'],
         rows: [
-          ...lineRows(hardwareGroup, HW_NAMES),
+          ...lineRows(hardwareGroup, HW_NAMES, false, batches),
           { cells: ['Hardware price', m(hwCost), '', m(hwPrice)], sum: true },
         ],
+        // R-C2a: SAID ON THE PANEL, not left to be inferred from a box that
+        // will not accept typing. A cost here is the catalog's, one row per
+        // product shared by every deal, so changing it would reprice the
+        // estate rather than this deal. There is no link because there is no
+        // Base Cost Data screen to link to: Product Management is a disabled
+        // nav button, and a link to nothing is the escape route Verification 7
+        // is about.
+        // C2: the unit counts are the deal's own and are edited here, in the
+        // drawer of the line they drive. SafeSight carries TWO, existing and
+        // new infrastructure, because the calculator prices them from two
+        // separate counts - collapsing them into one box would be a second
+        // reader inventing a number neither field holds.
+        second: {
+          head: ['UNIT', 'COUNT'],
+          rows: [
+            { cells: ['SafeSight, existing infra', ''], editIds: [null, 'deal-ssExisting'] },
+            { cells: ['SafeSight, new infra', ''], editIds: [null, 'deal-ssNew'] },
+            { cells: ['AQ Sensor', ''], editIds: [null, 'deal-aqm'] },
+            { cells: ['HEMIR', ''], editIds: [null, 'deal-hemir'] },
+          ],
+        },
+        note: 'Unit costs are catalog values, shared by every deal, and are not'
+          + ' editable here. The batch and its effective date are shown beneath'
+          + ' each cost.',
       },
     },
     {
@@ -186,11 +289,13 @@ export function buildDealStatement(
         kind: 'table',
         head: ['ITEM', 'COST / MONTH', 'MARGIN %', 'PRICE / MONTH'],
         rows: [
-          ...lineRows(hostingGroup, HO_NAMES, true),
+          ...lineRows(hostingGroup, HO_NAMES, true, batches),
           { cells: [dur.recorded ? `Over ${months} months` : 'Over the term',
             dur.recorded ? m(hoCost) : dur.value, '',
             dur.recorded ? m(hoPrice) : dur.value], sum: true },
         ],
+        note: 'Hosting costs are catalog values, shared by every deal, and are'
+          + ' not editable here.',
       },
     },
   ]

@@ -598,7 +598,29 @@ export function DealPanel({
         result={result as never}
         // C1: built from the SAME result the matrix is built from, so the two
         // presentations read one derivation rather than two.
-        statement={result ? buildDealStatement(result as never, payload, ui.grossUp) : null}
+        statement={result
+          ? buildDealStatement(result as never, payload, ui.grossUp, catalogData?.batches ?? {})
+          : null}
+        // ── C2: THE SEAM IS THE FORM'S OWN STORE ───────────────────────
+        //
+        // Not a second one. An edit in a drawer calls the same `setValue` the
+        // pricing cards call, so the statement, the strip and the old panels
+        // are three readers of one value rather than three copies kept in
+        // step - which is R-N1 at the interaction layer and the reason a
+        // change shows up in all three without anything listening.
+        //
+        // SAVE IS THE PANEL'S OWN SAVE, the one `#btn-save-deal` fires, so a
+        // write from here is the same next-revision write as a write from
+        // anywhere else. RESET re-reads the baseline through
+        // `valuesFromPayload`, which is the same hydrate a fresh load uses.
+        seam={{
+          values,
+          onValue: setValue,
+          dirty: dirty.size > 0,
+          onSave: () => { void saveRef.current() },
+          onReset: () => { if (baseline) setValues(valuesFromPayload(baseline)) },
+        }}
+        saved={baseline ? valuesFromPayload(baseline) : {}}
         payload={payload}
         values={values}
         onMargin={setValue}

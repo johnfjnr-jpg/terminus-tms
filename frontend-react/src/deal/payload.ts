@@ -1,4 +1,7 @@
 import { toNumberOrNull } from '../../../src/lib/numeric-payload.js'
+// ONE LIST, IMPORTED. The allowed override keys live with the pricing that
+// honours them, so the form cannot offer a box the calculator will ignore.
+import { PRICE_OVERRIDE_KEYS } from '../../../src/lib/deal-calculator.js'
 
 // ── THE DEAL FORM'S PAYLOAD READER ───────────────────────────────────────
 //
@@ -56,6 +59,13 @@ export const COMMERCIALS_OWNED_KEYS = [
   // 'perUnit'; `hostingUnitFees` is the monthly fee for ONE unit of a type,
   // keyed by the same `hoSs`/`hoAqm`/`hoHemir` the calculator prices by.
   'hostingPriceMode', 'hostingUnitFees',
+  // R-C2b: the either-or generalised. R-O7 gave hosting a price override;
+  // this is the same act for the hardware and installation lines, keyed by
+  // the calculator's own line keys. `hwWarranty` is absent by construction -
+  // the allowed set lives in `PRICE_OVERRIDE_KEYS` in the calculator, so the
+  // rule that the warranty reaches the customer at cost is enforced where the
+  // pricing happens rather than remembered at each writer.
+  'priceOverrides',
 ] as const
 
 /** R-O7: the three hosting types, in the order the card lists them. */
@@ -194,6 +204,16 @@ export function readDealPayload(
   // goes back to pricing from its margin and a zero means free hosting. Those
   // are two different decisions and the payload has to be able to hold both
   // (Architecture 11).
+  // R-C2b: THE SAME DELETION CONTRACT AS THE MARGIN BOXES AND THE FEES. An
+  // empty box DROPS the key, which is what returns the line to pricing from
+  // its margin - the other half of the either-or. A zero would mean the line
+  // is given away free, and the payload must be able to hold both.
+  const priceOverrides: Record<string, number> = {}
+  for (const key of PRICE_OVERRIDE_KEYS) {
+    const v = numOrUndefined(values, `deal-price-${key}`)
+    if (v !== undefined) priceOverrides[key] = v
+  }
+
   const hostingUnitFees: Record<string, number> = {}
   for (const key of HOSTING_FEE_KEYS) {
     const v = numOrUndefined(values, `deal-hofee-${key}`)
@@ -246,6 +266,7 @@ export function readDealPayload(
     invoicing: ui.invoicing,
     hostingPriceMode: ui.hostingPriceMode,
     hostingUnitFees,
+    priceOverrides,
     milestones: readMilestones(values),
 
     contractorMilestones: readContractorMilestones(values),
@@ -305,6 +326,10 @@ export function valuesFromPayload(payload: Record<string, unknown> | null | unde
 
   const overrides = (p.marginOverrides ?? {}) as Record<string, unknown>
   for (const k of MARGIN_KEYS) out[`deal-margin-${k}`] = str(overrides[k])
+  // R-C2b: hydrated from the same list the writer loops, so the read and the
+  // write cannot disagree about the key set.
+  const prices = (p.priceOverrides ?? {}) as Record<string, unknown>
+  for (const k of PRICE_OVERRIDE_KEYS) out[`deal-price-${k}`] = str(prices[k])
   // R-O7: the fee boxes are seeded the same way, so a recorded fee comes back
   // on reload and a cleared one comes back EMPTY rather than as a zero.
   const fees = (p.hostingUnitFees ?? {}) as Record<string, unknown>

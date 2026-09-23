@@ -8022,7 +8022,24 @@ textarea.lead-field-input,
    `display: grid` would have passed: the grid was there, in a box the wrong
    size.
    Renamed WHOLE, not just the colliding member: a partial rename leaves the
-   trap for whoever adds the next `ds-` class. */
+   trap for whoever adds the next `ds-` class.
+
+   ── AND THIS COMMENT ITSELF BROKE THE STYLESHEET FOR A ROUND ────────────
+   The paragraph above was INSERTED INTO an existing comment and ended with a
+   CLOSING DELIMITER of its own - which cannot be written here, because
+   writing it is the bug. That gave the opener a NEARER CLOSER to pair with, so the
+   comment ended fourteen lines early, the prose below became raw CSS, and the
+   original closer was left stray. CLAUDE.md records this exact mechanism -
+   "inserting a block inside a comment gave the opener a nearer closer to pair
+   with; the count cannot see a re-pairing" - and a delimiter count stayed
+   balanced throughout, because the totals were right and the PAIRING was not.
+
+   IT SHIPPED IN THE C1 MERGE AND NOTHING NOTICED. The only rule the parser
+   dropped was `.stmt { margin-top: 4px }`, worth four pixels, so no screen
+   moved. It surfaced a round later because E1 added `max-width` to that same
+   rule and the cap did not take: the served file had the declaration and the
+   CSSOM did not. Found by asking the browser which rules it actually holds,
+   which is the one instrument that can tell a file from a stylesheet.
 
    MONEY IN / MONEY OUT / RESULT, read top to bottom, each line's drivers in a
    drawer underneath it, and a reconciling strip pinned while the tab scrolls.
@@ -8037,7 +8054,35 @@ textarea.lead-field-input,
    because `display: block` beats the user agent's `[hidden] { display: none }`
    and the element renders while every attribute assertion passes. A div is
    already block; there is nothing to declare. */
-.ds { margin-top: 4px; }
+/* ── E1: THE MEASURE IS CAPPED, AND THE NUMBER IS THE READING ────────────
+   Measured before: the gap from a label's own TEXT END to its first figure
+   was 343px at 1240, 445px at 1440 and 2,445px at 3440. The last is the
+   finding: the statement is a full-width section, so on a wide screen the
+   label sits at the left edge and its money columns at the right, and the eye
+   crosses two thousand pixels of nothing to pair them.
+
+   MEASURED AT THE TEXT END, NOT THE BOX. The label's box is a 1fr track and
+   fills whatever is left, so its right edge measures the TRACK. The words are
+   what a reader tracks from, and a Range over the label's own text node finds
+   them. Verification 27: state the measure as something the person
+   experiences, not something the document has.
+
+   THE CAP IS THE MOCKUP'S OWN ANSWER - option C wraps at 980px - and it is
+   one declaration rather than a second grid. It caps the STRIP too, because a
+   strip wider than the sheet it reconciles puts the four headline figures
+   further from the lines they total.
+
+   IT DOES NOTHING AT 1240, where the column is 876px and already under the
+   cap. That width measured 343px against the 350px eye span and passes on its
+   own; the cap is for the widths where it does not.
+
+   AND THE SELECTOR IS `.stmt`, NOT `.ds`. The C1 rename replaced `ds-` and
+   this class has no hyphen, so the root container kept the old name while
+   every child moved. It collided with nothing - the estate's `ds` family is
+   `.ds-row`, `.ds-label`, `.ds-value` - but a half-renamed family is the
+   trap the rename existed to remove, and the first edit aimed at `.stmt`
+   found no anchor, which is how it surfaced. */
+.stmt { margin-top: 4px; max-width: 980px; }
 
 /* THE EXISTING SHEET, BEHIND A CLOSED DISCLOSURE. C1 puts the statement in
    the summary's position without retiring the matrix, because the matrix's
@@ -8082,7 +8127,15 @@ textarea.lead-field-input,
 .stmt-colhead,
 .stmt-row-line {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) repeat(4, minmax(0, 118px));
+  /* E1: THE MONEY COLUMNS ARE 150px, NOT 118px, AND THAT IS THE SECOND HALF
+     OF THE FIX. The cap alone took the worst gap to 349px against a 350px eye
+     span - inside the requirement by ONE PIXEL, which is a lottery ticket
+     rather than a result (Verification 48).
+     The gap is EMPTY LABEL TRACK: the label is a 1fr that fills whatever the
+     money columns leave, so WIDENING them narrows the run the eye crosses.
+     Counter-intuitive, and it is why the first instinct - narrow the figures
+     to make room - makes the reading worse. */
+  grid-template-columns: 18px minmax(0, 1fr) repeat(4, minmax(0, 150px));
   gap: 10px;
   align-items: baseline;
 }
@@ -8142,7 +8195,7 @@ textarea.lead-field-input,
 .stmt-total .stmt-lbl { font-weight: 600; }
 .stmt-total .stmt-num { font-weight: 700; }
 .stmt-grand .stmt-num:last-child { color: var(--green); }
-.stmt-result > .stmt-row-line { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 118px); }
+.stmt-result > .stmt-row-line { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 150px); }
 .stmt-margin-final { font-family: var(--mono); font-size: 20px; font-weight: 700; text-align: right; }
 .stmt-margin-final.on-target { color: var(--green); }
 .stmt-margin-final.under-target { color: var(--attention); }
@@ -8175,6 +8228,56 @@ textarea.lead-field-input,
 }
 .stmt-drawer-table td:first-child { text-align: left; }
 .stmt-drawer-table tr.stmt-sum td { border-bottom: 0; font-weight: 700; }
+/* ── C2: THE EDITORS ─────────────────────────────────────────────────────
+   Sized to what they hold - a two or three digit percentage, a count, a
+   price - rather than stretched to the cell, because a box wider than its
+   content reads as an invitation to type more than belongs in it. */
+.stmt-edit {
+  width: 84px;
+  background: var(--dark);
+  border: 1px solid var(--hairline-strong);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  text-align: right;
+  padding: 3px 6px;
+}
+.stmt-edit:focus { outline: 1px solid var(--green); border-color: var(--green); }
+
+/* R-C2a: a catalog cost is not an editor and must not look like one. It
+   carries the dimmer treatment the estate already uses for a figure somebody
+   did not choose, and its basis sits under it. */
+.stmt-catalog { color: var(--muted); }
+.stmt-catalog small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted-2);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ── C2: MODIFIED, NOT SAVED ─────────────────────────────────────────────
+   Under the strip, which is what a person watches while typing, so the fact
+   that nothing is written yet does not need scrolling for. Present only when
+   dirty: a bar that is always there stops being read. */
+.stmt-unsaved {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--attention);
+  background: rgba(237,180,90,0.08);
+  padding: 8px 14px;
+  margin-bottom: 16px;
+}
+.stmt-unsaved-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--attention);
+  flex: 1 1 auto;
+}
+
 .stmt-note {
   font-family: var(--mono);
   font-size: 11px;
@@ -8190,8 +8293,8 @@ textarea.lead-field-input,
    is not the thing being reviewed. */
 @media (max-width: 1400px) {
   .stmt-colhead,
-  .stmt-row-line { grid-template-columns: 16px minmax(0, 1fr) repeat(4, minmax(0, 96px)); gap: 8px; }
-  .stmt-result > .stmt-row-line { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 96px); }
+  .stmt-row-line { grid-template-columns: 16px minmax(0, 1fr) repeat(4, minmax(0, 110px)); gap: 8px; }
+  .stmt-result > .stmt-row-line { grid-template-columns: 16px minmax(0, 1fr) minmax(0, 110px); }
   .stmt-num { font-size: 12px; }
   .stmt-drawer { padding-left: 24px; }
 }
