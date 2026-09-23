@@ -21,6 +21,7 @@ import {
   CATALOG_ONLY_RATE_KEYS, OVERRIDABLE_RATE_KEYS, ALL_RATE_KEYS, resolveRates,
 } from '../../src/lib/rate-resolution.js'
 import { PRODUCT_RATE_KEYS } from '../../src/lib/base-costs.js'
+import { PRICE_OVERRIDE_KEYS, priceOverrideFor } from '../../src/lib/deal-calculator.js'
 
 // READ FROM SOURCE, comments stripped: `payload.ts` is TypeScript and the
 // pure runner is plain node, so a dynamic import is a syntax error. Stripped
@@ -72,6 +73,30 @@ test('R-C2a 4: every catalog rate belongs to a product the catalog knows', () =>
   const orphans = CATALOG_ONLY_RATE_KEYS.filter((k) => !known.has(k))
   assert.deepEqual(orphans, [],
     `these catalog rates map to no product, so no batch or effective date can be shown: ${orphans.join(', ')}`)
+})
+
+test('R-C2b 6: hwWarranty is not an overridable line', () => {
+  // ── WHY THIS EXISTS, AND IT WAS A CALIBRATION THAT ASKED FOR IT ────────
+  //
+  // The warranty is protected TWICE: it is absent from PRICE_OVERRIDE_KEYS,
+  // and the calculator's warranty line never asks for an override at all. An
+  // injection adding the key came back SILENT because the other layer held -
+  // which is good defence and means the key layer was never PROVEN.
+  //
+  // Two layers are worth having and each is worth asserting, or the day
+  // somebody adds the spread to that line the only thing standing is a list
+  // nothing checks.
+  assert.ok(!PRICE_OVERRIDE_KEYS.includes('hwWarranty'),
+    'hwWarranty is overridable, so the warranty no longer reaches the customer at cost')
+  // NOT VACUOUS: the list must actually contain the lines that ARE
+  // overridable, or "it excludes hwWarranty" is true of an empty list.
+  for (const k of ['hwSs', 'hwAqm', 'hwHemir', 'inLump']) {
+    assert.ok(PRICE_OVERRIDE_KEYS.includes(k), `${k} should be overridable and is not`)
+  }
+  assert.equal(priceOverrideFor({ hwWarranty: 500000 }, 'hwWarranty'), null,
+    'the resolver returned a warranty override')
+  assert.equal(priceOverrideFor({ hwSs: 400000 }, 'hwSs'), 400000,
+    'the resolver ignored a legitimate override, so the null above proves nothing')
 })
 
 test('R-C2a 5: the statement names the products the catalog uses', () => {
