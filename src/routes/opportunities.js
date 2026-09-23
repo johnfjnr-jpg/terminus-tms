@@ -389,7 +389,19 @@ export default async function opportunitiesRoutes(app) {
   const SALESPERSON_WRITABLE_KEYS = new Set([
     'ssExisting', 'ssNew', 'aqm', 'hemir',
     'installResp', 'lumpSumCost',
-    'targetMargin', 'marginOverrides',
+    // R-C2b: `priceOverrides` is a salesperson decision in exactly the way
+    // `marginOverrides` is - the same act said the other way round - so it
+    // belongs beside it.
+    //
+    // FOUND BY THE PROBE, NOT BY THE PHASE 0 THAT ASKED FOR IT. Phase 0(b)
+    // was instructed to confirm every key the drawers would write sits in the
+    // writable allowlist, and it checked `COMMERCIALS_OWNED_KEYS` - the
+    // CLIENT's list - and reported clean. THERE ARE TWO ALLOWLISTS. This one
+    // refused the write with "payload contains fields that cannot be set from
+    // this endpoint", and the only reason the probe could say so is that it
+    // captures the write's own answer rather than only whether the revision
+    // moved (Verification 14).
+    'targetMargin', 'marginOverrides', 'priceOverrides',
     // ── R-O7, 2026-09-20: THE HOSTING PRICE OVERRIDE ──────────────────────
     //
     // `hostingPriceMode` is 'margin' or 'perUnit'; `hostingUnitFees` is the

@@ -48,7 +48,10 @@ export const LINE_PRODUCT: Record<string, string> = {
 
 export type Batches = Record<string, { batch_label?: string, effective_from?: string }>
 
-type GroupRow = { key: string, rawCost: number, rawPrice: number, impliedMarginPct: number | null }
+type GroupRow = {
+  key: string, rawCost: number, rawPrice: number,
+  impliedMarginPct: number | null, overridden?: boolean,
+}
 type Group = { rawTotalPrice: number, rawTotalCost: number, rows?: GroupRow[] }
 export type StatementResult = {
   groups: { hardwareGroup: Group, installGroup: Group, hostingGroup: Group }
@@ -150,10 +153,20 @@ const lineRows = (
     // line is editable in neither: it prices at cost by rule, so a margin box
     // on it would be a margin the calculator refuses to read and a price box
     // would be that rule inverted.
+    // ── R-C2b, THE EITHER-OR MADE VISIBLE ──────────────────────────────
+    //
+    // Type the price and the MARGIN derives; type the margin and the price
+    // derives. So a line carrying a price override shows its margin as the
+    // DERIVED figure rather than as an empty box: two editors both blank,
+    // with the price driving, is the state a reader cannot account for - and
+    // it is what the first build shipped until the screenshot showed it.
+    //
+    // Clearing the price returns the margin to an editor, which is what makes
+    // this an either-or rather than a one-way door.
     editIds: r.key === 'hwWarranty' ? [null, null, null, null] : [
       null,
       null,
-      `deal-margin-${r.key}`,
+      r.overridden ? null : `deal-margin-${r.key}`,
       perMonth ? `deal-hofee-${r.key}` : `deal-price-${r.key}`,
     ],
     cells: [
@@ -162,8 +175,9 @@ const lineRows = (
       // THE IMPLIED MARGIN IS THE GROUP'S OWN, returned beside the price it
       // priced. A display computing `1 - cost/price` here would be the second
       // reader Verification 20 is about, and would disagree the day a line is
-      // priced by override rather than by margin.
-      pct(r.impliedMarginPct),
+      // priced by override rather than by margin - which is now exactly when
+      // it is SHOWN, so it has to be the group's.
+      r.overridden ? `${pct(r.impliedMarginPct)} derived` : pct(r.impliedMarginPct),
       perMonth ? `${m(r.rawPrice)} / mo` : m(r.rawPrice),
     ],
   }))

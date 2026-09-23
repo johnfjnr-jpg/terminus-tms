@@ -245,9 +245,19 @@ describe('C1: the statement equals the derivation layer', () => {
     expect(ssAfter.impliedMarginPct)
       .toBeCloseTo((1 - ssAfter.rawCost / target) * 100, 6)
     // And the statement shows the derived margin rather than the target.
-    const hw = over.st.moneyIn[0].drawer as { rows: Array<{ cells: string[] }> }
-    expect(hw.rows.find((r) => r.cells[0] === 'SafeSight')!.cells[2])
-      .toBe(`${ssAfter.impliedMarginPct.toFixed(1)}%`)
+    const hw = over.st.moneyIn[0].drawer as {
+      rows: Array<{ cells: string[], editIds?: (string | null)[] }> }
+    const row = hw.rows.find((r) => r.cells[0] === 'SafeSight')!
+    // SAID TO BE DERIVED, not merely shown. An overridden line's margin is a
+    // readout of the price, and a bare percentage beside an editable price
+    // reads as a second thing somebody could type.
+    expect(row.cells[2]).toBe(`${ssAfter.impliedMarginPct.toFixed(1)}% derived`)
+    // AND THE MARGIN STOPS BEING AN EDITOR while the price drives it, which
+    // is what makes this an either-or rather than two boxes fighting.
+    expect(row.editIds?.[2]).toBeNull()
+    // The un-overridden lines keep theirs.
+    const aq = hw.rows.find((r) => r.cells[0] === 'AQ Sensor')!
+    expect(aq.editIds?.[2]).toBe('deal-margin-hwAqm')
   })
 
   test('R-C2b: THE WARRANTY PROVISION IS UNTOUCHED by a hardware override', () => {
