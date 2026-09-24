@@ -124,7 +124,8 @@ record('clicking it actually raises the request', !!raised, raised ? `request ${
 // The button count on one line was ALREADY true before this change at 1440,
 // so a check on that alone would have passed on the defect. What cost the
 // vertical space was the state sentence sitting BETWEEN two buttons: with text
-// in it, "V1 is awaiting approval." pushed "Approval view" onto a second line.
+// in it, "V1 is awaiting approval." pushed the last button onto a second line.
+// That button was named "Approval view" then and is "Approve pricing" now.
 // Raising the request above is what puts text in it, so this is measured in the
 // state that exhibits the fault rather than in the empty one.
 await page.evaluate(() => window.oppRefreshVersionActions?.())

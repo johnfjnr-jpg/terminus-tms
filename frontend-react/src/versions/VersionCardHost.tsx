@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { VersionCard } from './VersionCard'
+import { useShell } from '../ShellContext'
 import type { AskReporter } from './VersionCard'
 import type { DealVersion, PendingApproval } from './model'
 import { versionLabel } from './model'
@@ -61,6 +62,7 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
    */
   registerReload?: (reload: () => void) => void
 }) {
+  const shell = useShell()
   const [versions, setVersions] = useState<DealVersion[]>([])
   // A render tick, so the two outward feeds can force a re-read the way the
   // vanilla's `renderVersionList()` did.
@@ -139,7 +141,20 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
     const highest = issued?.major ?? 0
     const draft = latest.current.find((v) => v.status === 'draft' && v.major === highest)
     if (!draft) return
-    await api('POST', `/api/deal-sheet-versions/${draft.id}/issue`)
+    // ── THE REFUSAL IS READ, WHICH IT WAS NOT ─────────────────────────────
+    //
+    // This fired the POST and ignored the answer, so the route's next-version
+    // rule and its no-delta refusal both died here: a 409 reloaded the list and
+    // looked exactly like a successful issue that had changed nothing.
+    //
+    // It throws rather than returning a flag because that is the contract
+    // `onSave` already has with this card, and the card renders whatever it
+    // catches.
+    const r = await api('POST', `/api/deal-sheet-versions/${draft.id}/issue`)
+    if (!r.ok) {
+      const said = (r.data as { error?: string } | undefined)?.error
+      throw new Error(said || 'The version could not be issued.')
+    }
     await load()
   }
 
@@ -164,6 +179,9 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
       gateApplies={window.oppVersionGateApplies?.() !== false}
       onSave={onSave}
       onIssue={onIssue}
+      // H1: through the shell's declared navigate service rather than a window
+      // global, which is how this tree reaches the rest of the application.
+      onOpenApproval={() => { shell.navigate('opportunity-approval', opportunityId) }}
       onRestore={onRestore}
       onAsk={(id, label, reporter) => window.requestPricingApproval?.(id, label, reporter)} />
   )

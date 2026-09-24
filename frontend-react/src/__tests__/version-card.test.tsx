@@ -32,7 +32,8 @@ const render = (p: Props) => (
       onSave={p.onSave ?? (() => {})}
       onIssue={p.onIssue ?? (() => {})}
     onRestore={p.onRestore ?? (() => {})}
-    onAsk={p.onAsk ?? (() => {})} />
+    onAsk={p.onAsk ?? (() => {})}
+    onOpenApproval={() => {}} />
 )
 const mount = async (p: Props = {}) => {
   document.body.innerHTML = '<div id="host"></div>'
@@ -258,13 +259,35 @@ describe('I: the issue control', () => {
     expect(must('btn-issue-version').title).toContain('Save a version first')
   })
 
-  test('I5: the gate hides the control entirely', async () => {
-    await mount({ versions: six(), gateApplies: false })
-    expect(must('btn-issue-version').classList.contains('hidden')).toBe(true)
-  })
+
+  // ── I5 IS SUPERSEDED, AND ITS REASONING IS LEFT HERE ON PURPOSE ────────
+  //
+  // It read:
+  //
+  //     test('I5: the gate hides the control entirely', async () => {
+  //       await mount({ versions: six(), gateApplies: false })
+  //       expect(must('btn-issue-version').classList.contains('hidden')).toBe(true)
+  //     })
+  //
+  // The reasoning was that a control for a gate that does not apply to this
+  // stage is noise, and on its own terms that is defensible.
+  //
+  // JOHN'S WALK, 2026-09-25, FOUND WHAT IT COST: "a minor version cannot be
+  // raised to a major from the screen." Issuing is not a property of the gate.
+  // It is the ONLY route from 0.x to 1.0, and `oppVersionGateApplies()` is true
+  // only where a stage carries a version-scoped approval track - so at
+  // Qualification, where a deal is first priced, the control was invisible
+  // while being enabled and correctly labelled "Issue V0.1 as V1".
+  //
+  // A premise failed rather than a preference changing, so the decision is
+  // RE-TAKEN: the control is always present, and `issueView` - which never read
+  // the gate - already explains itself when there is nothing to issue. H2a and
+  // H2d in approve-path.test.tsx are the replacement, asserting both that it is
+  // visible without the gate and that it stays and says why when it cannot act.
 })
 
 describe('E: the empty state', () => {
+
   test('E1: it names the act and the label that act produces', async () => {
     await mount({ versions: [] })
     expect(host.textContent).toContain('No versions saved yet. V0.1 is the first.')
