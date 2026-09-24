@@ -58,7 +58,27 @@ function onEditorKey(e: React.KeyboardEvent<HTMLInputElement>, revert: () => voi
   else if (e.key === 'Escape') { e.preventDefault(); revert() }
 }
 
-function Editor({ id, seam, saved }: { id: string, seam: EditSeam, saved: string }) {
+function Editor({ id, seam, saved, derived }: {
+  id: string, seam: EditSeam, saved: string, derived: string,
+}) {
+  // ── R-EV1: THE BOX SHOWS THE EFFECTIVE VALUE, AND R-EV2: IT SAYS WHICH ──
+  //
+  // `stored` is the form store's draft. An unset override hydrates as `''`,
+  // not `undefined`, so OVERRIDE IS EMPTINESS and the fallback is not `??`.
+  //
+  // `editing` is what makes CLEARING possible at all. Without it a box
+  // rendering the derivation can never be emptied: the first backspace stores
+  // `''`, the fallback fires on the same render, and the number reappears
+  // under the caret. While the box has focus it shows the draft exactly as it
+  // is, so an empty box is an empty box; on blur an empty draft falls back and
+  // "clearing returns to the derived display, never blank" becomes true.
+  //
+  // The derived figure is the PLACEHOLDER while editing, so a focused empty
+  // box still states what leaving it blank will produce. That is the same
+  // sentence R-EV3 makes the old cards tell, said by the same formatter.
+  const [editing, setEditing] = useState(false)
+  const stored = seam.values[id] ?? ''
+  const override = stored !== ''
   return (
     // ── NO `id`, AND THAT IS THE POINT ────────────────────────────────────
     //
@@ -69,9 +89,14 @@ function Editor({ id, seam, saved }: { id: string, seam: EditSeam, saved: string
     // produces one id with two elements, and readPayload reads whichever the
     // DOM returns first". The test id is prefixed so a probe can address this
     // editor without colliding either.
-    <input type="text" className="stmt-edit" data-testid={`stmt-edit-${id}`}
+    <input type="text" className={`stmt-edit${override ? ' stmt-edit-override' : ''}`}
+      data-testid={`stmt-edit-${id}`}
       data-contract="numOrUndefined"
-      value={seam.values[id] ?? ''}
+      data-override={override ? 'true' : 'false'}
+      placeholder={derived}
+      value={editing ? stored : (override ? stored : derived)}
+      onFocus={() => setEditing(true)}
+      onBlur={() => setEditing(false)}
       onChange={(e) => seam.onValue(id, e.target.value)}
       onKeyDown={(e) => onEditorKey(e, () => seam.onValue(id, saved))} />
   )
@@ -81,12 +106,14 @@ function DrawerBody({ drawer, seam, saved }: {
   drawer: Drawer, seam?: EditSeam, saved: Record<string, string | undefined>,
 }) {
   if (drawer.kind === 'note') return <p className="stmt-note">{drawer.note}</p>
-  const cell = (r: { cells: string[], editIds?: (string | null)[], costReadOnly?: boolean, basis?: string },
+  const cell = (r: { cells: string[], editIds?: (string | null)[], editDerived?: (string | null)[],
+    costReadOnly?: boolean, basis?: string },
     c: string, j: number) => {
     const id = seam ? r.editIds?.[j] ?? null : null
     return (
       <td key={j} className={j === 1 && r.costReadOnly ? 'stmt-catalog' : undefined}>
-        {id ? <Editor id={id} seam={seam!} saved={saved[id] ?? ''} /> : c}
+        {id ? <Editor id={id} seam={seam!} saved={saved[id] ?? ''}
+          derived={r.editDerived?.[j] ?? ''} /> : c}
         {/* R-C2a: the basis sits under the COST it explains, not in a legend
             somewhere else. A reader asking "why is this number what it is" is
             looking at the number. */}

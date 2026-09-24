@@ -184,6 +184,18 @@ const AMBER_FAMILY = [
   // a change is unwritten.
   '.stmt-unsaved',
   '.stmt-unsaved-text',
+  // ── R-EV2, 2026-09-24: A DRAWER BOX HOLDING A STORED OVERRIDE ──────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT, for the third time in three rounds.
+  // The effective-values round gave the statement's editors an override
+  // treatment and did not tell the list; this went red at 24 bindings against
+  // 23 expected and the hook refused the commit.
+  //
+  // The estate's one amber for the estate's one meaning: a figure somebody
+  // chose, sitting among figures the calculator chose. The weight carries the
+  // same meaning beside it, because the ruling is explicit that colour must
+  // not be the only signal.
+  '.stmt-edit-override',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

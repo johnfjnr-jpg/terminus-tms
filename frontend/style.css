@@ -8343,6 +8343,19 @@ textarea.lead-field-input,
 }
 .stmt-edit:focus { outline: 1px solid var(--green); border-color: var(--green); }
 
+/* R-EV2: A LINE PRICED BY A STORED OVERRIDE SAYS SO, IN TWO SIGNALS.
+   Weight and colour together, never colour alone: the estate's accessibility
+   reference is that colour must not be the only carrier of meaning, and a
+   reader who cannot separate amber from white still sees the weight.
+   Measured on this box's own background, var(--dark) #1A1B23, the amber
+   #EDB45A renders at 9.21 to 1, against the walk-12 floor of 4.5.
+   No added text and no marker, per the ruling: the value itself is the
+   signal, so an untouched line stays quiet. */
+.stmt-edit-override {
+  font-weight: 700;
+  color: var(--attention);
+}
+
 /* R-C2a: a catalog cost is not an editor and must not look like one. It
    carries the dimmer treatment the estate already uses for a figure somebody
    did not choose, and its basis sits under it. */
