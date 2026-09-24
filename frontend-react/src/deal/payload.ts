@@ -44,6 +44,35 @@ import { PRICE_OVERRIDE_KEYS } from '../../../src/lib/deal-calculator.js'
 //
 // The list is read TWICE, by `readDealPayload` and by `hydrate`, so one entry
 // serves the write and the read and they cannot disagree about the key set.
+/**
+ * R-REV: the inputs a change to which returns every ABSOLUTE override to the
+ * derivation. John's ruling, 2026-09-25: the four unit counts, and any input
+ * the derivation multiplies a quantity by.
+ *
+ * ── WHY THESE AND NOT OTHERS ────────────────────────────────────────────
+ *
+ * A price override is a FIGURE FOR A QUANTITY. Change the quantity and the
+ * figure silently prices a different deal while its amber goes on claiming
+ * somebody chose it. A MARGIN override is a RATIO, which survives the quantity
+ * moving, so it is not in this list and does not clear.
+ *
+ *   the four counts          the quantity itself
+ *   duration                 multiplies hosting months
+ *   warrantyPct              multiplies the count to give warranty units
+ *   inSsExisting, inSsNew,
+ *   inAqm, inHemir           per-unit installation costs, multiplied by counts
+ *
+ * DELIBERATELY ABSENT, and reported rather than assumed: `lumpSumCost` is an
+ * absolute the derivation does not multiply by anything, and `targetMargin`,
+ * `whtPct`, `gstPct` and the currencies are ratios or are applied after the
+ * quantity. Carried to John as the one judgement call in this list.
+ */
+export const FUNDAMENTAL_VALUE_IDS: readonly string[] = [
+  'deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir',
+  'deal-duration', 'deal-warrantyPct',
+  'deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
+]
+
 export const MARGIN_KEYS = [
   'hwSs', 'hwAqm', 'hwHemir', 'hwWarranty', 'inSsEx', 'inSsNew',
   'inAqm', 'inHemir', 'inLump', 'hoSs', 'hoAqm', 'hoHemir',
