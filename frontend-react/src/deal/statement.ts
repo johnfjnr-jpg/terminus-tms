@@ -83,6 +83,24 @@ export type DrawerRow = {
    * three listeners agreeing.
    */
   editIds?: (string | null)[]
+  /**
+   * R-EV1: the DERIVATION's own answer for each editable cell, as the string
+   * that box would hold if somebody had typed it.
+   *
+   * ── WHY THE FALLBACK IS NOT `?? ''` ────────────────────────────────────
+   *
+   * The ruling names `DealStatement.tsx`'s `?? ''` as the mechanism, and
+   * `??` CANNOT FIRE HERE. `valuesFromPayload` hydrates every unset override
+   * through `str()`, which answers `''` for `undefined`, so an untouched line
+   * arrives as an EMPTY STRING rather than as `undefined`. Changing `?? ''` to
+   * `?? derived` would have typechecked, read correctly, and changed nothing
+   * on any screen: the dead-fix shape Verification 9 is about, which stops the
+   * next person looking.
+   *
+   * So the fallback keys on EMPTINESS, which is what "not overridden" is
+   * actually spelled as in this store.
+   */
+  editDerived?: (string | null)[]
 }
 export type Drawer =
   | { kind: 'table', head: string[], rows: DrawerRow[], second?: { head: string[], rows: DrawerRow[] }, note?: string }
@@ -114,6 +132,21 @@ const D = '-'
 const m = (v: number) => `$${money(v)}`
 const neg = (v: number) => `- $${money(v)}`
 const pct = (v: number | null) => v === null ? D : `${v.toFixed(1)}%`
+
+/**
+ * R-EV1 and R-EV3: a derived figure as a PERSON WOULD TYPE IT - no currency,
+ * no thousands separator, no trailing `.0` - so an editor showing it and an
+ * editor holding a typed value are the same kind of string.
+ *
+ * ONE FORMATTER, IMPORTED, because the statement's editors and the old cards'
+ * placeholders now both state a line's own effective margin. Two copies would
+ * agree today and disagree the first time either rounds differently, which is
+ * Verification 20 in the only place this round creates a second reader.
+ */
+export const typeable = (v: number | null | undefined, dp: 0 | 1): string =>
+  v === null || v === undefined || !Number.isFinite(v)
+    ? ''
+    : String(Math.round(v * 10 ** dp) / 10 ** dp)
 
 // The item names the pricing cards already use. Names only: every figure on
 // the row beside them comes from the group's own rows.
@@ -168,6 +201,16 @@ const lineRows = (
       null,
       r.overridden ? null : `deal-margin-${r.key}`,
       perMonth ? `deal-hofee-${r.key}` : `deal-price-${r.key}`,
+    ],
+    // R-EV1: parallel to `editIds`. The margin's derivation is the group's own
+    // implied margin and the price's is the group's own price, which are the
+    // same two figures the cells beside them already render as text - so the
+    // box and the row cannot disagree.
+    editDerived: r.key === 'hwWarranty' ? [null, null, null, null] : [
+      null,
+      null,
+      r.overridden ? null : typeable(r.impliedMarginPct, 1),
+      typeable(r.rawPrice, 0),
     ],
     cells: [
       names[r.key] ?? r.key,
