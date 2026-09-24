@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { money } from './rows'
+// R-EV3: the SAME formatter the statement's editors use, imported rather than
+// rewritten, so a line's effective margin reads identically in both places.
+import { typeable } from './statement'
 
 // The vanilla's own sign rule (opportunity-deal.js moneySigned): a negative
 // cash position reads -$n, not $-n, because the minus belongs to the amount
@@ -269,6 +272,10 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
               const r = find(row.key)
               const id = `deal-margin-${row.key}`
               const raw = values[id] ?? ''
+              // R-EV3: this LINE's effective margin, from the group's own row,
+              // falling back to the target where the derivation has no answer
+              // so the box is never mute.
+              const effective = typeable(r?.impliedMarginPct, 1) || String(target)
               // B8/B9: a BLANK box prices at target, so the placeholder carries
               // the target rather than the box carrying a value nobody entered.
               // An overridden line says so, because a line priced away from
@@ -283,11 +290,22 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
                   </div>
                   <div className="pg-cost" id={`pg-cost-${row.key}`}
                     data-testid={`pg-cost-${row.key}`}>{fig(r?.rawCost)}</div>
+                  {/* ── R-EV3: THE PLACEHOLDER STATES THIS LINE'S OWN MARGIN ──
+                      B8/B9 stands: a blank box means the line follows the
+                      derivation rather than a decision, and blank is how that
+                      is said. What was wrong is what the box PROMISED. It read
+                      the deal's target on every row, so it said 30 on a
+                      warranty line that prices at 0 and on a hosting line that
+                      prices at 29.9 - and the placeholder is the only thing on
+                      this card telling a reader what blank will do.
+                      The title carried the identical claim in prose, so it
+                      moves with the placeholder: correcting one and leaving
+                      the other would put two different answers on one row. */}
                   <input type="text" id={id} data-testid={id} data-contract="numOrUndefined"
                     className={`pg-margin-input${override !== null ? ' pg-margin-override' : ''}`}
-                    placeholder={String(target)} value={raw}
+                    placeholder={effective} value={raw}
                     title={override === null
-                      ? `Blank prices this line at the target margin, ${target}%.`
+                      ? `Blank prices this line at ${effective}%.`
                       : `Priced at ${override}% against a target of ${target}%.`}
                     onChange={(e) => onMargin(id, e.target.value)} />
                   <div className="pg-price" id={`pg-price-${row.key}`}
@@ -329,6 +347,12 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
               const id = 'deal-margin-inLump'
               const raw = values[id] ?? ''
               const over = toNumberOrNull(raw)
+              // R-EV3, and it reads the ROW rather than dividing the card's
+              // two totals: a second derivation of one figure is Verification
+              // 20, and the row already carries the answer.
+              const effective = typeable(
+                ig?.rows?.find((x: { key: string }) => x.key === 'inLump')?.impliedMarginPct, 1,
+              ) || String(target)
               return (
                 <div className="pg-row" key="inGroup">
                   <div>
@@ -341,9 +365,9 @@ function PricingCards({ result, payload, values, onMargin, hostingPriceMode, onH
                   {isLumpSum ? (
                     <input type="text" id={id} data-testid={id} data-contract="numOrUndefined"
                       className={`pg-margin-input${over !== null ? ' pg-margin-override' : ''}`}
-                      placeholder={String(target)} value={raw}
+                      placeholder={effective} value={raw}
                       title={over === null
-                        ? `Blank prices the lump sum at the target margin, ${target}%.`
+                        ? `Blank prices the lump sum at ${effective}%.`
                         : `Priced at ${over}% against a target of ${target}%.`}
                       onChange={(e) => onMargin(id, e.target.value)} />
                   ) : (
