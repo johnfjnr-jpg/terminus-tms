@@ -34,7 +34,7 @@ const abs = (p) => `${ROOT}/${p}`
 const INJECTIONS = [
   { id: 'I1 the fallback itself',
     file: 'frontend-react/src/deal/DealStatement.tsx',
-    find: 'value={editing ? stored : (override ? stored : derived)}',
+    find: "value={editing ? stored : (stored !== '' ? stored : derived)}",
     put: 'value={stored}',
     expect: 'G2' },
   { id: 'I2 the override class',
@@ -73,6 +73,11 @@ const INJECTIONS = [
     find: "className={`stmt-edit${override ? ' stmt-edit-override' : ''}`}",
     put: "className={`stmt-edit pg-margin-input${override ? ' stmt-edit-override' : ''}`}",
     expect: 'G4' },
+  { id: 'I8 the signal needing a derivation',
+    file: 'frontend-react/src/deal/DealStatement.tsx',
+    find: "const override = stored !== '' && derived !== ''",
+    put: "const override = stored !== ''",
+    expect: 'G6b' },
 ]
 
 const FILES = [...new Set(INJECTIONS.map((i) => i.file))]

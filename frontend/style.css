@@ -8350,8 +8350,17 @@ textarea.lead-field-input,
    Measured on this box's own background, var(--dark) #1A1B23, the amber
    #EDB45A renders at 9.21 to 1, against the walk-12 floor of 4.5.
    No added text and no marker, per the ruling: the value itself is the
-   signal, so an untouched line stays quiet. */
-.stmt-edit-override {
+   signal, so an untouched line stays quiet.
+
+   SELECTOR WEIGHT, MEASURED RATHER THAN ASSUMED. Written as a bare
+   `.stmt-edit-override` this rule rendered WHITE on the live page, and the
+   class assertion passed the whole time: a class test cannot see a rule that
+   never won the cascade. `.deal-section input:not(.is-computed)` several
+   hundred lines above is (0,2,1) and a single class is (0,1,0), so it takes
+   the colour of every input in this panel. Matched at (0,2,1) and later in
+   source order, this wins. Walk 12 recorded the same fault twice; the live
+   probe reads the COMPUTED colour now, not the class. */
+.deal-section input.stmt-edit-override {
   font-weight: 700;
   color: var(--attention);
 }

@@ -176,6 +176,20 @@ describe('R-EV2: a stored override says so, and stops saying it when cleared', (
     expect(box().value).not.toEqual('')
   })
 
+  test('G6b: a box with NO derivation never wears the signal, however full', async () => {
+    await mount()
+    // The unit counts are editors carrying a stored value and no derivation.
+    // They rendered amber and bold until a screenshot showed it, with every
+    // assertion in this file green: a signal that is on permanently is not a
+    // signal. Asserted on a box that is NOT empty, so it cannot pass by the
+    // box simply having nothing in it.
+    const unit = host.querySelector<HTMLInputElement>('[data-testid="stmt-edit-deal-ssExisting"]')
+    expect(unit).not.toBeNull()
+    expect(unit!.value).not.toEqual('')
+    expect(unit!.getAttribute('data-override')).toBe('false')
+    expect(unit!.classList.contains('stmt-edit-override')).toBe(false)
+  })
+
   test('G7: typing an override turns BOTH signals on, weight and colour', async () => {
     await mount()
     await set('42')
