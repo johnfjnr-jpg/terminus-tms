@@ -43,7 +43,8 @@ const mount = async (p: {
         onSave={p.onSave ?? (() => {})}
         onIssue={() => {}}
         onRestore={() => {}}
-        onAsk={() => {}} />,
+        onAsk={() => {}}
+        onOpenApproval={() => {}} />,
     )
   })
 }

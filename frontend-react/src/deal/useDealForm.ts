@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
-import { readDealPayload, pickSalespersonWritable } from './payload'
+import { readDealPayload, pickSalespersonWritable, FUNDAMENTAL_VALUE_IDS, HOSTING_FEE_KEYS } from './payload'
+// THE CALCULATOR'S OWN LIST, imported rather than restated: a key added there
+// must reach this clear without anybody remembering.
+import { PRICE_OVERRIDE_KEYS } from '../../../src/lib/deal-calculator.js'
 import type { UiState, Values, CatalogRates } from './payload'
 import { resolveRates } from '../../../src/lib/rate-resolution.js'
 import { buildDealInputs } from '../../../src/lib/deal-inputs.js'
@@ -54,8 +57,30 @@ export function useDealForm(
   const [values, setValues] = useState<Values>(initialValues)
   const [ui, setUiState] = useState<UiState>(initialUi)
 
+  // ── R-REV: ONE MECHANISM, AT THE ONE FUNNEL ───────────────────────────
+  //
+  // Every control on this panel writes through `setValue`, so the rule lives
+  // here rather than in each handler that happens to own a count today. A
+  // per-control version would be correct for the controls that exist and
+  // silent for the one added next.
   const setValue = useCallback((id: string, next: string) => {
-    setValues((v) => ({ ...v, [id]: next }))
+    setValues((v) => {
+      // A CHANGE IS A CHANGE. A re-render writing back the value a box already
+      // holds, or somebody tabbing through a field, must not throw away
+      // pricing that was deliberately entered.
+      if (v[id] === next) return v
+      const out: Values = { ...v, [id]: next }
+      if (!FUNDAMENTAL_VALUE_IDS.includes(id)) return out
+      // The ABSOLUTES return to the derivation. Cleared to the empty string,
+      // which is this panel's own deletion contract: an empty box drops the
+      // key, and `readPayload` sends the resulting object unconditionally, so
+      // the record loses the override rather than keeping a stale one.
+      for (const k of PRICE_OVERRIDE_KEYS) out[`deal-price-${k}`] = ''
+      for (const k of HOSTING_FEE_KEYS) out[`deal-hofee-${k}`] = ''
+      // MARGIN overrides are untouched on purpose: a ratio remains a decision
+      // when the quantity moves.
+      return out
+    })
   }, [])
   const setUi = useCallback((patch: Partial<UiState>) => {
     setUiState((u) => ({ ...u, ...patch }))

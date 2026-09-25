@@ -39,6 +39,12 @@ export interface VersionCardProps {
   versions: DealVersion[]
   pending: PendingApproval | null
   gateApplies: boolean
+  /**
+   * H1: where "Approve pricing" goes. It had NO handler at all - a bare button
+   * with an id that nothing in the repository bound - so the control sat on the
+   * screen looking live and did nothing when pressed.
+   */
+  onOpenApproval: () => void
   onSave(reason: string): Promise<void> | void
   onIssue(): Promise<void> | void
   onRestore(id: string): Promise<void> | void
@@ -46,13 +52,18 @@ export interface VersionCardProps {
 }
 
 export function VersionCard({
-  versions, pending, gateApplies, onSave, onIssue, onRestore, onAsk,
+  versions, pending, gateApplies, onSave, onIssue, onRestore, onAsk, onOpenApproval,
 }: VersionCardProps) {
   const [range, setRange] = useState<number | 'all'>(5)
   const [reason, setReason] = useState('')
   const [feedback, setFeedback] = useState<{ text: string, ok: boolean } | null>(null)
   // The request's own state, owned here so a re-render cannot undo it.
   const [asking, setAsking] = useState(false)
+  const [issuing, setIssuing] = useState(false)
+  // A ref, not the state: two clicks in one tick both read the same stale
+  // `false` from their own closure, which is the re-entrancy check this estate
+  // has already recorded as unreachable once.
+  const issuingRef = useRef(false)
   // ── AND THE SAVE HAS ONE TOO, WHICH IT DID NOT. Round 4, Phase 3 ───────
   //
   // The ask got an in-flight state in Phase 1 and the save did not, and the
@@ -84,6 +95,29 @@ export function VersionCard({
 
   const view = rangeView(versions, range)
   const issue = issueView(versions)
+  // ── H2: A REFUSED ISSUE IS SHOWN, THROUGH THE PATH A REFUSED SAVE USES ──
+  //
+  // The host fired the POST and never read `r.ok`, so a 409 from the
+  // next-version rule or the no-delta refusal was discarded and the list
+  // reloaded looking unchanged. The route composes careful sentences that
+  // nobody could see.
+  //
+  // `onSave` already throws and this catches the same way, so a refusal has ONE
+  // route to a person rather than two that will drift.
+  const doIssue = async () => {
+    if (issuingRef.current) return
+    issuingRef.current = true
+    setIssuing(true)
+    setFeedback(null)
+    try {
+      await onIssue()
+    } catch (err) {
+      setFeedback({ text: (err as Error).message, ok: false })
+    } finally {
+      issuingRef.current = false
+      setIssuing(false)
+    }
+  }
   const ask = askView(versions, pending, gateApplies)
   const prompt = reasonPrompt(versions.length)
 
@@ -204,15 +238,30 @@ export function VersionCard({
           <button className="btn-primary" type="button" id="btn-save-version"
             disabled={saving}
             onClick={() => { void save() }}>{saving ? 'Saving...' : 'Save version'}</button>
-          <button type="button" id="btn-issue-version"
-            className={`btn-secondary${gateApplies ? '' : ' hidden'}`}
-            disabled={issue.disabled} title={issue.title}
-            onClick={() => { void onIssue() }}>{issue.label}</button>
+          {/* ── H2: THE ONLY PATH TO A MAJOR VERSION IS ALWAYS ON SCREEN ───
+              It used to carry `gateApplies ? '' : ' hidden'`, so at any stage
+              with no version-scoped approval track - Qualification, where a
+              deal is first priced - the control was invisible while being
+              enabled and correctly labelled "Issue V0.1 as V1". There was no
+              way to raise a minor to a major from the screen at all.
+
+              `issueView` never read the gate: the label, the disabled state
+              and the title are already computed from the versions alone, and
+              its no-draft title explains itself. Hiding was the whole defect.
+
+              A control that disappears when it cannot act is what this round
+              is about; one that stays and says why is not. */}
+          <button type="button" id="btn-issue-version" className="btn-secondary"
+            disabled={issue.disabled || issuing} title={issue.title}
+            onClick={() => { void doIssue() }}>{issuing ? 'Issuing...' : issue.label}</button>
           <button type="button" id="btn-request-pricing-approval"
             className={`btn-secondary${ask.hidden ? ' hidden' : ''}`}
             disabled={asking || ask.disabled} title={ask.title}
             onClick={askNow}>{asking ? 'Requesting...' : ask.label}</button>
-          <button className="btn-secondary" type="button" id="btn-open-approval">Approval view</button>
+          {/* H1: named for the ACT, per the estate's button vocabulary - a verb
+              in sentence case - rather than for a destination. */}
+          <button className="btn-secondary" type="button" id="btn-open-approval"
+            onClick={onOpenApproval}>Approve pricing</button>
         </div>
 
         <p className={`pricing-approval-state${ask.hidden ? ' hidden' : ''}`}

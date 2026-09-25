@@ -9883,6 +9883,11 @@ The state sentence sat BETWEEN "Request pricing approval" and "Approval view",
 so with text in it the last button was pushed onto a second line and the row grew
 a line's height for a piece of prose. It now sits below the row.
 
+**The names above are the ones in force at the time.** "Approval view" was
+renamed to **"Approve pricing"** in the approval-path round, 2026-09-25, when the
+button was found to have no handler at all; the layout finding this section
+records is unaffected.
+
 **AT 1440 THE ROW WAS ALREADY ONE LINE, BEFORE THE CHANGE.** A check at that
 width alone would have passed on the defect and reported the item done. Measured
 at 1240, with the sentence present, which is the state and the width that
