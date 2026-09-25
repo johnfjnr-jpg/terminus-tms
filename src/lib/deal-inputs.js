@@ -33,7 +33,8 @@
  */
 
 import { numericOrDefault, toNumberOrNull } from './numeric-payload.js';
-import { priceOverrideFor } from './deal-calculator.js';
+import { priceOverrideFor, priceFromCost, calculateHardwareAndWarranty } from './deal-calculator.js';
+import { OPEX_FEE_KEYS } from './opex.js';
 
 /**
  * @param {object} payload - a record payload, with catalog rates merged in
@@ -398,7 +399,7 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
   // NOT `overrides` - that name is already the MARGIN overrides forty lines
   // above, and reusing it was a redeclaration the whole pure suite caught at
   // once. Two different override families in one function, so both are named.
-  const priceOverrides = payload.priceOverrides ?? {}
+  let priceOverrides = payload.priceOverrides ?? {}
   const inLine = (key, cost) => {
     const o = priceOverrideFor(priceOverrides, key)
     return { key, cost, marginPct: marginFor(key), ...(o === null ? {} : { priceOverride: o }) }
@@ -467,6 +468,118 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     hostingLine('hoAqm', (rates.hoAqm ?? 0) * aqmUnits, aqmUnits),
     hostingLine('hoHemir', (rates.hoHemir ?? 0) * hemirUnits, hemirUnits),
   ]
+
+  // ── R-OX4: AN OPEX MONTHLY FEE IS WHAT THE CUSTOMER PAYS, SO IT PRICES ─
+  //
+  // A stored all-in fee that did not reprice the deal would leave the OPEX
+  // table's Contract Total disagreeing with the deal's own contract net - a
+  // screen stating a number the system does not charge.
+  //
+  // R-O7's either-or is ONE-TO-ONE: a hosting fee IS the hosting line's price.
+  // An all-in fee is ONE-TO-MANY, so honouring it is an INVERSE ALLOCATION back
+  // across that type's hardware, warranty, installation and hosting lines. The
+  // target is distributed PRO RATA over what those lines would have charged, so
+  // the mix the deal was built with is preserved and only the level moves.
+  //
+  // THE BASELINE USES THE CALCULATOR'S OWN `priceFromCost`, imported rather
+  // than restated. A second expression of the pricing rule here would agree
+  // today and drift the first time the rule changes.
+  //
+  // CAPEX IGNORES THESE KEYS ENTIRELY, so switching the mode back restores the
+  // deal exactly and a fee left behind in the payload prices nothing.
+  // CLONED, because the OPEX allocation WRITES into it and `priceOverrides` is
+  // the caller's own payload object. Mutating it would edit the record's
+  // payload in place from inside a translation.
+  priceOverrides = { ...priceOverrides };
+  const opexMode = String(payload.paymentMode ?? 'capex') === 'opex';
+  const opexFees = payload.opexUnitFees ?? {};
+  const opexMargins = payload.opexUnitMargins ?? {};
+  const opexTermMonths = toNumberOrNull(payload.duration);
+  const opexUnits = { ss: ssExisting + ssNew, aq: aqmUnits, hemir: hemirUnits };
+  const OPEX_LINES = {
+    ss: { hw: ['hwSs', 'hwWarranty'], in: ['inSsEx', 'inSsNew'], ho: ['hoSs'] },
+    aq: { hw: ['hwAqm'], in: ['inAqm'], ho: ['hoAqm'] },
+    hemir: { hw: ['hwHemir'], in: ['inHemir'], ho: ['hoHemir'] },
+  };
+  if (opexMode && opexTermMonths > 0) {
+    // The hardware lines are built inside `calculateDeal`, so their baseline is
+    // reconstructed here from the same cost and margin it will use.
+    const hwCost = {
+      hwSs: (rates.ssUnitCost ?? 0) * (ssExisting + ssNew),
+      hwAqm: (rates.aqUnitCost ?? 0) * aqmUnits,
+      hwHemir: (rates.hemirUnitCost ?? 0) * hemirUnits,
+      // THE CALCULATOR'S OWN WARRANTY RULE, called rather than restated. It is
+      // a percentage of the SafeSight units rounded UP, valued at a unit plus
+      // its existing-infrastructure install, and reimplementing that here would
+      // be a second reader of a rule John set.
+      hwWarranty: calculateHardwareAndWarranty({
+        ssUnitCost: rates.ssUnitCost ?? 0, ssUnits: ssExisting + ssNew,
+        aqUnitCost: rates.aqUnitCost ?? 0, aqUnits: aqmUnits,
+        hemirUnitCost: rates.hemirUnitCost ?? 0, hemirUnits,
+        warrantyPct: numericOrDefault(payload, 'warrantyPct'),
+        ssInstallExistingCost: rates.inSsExisting ?? 0,
+      }).warrantyCost,
+    };
+    const lineBase = (key) => {
+      const hw = hwCost[key];
+      if (hw !== undefined) {
+        // The warranty reaches the customer AT COST by rule, so its baseline
+        // price is its cost and it contributes no margin to the blend.
+        return { cost: hw, price: key === 'hwWarranty' ? hw : priceFromCost(hw, marginFor(key)) };
+      }
+      const li = [...installLineItems, ...hostingLineItems].find((x) => x.key === key);
+      if (!li) return { cost: 0, price: 0 };
+      return {
+        cost: li.cost,
+        price: li.priceOverride !== undefined ? li.priceOverride : priceFromCost(li.cost, li.marginPct),
+      };
+    };
+    for (const type of OPEX_FEE_KEYS) {
+      const units = opexUnits[type];
+      if (!(units > 0)) continue;
+      const L = OPEX_LINES[type];
+      const oneOff = [...L.hw, ...L.in].map(lineBase);
+      const monthly = L.ho.map(lineBase);
+      const basePrice = oneOff.reduce((a, x) => a + x.price, 0)
+        + monthly.reduce((a, x) => a + x.price, 0) * opexTermMonths;
+      const baseCost = oneOff.reduce((a, x) => a + x.cost, 0)
+        + monthly.reduce((a, x) => a + x.cost, 0) * opexTermMonths;
+      // THE ABSOLUTE WINS over the ratio when a save has left both: it is the
+      // more specific statement, and the table renders whichever is stored.
+      const fee = toNumberOrNull(opexFees[type]);
+      const marginOverride = toNumberOrNull(opexMargins[type]);
+      let target = null;
+      if (fee !== null && fee >= 0) target = fee * units * opexTermMonths;
+      else if (marginOverride !== null && marginOverride < 100) {
+        target = baseCost / (1 - marginOverride / 100);
+      }
+      if (target === null) continue;
+      // ── THE WARRANTY IS HELD AT COST AND NOT SCALED ─────────────────────
+      //
+      // `hwWarranty` is deliberately absent from `PRICE_OVERRIDE_KEYS`: the
+      // provision reaches the customer at cost by John's rule, enforced where
+      // the pricing happens. Scaling it was silently DISCARDED - the override
+      // was written and `priceOverrideFor` refused it - so the type came up
+      // short and the fee the table showed was not the fee that was stored.
+      //
+      // It is therefore a FIXED component of the target, and the scale applies
+      // to everything else. That keeps the rule intact and makes the arithmetic
+      // land, which is the same thing said twice.
+      const fixed = L.hw.includes('hwWarranty') ? lineBase('hwWarranty').price : 0;
+      const scalableKeys = [...L.hw, ...L.in, ...L.ho].filter((k) => k !== 'hwWarranty');
+      const scalableBase = basePrice - fixed;
+      if (!(scalableBase > 0)) continue;
+      const scale = (target - fixed) / scalableBase;
+      if (!(scale >= 0)) continue;
+      for (const key of scalableKeys) {
+        const b = lineBase(key);
+        const scaled = b.price * scale;
+        if (hwCost[key] !== undefined) { priceOverrides[key] = scaled; continue; }
+        const li = [...installLineItems, ...hostingLineItems].find((x) => x.key === key);
+        if (li) li.priceOverride = scaled;
+      }
+    }
+  }
 
   const factoring = payload.factoring ?? {}
 

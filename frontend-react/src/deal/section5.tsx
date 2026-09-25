@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { UiState } from './payload'
+import { effectiveStructure } from './payload'
 import type { StructureVisibility } from './installation'
 import { factoringToggle } from './installation'
 
@@ -53,6 +54,7 @@ function InvoicingGroup({ id, ui, setUi, hidden = false }: {
 
 export function PaymentTermsSection({
   ui, setUi, vis, duration, renderField, milestoneGrid, yearSchedule, hybridSchedule,
+  opex,
 }: {
   ui: UiState
   setUi(p: Partial<UiState>): void
@@ -62,16 +64,47 @@ export function PaymentTermsSection({
   milestoneGrid: ReactNode
   yearSchedule: ReactNode
   hybridSchedule: ReactNode
+  /** R-OX2: the OPEX table, built by the panel so this file lays out only. */
+  opex: ReactNode
 }) {
   const fx = factoringToggle(ui)
+  const opexOn = ui.paymentMode === 'opex'
+  const mode = {
+    label: opexOn ? 'OPEX' : 'CAPEX',
+    title: opexOn
+      ? 'The deal is priced as an all-in monthly fee per unit. Click to return to CAPEX.'
+      : 'The deal is priced as hardware, installation and hosting. Click to price it as OPEX.',
+  }
   return (
     <div className="deal-payment-region">
       <div className="deal-payment-col payment-terms-panel">
         <div className="payment-card">
+          {/* ── R-OX1: THE MODE SWITCH ──────────────────────────────────
+              The same dress and interaction as the factoring toggle a panel
+              away: a `role="switch"` carrying its own state and a title saying
+              what a click will do. */}
+          <div className="po-field" id="deal-payment-mode-field">
+            <button type="button" id="deal-payment-mode-toggle"
+              data-testid="deal-payment-mode-toggle"
+              className={`btn-ghost deal-toggle${opexOn ? ' is-on' : ''}`}
+              role="switch" aria-checked={opexOn ? 'true' : 'false'} title={mode.title}
+              onClick={() => setUi({
+                paymentMode: opexOn ? 'capex' : 'opex',
+                // R-OX1: OPEX locks recovery to single phase. Set HERE rather
+                // than only disabling the radios, because the structure is what
+                // prices the deal and a screen showing `single` while the record
+                // holds `twoPhase` is two readers of one value.
+                ...(opexOn ? {} : { structure: 'single' }),
+              })}>{mode.label}</button>
+          </div>
+          {opexOn ? opex : null}
           <div className="ring-radio-group" id="deal-structure-toggle" role="radiogroup">
             {STRUCTURES.map((o) => (
               <RingRadio key={o.value} attr="data-structure" value={o.value} label={o.label}
-                active={ui.structure === o.value} onPick={() => setUi({ structure: o.value })} />
+                active={effectiveStructure(ui) === o.value}
+                // R-OX1: OPEX locks the choice, so the radios refuse rather
+                // than silently accepting a pick the payload will overrule.
+                onPick={() => { if (!opexOn) setUi({ structure: o.value }) }} />
             ))}
           </div>
 

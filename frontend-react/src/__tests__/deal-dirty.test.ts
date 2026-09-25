@@ -15,7 +15,7 @@ const RATES = { ssUnitCost: 1000, aqUnitCost: 800, hemirUnitCost: 1200, hoSafesi
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 const V: Values = {
   'deal-ssExisting': '10', 'deal-aqm': '4', 'deal-duration': '24',
@@ -62,6 +62,13 @@ describe('B1: dirty is a comparison against a baseline, computed', () => {
       // value. Recorded here deliberately - this list is an enumeration and
       // an enumeration fails by silent omission.
       'installResp', 'invoicing', 'marginOverrides', 'milestones',
+      // R-OX1 and R-OX4 add three, on exactly the reasoning this list already
+      // records twice. `paymentMode` is always 'capex' or 'opex', as
+      // `hostingPriceMode` is always set; the two override maps are always
+      // emitted by `readDealPayload`, as `marginOverrides` and `priceOverrides`
+      // are. The list is an enumeration and an enumeration fails by silent
+      // omission, so they are written here rather than the rule relaxed.
+      'opexUnitFees', 'opexUnitMargins', 'paymentMode',
       'priceOverrides', 'ssExisting',
       'structure', 'targetMargin', 'warrantyPct',
     ])

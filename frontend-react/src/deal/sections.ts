@@ -164,6 +164,11 @@ const SECTION_BY_PAYLOAD_KEY: Record<string, string> = {
   // could.
   hostingPriceMode: 'deal-section-4',
   hostingUnitFees: 'deal-section-4',
+  // R-OX1 and R-OX4: the mode switch and the OPEX table both live in the
+  // Payment Terms panel, so a change to any of them raises section 5's save.
+  paymentMode: 'deal-section-5',
+  opexUnitFees: 'deal-section-5',
+  opexUnitMargins: 'deal-section-5',
   structure: 'deal-section-5',
   invoicing: 'deal-section-5',
   milestones: 'deal-section-5',

@@ -7,6 +7,9 @@ import { isValidIsoDate, isValidNonNegativeInteger, isValidNonNegativePercent, i
 // R-C2b: the SAME list the calculator honours, so the route cannot accept a
 // key the pricing will silently ignore.
 import { PRICE_OVERRIDE_KEYS } from '../lib/deal-calculator.js'
+// The derivation's own row list, imported rather than restated, so a fourth
+// OPEX row reaches this validation without anybody remembering.
+import { OPEX_FEE_KEYS } from '../lib/opex.js'
 import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
 import { totalContractValue, weightedValue, issuedMajor } from '../lib/opportunity-headline.js'
@@ -418,6 +421,19 @@ export default async function opportunitiesRoutes(app) {
     // change, and NOTHING on either side reported a failure. Only reading the
     // record back out of the database could see it.
     'hostingPriceMode', 'hostingUnitFees',
+    // ── R-OX1 and R-OX4, 2026-09-25: THE PAYMENT MODE AND THE OPEX OVERRIDES ─
+    //
+    // `paymentMode` is 'capex' or 'opex'; `opexUnitFees` is the ALL-IN monthly
+    // fee for one unit of a type and `opexUnitMargins` is the same decision
+    // stated as a blended margin. Salesperson-controlled in the same sense
+    // every key above it is.
+    //
+    // THE SECOND ALLOWLIST, and it is here because the first one is not
+    // enough. The C2 round checked `COMMERCIALS_OWNED_KEYS` on the client,
+    // reported clean, and the route then refused the write. A key outside this
+    // list is dropped SILENTLY rather than refused, which is the shape the R-O7
+    // comment above records costing a live probe to find.
+    'paymentMode', 'opexUnitFees', 'opexUnitMargins',
     // Round 40 Phase 1b. FOUR rate keys become writable and only four, because
     // an installation price is quoted per job while a camera costs what it
     // costs everywhere (DESIGN_PRINCIPLES.md, "Is this cost the same wherever
@@ -668,6 +684,32 @@ export default async function opportunitiesRoutes(app) {
         }
         if (!isValidNonNegativePercent(value)) {
           return reply.code(400).send({ error: `priceOverrides.${key} must be a non-negative number with at most 2 decimal places` })
+        }
+      }
+    }
+    // ── R-OX1 and R-OX4: THE MODE AND THE OPEX OVERRIDES ─────────────────
+    //
+    // The mode is an enumerated value and is refused outright when it is not
+    // one of the two. A free-text mode would price as CAPEX by falling through
+    // the comparison, which is the silent shape this estate keeps finding.
+    if ('paymentMode' in payload && payload.paymentMode !== null
+      && !['capex', 'opex'].includes(payload.paymentMode)) {
+      return reply.code(400).send({ error: 'paymentMode must be capex or opex' })
+    }
+    // THE KEY SET IS VALIDATED, the same two-layer shape priceOverrides uses:
+    // the route decides what reaches the record, the derivation decides what
+    // can price a deal, and a key outside the three rows is neither.
+    for (const mapKey of ['opexUnitFees', 'opexUnitMargins']) {
+      const map = payload[mapKey]
+      if (!map || typeof map !== 'object') continue
+      for (const [key, value] of Object.entries(map)) {
+        if (!OPEX_FEE_KEYS.includes(key)) {
+          return reply.code(400).send({ error: `${mapKey}.${key} is not an OPEX row` })
+        }
+        if (!isValidNonNegativePercent(value)) {
+          return reply.code(400).send({
+            error: `${mapKey}.${key} must be a non-negative number with at most 2 decimal places`,
+          })
         }
       }
     }
