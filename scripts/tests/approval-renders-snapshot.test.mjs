@@ -47,7 +47,10 @@ const RECORD_PAYLOAD = {
 }
 // The snapshot differs from the record on purpose, so "it priced the version"
 // and "it priced the record" cannot both be true of one number.
-const SNAPSHOT = { ...RECORD_PAYLOAD, ssExisting: 20, aqm: 1 }
+// The TARGET differs too, so an assertion about the against-target line can
+// tell the snapshot from the record. It could not when both read 30: the K3
+// injection came back SILENT and that is what exposed it.
+const SNAPSHOT = { ...RECORD_PAYLOAD, ssExisting: 20, aqm: 1, targetMargin: 25 }
 const CATALOG = { batches: {}, missing: [], asOf: '2026-09-25', rates: RATES }
 const VERSION = {
   major: 1, minor: 0, status: 'issued', revision_number: 22,
@@ -117,15 +120,37 @@ test('R7: the ask SENTENCE quotes the same figures it displays', () => {
   assert.ok(p.ask.sentence.includes(`${p.ask.achievedMargin.toFixed(1)}%`))
 })
 
-test('R8: the exposures and the target read the SAME priced thing as the ask', () => {
-  // Verification 20 inside one page: WHT is a percentage OF the contract, so an
-  // exposure computed from the record beside a headline computed from the
-  // snapshot is two readers of one deal.
+test('R8: the against-target line reads the SNAPSHOT\'s target, not the record\'s', () => {
+  // Verification 20 inside one page. The first version of this asserted only
+  // `target.achieved`, which comes from `result` and is therefore true however
+  // the target is read - the K3 injection proved it by coming back SILENT. The
+  // snapshot now carries a different target and the assertion names it.
   const p = page()
+  assert.equal(p.target.target, SNAPSHOT.targetMargin,
+    'the page is taking the target from the record while pricing the snapshot')
+  assert.notEqual(SNAPSHOT.targetMargin, RECORD_PAYLOAD.targetMargin,
+    'the fixture cannot discriminate unless the two targets differ')
+  assert.equal(p.target.achieved, priced(SNAPSHOT, FROZEN.rates).achievedMargin)
+})
+
+test('R8b: and the WHT exposure is a percentage of the SNAPSHOT contract', () => {
+  // WHT is a percentage OF the contract, so an exposure read from the record
+  // beside a headline read from the snapshot is two readers of one deal.
+  // NOT grossed up, because `whtBorne` is legitimately zero when it is: under a
+  // gross-up Terminus bears none of the tax. Asserting on the grossed-up deal
+  // read zero on both sides and proved nothing, which is a comparison with
+  // nothing on either side.
+  const noGross = { ...RECORD_PAYLOAD, grossUp: false }
+  const snapNoGross = { ...SNAPSHOT, grossUp: false }
+  const p = page({ payload: noGross, version: { ...VERSION, inputs: snapNoGross } })
   const wht = p.exposures.find((e) => e.key === 'wht')
-  const want = priced(SNAPSHOT, FROZEN.rates)
   assert.ok(wht, 'no withholding exposure')
-  assert.equal(p.target.achieved, want.achievedMargin)
+  assert.ok(Number(wht.amount) > 0, 'the exposure is zero on a deal that is not')
+  const recordWht = buildApprovalPage({
+    payload: noGross, testBedCost: 0, version: null, catalog: CATALOG, record: {},
+  }).exposures.find((e) => e.key === 'wht')
+  assert.notEqual(Number(wht.amount), Number(recordWht.amount),
+    'the exposure is the record\'s, so it cannot be the version\'s')
 })
 
 test('R9: for a version taken from the CURRENT state, the page equals the deal sheet', () => {
@@ -150,4 +175,34 @@ test('R10: and the version it names is the one it priced', () => {
   assert.equal(p.ask.version.label, 'V1')
   assert.equal(p.ask.version.revisionNumber, 22)
   assert.equal(p.ask.version.reason, 'test reason 2')
+})
+
+// ── THE ROUTE'S OWN ARGUMENT, GUARDED AT SOURCE ─────────────────────────
+//
+// K4 came back SILENT: reverting the route to the broken literal changed
+// nothing, because NOTHING COVERED IT. The defect was one key missing from one
+// object literal, and an object literal is an allowlist that says nothing when
+// it excludes something. The pure suite cannot call a route, so this reads the
+// source - with comments stripped, or the prose above would satisfy it.
+import { readFileSync } from 'node:fs'
+// The kind is the bare extension without a dot: `stripComments` throws on
+// `.js`, which is how this guard first failed rather than passing wrongly.
+import { stripComments } from '../lib/strip-comments.mjs'
+
+test('R11: the approval-page route passes every catalog key the page reads', () => {
+  const src = stripComments(
+    readFileSync(new URL('../../src/routes/deal-sheet-versions.js', import.meta.url), 'utf8'), 'js')
+  // The literal the route hands to buildApprovalPage.
+  const m = src.match(/catalog:\s*\{([^}]*)\}/)
+  assert.ok(m, 'the approval-page route no longer builds a catalog literal, so this guard is pointed at nothing')
+  const passed = m[1].split(',').map((s) => s.split(':')[0].trim()).filter(Boolean)
+  // DERIVED from what the page reads, not a second list: a new `catalog.x` in
+  // approval-page.js turns this red rather than going quietly unpassed.
+  const pageSrc = stripComments(
+    readFileSync(new URL('../../src/lib/approval-page.js', import.meta.url), 'utf8'), 'js')
+  const read = [...new Set([...pageSrc.matchAll(/\bcatalog\.([A-Za-z_]\w*)/g)].map((x) => x[1]))]
+  assert.ok(read.includes('rates'), 'the page no longer reads catalog.rates, so this guard has gone stale')
+  const missing = read.filter((k) => !passed.includes(k))
+  assert.deepEqual(missing, [],
+    `the route drops ${missing.join(', ')}, which the page reads and the ?? swallows`)
 })

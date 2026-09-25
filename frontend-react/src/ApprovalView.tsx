@@ -132,9 +132,17 @@ export function ApprovalView({ oppId, navToken }: { oppId: string, navToken?: nu
   const known = shell.getOppLoadedRevision()
   const moved = Number.isInteger(known) && (known as number) > page.meta.revisionNumber
 
+  // ── R-C4: THE REVISION NAMED IS THE ONE THE FIGURES CAME FROM ─────────
+  //
+  // The page prices the VERSION's snapshot, so naming the record's latest
+  // revision here put a header and a body on one screen describing two
+  // different states: "priced at revision 25" above figures frozen at 22. The
+  // version row four lines below already says "Taken from revision 22", so the
+  // screen contradicted itself.
+  const pricedRevision = page.ask.version?.revisionNumber ?? page.meta.revisionNumber
   const subtitle =
     `${rec.reference ?? 'no reference'} · ${rec.stage ?? ''} · `
-    + `priced at revision ${page.meta.revisionNumber}`
+    + `priced at revision ${pricedRevision}`
     + (moved ? ` · the record has since moved to revision ${known}, so reload before deciding` : '')
 
   return (
