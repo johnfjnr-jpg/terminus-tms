@@ -72,7 +72,11 @@ export { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js'
  */
 export const BRIDGE_STEPS = [
   { step: 'units', label: 'Units', keys: ['ssExisting', 'ssNew', 'aqm', 'hemir'] },
-  { step: 'term', label: 'Term', keys: ['duration', 'recoveryMonths', 'invoicing', 'milestones', 'structure'] },
+  // R-OX1: `paymentMode` sits here beside `structure` and `invoicing` because
+  // it is the same kind of decision - the SHAPE of what the customer pays -
+  // rather than a discount. With no override stored it moves no number at all,
+  // which is the additive guarantee OPEX was built to keep.
+  { step: 'term', label: 'Term', keys: ['duration', 'recoveryMonths', 'invoicing', 'milestones', 'structure', 'paymentMode'] },
   {
     step: 'cost basis',
     label: 'Cost basis',
@@ -100,8 +104,15 @@ export const BRIDGE_STEPS = [
     // red the same way the moment the calculator read the key, which is the
     // bridge inheriting the override rather than somebody remembering to
     // tell it.
+    // R-OX4, 2026-09-25: the OPEX all-in fee and its margin are the same act
+    // once more, one generalisation further out. R-O7 overrode a hosting line,
+    // R-C2b the hardware and installation lines; this overrides what a customer
+    // pays per unit per month for ALL of them at once. The guard went red
+    // naming both keys the moment the calculator read them, exactly as it did
+    // for the two before.
     keys: ['targetMargin', 'marginOverrides', 'installResp', 'lumpSumCost',
-      'hostingPriceMode', 'hostingUnitFees', 'priceOverrides'],
+      'hostingPriceMode', 'hostingUnitFees', 'priceOverrides',
+      'opexUnitFees', 'opexUnitMargins'],
   },
   {
     step: 'risk terms',
