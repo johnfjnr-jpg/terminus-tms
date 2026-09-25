@@ -8505,6 +8505,60 @@ textarea.lead-field-input,
 .opex-slider::after { left: 4px; width: 10px; height: 10px; transform: translate(22px, -50%); }
 .opex-slider.is-on::after { transform: translate(0, -50%); }
 
+/* ── R-PT2: THE PAYMENT TERMS LEFT RAIL ──────────────────────────────────
+   A control rail beside the money, so the tables start at the TOP of the panel
+   in both modes rather than below a block of radios in one of them.
+
+   THE WIDTH IS MEASURED, NOT CHOSEN. Phase 0 built the three labels and their
+   secondary lines offscreen with the real fonts and read 178px with nothing
+   wrapping, so that is the rail at 1440 and the tables get the rest.
+
+   AT 1240 IT NARROWS AND THE SECONDARY LINES WRAP. The card has 603px there;
+   a 178px rail would leave 401px against a 453px table, which would clip money.
+   A 126px rail leaves 453px, which is exactly what the table needs, and a
+   wrapped explanation shrinks no type and clips no figure. Measured both ways
+   by the live probe rather than trusted to this comment. */
+.pt-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+/* 178px was the measured width of the LABEL AND ITS LINE. The row also carries
+   a 14px ring and an 8px gap, so a 178px rail left the longest explanation
+   wrapping at 1440 - not clipped, but not what the measurement meant either.
+   200px gives it one line and still leaves 529px of content against a 453px
+   table. */
+.pt-rail { flex: 0 0 200px; min-width: 0; }
+.pt-content { flex: 1 1 auto; min-width: 0; }
+/* R-PT2's own claim is that the money starts at the same height in BOTH modes,
+   and it did not: measured at 28px below the panel top under CAPEX against 17px
+   under OPEX, because the yearly table leads with a label carrying a top margin
+   and the per-unit table does not. Zeroed at the column rather than at either
+   table, so a third thing put in this slot inherits the alignment. */
+/* The first rule here targeted `.pt-content > :first-child` and changed
+   NOTHING, because that child is the OPEX table row, which is `display: none`
+   under CAPEX and takes no space. The offset was 11px of the yearly schedule's
+   own heading margin, one level further in. Measured by walking the chain and
+   printing each element's offset rather than guessing a second time. */
+#deal-capex-year-slot > * > .label:first-child { margin-top: 0; }
+.ring-radio-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ring-radio-column .ring-radio { align-items: flex-start; }
+.ring-radio-stacked .ring-radio-text { display: block; }
+.ring-radio-note {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+@media (max-width: 1400px) {
+  .pt-rail { flex-basis: 126px; }
+}
+
 /* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────────────────
    `flex-start` is the whole of "the stagger removed": the yearly table used to
    begin 219px below the monthly one because it sat further down the card.

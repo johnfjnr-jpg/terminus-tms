@@ -660,8 +660,23 @@ test('FINDING 3: a year cell may not be given less room than its own glyphs', ()
   // min-width rather than the min-width:0 that let it shrink to nothing.
   // WALK 8: the year schedule is a React element now, and the flex sizing it
   // relied on inline moved into the stylesheet rule asserted just above.
-  assert.match(html, /<div id="deal-year-schedule">/,
-    'the year schedule is no longer rendered')
+  //
+  // ── RE-POINTED BY R-PT2, 2026-09-25, and the old anchor is left visible ──
+  //
+  // This matched `<div id="deal-year-schedule">` in the tree. R-PT2 gives the
+  // panel a left rail and one content column, and rules that the money starts
+  // at the top of the panel in BOTH modes - so the schedule moved OUT of
+  // `#deal-top-schedule-row` into that column, and `#deal-year-schedule` is now
+  // an empty container the row's own layout still counts on.
+  //
+  // The assertion's intent is "the year schedule is rendered", and that is what
+  // it asserts: it is rendered into whichever slot the mode calls for. The
+  // container below is still asserted, because the flex rules this test is
+  // really about are still its.
+  assert.match(html, /id="deal-capex-year-slot">\{yearSchedule\}/,
+    'the year schedule is no longer rendered into the content column')
+  assert.match(html, /<div id="deal-year-schedule" \/>/,
+    'the schedule row lost the container its own flex layout is built around')
   // ── WALK 8 ITEM 2: THE WRAP WAS LOST IN THE PORT ─────────────────────
   //
   // This matched an inline `flex-wrap:wrap` on the markup's own row. That row
