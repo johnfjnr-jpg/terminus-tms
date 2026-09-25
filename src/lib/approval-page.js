@@ -803,10 +803,39 @@ export function buildApprovalPage({
   payload, testBedCost = 0, version = null, baseline = null,
   targetChangedAt = null, catalog = {}, record = {},
 }) {
-  const resolution = resolveRates(payload, catalog.rates ?? {});
-  const result = calculateDeal(buildDealInputs(payload, { testBedCost, rates: resolution.rates }));
+  // ── R-C4: THE PAGE REPORTS THE VERSION, SO IT PRICES THE VERSION ───────
+  //
+  // It used to price `payload` - the record's LATEST revision - against
+  // `catalog.rates ?? {}`. Two faults in one line, and the second hid the first:
+  //
+  //   1. The route passes `{ batches, missing, asOf }` and drops `rates`, so
+  //      the `?? {}` silently handed the derivation an EMPTY rate table. Unit
+  //      costs are catalog values and are deliberately not stored on a deal
+  //      (R-C2a), so every hardware and hosting figure collapsed to zero while
+  //      the counts, which live on the record, survived. That is John's
+  //      screenshot: contract net $0 beside Units 26.
+  //   2. Even fed correctly it priced the RECORD, so a frozen version and the
+  //      deal that has moved on since were indistinguishable on the one screen
+  //      whose job is to show what somebody is being asked to approve.
+  //
+  // The approval page is now a CALLER of the single derivation, over the
+  // snapshot: the version's own inputs and its own frozen rates. A catalog
+  // change cannot move a figure somebody already approved, and a snapshot
+  // genuinely priced at zero still says zero.
+  //
+  // `frozenRates()` NESTS the rate map under `rates`, and that is the only
+  // shape in the estate: censused at 4,980 versions, 4,966 nested, 0 flat, 14
+  // with an empty rates column and none of those issued. A flat fallback was
+  // written here first and removed - no row could reach it, which makes it a
+  // guard that can never fire.
+  const priced = version?.inputs ?? payload;
+  const pricedRates = version ? (version.rates?.rates ?? {}) : (catalog.rates ?? {});
+  const resolution = resolveRates(priced, pricedRates);
+  const result = calculateDeal(buildDealInputs(priced, { testBedCost, rates: resolution.rates }));
   const costBasis = buildCostBasis(catalog.batches, catalog.missing, catalog.asOf, payload);
-  const target = buildTarget(payload, result, {
+  // THE SAME PRICED THING, or the headline and the against-target line are two
+  // readers of one deal (Verification 20).
+  const target = buildTarget(priced, result, {
     baselinePayload: baseline?.inputs ?? null,
     changedAt: targetChangedAt,
   });
@@ -840,7 +869,7 @@ export function buildApprovalPage({
     contractNet: result.totals.contractNet,
     totalCost: result.totalDealCostAll,
     achievedMargin: result.achievedMargin,
-    months: toNumberOrNull(payload.duration) ?? NUMERIC_DEFAULTS.duration,
+    months: toNumberOrNull(priced.duration) ?? NUMERIC_DEFAULTS.duration,
     units: result.hardware.totalUnits,
     sentence: version
       ? `Approve ${versionLabel} at ${result.achievedMargin.toFixed(1)}% margin on a contract net of $${grouped(result.totals.contractNet)}.`
@@ -918,7 +947,9 @@ export function buildApprovalPage({
     ask,
     moved,
     target,
-    exposures: buildExposures(payload, result),
+    // WHT is a percentage OF the contract, so an exposure read from the record
+    // beside a headline read from the snapshot would disagree by construction.
+    exposures: buildExposures(priced, result),
     costBasis,
     // ── THE FROZEN TERMS, AND THIS IS THEIR READER ───────────────────────
     //
