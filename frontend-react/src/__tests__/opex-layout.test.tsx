@@ -155,9 +155,29 @@ describe('L3: which container holds the yearly table', () => {
     expect(old?.children.length ?? 0).toBe(0)
   })
 
-  test('L3c: under CAPEX it stays exactly where it was', async () => {
+  // ── L3c IS SUPERSEDED BY R-PT2, and its reasoning is left here ─────────
+  //
+  // It asserted that under CAPEX the yearly table stays in
+  // `#deal-top-schedule-row`, which was right when only the OPEX mode had a
+  // content column to move it into.
+  //
+  // R-PT2 gives the panel a left rail and ONE content column, and rules that
+  // the money starts at the top of the panel in BOTH modes. So the yearly table
+  // moves out of that row under CAPEX too, and `#deal-year-schedule` is left an
+  // empty container the schedule row's own layout still counts on.
+  //
+  // The claim underneath survives and is what this asserts now: the table is
+  // rendered, exactly once, in the slot the mode calls for. `payment-rail`'s P6
+  // and P7 carry the rest.
+  test('L3c: under CAPEX it is in the content column, and rendered once', async () => {
     await mount()
     expect(host.querySelector('#deal-opex-year-slot')).toBeNull()
-    expect((host.querySelector('#deal-year-schedule')?.children.length ?? 0)).toBeGreaterThan(0)
+    expect((host.querySelector('#deal-capex-year-slot')?.children.length ?? 0)).toBeGreaterThan(0)
+    // In the CONTENT COLUMN. The panel also renders the schedule into the
+    // hybrid slot and hides whichever does not apply, which R-O4 rules
+    // deliberate: one derivation, two places to render it.
+    expect(host.querySelector('#deal-capex-year-slot')!
+      .querySelectorAll('[data-testid="year-schedule"], [data-testid="hybrid-schedule"]'))
+      .toHaveLength(1)
   })
 })

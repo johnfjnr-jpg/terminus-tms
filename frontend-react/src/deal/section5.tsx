@@ -10,28 +10,36 @@ import { factoringToggle } from './installation'
 // stylesheet animates the dot inside the ring, so a flattened version would
 // style as a plain bullet. `active` marks the choice, matching
 // updateStructureButtons / updateInvoicingButtons (opportunity-deal.js:1686).
-function RingRadio({ attr, value, label, active, onPick }: {
+function RingRadio({ attr, value, label, note, active, onPick }: {
   attr: 'data-structure' | 'data-invoicing'
   value: string
   label: string
+  /** R-PT2: the explanation, rendered beneath the label in the muted treatment. */
+  note?: string
   active: boolean
   onPick(): void
 }) {
   const props = { [attr]: value } as Record<string, string>
   return (
-    <div className={`ring-radio${active ? ' active' : ''}`} {...props}
+    <div className={`ring-radio${active ? ' active' : ''}${note ? ' ring-radio-stacked' : ''}`} {...props}
       role="radio" aria-checked={active} tabIndex={0} onClick={onPick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onPick() }}>
       <span className="ring-radio-ring"><span className="ring-radio-dot" /></span>
-      <span className="ring-radio-label">{label}</span>
+      <span className="ring-radio-text">
+        <span className="ring-radio-label">{label}</span>
+        {note ? <span className="ring-radio-note">{note}</span> : null}
+      </span>
     </div>
   )
 }
 
+// R-PT2: the label and its explanation are two things, so they are two strings.
+// The parenthetical WAS the explanation all along; it becomes the secondary
+// line rather than new copy, so nothing is invented and nothing is lost.
 const STRUCTURES = [
-  { value: 'single', label: 'Single phase (recovery over full term)' },
-  { value: 'twoPhase', label: 'Two-phase (hardware recovery then hosting)' },
-  { value: 'hybrid', label: 'Hybrid (milestone + hosting)' },
+  { value: 'single', label: 'Single phase', note: 'recovery over full term' },
+  { value: 'twoPhase', label: 'Two-phase', note: 'hardware recovery then hosting' },
+  { value: 'hybrid', label: 'Hybrid', note: 'milestone + hosting' },
 ]
 const INVOICING = [
   { value: 'annual', label: 'Annual in advance' },
@@ -79,6 +87,14 @@ export function PaymentTermsSection({
     <div className="deal-payment-region">
       <div className="deal-payment-col payment-terms-panel">
         <div className="payment-card">
+          {/* ── R-PT2: A LEFT CONTROL RAIL, AND THE MONEY BESIDE IT ────────
+              Sized from its OWN content: Phase 0 built the three labels and
+              their secondary lines offscreen with the real fonts and measured
+              178px with nothing wrapping. At 1240 that leaves 401px of content
+              against a 453px table, so the rail narrows there and the secondary
+              lines wrap - which shrinks no type and clips no money. */}
+          <div className="pt-row">
+            <div className="pt-rail" id="deal-payment-rail" data-testid="deal-payment-rail">
           {/* ── R-OX1: THE MODE SWITCH ──────────────────────────────────
               The same dress and interaction as the factoring toggle a panel
               away: a `role="switch"` carrying its own state and a title saying
@@ -112,28 +128,49 @@ export function PaymentTermsSection({
             <span className="opex-switch-label" data-testid="deal-mode-label-capex"
               data-active={opexOn ? 'false' : 'true'}>CAPEX</span>
           </div>
-          {/* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────── */}
+              {/* ── L2 IN THE RAIL: UNDER OPEX THE RADIOS ARE ABSENT ───────
+                  Amended by John mid-round: nothing stands in their place
+                  either. Absence rather than a disabled control, because a
+                  disabled radio still answers a query and still says a choice
+                  exists.
+
+                  R-PT2 makes them a VERTICAL column in the rail, each a label
+                  with its explanation beneath. */}
+              {opexOn ? null : (
+                <div className="ring-radio-group ring-radio-column" id="deal-structure-toggle" role="radiogroup">
+                  {STRUCTURES.map((o) => (
+                    <RingRadio key={o.value} attr="data-structure" value={o.value}
+                      label={o.label} note={o.note}
+                      active={effectiveStructure(ui) === o.value}
+                      onPick={() => setUi({ structure: o.value })} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="pt-content" id="deal-payment-content" data-testid="deal-payment-content">
+          {/* ── R-PT2: THE CONTENT COLUMN ───────────────────────────────
+              The money starts at the top of the panel in BOTH modes, which is
+              the whole point of the rail: the CAPEX tables used to begin below
+              a block of radios and the OPEX ones did not.
+
+              THE YEARLY TABLE IS RENDERED EXACTLY ONCE, in whichever slot the
+              mode calls for. Two mounts of one schedule would be two readers of
+              one derivation and would satisfy every assertion about where it
+              is.
+
+              L3'S SIDE-BY-SIDE AT 1440 IS SUPERSEDED, and it was measured
+              rather than assumed: the rail is 178px and the two OPEX tables
+              need 749px, against 551px of content at 1440. They stack beside
+              the rail at both widths now. R-PT2 is the later ruling and it
+              re-lays this panel; reported rather than absorbed. */}
           <div className={`opex-tables${opexOn ? '' : ' hidden'}`} id="deal-opex-tables">
             {opexOn ? opex : null}
-            {/* L3: the yearly table moves UP beside the monthly one. It is
-                rendered HERE under OPEX and left out of the schedule row below,
-                so it exists once: two mounts of one schedule would be two
-                readers of one derivation. */}
             {opexOn ? <div id="deal-opex-year-slot">{yearSchedule}</div> : null}
           </div>
-          {/* ── L2: UNDER OPEX THE RADIOS ARE ABSENT, NOT DISABLED ─────────
-              Amended by John mid-round: nothing stands in their place either.
-              Absence rather than a disabled control, because a disabled radio
-              still answers a query and still says a choice exists. */}
-          {opexOn ? null : (
-            <div className="ring-radio-group" id="deal-structure-toggle" role="radiogroup">
-              {STRUCTURES.map((o) => (
-                <RingRadio key={o.value} attr="data-structure" value={o.value} label={o.label}
-                  active={effectiveStructure(ui) === o.value}
-                  onPick={() => setUi({ structure: o.value })} />
-              ))}
+              {opexOn ? null : <div id="deal-capex-year-slot">{yearSchedule}</div>}
             </div>
-          )}
+          </div>
+
 
           {/* Hybrid brings its own schedule and its own invoicing radios, so the
               top row goes rather than sitting empty beside them. */}
@@ -152,7 +189,11 @@ export function PaymentTermsSection({
                 {duration ? `${duration} months` : 'Contract duration not set'}
               </div>
             </div>
-            <div id="deal-year-schedule">{opexOn ? null : yearSchedule}</div>
+            {/* R-PT2: the yearly table left this row for the content column, in
+                BOTH modes, so the money starts at the top of the panel. The
+                container stays because the schedule row's own layout is built
+                around its three slots. */}
+            <div id="deal-year-schedule" />
           </div>
 
           <div id="deal-hybrid-group" className={vis.hybridGroup ? '' : 'hidden'}>
@@ -221,3 +262,4 @@ export function PaymentTermsSection({
     </div>
   )
 }
+
