@@ -3,6 +3,7 @@ import type { UiState } from './payload'
 import { effectiveStructure } from './payload'
 import type { StructureVisibility } from './installation'
 import { factoringToggle } from './installation'
+import { DealToggle } from './DealToggle'
 
 // ── A RING RADIO ─────────────────────────────────────────────────────────
 //
@@ -46,19 +47,11 @@ const INVOICING = [
   { value: 'monthly', label: 'Monthly' },
 ]
 
-function InvoicingGroup({ id, ui, setUi, hidden = false }: {
-  id: string, ui: UiState, setUi(p: Partial<UiState>): void, hidden?: boolean
-}) {
-  return (
-    <div className={`ring-radio-group${hidden ? ' hidden' : ''}`} id={id}>
-      <span className="label">Invoicing</span>
-      {INVOICING.map((o) => (
-        <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
-          active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
-      ))}
-    </div>
-  )
-}
+/* F4: `InvoicingGroup` is retired. It existed because there were TWO invoicing
+   groups to keep identical - the top row's and Hybrid's - which is the shape a
+   shared component is for. There is now one, in the rail, so the component has
+   a single call site and the indirection buys nothing. */
+
 
 export function PaymentTermsSection({
   ui, setUi, vis, duration, renderField, milestoneGrid, yearSchedule, hybridSchedule,
@@ -95,39 +88,31 @@ export function PaymentTermsSection({
               lines wrap - which shrinks no type and clips no money. */}
           <div className="pt-row">
             <div className="pt-rail" id="deal-payment-rail" data-testid="deal-payment-rail">
-          {/* ── R-OX1: THE MODE SWITCH ──────────────────────────────────
-              The same dress and interaction as the factoring toggle a panel
-              away: a `role="switch"` carrying its own state and a title saying
-              what a click will do. */}
-          {/* ── L1: A LABELLED SLIDER, THE ACTIVE SIDE IN THE ESTATE GREEN ──
-              OPEX, the slider, CAPEX, in that order in the document, which is
-              what "between them" means to a reader and to the keyboard alike.
-              The labels carry `data-active` and the STYLESHEET colours them, so
-              the marking is one fact with one writer.
+              {/* ── F1: THE SHARED TOGGLE, AND WHAT IT SUPERSEDES ──────────
+                  R-OX1 built this as "the same dress and interaction as the
+                  factoring toggle", which was true of the wiring and false of
+                  the markup: two buttons carrying one class string is not one
+                  component. L1 then moved the labels OUT either side of a bare
+                  42px track, which made the two controls different sizes.
 
-              The control keeps `role="switch"` and gains an `aria-label`,
-              because its visible text now sits beside it rather than inside
-              it: a switch whose label moved out has no accessible name left. */}
-          <div className="opex-switch" id="deal-payment-mode-field">
-            <span className="opex-switch-label" data-testid="deal-mode-label-opex"
-              data-active={opexOn ? 'true' : 'false'}>OPEX</span>
-            <button type="button" id="deal-payment-mode-toggle"
-              data-testid="deal-payment-mode-toggle"
-              className={`btn-ghost deal-toggle opex-slider${opexOn ? ' is-on' : ''}`}
-              role="switch" aria-checked={opexOn ? 'true' : 'false'} title={mode.title}
-              aria-label={`Payment mode, currently ${opexOn ? 'OPEX' : 'CAPEX'}`}
-              onClick={() => setUi({
-                paymentMode: opexOn ? 'capex' : 'opex',
-                // R-OX1: OPEX locks recovery to single phase. Set HERE rather
-                // than only disabling the radios, because the structure is what
-                // prices the deal and a screen showing `single` while the record
-                // holds `twoPhase` is two readers of one value. It matters more
-                // now: L2 removes the radios, so this is the only writer left.
-                ...(opexOn ? {} : { structure: 'single' }),
-              })} />
-            <span className="opex-switch-label" data-testid="deal-mode-label-capex"
-              data-active={opexOn ? 'false' : 'true'}>CAPEX</span>
-          </div>
+                  John's walk, 2026-09-25: it IS the factoring toggle. One
+                  component, one dress, one size, the state named inside the
+                  button. `DealToggle` carries the reasoning and the L1
+                  supersession in full. */}
+              <div className="pt-mode" id="deal-payment-mode-field">
+                <DealToggle id="deal-payment-mode-toggle" testid="deal-payment-mode-toggle"
+                  on={opexOn} label={mode.label} title={mode.title}
+                  ariaLabel={`Payment mode, currently ${mode.label}`}
+                  onClick={() => setUi({
+                    paymentMode: opexOn ? 'capex' : 'opex',
+                    // R-OX1: OPEX locks recovery to single phase. Set HERE rather
+                    // than only disabling the radios, because the structure is what
+                    // prices the deal and a screen showing `single` while the record
+                    // holds `twoPhase` is two readers of one value. It matters more
+                    // now: L2 removes the radios, so this is the only writer left.
+                    ...(opexOn ? {} : { structure: 'single' }),
+                  })} />
+              </div>
               {/* ── L2 IN THE RAIL: UNDER OPEX THE RADIOS ARE ABSENT ───────
                   Amended by John mid-round: nothing stands in their place
                   either. Absence rather than a disabled control, because a
@@ -146,6 +131,40 @@ export function PaymentTermsSection({
                   ))}
                 </div>
               )}
+              {/* ── F4: THE INVOICING RADIOS JOIN THE RAIL ─────────────────
+                  John's walk, 2026-09-25: "beneath the recovery radios, same
+                  gutter, same alignment. Recovery period stays with them."
+
+                  So the recovery field and its single-phase readout come too.
+                  They used to sit in `#deal-top-schedule-row`, a three-slot row
+                  whose third slot R-PT2 had already emptied; with these two gone
+                  the row has nothing left and is retired rather than left
+                  standing as an empty container for somebody to find.
+
+                  AND THE HYBRID COPY GOES WITH IT. Hybrid carried its own
+                  invoicing group, so the choice had two controls writing it and
+                  two groups reading it. One control in the rail serves every
+                  structure, which is Verification 20's remedy rather than its
+                  symptom. */}
+              <div className="ring-radio-group ring-radio-column" id="deal-invoicing-toggle">
+                <span className="label">Invoicing</span>
+                {INVOICING.map((o) => (
+                  <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
+                    active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
+                ))}
+              </div>
+              <div className={`form-group${vis.recoveryGroup ? '' : ' hidden'}`} id="deal-recovery-group">
+                {renderField('deal-recoveryMonths')}
+              </div>
+              {/* SINGLE PHASE HAS NO SEPARATE RECOVERY: it recovers over the whole
+                  term, so the figure is a READOUT of the duration rather than an
+                  input. A blank duration is not zero months and says so. */}
+              <div id="deal-recovery-readonly" className={vis.recoveryReadonly ? '' : 'hidden'}>
+                <span className="label">Recovery period</span>
+                <div id="deal-recovery-readonly-value" data-testid="deal-recovery-readonly-value">
+                  {duration ? `${duration} months` : 'Contract duration not set'}
+                </div>
+              </div>
             </div>
             <div className="pt-content" id="deal-payment-content" data-testid="deal-payment-content">
           {/* ── R-PT2: THE CONTENT COLUMN ───────────────────────────────
@@ -172,29 +191,19 @@ export function PaymentTermsSection({
           </div>
 
 
-          {/* Hybrid brings its own schedule and its own invoicing radios, so the
-              top row goes rather than sitting empty beside them. */}
-          <div id="deal-top-schedule-row" className={vis.topScheduleRow ? '' : 'hidden'}>
-            <InvoicingGroup id="deal-invoicing-toggle" ui={ui} setUi={setUi}
-              hidden={!vis.invoicingToggle} />
-            <div className={`form-group${vis.recoveryGroup ? '' : ' hidden'}`} id="deal-recovery-group">
-              {renderField('deal-recoveryMonths')}
-            </div>
-            {/* SINGLE PHASE HAS NO SEPARATE RECOVERY: it recovers over the whole
-                term, so the figure is a READOUT of the duration rather than an
-                input. A blank duration is not zero months and says so. */}
-            <div id="deal-recovery-readonly" className={vis.recoveryReadonly ? '' : 'hidden'}>
-              <span className="label">Recovery period</span>
-              <div id="deal-recovery-readonly-value" data-testid="deal-recovery-readonly-value">
-                {duration ? `${duration} months` : 'Contract duration not set'}
-              </div>
-            </div>
-            {/* R-PT2: the yearly table left this row for the content column, in
-                BOTH modes, so the money starts at the top of the panel. The
-                container stays because the schedule row's own layout is built
-                around its three slots. */}
-            <div id="deal-year-schedule" />
-          </div>
+          {/* ── F4: `#deal-top-schedule-row` IS RETIRED ─────────────────────
+              It held three slots: invoicing, recovery, and the yearly table.
+              R-PT2 moved the table to the content column and left the container
+              standing, "because the schedule row's own layout is built around
+              its three slots". F4 takes the other two into the rail, so the row
+              is now three empty slots.
+
+              A retirement is two claims (Verification 7): the row is GONE, and
+              nothing still points at it. The second is why this is a deletion
+              rather than an empty div left in place - an empty container is
+              exactly what Architecture 9's fourth variant warns about, a thing
+              that reads as a slot and is a leftover. */}
+
 
           <div id="deal-hybrid-group" className={vis.hybridGroup ? '' : 'hidden'}>
             <div>
@@ -228,7 +237,8 @@ export function PaymentTermsSection({
               <div id="deal-milestones-tbody">{milestoneGrid}</div>
             </div>
             <div>
-              <InvoicingGroup id="deal-hybrid-invoicing-toggle" ui={ui} setUi={setUi} />
+              {/* F4: the hybrid invoicing group is gone. One control in the
+                  rail writes the choice for every structure. */}
               <div id="deal-hybrid-schedule">{hybridSchedule}</div>
             </div>
           </div>
@@ -238,13 +248,12 @@ export function PaymentTermsSection({
       <aside className="po-factoring-panel" id="deal-po-factoring">
         <p className="label">PO factoring</p>
         <div className="po-field">
-          {/* The switch SAYS ITS STATE and what a click will do, because a
-              toggle that only shows a state leaves the reader guessing which
-              way it goes. */}
-          <button type="button" id="deal-factoring-toggle" data-testid="deal-factoring-toggle"
-            className={`btn-ghost deal-toggle${fx.on ? ' is-on' : ''}`}
-            role="switch" aria-checked={fx.ariaChecked} title={fx.title}
-            onClick={() => setUi({ factoringEnabled: !ui.factoringEnabled })}>{fx.label}</button>
+          {/* F1: the same component the mode control wears. The switch SAYS ITS
+              STATE and what a click will do, because a toggle that only shows a
+              state leaves the reader guessing which way it goes. */}
+          <DealToggle id="deal-factoring-toggle" testid="deal-factoring-toggle"
+            on={fx.on} label={fx.label} title={fx.title}
+            onClick={() => setUi({ factoringEnabled: !ui.factoringEnabled })} />
         </div>
         <div className={`po-field${fx.on ? '' : ' hidden'}`} id="deal-factoring-fields">
           {renderField('deal-factoring-ratePct')}

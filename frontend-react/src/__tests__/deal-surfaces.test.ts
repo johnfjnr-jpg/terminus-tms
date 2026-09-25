@@ -324,8 +324,9 @@ describe('surface 4: the installation tab and the button machinery', () => {
 
   test('hybrid replaces the recovery row and the invoicing radios', () => {
     const h = structureVisibility({ ...UI, structure: 'hybrid' })
-    expect(h).toEqual({ topScheduleRow: false, invoicingToggle: false,
-      recoveryGroup: false, recoveryReadonly: false, hybridGroup: true })
+    // F4 retired `topScheduleRow` and `invoicingToggle`: the row is gone and
+    // the one invoicing group lives in the rail in every structure.
+    expect(h).toEqual({ recoveryGroup: false, recoveryReadonly: false, hybridGroup: true })
   })
 
   test('two-phase shows recovery as an INPUT, single as a READOUT', () => {
