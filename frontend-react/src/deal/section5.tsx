@@ -83,30 +83,57 @@ export function PaymentTermsSection({
               The same dress and interaction as the factoring toggle a panel
               away: a `role="switch"` carrying its own state and a title saying
               what a click will do. */}
-          <div className="po-field" id="deal-payment-mode-field">
+          {/* ── L1: A LABELLED SLIDER, THE ACTIVE SIDE IN THE ESTATE GREEN ──
+              OPEX, the slider, CAPEX, in that order in the document, which is
+              what "between them" means to a reader and to the keyboard alike.
+              The labels carry `data-active` and the STYLESHEET colours them, so
+              the marking is one fact with one writer.
+
+              The control keeps `role="switch"` and gains an `aria-label`,
+              because its visible text now sits beside it rather than inside
+              it: a switch whose label moved out has no accessible name left. */}
+          <div className="opex-switch" id="deal-payment-mode-field">
+            <span className="opex-switch-label" data-testid="deal-mode-label-opex"
+              data-active={opexOn ? 'true' : 'false'}>OPEX</span>
             <button type="button" id="deal-payment-mode-toggle"
               data-testid="deal-payment-mode-toggle"
-              className={`btn-ghost deal-toggle${opexOn ? ' is-on' : ''}`}
+              className={`btn-ghost deal-toggle opex-slider${opexOn ? ' is-on' : ''}`}
               role="switch" aria-checked={opexOn ? 'true' : 'false'} title={mode.title}
+              aria-label={`Payment mode, currently ${opexOn ? 'OPEX' : 'CAPEX'}`}
               onClick={() => setUi({
                 paymentMode: opexOn ? 'capex' : 'opex',
                 // R-OX1: OPEX locks recovery to single phase. Set HERE rather
                 // than only disabling the radios, because the structure is what
                 // prices the deal and a screen showing `single` while the record
-                // holds `twoPhase` is two readers of one value.
+                // holds `twoPhase` is two readers of one value. It matters more
+                // now: L2 removes the radios, so this is the only writer left.
                 ...(opexOn ? {} : { structure: 'single' }),
-              })}>{mode.label}</button>
+              })} />
+            <span className="opex-switch-label" data-testid="deal-mode-label-capex"
+              data-active={opexOn ? 'false' : 'true'}>CAPEX</span>
           </div>
-          {opexOn ? opex : null}
-          <div className="ring-radio-group" id="deal-structure-toggle" role="radiogroup">
-            {STRUCTURES.map((o) => (
-              <RingRadio key={o.value} attr="data-structure" value={o.value} label={o.label}
-                active={effectiveStructure(ui) === o.value}
-                // R-OX1: OPEX locks the choice, so the radios refuse rather
-                // than silently accepting a pick the payload will overrule.
-                onPick={() => { if (!opexOn) setUi({ structure: o.value }) }} />
-            ))}
+          {/* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────── */}
+          <div className={`opex-tables${opexOn ? '' : ' hidden'}`} id="deal-opex-tables">
+            {opexOn ? opex : null}
+            {/* L3: the yearly table moves UP beside the monthly one. It is
+                rendered HERE under OPEX and left out of the schedule row below,
+                so it exists once: two mounts of one schedule would be two
+                readers of one derivation. */}
+            {opexOn ? <div id="deal-opex-year-slot">{yearSchedule}</div> : null}
           </div>
+          {/* ── L2: UNDER OPEX THE RADIOS ARE ABSENT, NOT DISABLED ─────────
+              Amended by John mid-round: nothing stands in their place either.
+              Absence rather than a disabled control, because a disabled radio
+              still answers a query and still says a choice exists. */}
+          {opexOn ? null : (
+            <div className="ring-radio-group" id="deal-structure-toggle" role="radiogroup">
+              {STRUCTURES.map((o) => (
+                <RingRadio key={o.value} attr="data-structure" value={o.value} label={o.label}
+                  active={effectiveStructure(ui) === o.value}
+                  onPick={() => setUi({ structure: o.value })} />
+              ))}
+            </div>
+          )}
 
           {/* Hybrid brings its own schedule and its own invoicing radios, so the
               top row goes rather than sitting empty beside them. */}
@@ -125,7 +152,7 @@ export function PaymentTermsSection({
                 {duration ? `${duration} months` : 'Contract duration not set'}
               </div>
             </div>
-            <div id="deal-year-schedule">{yearSchedule}</div>
+            <div id="deal-year-schedule">{opexOn ? null : yearSchedule}</div>
           </div>
 
           <div id="deal-hybrid-group" className={vis.hybridGroup ? '' : 'hidden'}>

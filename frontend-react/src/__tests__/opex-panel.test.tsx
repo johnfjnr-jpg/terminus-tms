@@ -53,22 +53,34 @@ const type = async (id: string, v: string) => {
 }
 
 describe('R-OX1: the switch', () => {
-  test('O1: it wears the same dress as the factoring toggle', async () => {
+  // ── O1 AND O2 ARE SUPERSEDED BY L1, and their reasoning is left here ────
+  //
+  // O1 asserted the control's class EQUALS the factoring toggle's, and O2 that
+  // the button's own text says CAPEX. Both were right under R-OX1, which asked
+  // for "the same dress and interaction as the Factoring enabled toggle" - a
+  // pill carrying its own label.
+  //
+  // L1, John's walk 2026-09-25, rules a LABELLED SLIDER: "OPEX" one side,
+  // "CAPEX" the other, the slider between them, the active side in the estate
+  // green. So the label is no longer inside the control and the class is no
+  // longer the pill's alone. A premise changed rather than a preference, so
+  // these are re-taken rather than relaxed, and `opex-layout.test.tsx` carries
+  // the replacements: L1a for the order, L1b for the marking, L1c for the role
+  // and the accessible name the moved label made necessary.
+  test('O1: it is still a switch, and still says what a click will do', async () => {
+    // What SURVIVES the supersession, asserted rather than assumed: L1 changed
+    // the dress, not the semantics.
     await mount()
     const s = must('deal-payment-mode-toggle')
-    const fx = must('deal-factoring-toggle')
-    // The ROLE and the treatment, not a copied literal: a switch that looks
-    // like a button is a different control to a screen reader.
     expect(s.getAttribute('role')).toBe('switch')
-    expect(s.className).toBe(fx.className.replace(' is-on', ''))
+    expect(s.className).toContain('deal-toggle')
     expect(s.getAttribute('title')?.length).toBeGreaterThan(0)
   })
 
-  test('O2: it says its state, and a click changes it', async () => {
+  test('O2: a click changes the state', async () => {
     await mount()
-    expect(must('deal-payment-mode-toggle').textContent).toMatch(/CAPEX/i)
+    expect(must('deal-payment-mode-toggle').getAttribute('aria-checked')).toBe('false')
     await click('deal-payment-mode-toggle')
-    expect(must('deal-payment-mode-toggle').textContent).toMatch(/OPEX/i)
     expect(must('deal-payment-mode-toggle').getAttribute('aria-checked')).toBe('true')
   })
 
@@ -78,10 +90,24 @@ describe('R-OX1: the switch', () => {
     expect(host.querySelector('#deal-structure-toggle')).not.toBeNull()
   })
 
-  test('O4: OPEX locks the structure to single phase', async () => {
+  // ── O4 IS SUPERSEDED BY L2 ─────────────────────────────────────────────
+  //
+  // It asserted that under OPEX the structure group SHOWS `single` selected,
+  // which was the R-OX1 behaviour: locked but visible. L2 rules the group
+  // ABSENT under OPEX, and John amended it mid-round to leave nothing in its
+  // place. A radio that is not rendered cannot be asserted as selected.
+  //
+  // The claim underneath survives and is what this now asserts: the deal is
+  // still PRICED as single phase with the control gone, which is the thing that
+  // would otherwise be lost silently. `opex-layout.test.tsx` L2b asserts the
+  // absence itself.
+  test('O4: OPEX prices as single phase with no structure control on screen', async () => {
     await mount({ paymentMode: 'opex' })
-    const picked = host.querySelector('#deal-structure-toggle [aria-checked="true"], #deal-structure-toggle .is-on')
-    expect(picked?.getAttribute('data-structure') ?? '').toBe('single')
+    expect(host.querySelector('#deal-structure-toggle')).toBeNull()
+    // The payload is what prices the deal, and it is read through the one
+    // source `effectiveStructure` gives every reader.
+    const { effectiveStructure } = await import('../deal/payload')
+    expect(effectiveStructure({ structure: 'twoPhase', paymentMode: 'opex' })).toBe('single')
   })
 })
 
