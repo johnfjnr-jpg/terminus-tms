@@ -8478,8 +8478,32 @@ textarea.lead-field-input,
 }
 .opex-switch-label[data-active="true"] { color: var(--green); }
 /* The label moved OUT of the button, so the control is the track alone. The
-   left padding that made room for text goes with it. */
-.btn-ghost.deal-toggle.opex-slider { padding-left: 44px; padding-right: 8px; }
+   left padding that made room for text goes with it, and the button becomes
+   the track: 42px wide with nothing in it. */
+.btn-ghost.deal-toggle.opex-slider { padding: 0; width: 42px; }
+
+/* ── THE KNOB SITS ON THE SIDE OF THE ACTIVE MODE ────────────────────────
+   John's screenshot, 2026-09-25: OPEX active, its label green, and the knob on
+   the RIGHT toward CAPEX. The knob and the highlight disagreed.
+
+   `.deal-toggle` is an ON/OFF switch and moves its knob right when on. This is
+   a TWO-STATE SELECTOR, so the direction inverts: `is-on` means OPEX, and OPEX
+   is the left-hand label.
+
+   AND THE TRAVEL HAD TO GROW, which the first measurement is the argument for.
+   At the inherited 12px the knob's centre moved 377 to 389 while the labels sat
+   at 333 and 443, so even with the direction corrected "nearer the active
+   label" held by TWO PIXELS in one state - true, unreadable, and one label
+   rename away from being false. The labels are not symmetric about the track
+   either, because OPEX is four characters and CAPEX five. A 22px travel clears
+   that asymmetry rather than living inside it.
+
+   Both rules sit AFTER `.deal-toggle`'s, which is what makes them win: equal
+   specificity, decided on source order. The live probe reads the resolved
+   transform rather than this file. */
+.opex-slider::before { left: 0; width: 40px; height: 16px; border-radius: 8px; }
+.opex-slider::after { left: 4px; width: 10px; height: 10px; transform: translate(22px, -50%); }
+.opex-slider.is-on::after { transform: translate(0, -50%); }
 
 /* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────────────────
    `flex-start` is the whole of "the stagger removed": the yearly table used to
