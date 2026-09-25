@@ -1206,12 +1206,29 @@ test('W-E: gross up takes the factoring treatment, and they are the same control
   const parts = readCode(ROOT + 'frontend-react/src/deal/panelParts.tsx')
   const s5 = readCode(ROOT + 'frontend-react/src/deal/section5.tsx')
   const panel = readCode(ROOT + 'frontend-react/src/deal/DealPanel.tsx')
+  const toggle = readCode(ROOT + 'frontend-react/src/deal/DealToggle.tsx')
   assert.match(parts, /className=\{`btn-ghost deal-toggle\$\{[^`]*\}`\}/,
     'SwitchButton no longer carries the btn-ghost deal-toggle treatment')
   assert.match(panel, /<SwitchButton id="deal-grossUp-toggle"/,
     'the gross-up control is no longer a SwitchButton, so it does not inherit the treatment')
-  assert.match(s5, /id="deal-factoring-toggle"[\s\S]{0,160}?className=\{`btn-ghost deal-toggle/,
-    'deal-factoring-toggle is not a deal-toggle')
+  /* ── RE-POINTED BY F1, 2026-09-25, and the claim got STRONGER ───────────
+     The old anchor read the class off `section5` directly, with a comment
+     saying "the factoring toggle writes the class itself in section5. That is
+     the drift this asserts against."
+
+     F1 removes the drift rather than watching it: the factoring control and the
+     payment-mode control are both `<DealToggle>`, and the class is written in
+     exactly one place. So the assertion moves to that place, and `section5` is
+     asserted NOT to write the class itself, which is what would reintroduce the
+     second writer this test exists for. */
+  assert.match(toggle, /className=\{`btn-ghost deal-toggle\$\{[^`]*\}`\}/,
+    'DealToggle no longer carries the btn-ghost deal-toggle treatment')
+  assert.match(s5, /<DealToggle id="deal-factoring-toggle"/,
+    'the factoring control is no longer a DealToggle, so it does not inherit the treatment')
+  assert.match(s5, /<DealToggle id="deal-payment-mode-toggle"/,
+    'the payment mode control is no longer a DealToggle: F1 says it IS the factoring toggle')
+  assert.ok(!/btn-ghost deal-toggle/.test(s5),
+    'section5 writes the toggle treatment itself again, which is the second writer F1 removed')
 })
 
 test('W-G: one control, one indicator, and it says which action it offers', () => {

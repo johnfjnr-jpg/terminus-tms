@@ -675,8 +675,22 @@ test('FINDING 3: a year cell may not be given less room than its own glyphs', ()
   // really about are still its.
   assert.match(html, /id="deal-capex-year-slot">\{yearSchedule\}/,
     'the year schedule is no longer rendered into the content column')
-  assert.match(html, /<div id="deal-year-schedule" \/>/,
-    'the schedule row lost the container its own flex layout is built around')
+  // ── RE-POINTED AGAIN BY F4, 2026-09-25, and R-PT2's anchor above is left
+  // visible because this is the second move of the same claim.
+  //
+  // R-PT2 left `#deal-year-schedule` standing as an empty container, on the
+  // reasoning that "the schedule row's own layout is built around its three
+  // slots". F4 takes the other two slots into the rail, so the row holds
+  // nothing at all and both it and the empty container are retired.
+  //
+  // A retirement is two claims (Verification 7): the containers are GONE, and
+  // the thing they used to hold is still rendered. The line above asserts the
+  // second; these assert the first, so a re-introduction is a red test rather
+  // than a silent regrowth.
+  assert.ok(!/id="deal-year-schedule"/.test(html),
+    'the empty year-schedule container is back, and nothing renders into it')
+  assert.ok(!/id="deal-top-schedule-row"/.test(html),
+    'the retired top schedule row is back')
   // ── WALK 8 ITEM 2: THE WRAP WAS LOST IN THE PORT ─────────────────────
   //
   // This matched an inline `flex-wrap:wrap` on the markup's own row. That row

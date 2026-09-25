@@ -8457,53 +8457,31 @@ textarea.lead-field-input,
 #deal-opex-table .stmt-edit { width: 88px; }
 .opex-units-readonly { color: var(--muted); }
 
-/* ── L1: THE MODE CONTROL IS A LABELLED SLIDER ───────────────────────────
-   OPEX one side, CAPEX the other, the slider between them. The ACTIVE side
-   takes the estate green through its token; neither side is ever a literal.
-   Both states clear 4.5:1 on this card and the live probe measures the
-   COMPUTED colour at both positions rather than reading the class, because a
-   class assertion cannot see a rule that lost the cascade. */
-.opex-switch {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.opex-switch-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  transition: color 120ms ease;
-}
-.opex-switch-label[data-active="true"] { color: var(--green); }
-/* The label moved OUT of the button, so the control is the track alone. The
-   left padding that made room for text goes with it, and the button becomes
-   the track: 42px wide with nothing in it. */
-.btn-ghost.deal-toggle.opex-slider { padding: 0; width: 42px; }
+/* ── F1: THE MODE CONTROL IS THE FACTORING TOGGLE ────────────────────────
+   John's walk, 2026-09-25. It wears `.btn-ghost.deal-toggle` and nothing else,
+   so there is no rule here to give it a size: same component, same dress, same
+   size is achieved by having no second dress rather than by matching one.
 
-/* ── THE KNOB SITS ON THE SIDE OF THE ACTIVE MODE ────────────────────────
-   John's screenshot, 2026-09-25: OPEX active, its label green, and the knob on
-   the RIGHT toward CAPEX. The knob and the highlight disagreed.
+   WHAT WAS HERE AND WHY IT IS GONE, left visible rather than deleted quietly.
 
-   `.deal-toggle` is an ON/OFF switch and moves its knob right when on. This is
-   a TWO-STATE SELECTOR, so the direction inverts: `is-on` means OPEX, and OPEX
-   is the left-hand label.
+   L1 made this a LABELLED SLIDER: `.opex-switch` as a flex row with `OPEX` and
+   `CAPEX` as `.opex-switch-label` spans either side, the active side taking the
+   estate green, and `.btn-ghost.deal-toggle.opex-slider { padding: 0; width:
+   42px }` reducing the button to a bare track. The SLIDER DIRECTION FIX round
+   then inverted the knob - `is-on` means OPEX, and OPEX was the left-hand label
+   - and grew the travel from 12px to 22px, because at 12px the knob's centre
+   moved 377 to 389 while the labels sat at 333 and 443, so "nearer the active
+   label" held by two pixels in one state.
 
-   AND THE TRAVEL HAD TO GROW, which the first measurement is the argument for.
-   At the inherited 12px the knob's centre moved 377 to 389 while the labels sat
-   at 333 and 443, so even with the direction corrected "nearer the active
-   label" held by TWO PIXELS in one state - true, unreadable, and one label
-   rename away from being false. The labels are not symmetric about the track
-   either, because OPEX is four characters and CAPEX five. A 22px travel clears
-   that asymmetry rather than living inside it.
+   Every bit of that reasoning was right about the control it described. F1
+   replaces the control: the two flanking labels are exactly what made it a
+   different size from the factoring toggle, so "same size" and "labels outside"
+   cannot both hold. With the state named INSIDE the button there are no sides,
+   so the knob-direction rule loses its subject rather than its correctness.
 
-   Both rules sit AFTER `.deal-toggle`'s, which is what makes them win: equal
-   specificity, decided on source order. The live probe reads the resolved
-   transform rather than this file. */
-.opex-slider::before { left: 0; width: 40px; height: 16px; border-radius: 8px; }
-.opex-slider::after { left: 4px; width: 10px; height: 10px; transform: translate(22px, -50%); }
-.opex-slider.is-on::after { transform: translate(0, -50%); }
+   The mode slot's own bottom margin is gone: `.pt-rail` is a flex column with a
+   gap now, and a margin on top of that would space this one child differently
+   from every other. */
 
 /* ── R-PT2: THE PAYMENT TERMS LEFT RAIL ──────────────────────────────────
    A control rail beside the money, so the tables start at the TOP of the panel
@@ -8528,7 +8506,28 @@ textarea.lead-field-input,
    wrapping at 1440 - not clipped, but not what the measurement meant either.
    200px gives it one line and still leaves 529px of content against a 453px
    table. */
-.pt-rail { flex: 0 0 200px; min-width: 0; }
+/* ── F4: THE RAIL SEPARATES ITS GROUPS ───────────────────────────────────
+   Found by opening the screenshot with all 90 live checks green, which is
+   Verification 4 doing the only job that could have caught it.
+
+   The rail was a plain block, so the mode toggle, the recovery radios, the
+   invoicing radios and the recovery field sat flush against one another. Each
+   radio carries an explanation beneath it in the muted treatment, so
+   `INVOICING` rendered immediately under "milestone + hosting" and read as
+   part of the Hybrid radio rather than as the heading of the next group. Same
+   for `RECOVERY PERIOD (MONTHS)` under "Monthly".
+
+   A column with a gap LARGER than the 12px gap inside a group is what makes a
+   heading belong to what follows it rather than to what precedes it. The rule
+   is the relationship, not the number: between-group must exceed within-group,
+   and the live probe asserts exactly that rather than asserting 22px. */
+.pt-rail {
+  flex: 0 0 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
 .pt-content { flex: 1 1 auto; min-width: 0; }
 /* R-PT2's own claim is that the money starts at the same height in BOTH modes,
    and it did not: measured at 28px below the panel top under CAPEX against 17px
@@ -8541,9 +8540,25 @@ textarea.lead-field-input,
    own heading margin, one level further in. Measured by walking the chain and
    printing each element's offset rather than guessing a second time. */
 #deal-capex-year-slot > * > .label:first-child { margin-top: 0; }
+/* ── F2: ONE GUTTER ──────────────────────────────────────────────────────
+   John's walk, 2026-09-25: the recovery radios align on one gutter. Measured
+   before the fix, the three rings sat at x = 353, 330 and 359 at 1440.
+
+   THE CAUSE IS AN INHERITED `align-items`, not a missing one. `.ring-radio-group`
+   is a WRAPPING ROW and sets `align-items: center` to centre its items
+   vertically. `.ring-radio-column` turns the direction to `column` and the same
+   declaration then means something else entirely: centred HORIZONTALLY. Each
+   radio is as wide as its own label and note, so three different widths gave
+   three different left edges, and nothing in the column rule said so.
+
+   One declaration fixes it and it belongs here rather than on the children,
+   because the gutter is a property of the COLUMN. F4's invoicing group joins
+   the same column treatment and inherits the same gutter by construction
+   rather than by a second rule agreeing with this one. */
 .ring-radio-column {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
 }
 .ring-radio-column .ring-radio { align-items: flex-start; }

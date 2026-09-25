@@ -30,20 +30,26 @@ export function installVisibility(ui: UiState): InstallVisibility {
 }
 
 export interface StructureVisibility {
-  topScheduleRow: boolean
-  invoicingToggle: boolean
   recoveryGroup: boolean
   recoveryReadonly: boolean
   hybridGroup: boolean
 }
 
-// Hybrid replaces the recovery row and the invoicing radios with its own
-// milestone table and hosting-only schedule.
+/* Hybrid replaces the recovery row with its own milestone table and
+   hosting-only schedule.
+
+   ── F4 RETIRED `topScheduleRow` AND `invoicingToggle` ────────────────────
+   Both were answers to "is this hybrid?", asked so the top schedule row and
+   its invoicing group could be hidden there. The row is gone and there is one
+   invoicing group, in the rail, shown in every structure - so both flags had
+   become constants that nothing read.
+
+   Removed rather than left returning a value, because a visibility flag with
+   no reader is the shape Verification 22 names: something that must be kept
+   correct and is never consulted. */
 export function structureVisibility(ui: UiState): StructureVisibility {
   const s = ui.structure
   return {
-    topScheduleRow: s !== 'hybrid',
-    invoicingToggle: s !== 'hybrid',
     recoveryGroup: s === 'twoPhase',
     recoveryReadonly: s === 'single',
     hybridGroup: s === 'hybrid',

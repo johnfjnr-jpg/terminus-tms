@@ -95,13 +95,18 @@ describe('the choices mark themselves', () => {
     expect(active()).toEqual(['hybrid'])
   })
 
-  test('P7: BOTH invoicing groups mark the same choice', async () => {
+  /* P7 asserted that the TWO invoicing groups agreed, which was the right
+     assertion while there were two. F4 puts one group in the rail and retires
+     Hybrid's copy, so the claim is now stronger and simpler: there is one
+     control, so there is nothing for it to disagree with. Verification 20's
+     remedy rather than a test of its symptom. */
+  test('P7: ONE invoicing group, and it marks the choice', async () => {
     await mount({ structure: 'hybrid', invoicing: 'monthly' })
-    for (const group of ['deal-invoicing-toggle', 'deal-hybrid-invoicing-toggle']) {
-      const active = [...must(group).querySelectorAll('.ring-radio.active')]
-        .map((r) => (r as HTMLElement).dataset.invoicing)
-      expect(active, group).toEqual(['monthly'])
-    }
+    expect(el('deal-hybrid-invoicing-toggle')).toBeNull()
+    expect(host.querySelectorAll('[data-invoicing]').length).toBe(2)
+    const active = [...must('deal-invoicing-toggle').querySelectorAll('.ring-radio.active')]
+      .map((r) => (r as HTMLElement).dataset.invoicing)
+    expect(active).toEqual(['monthly'])
   })
 
   test('P10: the repayment method toggle marks the chosen method', async () => {
@@ -114,19 +119,25 @@ describe('the choices mark themselves', () => {
 })
 
 describe('what each structure shows', () => {
+  /* F4 retired `#deal-top-schedule-row`: it held invoicing, recovery and the
+     yearly table, and all three have left it. The claims it carried are kept
+     and re-pointed at the rail, which is where those controls now live. */
   test('P2/P3/P4/P6: twoPhase shows the recovery input and the invoicing radios', async () => {
     await mount({ structure: 'twoPhase' })
-    expect(hidden('deal-top-schedule-row')).toBe(false)
+    expect(el('deal-top-schedule-row')).toBeNull()
     expect(hidden('deal-invoicing-toggle')).toBe(false)
     expect(hidden('deal-recovery-group')).toBe(false)
     expect(hidden('deal-recovery-readonly')).toBe(true)
     expect(hidden('deal-hybrid-group')).toBe(true)
   })
 
-  test('hybrid brings its own schedule and hides the top row', async () => {
+  test('hybrid brings its own schedule, and invoicing STAYS in the rail', async () => {
     await mount({ structure: 'hybrid' })
-    expect(hidden('deal-top-schedule-row')).toBe(true)
-    expect(hidden('deal-invoicing-toggle')).toBe(true)
+    expect(el('deal-top-schedule-row')).toBeNull()
+    // F4: the one invoicing control serves every structure, so under hybrid it
+    // is shown rather than hidden. This inverts the previous expectation on
+    // purpose, and the inversion is the finding.
+    expect(hidden('deal-invoicing-toggle')).toBe(false)
     expect(hidden('deal-hybrid-group')).toBe(false)
   })
 

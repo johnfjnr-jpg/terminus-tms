@@ -44,50 +44,50 @@ const mount = async (ui: Partial<UiState> = {}) => {
 const el = (id: string) => host.querySelector<HTMLElement>(`[data-testid="${id}"]`)
 const must = (id: string) => { const e = el(id); if (!e) throw new Error(`no ${id}`); return e }
 
-describe('L1: the labelled slider', () => {
-  test('L1a: both labels are present, either side of the slider', async () => {
+/* ── L1 IS SUPERSEDED BY F1, AND THE OLD ANCHORS ARE NAMED HERE ──────────
+   L1a, L1b and L1d asserted a control that no longer exists: two
+   `deal-mode-label-opex` / `deal-mode-label-capex` spans either side of a bare
+   track, each carrying `data-active`, with the marking moving on a click.
+
+   F1 (John's walk, 2026-09-25) makes the mode control the factoring toggle:
+   one component, one dress, one size, the state named INSIDE the button. The
+   flanking labels are what made the two controls different sizes, so they go.
+
+   THE CLAIMS ARE RE-POINTED, NOT DROPPED. Each of the three said something
+   worth keeping and says it about the new control below: the mode is legible,
+   exactly one mode is shown, and a click moves it. What is genuinely gone is
+   the ORDER claim (`OPEX, slider, CAPEX`), because there is no longer anything
+   to be between. */
+describe('L1, as superseded by F1: the mode control', () => {
+  test('L1a: the control names the mode, and there are no flanking labels', async () => {
     await mount()
-    const opex = must('deal-mode-label-opex')
-    const capex = must('deal-mode-label-capex')
-    const slider = must('deal-payment-mode-toggle')
-    // A RELATIONSHIP, not a CSS property: OPEX, then the slider, then CAPEX, in
-    // document order, which is what "between them" means for a reader and for
-    // the keyboard.
-    const order = [...host.querySelectorAll('[data-testid^="deal-mode-label-"], [data-testid="deal-payment-mode-toggle"]')]
-      .map((e) => e.getAttribute('data-testid'))
-    expect(order).toEqual(['deal-mode-label-opex', 'deal-payment-mode-toggle', 'deal-mode-label-capex'])
-    expect(opex.textContent!.trim()).toBe('OPEX')
-    expect(capex.textContent!.trim()).toBe('CAPEX')
-    expect(slider).toBeTruthy()
+    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('CAPEX')
+    expect(el('deal-mode-label-opex')).toBeNull()
+    expect(el('deal-mode-label-capex')).toBeNull()
   })
 
-  test('L1b: the ACTIVE side is marked, and only one side is', async () => {
+  test('L1b: exactly ONE mode is named, and it is the one in state', async () => {
     await mount()
-    expect(must('deal-mode-label-capex').dataset.active).toBe('true')
-    expect(must('deal-mode-label-opex').dataset.active).toBe('false')
+    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('CAPEX')
     await mount({ paymentMode: 'opex' })
-    expect(must('deal-mode-label-opex').dataset.active).toBe('true')
-    expect(must('deal-mode-label-capex').dataset.active).toBe('false')
+    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('OPEX')
   })
 
-  test('L1c: the slider is a switch, keyboard reachable, and names itself', async () => {
+  test('L1c: it is a switch, keyboard reachable, and names itself', async () => {
     await mount()
     const s = must('deal-payment-mode-toggle')
     expect(s.tagName).toBe('BUTTON')
     expect(s.getAttribute('role')).toBe('switch')
     expect(s.getAttribute('aria-checked')).toBe('false')
-    // The visible labels are beside it rather than inside it now, so the
-    // control has to carry its own accessible name.
     expect((s.getAttribute('aria-label') ?? '').length).toBeGreaterThan(0)
     expect(s.hasAttribute('disabled')).toBe(false)
   })
 
-  test('L1d: clicking it moves the mode and the marking together', async () => {
+  test('L1d: clicking it moves the mode and the label together', async () => {
     await mount()
     await act(async () => { must('deal-payment-mode-toggle').click() })
     expect(must('deal-payment-mode-toggle').getAttribute('aria-checked')).toBe('true')
-    expect(must('deal-mode-label-opex').dataset.active).toBe('true')
-    expect(must('deal-mode-label-capex').dataset.active).toBe('false')
+    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('OPEX')
   })
 })
 
