@@ -127,3 +127,37 @@ describe('L2: the recovery radios under OPEX', () => {
     expect(host.querySelector('#deal-opex-table')).not.toBeNull()
   })
 })
+
+// L3's geometry - side by side at 1440, stacked at 1240, tops equal - is the
+// live probe's, and `scripts/opex-layout/probe-live.mjs` is where it is read.
+describe('L3: which container holds the yearly table', () => {
+  // GEOMETRY IS PROVED LIVE and cannot be proved here: jsdom has no layout, so
+  // "side by side" and "top-aligned" are the browser probe's to assert.
+  //
+  // WHAT BELONGS HERE IS THE STRUCTURE, and a silent injection is why it
+  // exists. Removing the yearly table from the OPEX row changed nothing in
+  // either suite, because the only assertion about it lived in the live probe -
+  // so the claim that the two tables are in ONE row had no detector a commit
+  // could run.
+  test('L3a: under OPEX the yearly table sits in the tables row', async () => {
+    await mount({ paymentMode: 'opex' })
+    const row = host.querySelector('#deal-opex-tables')
+    expect(row).not.toBeNull()
+    const slot = row!.querySelector('#deal-opex-year-slot')
+    expect(slot, 'the yearly table is not in the row L3 puts it in').not.toBeNull()
+    expect(slot!.children.length).toBeGreaterThan(0)
+    expect(row!.querySelector('#deal-opex-table')).not.toBeNull()
+  })
+
+  test('L3b: and it is NOT also left where it was, which would be two of it', async () => {
+    await mount({ paymentMode: 'opex' })
+    const old = host.querySelector('#deal-year-schedule')
+    expect(old?.children.length ?? 0).toBe(0)
+  })
+
+  test('L3c: under CAPEX it stays exactly where it was', async () => {
+    await mount()
+    expect(host.querySelector('#deal-opex-year-slot')).toBeNull()
+    expect((host.querySelector('#deal-year-schedule')?.children.length ?? 0)).toBeGreaterThan(0)
+  })
+})
