@@ -232,7 +232,17 @@ export default async function dealSheetVersionsRoutes(app) {
         : null,
       baseline,
       targetChangedAt,
-      catalog: { batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },
+      // `rates` IS PASSED, AND ITS ABSENCE IS THE DEFECT JOHN FOUND. This
+      // literal carried three of the four keys `currentRates` returns, and
+      // `buildApprovalPage` reads `catalog.rates ?? {}`, so the derivation ran
+      // against an empty rate table and every money figure on the page read
+      // zero. An object literal is an allowlist that says nothing when it
+      // excludes something, and the `??` consumed the evidence.
+      //
+      // With a version present the page prices the frozen snapshot and these
+      // rates are not consulted for the headline; they are what the page falls
+      // back to when no version has been taken, and they date the cost basis.
+      catalog: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },
       record: { reference_code: record.reference_code, status: record.status },
     })
 

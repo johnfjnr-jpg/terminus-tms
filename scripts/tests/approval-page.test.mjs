@@ -314,8 +314,9 @@ test('and a zero contingency is not called out, because it changes nothing anywa
 // The whole page
 // ─────────────────────────────────────────────────────────────
 
+const CATALOG_BATCHES = { safesight: { batch_label: 'Q1', effective_from: '2026-03-12' } }
 const CATALOG = {
-  batches: { safesight: { batch_label: 'Q1', effective_from: '2026-03-12' } },
+  batches: CATALOG_BATCHES,
   missing: [], asOf: '2026-08-29',
   // Round 40 Phase 1b: the page resolves rates rather than reading them out of
   // the payload, so the fixture catalog has to carry them. Before this the
@@ -324,10 +325,21 @@ const CATALOG = {
   // wrong together.
   rates: RATES,
 }
+// ── THE FIXTURE CARRIES A SNAPSHOT, BECAUSE EVERY REAL VERSION DOES ──────
+//
+// R-C4: the page prices the version's own inputs at its own frozen rates, so a
+// version fixture without them is a shape the application cannot produce -
+// censused at 4,980 rows, ZERO with empty inputs. Before this it had neither,
+// and these tests went on passing because the page was reading the record.
+//
+// `inputs` is NOW, so the figures these tests assert are unchanged by the
+// switch: what moved is WHICH object the page reads, not what it computes.
 const VERSION = {
   major: 0, minor: 3, status: 'draft', revision_number: 12,
   reason: 'Extended term at client request', created_by_email: 'a@b.invalid',
   created_at: '2026-08-29T09:00:00Z',
+  inputs: NOW,
+  rates: { as_of: '2026-08-29', rates: RATES, terms: {}, batches: CATALOG_BATCHES, missing: [] },
 }
 
 test('block 1 states the ask in one sentence', () => {
@@ -356,8 +368,13 @@ test('NO BASELINE STATES THE ABSENCE, it does not leave a gap', () => {
 })
 
 test('the absence sentence names the DEFAULT provenance when target is unset', () => {
+  // R-C4: the absence has to be in the thing the page READS. The page reports
+  // the version, so a target missing from the record while the version carries
+  // one is not an absence the approver is looking at.
   const p = { ...NOW }; delete p.targetMargin
-  const page = buildApprovalPage({ payload: p, testBedCost: 25000, version: VERSION, baseline: null, catalog: CATALOG })
+  const vInputs = { ...NOW }; delete vInputs.targetMargin
+  const page = buildApprovalPage({ payload: p, testBedCost: 25000,
+    version: { ...VERSION, inputs: vInputs }, baseline: null, catalog: CATALOG })
   assert.match(page.moved.absence, /target 30% \(system default, set \d{2}\/\d{2}\/\d{4}\) and cost basis dated 12\/03\/2026/)
 })
 
