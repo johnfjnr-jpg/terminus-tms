@@ -8454,8 +8454,57 @@ textarea.lead-field-input,
   color: var(--white);
   white-space: nowrap;
 }
-#deal-opex-table .stmt-edit { width: 92px; }
+#deal-opex-table .stmt-edit { width: 88px; }
 .opex-units-readonly { color: var(--muted); }
+
+/* ── L1: THE MODE CONTROL IS A LABELLED SLIDER ───────────────────────────
+   OPEX one side, CAPEX the other, the slider between them. The ACTIVE side
+   takes the estate green through its token; neither side is ever a literal.
+   Both states clear 4.5:1 on this card and the live probe measures the
+   COMPUTED colour at both positions rather than reading the class, because a
+   class assertion cannot see a rule that lost the cascade. */
+.opex-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.opex-switch-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  transition: color 120ms ease;
+}
+.opex-switch-label[data-active="true"] { color: var(--green); }
+/* The label moved OUT of the button, so the control is the track alone. The
+   left padding that made room for text goes with it. */
+.btn-ghost.deal-toggle.opex-slider { padding-left: 44px; padding-right: 8px; }
+
+/* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────────────────
+   `flex-start` is the whole of "the stagger removed": the yearly table used to
+   begin 219px below the monthly one because it sat further down the card.
+   THE WRAP IS THE MEASURED ANSWER, not a preference. Phase 0 read the two
+   natural widths as 487px and 272px against a card content width of 755px at
+   1440 and 605px at 1240. They share the row at 1440 and cannot at 1240, so
+   they stack there - still top-aligned, and with no type shrunk and no figure
+   clipped to force it. */
+.opex-tables {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.opex-tables > * { min-width: 0; }
+/* L3's "stagger removed" is exact: the OPEX table carries `margin: 4px 0 14px`
+   from the round that built it, so inside this row its top margin put it 4px
+   below the yearly table. Measured at 679 against 675 and zeroed here rather
+   than by loosening the assertion. */
+.opex-tables > #deal-opex-table { margin-top: 0; }
+#deal-opex-table th,
+#deal-opex-table td { padding-right: 6px; }
+#deal-opex-table th:first-child,
+#deal-opex-table td:first-child { padding-right: 12px; }
 
 
 
