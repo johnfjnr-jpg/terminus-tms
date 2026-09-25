@@ -22,7 +22,7 @@ import type { UiState, Values } from '../deal/payload'
 const UI: UiState = {
   installResp: 'Client Own Installation Team', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 
 const month = (m: number, over: Partial<CashFlow['rows'][0]> = {}) => ({

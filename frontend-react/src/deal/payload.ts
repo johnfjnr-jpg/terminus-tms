@@ -2,6 +2,9 @@ import { toNumberOrNull } from '../../../src/lib/numeric-payload.js'
 // ONE LIST, IMPORTED. The allowed override keys live with the pricing that
 // honours them, so the form cannot offer a box the calculator will ignore.
 import { PRICE_OVERRIDE_KEYS } from '../../../src/lib/deal-calculator.js'
+// THE DERIVATION'S OWN LIST, imported rather than restated, so a fourth row
+// added there reaches the store without anybody remembering.
+import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
 
 // ── THE DEAL FORM'S PAYLOAD READER ───────────────────────────────────────
 //
@@ -88,6 +91,11 @@ export const COMMERCIALS_OWNED_KEYS = [
   // 'perUnit'; `hostingUnitFees` is the monthly fee for ONE unit of a type,
   // keyed by the same `hoSs`/`hoAqm`/`hoHemir` the calculator prices by.
   'hostingPriceMode', 'hostingUnitFees',
+  // R-OX1 and R-OX4: the payment mode and the OPEX all-in per-unit overrides.
+  // BOTH ALLOWLISTS, because there are two: this one and
+  // SALESPERSON_WRITABLE_KEYS on the server, which is the drift the C2 round
+  // found the hard way when the route refused a key this list already carried.
+  'paymentMode', 'opexUnitFees', 'opexUnitMargins',
   // R-C2b: the either-or generalised. R-O7 gave hosting a price override;
   // this is the same act for the hardware and installation lines, keyed by
   // the calculator's own line keys. `hwWarranty` is absent by construction -
@@ -99,6 +107,19 @@ export const COMMERCIALS_OWNED_KEYS = [
 
 /** R-O7: the three hosting types, in the order the card lists them. */
 export const HOSTING_FEE_KEYS = ['hoSs', 'hoAqm', 'hoHemir'] as const
+
+/**
+ * R-OX1: OPEX locks recovery to Single phase.
+ *
+ * ONE SOURCE, because the alternative is two. Setting `structure` on the click
+ * alone left a record ALREADY in OPEX rendering `twoPhase`: the lock held for
+ * the person who flipped the switch and not for the person who opened the deal
+ * afterwards. Everything that reads the structure - the radios, the visibility,
+ * the payload the record receives - reads it through here.
+ */
+export function effectiveStructure(ui: Pick<UiState, 'structure' | 'paymentMode'>): string {
+  return ui.paymentMode === 'opex' ? 'single' : ui.structure
+}
 
 export const MILESTONE_ROWS = 5
 
@@ -116,6 +137,15 @@ export interface UiState {
    * decides the price, so it has to survive a reload and reach an approver.
    */
   hostingPriceMode: string
+  /**
+   * R-OX1: 'capex' or 'opex'. In `UiState` for the same reason
+   * `hostingPriceMode` is: it is a control the form holds, it decides the
+   * price, and it has to survive a reload and reach an approver.
+   *
+   * CAPEX is the default and restores today's behaviour exactly, so a record
+   * written before this round reads as CAPEX and prices as it always did.
+   */
+  paymentMode: string
 }
 
 export interface CatalogRates {
@@ -249,6 +279,18 @@ export function readDealPayload(
     if (v !== undefined) hostingUnitFees[key] = v
   }
 
+  // R-OX4: the same deletion contract as every other override family. An empty
+  // box DROPS the key, which is what returns the row to the derivation, and a
+  // zero means a fee of nothing rather than an absent one.
+  const opexUnitFees: Record<string, number> = {}
+  const opexUnitMargins: Record<string, number> = {}
+  for (const key of OPEX_FEE_KEYS) {
+    const f = numOrUndefined(values, `deal-opexfee-${key}`)
+    if (f !== undefined) opexUnitFees[key] = f
+    const m = numOrUndefined(values, `deal-opexmargin-${key}`)
+    if (m !== undefined) opexUnitMargins[key] = m
+  }
+
   return {
     ssExisting: numOrNull(values, 'deal-ssExisting'),
     ssNew: numOrNull(values, 'deal-ssNew'),
@@ -290,10 +332,15 @@ export function readDealPayload(
     fxContingency: numOrNull(values, 'deal-fxContingency'),
 
     duration: numOrNull(values, 'deal-duration'),
-    structure: ui.structure,
+    // R-OX1: through the one source, so the record cannot hold a structure the
+    // screen is not showing.
+    structure: effectiveStructure(ui),
     recoveryMonths: numOrNull(values, 'deal-recoveryMonths'),
     invoicing: ui.invoicing,
     hostingPriceMode: ui.hostingPriceMode,
+    paymentMode: ui.paymentMode,
+    opexUnitFees,
+    opexUnitMargins,
     hostingUnitFees,
     priceOverrides,
     milestones: readMilestones(values),
@@ -361,6 +408,12 @@ export function valuesFromPayload(payload: Record<string, unknown> | null | unde
   for (const k of PRICE_OVERRIDE_KEYS) out[`deal-price-${k}`] = str(prices[k])
   // R-O7: the fee boxes are seeded the same way, so a recorded fee comes back
   // on reload and a cleared one comes back EMPTY rather than as a zero.
+  const opexFees = (p.opexUnitFees ?? {}) as Record<string, unknown>
+  const opexMargins = (p.opexUnitMargins ?? {}) as Record<string, unknown>
+  for (const k of OPEX_FEE_KEYS) {
+    out[`deal-opexfee-${k}`] = str(opexFees[k])
+    out[`deal-opexmargin-${k}`] = str(opexMargins[k])
+  }
   const fees = (p.hostingUnitFees ?? {}) as Record<string, unknown>
   for (const k of HOSTING_FEE_KEYS) out[`deal-hofee-${k}`] = str(fees[k])
 
@@ -398,5 +451,6 @@ export function uiFromPayload(payload: Record<string, unknown> | null | undefine
     // existed. That is an unrecorded state reading as the prior behaviour, not
     // a default written into a record nobody touched.
     hostingPriceMode: (p.hostingPriceMode as string) || 'margin',
+    paymentMode: (p.paymentMode as string) || 'capex',
   }
 }

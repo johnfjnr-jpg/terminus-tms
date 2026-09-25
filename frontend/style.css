@@ -8420,6 +8420,43 @@ textarea.lead-field-input,
   .stmt-drawer { padding-left: 24px; }
 }
 
+/* R-OX2: THE OPEX TABLE.
+   Sized to the four columns the sketch draws rather than stretched to the
+   panel, because a table wider than its content reads as having more to say.
+   Measured in Phase 0: the panel is 787px at 1440 and 637px at 1240, and its
+   left-hand space held a 270px fee table with room beside it, so this sits
+   inside both without reclaiming anything further.
+   The cells reuse .stmt-edit, the estate's declared treatment for an editable
+   figure, so the override amber arrives with it rather than being invented. */
+#deal-opex-table {
+  border-collapse: collapse;
+  margin: 4px 0 14px;
+  width: auto;
+}
+#deal-opex-table th {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: right;
+  font-weight: 400;
+  padding: 0 10px 6px 0;
+  white-space: nowrap;
+}
+#deal-opex-table th:first-child,
+#deal-opex-table td:first-child { text-align: left; padding-right: 18px; }
+#deal-opex-table td {
+  padding: 3px 10px 3px 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--white);
+  white-space: nowrap;
+}
+#deal-opex-table .stmt-edit { width: 92px; }
+.opex-units-readonly { color: var(--muted); }
+
 
 
 

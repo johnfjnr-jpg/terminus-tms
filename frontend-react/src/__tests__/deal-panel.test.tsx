@@ -32,7 +32,7 @@ const RATES = {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 const VALUES: Values = {
   'deal-ssExisting': '10', 'deal-aqm': '4', 'deal-duration': '24',

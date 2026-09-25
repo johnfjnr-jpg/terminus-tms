@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CENSUS, CATALOG_DISPLAYS, MILESTONE_INPUTS, CONTRACTOR_INPUTS, DEAL_SECTIONS } from './census'
 import type { CensusInput } from './census'
 import type { CatalogRates, Values, UiState } from './payload'
-import { MARGIN_KEYS, valuesFromPayload, uiFromPayload, pickSalespersonWritable } from './payload'
+import { MARGIN_KEYS, valuesFromPayload, uiFromPayload, pickSalespersonWritable, effectiveStructure } from './payload'
 import { buildCashFlowRows, closingCashText } from './cashflow'
 import type { CashFlow } from './cashflow'
 import { buildYearSchedule } from './schedule'
@@ -29,6 +29,8 @@ import { makeSeam } from './seam'
 import { CURRENCY_OPTIONS } from './currencies'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
 import { PaymentTermsSection } from './section5'
+import { OpexTable } from './OpexTable'
+import { opexRows } from '../../../src/lib/opex.js'
 import { UnitCards, InstallationSection } from './intake'
 import { StructuralTermsSection, CashFlowSection } from './section36'
 import { PANELS, latchView, latchAllView, toggleAll, toggleOne } from './latch'
@@ -209,7 +211,7 @@ export function DealPanel({
   } | undefined
   const rates = (catalogData?.rates ?? {}) as CatalogRates
   const form = useDealForm(initialValues, rates, testBedCost, initialUi)
-  const { values, ui, setValue, setUi, setValues, payload, result, computeError } = form
+  const { values, ui, setValue, setUi, setValues, payload, result, computeError, resolvedRates } = form
 
   // B7: the baseline is captured at mount and re-captured on save. It is the
   // ONLY thing that clears dirty.
@@ -559,8 +561,14 @@ export function DealPanel({
               slot would be Verification 20's second reader, agreeing today and
               free to drift. */}
           <PaymentTermsSection
-            ui={ui} setUi={setUi} vis={structureVisibility(ui)}
+            ui={ui} setUi={setUi}
+            vis={structureVisibility({ ...ui, structure: effectiveStructure(ui) })}
             duration={payload.duration}
+            // R-OX2 and R-OX3: built from the deal's OWN result, so the table
+            // and the sheet cannot disagree about what this deal charges.
+            opex={<OpexTable
+              rows={result ? opexRows(result, payload, resolvedRates) : []}
+              values={values} onValue={setValue} />}
             renderField={renderField}
             milestoneGrid={
               <MilestoneGrid rows={MILESTONE_INPUTS} values={values}

@@ -3,6 +3,7 @@ import { readDealPayload, pickSalespersonWritable, FUNDAMENTAL_VALUE_IDS, HOSTIN
 // THE CALCULATOR'S OWN LIST, imported rather than restated: a key added there
 // must reach this clear without anybody remembering.
 import { PRICE_OVERRIDE_KEYS } from '../../../src/lib/deal-calculator.js'
+import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
 import type { UiState, Values, CatalogRates } from './payload'
 import { resolveRates } from '../../../src/lib/rate-resolution.js'
 import { buildDealInputs } from '../../../src/lib/deal-inputs.js'
@@ -37,6 +38,8 @@ export interface DealFormState {
   writable: Record<string, unknown>
   result: unknown
   computeError: string | null
+  /** R-OX3: the rate set that priced `result`, for the OPEX lump-sum share. */
+  resolvedRates: Record<string, number>
 }
 
 export const DEFAULT_UI: UiState = {
@@ -48,7 +51,7 @@ export const DEFAULT_UI: UiState = {
   factoringMethod: 'straight',
   // R-O7: a new form prices from margins, which is how every deal priced
   // before the per-unit fee existed.
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 
 export function useDealForm(
@@ -77,6 +80,11 @@ export function useDealForm(
       // the record loses the override rather than keeping a stale one.
       for (const k of PRICE_OVERRIDE_KEYS) out[`deal-price-${k}`] = ''
       for (const k of HOSTING_FEE_KEYS) out[`deal-hofee-${k}`] = ''
+      // R-OX5: the OPEX all-in monthly fee is an ABSOLUTE, so a fundamental
+      // input change clears it exactly as it clears a price or a hosting fee.
+      // `deal-opexmargin-*` is deliberately NOT cleared: a blended margin is a
+      // ratio and survives the quantity moving.
+      for (const k of OPEX_FEE_KEYS) out[`deal-opexfee-${k}`] = ''
       // MARGIN overrides are untouched on purpose: a ratio remains a decision
       // when the quantity moves.
       return out
@@ -93,7 +101,7 @@ export function useDealForm(
   // rather than gathered separately: one reader, one projection.
   const writable = useMemo(() => pickSalespersonWritable(payload), [payload])
 
-  const { result, computeError } = useMemo(() => {
+  const { result, computeError, resolvedRates } = useMemo(() => {
     try {
       const resolution = resolveRates(payload, catalogRates)
       // The cast is a TS inference limit, not a shape disagreement.
@@ -103,14 +111,24 @@ export function useDealForm(
       // accommodation belongs here rather than in a JSDoc edit over there.
       const inputs = buildDealInputs(payload,
         { testBedCost, rates: (resolution as { rates: unknown }).rates } as { testBedCost?: number })
-      return { result: calculateDeal(inputs), computeError: null }
+      // THE RESOLVED RATES COME OUT WITH THE RESULT, because the OPEX table's
+      // lump-sum allocation needs them and `calculateDeal` does not return
+      // them. Handing back the set that priced THIS result is what stops a
+      // caller resolving them a second time and drifting.
+      return {
+        result: calculateDeal(inputs), computeError: null,
+        resolvedRates: (resolution as { rates: Record<string, number> }).rates,
+      }
     } catch (err) {
       // A compute failure is SHOWN, never swallowed. The vanilla panel would
       // throw into the console and leave the last figures on screen, which is
       // the worst outcome on a pricing surface: stale numbers that look live.
-      return { result: null, computeError: err instanceof Error ? err.message : String(err) }
+      return {
+        result: null, computeError: err instanceof Error ? err.message : String(err),
+        resolvedRates: {} as Record<string, number>,
+      }
     }
   }, [payload, catalogRates, testBedCost])
 
-  return { values, ui, setValue, setValues, setUi, payload, writable, result, computeError }
+  return { values, ui, setValue, setValues, setUi, payload, writable, result, computeError, resolvedRates }
 }

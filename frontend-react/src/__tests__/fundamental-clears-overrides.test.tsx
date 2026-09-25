@@ -30,7 +30,7 @@ declare global {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 // THREE OVERRIDES STORED: one absolute price, one absolute fee, one margin.
 // All three non-empty, so "it cleared" cannot pass by the box having been

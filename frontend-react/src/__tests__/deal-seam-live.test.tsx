@@ -26,7 +26,7 @@ const RATES = { ssUnitCost: 1000, aqUnitCost: 800, hemirUnitCost: 1200, hoSafesi
 const UI: UiState = {
   installResp: 'Terminus Contractor - Lump Sum', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 const V: Values = {
   'deal-ssExisting': '10', 'deal-gstPct': '9', 'deal-duration': '24',

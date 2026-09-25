@@ -32,7 +32,7 @@ declare global {
 const UI: UiState = {
   installResp: 'Terminus Contractor - Per Unit', structure: 'twoPhase', invoicing: 'annual',
   grossUp: false, factoringEnabled: false, factoringMethod: 'straight',
-  hostingPriceMode: 'margin',
+  hostingPriceMode: 'margin', paymentMode: 'capex',
 }
 const VALUES: Values = {
   'deal-ssExisting': '40', 'deal-aqm': '12', 'deal-duration': '36',
