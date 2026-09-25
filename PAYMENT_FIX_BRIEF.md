@@ -56,6 +56,79 @@ Named in this file before any account of what was built, per build discipline
 
 ---
 
+## THE PHASES, RECONCILED BY COUNTING
+
+Counted from the commits on this branch, not read off this file. Build
+discipline 7: the brief is not a reliable source for the count, and a phase
+list does not reliably live in a brief as headings.
+
+| Phase | Commit |
+|---|---|
+| The brief, John's findings and the standing rule verbatim | `361d7d3` |
+| F1, F2 and F4: one toggle component, one gutter, invoicing in the rail | `6a43b64` |
+| F3 and F5 are STOPPED, with the options photographed | `f84a361` |
+| Close-out | this commit |
+| `CURRENT_STATE.md` | the next |
+
+**Rulings in force: 2**, and both are in this file above: the round
+instruction (F1 to F5 plus R-PT3) and the standing rule. Neither was ruled in
+conversation after the round began, so nothing had to be appended late.
+
+---
+
+## DISPOSITION, ITEM BY ITEM
+
+| | Disposition |
+|---|---|
+| **F1** | **BUILT.** One `DealToggle` worn by both controls. Supersedes L1's flanking labels and the slider direction fix, both left visible at the site |
+| **F2** | **BUILT.** One gutter, spread 0px across five rings at both widths |
+| **F3** | **STOPPED with F5.** Measured and located; the collapse cannot be made without choosing the F5 arrangement |
+| **F4** | **BUILT.** Invoicing, recovery input and recovery readout in the rail; the top row and Hybrid's duplicate group retired |
+| **F5** | **STOPPED on its own condition.** 806px needed against 453px. Three options photographed |
+| **R-PT3** | **STOPPED on its own condition.** The set includes issued versions. Nothing touched |
+
+**What F1, F2 and F4 do NOT establish:** nothing about the Hybrid arrangement,
+which is the whole of F3 and F5. The Hybrid screenshots in the live run show
+the DOUBLE RENDER, because that is what the tree still does.
+
+---
+
+## THE CALLERS OF WHAT F1 RETIRED, WITH A DISPOSITION EACH
+
+Verification 41: the enumeration is the instrument. Grepped across the whole
+repository as a STRING, not only as a path, because a claim inside a data
+structure used as documentation cannot fail and cannot be re-pointed.
+
+| Caller | Disposition |
+|---|---|
+| `frontend-react/src/__tests__/opex-layout.test.tsx` L1a/L1b/L1d | **RE-POINTED.** The order claim is gone because there is nothing to be between; the other claims survive against the new control |
+| `frontend-react/src/__tests__/deal-section5.test.tsx` P7 and the structure tests | **RE-POINTED.** P7's claim got stronger: one group, so nothing to disagree with |
+| `frontend-react/src/__tests__/deal-surfaces.test.ts` | **RE-POINTED** for the two retired visibility flags |
+| `scripts/tests/transition-requests.test.mjs` W-E | **RE-POINTED**, and section5 is now asserted NOT to write the treatment itself |
+| `scripts/tests/commercials-wiring.test.mjs` FINDING 3 | **RE-POINTED** to assert the retired containers stay retired |
+| `scripts/opex-layout/probe-live.mjs`, `calibrate.mjs` | **UNWIRED, left standing.** Both read the flanking labels and neither is a gate stage. They belong to L1's round and measure a control that no longer exists |
+| `scripts/slider-direction/probe-knob.mjs`, `calibrate.mjs` | **UNWIRED, left standing.** Same: the knob-direction claim lost its subject |
+| `scripts/payment-rail/probe-live.mjs` | **UNWIRED, left standing** |
+
+**The unwired probes are named rather than deleted or fixed**, and that is a
+position rather than an oversight: they are the evidence for rounds already
+closed, they cannot fail a gate, and rewriting them would be rewriting the
+record of what those rounds measured. **They will not run green again**, which
+is the honest state and is recorded here so nobody reads their silence as
+health (Verification 9's clause on a detector nothing schedules).
+
+---
+
+## A CARRIED OBSERVATION, NOT BUILT
+
+`SwitchButton` in `panelParts.tsx` writes `btn-ghost deal-toggle` itself, so
+the gross-up control reaches the treatment by a third route. F1 names the
+payment-mode control and the factoring control, and the standing rule says
+build only the named findings, so this is recorded and queued rather than
+folded in.
+
+---
+
 ## Standing method
 
 - Measurements on the LIVE surface, never inferred from source.
