@@ -1,0 +1,133 @@
+# Payment Terms completion round: the brief
+
+Branch `payment-fix-2`, off `main` at `cbd28e3`, confirmed equal to
+`origin/main` by `git ls-remote` against the real remote rather than the local
+tracking ref.
+
+Rule 18, build discipline 19 and the standing named-findings-only rule govern:
+**this round ends "ready for John's push"** and nothing is pushed from the
+session.
+
+---
+
+## THE RULINGS, John, 2026-09-26, verbatim
+
+> **R-PT3 RULED:** Single phase is removed from CAPEX for all NEW pricing (rail
+> offers Two-phase and Hybrid under CAPEX). The two live records
+> (TT-SGP-SMARTC-003, TT-SGP-MANUFI-005) migrate their CURRENT structure to
+> OPEX as an EXPLICIT revision each (visible in the revision log, reason
+> recorded), no other record touched, count re-verified before writing. Issued
+> versions are NOT touched (the trigger stands guard); each frozen snapshot
+> keeps its own structure key. PROVE the interpreter outlives the option: after
+> migration, open one of the issued single-phase versions on the approval page
+> and assert its figures still price from the frozen snapshot (non-zero,
+> matching a direct derivation run over that snapshot). The derivation's
+> understanding of `single` is recorded as permanent in the brief.
+
+> **F5/F3 RULED, OPTION A:** under Hybrid, customer payment milestones and the
+> hosting breakdown sit SIDE BY SIDE at FULL CARD WIDTH below the rail row,
+> top-aligned; the hosting schedule renders EXACTLY ONCE, collapsed into the
+> Hybrid grid; the guard asserts one render in EVERY structure and mode, and
+> the empty area beside the rail under Hybrid is accepted per the ruling. The
+> false prior-round comment claiming single render is corrected at its site.
+
+---
+
+## PERMANENT: WHAT `single` MEANS TO THE DERIVATION
+
+**Recorded here because the option is being removed from the screen and the
+meaning must not go with it.** Read from the source, not recalled.
+
+| Site | What `single` does |
+|---|---|
+| `src/lib/deal-calculator.js` | `const recov = structure === 'single' ? months` - **the recovery period IS the full contract duration.** Two-phase reads `recoveryMonths`; hybrid has no recovery period at all and gets `null` |
+| `frontend-react/src/deal/schedule.ts` | `recoveryReadonly` is a READOUT of `payload.duration`, never an input. An unset duration says `Contract duration not set` rather than showing a bare number |
+| `frontend-react/src/deal/schedule.ts` | `single` is not `hybrid`, so the year schedule buckets `hardwareIn + hostingIn`. Hybrid buckets hosting only, because its hardware is milestone-driven and would double-count |
+| `frontend-react/src/deal/payload.ts` | `effectiveStructure` returns `'single'` whenever `paymentMode === 'opex'`. **OPEX IS THE SINGLE-PHASE MODE**, which is what makes this ruling a relabelling rather than a repricing |
+
+**THE CONSEQUENCE, AND IT IS THE POINT OF THIS SECTION.** Removing Single phase
+from the rail removes it as an OPTION FOR NEW PRICING. It must never be removed
+from the INTERPRETER, because **three issued versions carry
+`inputs.structure = 'single'` frozen inside them** and the approval page prices
+every one of them by feeding that snapshot back through
+`calculateDeal(buildDealInputs(...))`. A derivation that stopped understanding
+`single` would not fail loudly; it would fall to the `null` recovery branch and
+quietly reprice an approved deal.
+
+**So `structure === 'single'` in `deal-calculator.js` and `schedule.ts` is
+LOAD-BEARING FOREVER, independently of whether any control can still produce
+it.** That is the claim R-PT3's proof step exists to verify.
+
+---
+
+## PHASE 0, MEASURED BEFORE ANYTHING WAS WRITTEN
+
+**The count re-verified**, over the whole population with coverage asserted
+rather than assumed (18 of 18 live opportunities walked):
+
+```
+  8  capex / (none)        7  capex / twoPhase
+  2  capex / single        1  capex / hybrid
+
+ruled: TT-SGP-MANUFI-005, TT-SGP-SMARTC-003
+found: TT-SGP-MANUFI-005, TT-SGP-SMARTC-003     UNCHANGED since the census
+```
+
+**Both carry `paymentMode` ABSENT rather than `'capex'`**, defaulting through
+`String(payload.paymentMode ?? 'capex')`. So the migration WRITES the key for
+the first time rather than changing it, which is worth knowing before a patch
+is composed.
+
+**Neither carries any `opexUnitFees` or `opexUnitMargins`.** That is what makes
+the migration inert: the OPEX allocation in `deal-inputs.js` is guarded
+`if (target === null) continue`, and with no fee and no margin override there is
+no target, so the loop does nothing.
+
+**"Same economics" is MEASURED, not inherited from the earlier round's
+wording.** Every derived value compared, before and after `paymentMode: 'opex'`:
+
+```
+                                 MANUFI-005   SMARTC-003
+paymentMode -> opex                 0 of 49      0 of 49
+  ...and the comparator CAN see a difference:
+targetMargin 30 -> 35              18           21
+ssExisting +10                     31           30
+duration +12                       14           19
+warrantyPct 2 -> 9                 21           23
+structure -> twoPhase               7            5
+```
+
+The 49 values include `totals.contractNet`, `totals.oneOffPrice`,
+`achievedMargin`, `cashFlow.totRev` and every group's rows.
+
+**THE FIRST RUN OF THAT COMPARISON WAS WORTHLESS AND IS RECORDED AS SUCH.**
+`catalogToRates` returns `{ rates, missing, batches }`, not the flat map. The
+probe passed the WRAPPER, so every rate lookup missed and `hardwareCost` was
+**0 on both records**: the migration moved nothing because nothing was priced.
+It was caught by the calibration reading `0 moved` for a five-point margin
+change, which is the instrument refusing to be trusted. Same shape as the
+approval-page zeros defect, reproduced inside this round's own probe.
+
+**The issued versions, named before anything moves:**
+
+```
+TT-SGP-SMARTC-003  rev 38   V2.0/issued frozen structure=single
+                            V1.0/issued frozen structure=twoPhase
+TT-SGP-MANUFI-005  rev 12   V1.0/issued frozen structure=single
+                            V0.1/draft  frozen structure=twoPhase
+```
+
+**Two issued versions carry `single`.** Those are the snapshots the proof step
+opens.
+
+---
+
+## Standing method
+
+- Measurements on the LIVE surface, never inferred from source.
+- Layout claims stated as a RELATIONSHIP between two elements.
+- Every screenshot opened and read.
+- Every new guard calibrated both directions, and a SILENT injection explained.
+- Database read-back after every write, from the database rather than from the
+  writer's own report.
+- Commits at every phase boundary. Nothing pushed.
