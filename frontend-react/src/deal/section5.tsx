@@ -191,6 +191,27 @@ export function PaymentTermsSection({
             </div>
           </div>
 
+          {/* ── N6: THE INVOICING RADIOS RENDER ABOVE THE MONEY ─────────────
+              John's ruling 2026-09-26, superseding M7, which put them beneath.
+
+              M7'S REASONING IS LEFT HERE BECAUSE IT WAS RIGHT ABOUT THE HARD
+              PART: "beneath the fee table under Two-phase and beneath the
+              hosting schedule under Hybrid" is ONE placement, not two, once the
+              rail is gone, because the fee table and the Hybrid grid are
+              siblings in this flow. That still holds with the polarity
+              reversed: a group BEFORE both of them precedes whichever one
+              renders, so this is still one group and not two.
+
+              And it is still one group for the reason F4 established: two
+              groups writing one choice is the defect, not the layout. */}
+          <div className="ring-radio-group" id="deal-invoicing-toggle">
+            <span className="label">Invoicing</span>
+            {INVOICING.map((o) => (
+              <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
+                active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
+            ))}
+          </div>
+
           {/* ── THE MONEY ────────────────────────────────────────────────────
               F5/F3 OPTION A stands: ONE `yearSchedule`, rendered here unless
               the Hybrid grid below is going to render it. Both gate on the SAME
@@ -262,21 +283,6 @@ export function PaymentTermsSection({
             </div>
           </div>
 
-          {/* ── M7: THE INVOICING RADIOS SIT BENEATH THE MONEY ──────────────
-              "beneath the fee table under Two-phase and beneath the hosting
-              schedule under Hybrid" is ONE placement, not two, once the rail is
-              gone: the fee table and the Hybrid grid are siblings in this flow,
-              so a group after both of them follows whichever one rendered.
-
-              Stating it as two positions would need two groups, and two groups
-              writing one choice is the defect F4 removed. */}
-          <div className="ring-radio-group" id="deal-invoicing-toggle">
-            <span className="label">Invoicing</span>
-            {INVOICING.map((o) => (
-              <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
-                active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
-            ))}
-          </div>
         </div>
       </div>
 

@@ -582,8 +582,26 @@ test('Units Required is one box of four rows with four-figure inputs', () => {
   // was always about: a SINGLE grid column, whatever its width.
   assert.match(css, /\.unit-cards \{[^}]*grid-template-columns: minmax\(0, \d+px\)/,
     'one column, so the four counts read as a set rather than as four cards')
-  assert.match(css, /\.unit-cards \.unit-card input \{[^}]*width: 72px/,
-    'four figures, not a full-width box for a two-digit number')
+  // ── RE-POINTED BY S1, 2026-09-26, and the old anchor is left visible ────
+  //
+  // It read `width: 72px` with the note "four figures, not a full-width box
+  // for a two-digit number". The intent is exactly S1's and the number was the
+  // per-site literal S1 removes: 72px is roughly four MONO digits, and these
+  // boxes render in 13px Satoshi where `99` measures 15px.
+  //
+  // The claim moves to what now decides the width: the field is DECLARED in
+  // the registry, and the estate-wide guard measures what the screen does with
+  // that declaration. A width literal here would be the thing the standard
+  // forbids, so its ABSENCE is what this asserts.
+  assert.ok(!/\.unit-cards \.unit-card input \{[^}]*width:/.test(css),
+    'the unit count boxes carry a width literal again, which S1 removes')
+  assert.match(css, /\.unit-cards \.unit-card input \{[^}]*text-align: right/,
+    'a column of counts reads down its last digit')
+  const registry = readCode(new URL('../../src/lib/field-formats.js', import.meta.url))
+  for (const id of ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']) {
+    assert.match(registry, new RegExp(`'${id}':\\s*'count'`),
+      `${id} is not declared as a count in the sizing registry`)
+  }
   // WALK 8: the four rows are MAPPED from `UNIT_FIELDS`, so four is a property
   // of that list and the card is rendered once per member. Both are asserted:
   // the list has four names, and the renderer turns each into a `unit-card`.

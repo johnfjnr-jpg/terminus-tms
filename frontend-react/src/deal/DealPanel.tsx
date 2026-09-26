@@ -26,6 +26,7 @@ import {
 } from './panelParts'
 import { dirtySections, captureSavedBaseline, SECTION_SAVE_TITLE } from './dirty'
 import { makeSeam } from './seam'
+import { useFieldWidth } from './useFieldWidth'
 import { CURRENCY_OPTIONS } from './currencies'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
 import { PaymentTermsSection } from './section5'
@@ -95,6 +96,8 @@ function CensusField({ field, value, rates, onChange, help, bare, options }: {
   rates: CatalogRates
   onChange(next: string): void
 }) {
+  // S1: the registry decides this box's width, measured in its own font.
+  const fieldWidth = useFieldWidth(field.id)
   const placeholder = field.placeholder
     // W4: a field narrow enough that the contract's own wording would be
     // clipped says its absence in the room it has.
@@ -131,6 +134,10 @@ function CensusField({ field, value, rates, onChange, help, bare, options }: {
         </select>
       ) : (
       <input
+        // S1: the box sizes itself from the format the registry declares for
+        // this id, measured in its own computed font. No width literal here
+        // and none in the stylesheet for these fields.
+        ref={fieldWidth}
         id={field.id}
         data-testid={field.id}
         aria-label={bare ? field.label : undefined}

@@ -13,6 +13,21 @@
 */
 
 :root {
+  /* ── S2: ONE TOKEN PER ROLE, John's ruling 2026-09-26 ──────────────────
+     The census found 18 distinct fonts in use on the commercial panels. These
+     name the roles the ruling names, so a panel reads the role rather than
+     picking a number, and two panels cannot drift apart without moving one
+     declaration.
+
+     `--field-label-size` is 10.5px because that is what `.form-group label`
+     already used across the estate; the Units card's 9px was the outlier and
+     is what made it read as shrunken type beside the Installation panel. The
+     larger of two sizes wins here because the smaller was the defect. */
+  --field-label-size:      10.5px;
+  --field-label-tracking:  0.1em;
+  --numeric-cell-size:     13px;
+  --secondary-note-size:   11px;
+
   --dark:            #1A1B23;
   --black:           #15161C;
   --white:           #F2F2F0;
@@ -1191,7 +1206,13 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin-bottom: 6px;
 }
 .ms-grid-row { margin-bottom: 6px; }
-.ms-grid-row input { min-width: 0; width: 100%; }
+/* ── S1: THE GRID ROWS NO LONGER SET A WIDTH ─────────────────────────────
+   `width: 100%` made every grid box as wide as its column, which is the
+   per-site literal the standard removes wearing a percentage. The boxes size
+   themselves from the registry's format now, measured in their own font.
+   `min-width: 0` stays: it stops the grid column refusing to shrink, which is
+   about the COLUMN rather than about the box. */
+.ms-grid-row input { min-width: 0; }
 
 /* ── AND THE FOURTH CELL STOPS WEARING THE BROWSER'S BORDER ──────────────
    This is the other half of O6's "partial input borders", and it is NOT the
@@ -1547,10 +1568,16 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 .unit-cards .unit-card:last-child { border-bottom: none; }
 .unit-cards .unit-card label { margin-bottom: 0; }
-/* FOUR FIGURES. The widest realistic count is four digits, and an input sized
-   for a paragraph invites one. */
+/* ── S1 SUPERSEDES THE FOUR-FIGURE LITERAL ───────────────────────────────
+   It read `width: 72px` with the note "FOUR FIGURES. The widest realistic
+   count is four digits, and an input sized for a paragraph invites one." The
+   reasoning was right and the number was a per-site literal: 72px is roughly
+   four MONO digits, and these boxes render in 13px Satoshi, where `99`
+   measures 15px. The registry declares them `count` and they size themselves.
+
+   Right-alignment stays: it is what makes a column of counts read down its
+   last digit, and it is not a width. */
 .unit-cards .unit-card input {
-  width: 72px;
   text-align: right;
 }
 
@@ -1596,10 +1623,25 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    mono uppercase, which is what makes it read as a caption. Dimming it to
    2.73:1 was doing that job with contrast, and contrast is the one property
    a reader with poor eyesight cannot recover. */
+/* ── S2: THE FIELD-LABEL ROLE, ONE TOKEN ─────────────────────────────────
+   John's ruling 2026-09-26: one font size and family token per role across the
+   commercial panels, and the Units card asserted EQUAL to the Installation
+   panel by computed style.
+
+   THIS WAS THE THIRD SIZE. The census found 18 distinct fonts on the
+   commercial panels; for the field-label role two were in use, 10.5px on
+   `.form-group label` and 9px here, and 9px is the one that made the Units
+   card read as shrunken type beside its neighbour.
+
+   COLLAPSED TO THE ROLE TOKEN, G9 method: the size and tracking now come from
+   `--field-label-*`, which `.form-group label` also reads, so the two cannot
+   drift again without moving both. The COLOUR stays this card's own - the
+   ruling names size and family, and the white label is what distinguishes a
+   unit count from a form field. */
 .unit-card label {
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: var(--field-label-size);
+  letter-spacing: var(--field-label-tracking);
   text-transform: uppercase;
   color: var(--white);
   display: block;
@@ -1740,7 +1782,8 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    on source order - the control then took the grid track's auto width, 145px
    for a two-digit percentage. One extra class settles it where the rule
    belongs rather than relocating the block and hoping nothing moves again. */
-.pg-card .terms-field-row .deal-field input { width: 76px; text-align: right; }
+/* S1: the width comes from the registry; the alignment is this row's own. */
+.pg-card .terms-field-row .deal-field input { text-align: right; }
 .pg-card .terms-field-row .deal-field select { width: 104px; }
 .terms-field-row:last-child { border-bottom: none; }
 
@@ -2416,10 +2459,12 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1 / -1; }
 
+/* S2: the field-label role reads its size and tracking from the token, which
+   the Units card reads too. One writer, two readers. */
 .form-group label {
   font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
+  font-size: var(--field-label-size);
+  letter-spacing: var(--field-label-tracking);
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -6581,16 +6626,22 @@ textarea::placeholder { color: var(--muted); }
    tighter 6px that says they belong together. Flattening both to one number
    would separate a label from its own input as much as from its neighbour,
    which is Payment Terms' own convention read the wrong way. */
-/* ── M9: THE FACTORING INPUTS ARE SIZED FOR WHAT THEY HOLD ───────────────
-   Both were the full column width - 355px at 1920 - for a rate of `xx.x%` and
-   a term of `XXX`. Sized from the REQUIREMENT rather than from a measurement
-   of the result: the live probe types the widest realistic value into each and
-   asserts it is not clipped, which is the check a number read off a screenshot
-   cannot be (Verification 47).
+/* ── M9 IS SUPERSEDED BY S1, AND THE OLD RULE IS LEFT VISIBLE ────────────
+   M9 gave these two boxes hand-picked widths:
 
-   The labels are unchanged, per the finding. */
-.po-factoring-panel #deal-factoring-ratePct { width: 76px; text-align: right; }
-.po-factoring-panel #deal-factoring-termMonths { width: 64px; text-align: right; }
+     #deal-factoring-ratePct   { width: 76px }
+     #deal-factoring-termMonths { width: 64px }
+
+   Both were measured against their requirement and both were right. They are
+   also exactly what S1 forbids: a per-site literal, correct for the font
+   somebody had when they typed it and silently wrong the day the type scale
+   moves. The registry now derives both from their declared formats - `percent`
+   and `months` - measured in each box's own computed font.
+
+   The alignment stays here, because right-alignment is a property of a column
+   of figures rather than of a width. */
+.po-factoring-panel #deal-factoring-ratePct,
+.po-factoring-panel #deal-factoring-termMonths { text-align: right; }
 .po-factoring-panel { --po-rhythm: 14px; }
 .po-factoring-panel > * + * { margin-top: var(--po-rhythm); }
 #deal-factoring-fields > label + * { margin-top: 0; }
@@ -6613,7 +6664,9 @@ textarea::placeholder { color: var(--muted); }
   text-transform: uppercase;
   color: var(--muted);
 }
-.po-field input { width: 100%; }
+/* S1: `width: 100%` here is what made the factoring rate and term as wide as
+   their column - 355px at 1920 for a value of `xx.x`. The registry sizes them
+   now, so the panel says nothing about their width. */
 
 /* Stacked, because a quarter-width panel cannot hold two buttons side by side
    and the labels are "Straight-line" and "Declining balance". */
@@ -8612,7 +8665,8 @@ textarea.lead-field-input,
    centre its items horizontally. Nothing is added for the direction; what is
    added is the spacing beneath, so the group reads as a group. */
 #deal-structure-toggle { margin-bottom: 18px; }
-#deal-invoicing-toggle { margin-top: 18px; }
+/* N6: the radios sit ABOVE the money now, so the rhythm goes below them. */
+#deal-invoicing-toggle { margin-bottom: 18px; }
 
 /* ── M1 and M10: THE TWO-SIDED SELECTOR ──────────────────────────────────
    Both states named, either side of the track, the one in force in the estate
@@ -8633,24 +8687,33 @@ textarea.lead-field-input,
   white-space: nowrap;
 }
 .deal-toggle-side[data-active="true"] { color: var(--green); }
-/* The labels sit OUTSIDE, so the button is the track alone: the left padding
-   that made room for text goes with them. */
-.btn-ghost.deal-toggle--flanked { padding: 0; width: 42px; }
-/* ── THE KNOB TRAVELS TOWARD THE ACTIVE SIDE, AND NEEDS NO INVERSION ──────
-   `on` is the RIGHT-hand label - OPEX right of CAPEX, Declining right of
-   Straight-line - and `.deal-toggle` already travels right when `is-on`. The
-   slider-direction round had to invert this because L1 put the active label on
-   the LEFT; M1 reverses the order instead, so travel and order agree by
-   construction rather than by a rule somebody has to remember.
+/* ── N5, John's ruling 2026-09-26: THE TRACK AND KNOB ARE THE FACTORING
+   CONTROL'S, EXACTLY. The superseded rules are quoted because they were a
+   deliberate decision and this reverses it.
 
-   THE TRAVEL IS 22px, NOT the base 12px, and that was measured rather than
-   chosen: at 12px the knob's centre moved 377 to 389 while the labels sat at
-   333 and 443, so "nearer the active label" held by two pixels in one state.
-   These rules sit AFTER `.deal-toggle`'s, which is what makes them win: equal
-   specificity, decided on source order. */
-.deal-toggle--flanked::before { left: 0; width: 40px; height: 16px; border-radius: 8px; }
-.deal-toggle--flanked::after { left: 4px; width: 10px; height: 10px; transform: translate(0, -50%); }
-.deal-toggle--flanked.is-on::after { transform: translate(22px, -50%); }
+   M1 gave the flanked variant its own geometry:
+
+     .btn-ghost.deal-toggle--flanked { padding: 0; width: 42px }
+     .deal-toggle--flanked::before   { left: 0; width: 40px; height: 16px }
+     .deal-toggle--flanked::after    { left: 4px; width: 10px; height: 10px }
+     .deal-toggle--flanked.is-on::after { transform: translate(22px, -50%) }
+
+   The 22px travel was measured and was right FOR THAT CONTROL: at the base
+   12px the knob's centre moved 377 to 389 while the labels sat at 333 and 443,
+   so "nearer the active label" held by two pixels.
+
+   JOHN'S RULING SUPERSEDES THE TWO-KINDS TAXONOMY. The track and knob are the
+   same object on both controls, so they take `.deal-toggle`'s own ::before and
+   ::after untouched and this file says nothing about them. What remains is the
+   one thing the flanked variant still needs: its label is outside, so the
+   button has no text to make room for.
+
+   THE TRAVEL IS THEREFORE 12px AGAIN, the base one, and "the knob is nearer
+   the active label" is no longer the claim the live probe makes. It asserts
+   the knob is at the track's LEFT OR RIGHT END, which is a relationship
+   between the knob and the track rather than between the knob and a word, and
+   is true at any travel. */
+.btn-ghost.deal-toggle--flanked { padding-left: 36px; width: auto; }
 
 /* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────────────────
    `flex-start` is the whole of "the stagger removed": the yearly table used to
