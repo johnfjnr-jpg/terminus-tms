@@ -745,7 +745,13 @@ test('FINDING 3: a year cell may not be given less room than its own glyphs', ()
   // columns 216px between them, the three year figures overlapped by 27px each
   // and the head row read "YEAR 1YEAR 2YEAR 3".
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
-  assert.match(css, /\.ys-cell, \.ys-total \{ flex-shrink: 0; \}/)
+  /* ── RE-POINTED BY THE `.ys-row` PURGE, 2026-09-26 ────────────────────
+     This asserted the protection on `.ys-cell, .ys-total`, which no markup
+     renders and which the phantom purge removed. The CLAIM is unchanged and
+     still real: `.ys-line` is what draws a year row now, and its amount must
+     not be given less room than its own digits. */
+  assert.match(css, /\.ys-amount \{[^}]*flex-shrink: 0/)
+  assert.match(css, /\.ys-amount \{[^}]*white-space: nowrap/)
   const html = DEAL_TREE
   // And the row it sits on must be able to wrap it away, which needs a real
   // min-width rather than the min-width:0 that let it shrink to nothing.

@@ -220,13 +220,27 @@ try {
 
   /* Both responsibility states, both factoring states, and every
      mode/structure combination the brief names. */
-  const COMBOS = FAST ? [['capex', 'twoPhase', 'Terminus Contractor - Per Unit', true]]
+  /* ── FAST REACHES EVERY STATE THE CALIBRATION INJECTS INTO ──────────────
+     It was one combo, capex/twoPhase/Per Unit, and four of six injections came
+     back SILENT because of it: the lump-sum field is HIDDEN under Per Unit so
+     A4 had nothing to measure, the OPEX placement is not rendered under CAPEX
+     so A5's injection touched a rule no state used, and the statement's worst
+     row only exceeds the backstop in the states this combo is not. Verification
+     51's caveat: confirm an injection COULD have fired before reading its
+     silence. Three combos and two widths cover all six. */
+  const COMBOS = FAST ? [['capex', 'twoPhase', 'Terminus Contractor - Per Unit', true],
+      ['opex', 'twoPhase', 'Terminus Contractor - Per Unit', true],
+      ['capex', 'twoPhase', 'Terminus Contractor - Lump Sum', true]]
     : [['capex', 'twoPhase', 'Terminus Contractor - Per Unit', true],
       ['capex', 'hybrid', 'Terminus Contractor - Per Unit', true],
       ['opex', 'twoPhase', 'Terminus Contractor - Per Unit', true],
       ['capex', 'twoPhase', 'Terminus Contractor - Lump Sum', true],
       ['capex', 'twoPhase', 'Terminus Contractor - Per Unit', false]]
-  const WIDTHS = FAST ? [1440] : [1920, 1440, 1240]
+  /* FAST KEEPS TWO WIDTHS, because A1's operative clause compares the SAME row
+     at the widest and the narrowest. At one width the growth check has nothing
+     to compare and skips, so a calibration of it would inject into a check that
+     never ran and score the silence as a missing detector. */
+  const WIDTHS = FAST ? [1920, 1240] : [1920, 1440, 1240]
   STATES = WIDTHS.length * COMBOS.length
   console.log(`adjacency gap probe   ${new Date().toISOString()}`)
   console.log(`opportunity ${oppId}   growth allowance ${GROWTH}px   backstop ${BACKSTOP}px   states ${STATES}`)
@@ -342,16 +356,35 @@ try {
           declining: r('[data-testid="deal-method-label-declining"]'),
           straight: r('[data-testid="deal-method-label-straight"]'),
           fieldsPresent: !!document.querySelector('#deal-factoring-fields'),
+          repayLabelBottom: (() => { const e = document.querySelector('.po-row label')
+            return e && vis(e) ? Math.round(e.getBoundingClientRect().bottom) : null })(),
+          methodTop: (() => { const e = document.querySelector('#deal-factoring-method-toggle')
+            return e && vis(e) ? Math.round(e.getBoundingClientRect().top) : null })(),
         }
       })
       if (fxOn) {
         check(fx6.rate !== null && fx6.term !== null && fx6.method !== null,
           `A6 the three controls are all present (rate ${fx6.rate}, term ${fx6.term}, method ${fx6.method})`)
         if (fx6.rate !== null && fx6.term !== null && fx6.method !== null) {
-          const edges = [fx6.rate, fx6.term, fx6.method]
-          check(Math.max(...edges) - Math.min(...edges) <= 1,
-            `A6 rate, term and repayment right-align to one edge `
-            + `(${fx6.rate} / ${fx6.term} / ${fx6.method})`)
+          /* ── R-ADJ1: A6 HOLDS FULLY ABOVE 1360, AND STACKS BELOW IT ──────
+             John's ruling. At 1240 the region cannot carry the milestones
+             column, the repayment control and the hybrid schedule at once, so
+             the row stacks and the card returns to its percentage. The claim
+             at that width is the STACK, asserted rather than dropped: a width
+             where nothing is checked is where a layout goes quietly wrong. */
+          if (width > 1360) {
+            const edges = [fx6.rate, fx6.term, fx6.method]
+            check(Math.max(...edges) - Math.min(...edges) <= 1,
+              `A6 rate, term and repayment right-align to one edge `
+              + `(${fx6.rate} / ${fx6.term} / ${fx6.method})`)
+          } else {
+            check(fx6.repayLabelBottom !== null && fx6.methodTop !== null
+              && fx6.repayLabelBottom <= fx6.methodTop + 1,
+              `A6 at ${width} the repayment row STACKS, label above control `
+              + `(label bottom ${fx6.repayLabelBottom}, control top ${fx6.methodTop})`)
+            check(fx6.rate === fx6.term,
+              `A6 at ${width} the rate and term still share an edge (${fx6.rate} / ${fx6.term})`)
+          }
         }
         /* THE FLANKING LABELS RIDE WITH THE CONTROL, per the ruled layout. */
         check(fx6.straight !== null && fx6.declining !== null && fx6.straight < fx6.declining,
@@ -362,6 +395,130 @@ try {
         check(fx6.fieldsPresent === false,
           `A6 with factoring off the rate, term and method are ABSENT, not merely hidden`)
       }
+
+      /* ── A5: THE RADIOS SIT WITH THE NUMBERS THEY CHANGE ──────────────
+         Two claims, and the second is the one a geometry check cannot make:
+         the group is immediately above the schedule, AND the schedule is the
+         one it changes. A control parked above the wrong panel satisfies
+         geometry perfectly. */
+      const a5 = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const box = (sel) => { const e = document.querySelector(sel)
+          return e && vis(e) ? e.getBoundingClientRect() : null }
+        const g = box('#deal-invoicing-toggle')
+        const sched = box('#deal-opex-year-slot') ?? box('#deal-hybrid-schedule') ?? box('#deal-capex-year-slot')
+        const which = box('#deal-opex-year-slot') ? 'opex' : box('#deal-hybrid-schedule') ? 'hybrid'
+          : box('#deal-capex-year-slot') ? 'capex' : 'none'
+        if (!g || !sched) return { which, ok: false }
+        return { which, ok: true,
+          above: Math.round(sched.top - g.bottom),
+          overlap: Math.round(Math.min(g.right, sched.right) - Math.max(g.left, sched.left)),
+          schedWidth: Math.round(sched.width) }
+      })
+      check(a5.ok, `A5 the invoicing group and a schedule are both rendered (${a5.which})`)
+      if (a5.ok) {
+        check(a5.above >= 0 && a5.above <= 60,
+          `A5 the radios sit IMMEDIATELY above the ${a5.which} schedule (${a5.above}px between them)`)
+        check(a5.overlap > a5.schedWidth * 0.5,
+          `A5 the radios sit OVER that schedule's column, not beside it `
+          + `(${a5.overlap}px of ${a5.schedWidth}px)`)
+      }
+      /* DRIVEN: the schedule it sits on is the schedule it changes. */
+      const a5drive = await p.evaluate(async () => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        /* ── THE SCHEDULE IS ITS HEAD AND ITS BODY, AND THE FIRST VERSION
+           READ ONLY THE BODY. It reported no change and that was true of what
+           it read: the yearly AMOUNTS are the same either way, and what
+           Monthly changes is the head, "Invoiced fee, annual in advance"
+           against its monthly wording. The head is a SIBLING of the slot
+           because R-SZ2 moved it out so it could share a grid track, so a
+           reader of the slot alone cannot see the thing the control does. */
+        const sched = () => {
+          /* ── THE FIRST VISIBLE ONE, NOT THE FIRST ONE THAT EXISTS ────────
+             `??` falls through on null and not on hidden. Under CAPEX the
+             hybrid schedule is still in the document inside a `hidden` group,
+             so the chain stopped on an invisible element and the whole driven
+             check read `null` before and `null` after - reporting "no change"
+             for a reading it never took. Presence is not visibility, and the
+             geometry check above got this right by measuring boxes. */
+          const body = ['#deal-opex-year-slot', '#deal-hybrid-schedule', '#deal-capex-year-slot']
+            .map((sel) => document.querySelector(sel)).find((e) => e && vis(e))
+          if (!body) return null
+          const head = ['.opex-year-head', '.capex-year-head', '.hg-colhead--right']
+            .map((sel) => document.querySelector(sel)).find((e) => e && vis(e))
+          const t = (e) => e && vis(e) ? (e.textContent ?? '') : ''
+          return `${t(head)} | ${t(body)}`.replace(/\s+/g, ' ').trim()
+        }
+        const radio = (v) => [...document.querySelectorAll('#deal-invoicing-toggle [data-invoicing]')]
+          .find((e) => e.getAttribute('data-invoicing') === v)
+        const before = sched()
+        const m = radio('monthly'); if (!m) return { before, err: 'no monthly radio' }
+        m.click()
+        await new Promise((r) => setTimeout(r, 700))
+        const after = sched()
+        const a = radio('annual'); a?.click()
+        await new Promise((r) => setTimeout(r, 700))
+        return { before, after, restored: sched() }
+      })
+      check(!!a5drive.before && !!a5drive.after && a5drive.before !== a5drive.after,
+        `A5 toggling Monthly CHANGES the schedule the radios sit on`
+        + (a5drive.err ? ` (${a5drive.err})` : '')
+        + `\n         before: ${String(a5drive.before).slice(0, 90)}`
+        + `\n         after:  ${String(a5drive.after).slice(0, 90)}`)
+      check(a5drive.restored === a5drive.before,
+        `A5 and switching back restores it, so the change was the toggle's`)
+
+      /* ── N2, CARRIED FROM THE SIZING ROUND AND NUMBERED HERE ──────────
+         The sizing round recorded N2 as UNRECOVERED and refused to invent a
+         sentence for it. John's rider gives it one: row pairing and dress
+         equality. Both halves of a product row pair off, and they wear the
+         same dress - which is what "in the same dress" meant in N1 and was
+         never asserted, only built. */
+      const n2 = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const units = [...document.querySelectorAll('[data-testid^="ig-units-"]')].filter(vis)
+        const rates = [...document.querySelectorAll('[data-testid^="ig-rate-"]')].filter(vis)
+        const dress = (e) => { const cs = getComputedStyle(e)
+          return `${cs.fontSize}/${cs.fontFamily.split(',')[0].replace(/["']/g, '')}/${cs.paddingTop}/${cs.paddingBottom}/${cs.borderBottomWidth}` }
+        return {
+          nUnits: units.length, nRates: rates.length,
+          pairs: units.map((u, i) => rates[i] ? Math.round(rates[i].getBoundingClientRect().top - u.getBoundingClientRect().top) : null),
+          dressU: units.map(dress), dressR: rates.map(dress),
+        }
+      })
+      if (n2.nRates > 0) {
+        check(n2.nUnits === n2.nRates,
+          `N2 the two halves hold the same number of rows (${n2.nUnits} / ${n2.nRates})`)
+        check(n2.pairs.length > 0 && n2.pairs.every((d) => d !== null && Math.abs(d) <= 2),
+          `N2 every row PAIRS across the halves (offsets ${JSON.stringify(n2.pairs)})`)
+        check(new Set([...n2.dressU, ...n2.dressR]).size === 1,
+          `N2 both halves wear ONE dress (${[...new Set([...n2.dressU, ...n2.dressR])].join(' | ')})`)
+      }
+
+      /* ── THE PLACEHOLDER-FORMAT RULE ──────────────────────────────────
+         A placeholder carries a value FITTING the field's format, never prose.
+         S1 sizes a box to its format, so this is measurable: the placeholder's
+         own text, measured in the box's own font, fits the box. */
+      const ph = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const dead = (e) => !!e.closest('#deal-form-vanilla, #deal-version-vanilla, #ref-vanilla')
+        const root = document.querySelector('#view-opportunity-detail')
+        if (!root) return []
+        const c = document.createElement('canvas').getContext('2d')
+        const out = []
+        for (const i of root.querySelectorAll('input')) {
+          if (!vis(i) || dead(i) || !i.placeholder) continue
+          const cs = getComputedStyle(i)
+          c.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+          const w = c.measureText(i.placeholder).width
+          const inner = i.getBoundingClientRect().width
+            - parseFloat(cs.paddingLeft || '0') - parseFloat(cs.paddingRight || '0')
+          if (w > inner + 0.5) out.push(`${i.id || i.name}: "${i.placeholder}" needs ${Math.round(w)}px in ${Math.round(inner)}px`)
+        }
+        return out
+      })
+      check(ph.length === 0, `A-PH every placeholder fits its box`
+        + (ph.length ? `\n         ${[...new Set(ph)].join('\n         ')}` : ' (measured in each box\'s own font)'))
 
       check(rows.length > 0, `A1 the walk found label+figure rows at all (${rows.length} containers)`)
       const over = rows.filter((r) => r.max > BACKSTOP)

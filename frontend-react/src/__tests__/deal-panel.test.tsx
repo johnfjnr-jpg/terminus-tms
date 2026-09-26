@@ -12,7 +12,7 @@ import { ShellProvider } from '../ShellContext'
 import { shellServices } from '../shell-services'
 import { DealPanel } from '../deal/DealPanel'
 import { catalogApi } from './fixtures'
-import { buildDealRows } from '../deal/rows'
+import { buildDealRows, money } from '../deal/rows'
 import { CENSUS, CATALOG_DISPLAYS, ALL_INPUT_IDS } from '../deal/census'
 import { MARGIN_KEYS, readDealPayload, valuesFromPayload } from '../deal/payload'
 import { ZERO_IS_NOT_A_VALUE, buildDealInputs } from '../../../src/lib/deal-inputs.js'
@@ -209,9 +209,20 @@ describe('no normalisation between the box and the reader', () => {
 
   test('the catalog placeholder is a PLACEHOLDER, never the value', async () => {
     await mount()
+    /* ── RE-POINTED BY THE PLACEHOLDER-FORMAT RIDER, 2026-09-26 ───────────
+       The claim is the one that matters and is unchanged: the catalog figure
+       is the PLACEHOLDER and never the VALUE, because a value here would
+       record a per-deal override of the catalog on every deal.
+
+       It was asserted by looking for the word "catalog", which was the prose
+       prefix rather than the claim. The prefix is gone: S1 sizes this box to
+       `xxx,xxx.xx` and `catalog: 2,000.00` does not fit it, so the panel
+       rendered `catalog: 2,0(`. The assertion now names both halves of the
+       claim directly, the empty value and the catalog figure in the
+       placeholder, which is what the word was standing in for. */
     const el = must('deal-inSsExisting') as HTMLInputElement
     expect(el.value).toBe('')
-    expect(el.placeholder).toContain('catalog')
+    expect(el.placeholder).toBe(money(RATES.inSsExisting))
   })
 })
 

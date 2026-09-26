@@ -1214,6 +1214,10 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .hg-note { grid-column: 1; grid-row: 2; }
 .hg-colhead { grid-column: 1; grid-row: 3; align-self: end; }
 .hg-colhead--right { grid-column: 2; grid-row: 3; margin-bottom: 6px; color: var(--green); }
+/* A5 under Hybrid: the radios span the title and note tracks so they land
+   DIRECTLY above the hosting head, which is what "above the schedule it
+   changes" means on this grid. */
+#deal-hybrid-group > .a5-invoicing { grid-column: 2; grid-row: 1 / 3; align-self: end; }
 .hg-body { grid-column: 1; grid-row: 4; }
 #deal-hybrid-schedule.hg-body { grid-column: 2; grid-row: 4; }
 .ms-grid-head {
@@ -2147,61 +2151,18 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 .ring-radio.active .ring-radio-label { color: var(--white); }
 
-/* ── Year-by-year revenue schedule (Payment Terms, non-hybrid) ──
-   One column per contract year plus a pinned Total column, no leading
-   row-label column (the heading above the table already names what the
-   row is: "Invoiced fee, annual in advance (USD)" etc). */
-.ys-row {
-  display: flex;
-  gap: 8px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--hairline);
-  align-items: center;
-}
-/* Round 41 item 6, finding 3. `flex: 1 1 0` let a nowrap figure be given less
-   room than its own glyphs, so three year figures overlapped by 27px each at
-   1240 and the head row read "YEAR 1YEAR 2YEAR 3". A cell may shrink to its
-   content and no further; the row's container wraps instead. */
-.ys-cell, .ys-total { flex-shrink: 0; }
-.ys-row.head {
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--hairline-strong);
-}
+/* ── THE `.ys-row` FAMILY IS PURGED, and it is why a round lost a check ──
+   Carried from the sizing round as a finding and ruled for purge here.
+   `.ys-row`, `.ys-cell` and `.ys-total` were a year-by-year table that no
+   markup renders: `YearScheduleView` draws `.ys-stack` of `.ys-line`, and has
+   for some time.
 
-.ys-cell {
-  flex: 1 1 0;
-  min-width: 0;
-  text-align: right;
-  font-family: var(--mono);
-  font-size: 13px;
-  white-space: nowrap;
-  color: var(--white);
-}
-.ys-row.head .ys-cell {
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.ys-total {
-  width: 104px;
-  flex: 0 0 104px;
-  text-align: right;
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--green);
-  border-left: 1px solid var(--hairline-strong);
-  padding-left: 10px;
-  margin-left: 4px;
-  white-space: nowrap;
-}
-.ys-row.head .ys-total {
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
+   WHAT THE PHANTOM COST. A probe hunting the yearly schedule's row guessed
+   `.ys-row` BECAUSE THE STYLESHEET MADE IT PLAUSIBLE, matched nothing, and N7
+   silently did not run: the suite reported 84 of 84 with the string "N7"
+   appearing nowhere in it. A rule with no markup is not merely dead weight, it
+   is a false signpost for the next person reading the stylesheet to find out
+   what a thing is called. */
 
 /* ── Deal sheet (Structural Terms) ─────────────────────────────
    The full P&L walk, revenue down to net receipt after WHT — a flat
@@ -2513,6 +2474,36 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
+}
+
+/* ── R-ADJ1, JOHN'S RULING 2026-09-26: 1240 IS DIFFERENT, AND IT IS THE ONE
+   WIDTH WHERE THE REGION CANNOT CARRY ALL THREE ─────────────────────────────
+   Measured: the milestones column is 375px by W13, the repayment control is
+   292px, the card carries 32px of padding, and the region has about 940px at
+   1240. Giving the card the 324px A6 needs starved the hybrid schedule to
+   about 100px and took `ds-row`'s gap to 191/191/10, a 181px growth against
+   A1's 100px allowance. That regression was caused by the A6 fix, so it is
+   part of it.
+
+   THE RULING: A6 holds fully at 1920 and 1440. At 1240 the repayment row
+   STACKS, the card returns to its percentage, the hybrid schedule keeps its
+   ruled width, and W13's 375px and the flank-label layout stand untouched.
+
+   1360px IS DERIVED, NOT CHOSEN. Full A6 needs 375 + 200 + 340 + 40 of gaps,
+   which is 955px of region. The region runs about 200px narrower than the
+   viewport once the rail and the page padding are taken, so 955px of region is
+   roughly 1160px of viewport and the first standard width above it is 1440.
+   1360 sits between the two widths this has to separate and clear of both.
+
+   The stacked pattern is the estate's own, the one `#deal-intake-head
+   .deal-field` uses, rather than a third way of stacking a label. */
+@media (max-width: 1360px) {
+  #deal-factoring-fields .po-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
 }
 
 .form-group { display: flex; flex-direction: column; gap: 6px; }
@@ -6684,6 +6675,20 @@ textarea::placeholder { color: var(--muted); }
   gap: 20px;
   align-items: start;
 }
+/* ── R-ADJ1's OTHER HALF, AND IT HAD TO LIVE HERE ────────────────────────
+   The first attempt put this override beside the factoring card's own rules,
+   several thousand lines EARLIER in the file. A media query adds no
+   specificity, so the base rule above won on source order and the card kept
+   its 340px at 1240: `ds-row` stayed at 10px and the ruling was not in force
+   while the stylesheet looked as though it was.
+
+   Caught by the guard rather than by reading, which is the argument for
+   measuring a ruling after applying it. */
+@media (max-width: 1360px) {
+  .deal-payment-region {
+    grid-template-columns: minmax(0, max-content) minmax(190px, 25%);
+  }
+}
 /* The left panel of the region. It carries the schedule and the milestone
    tables, so its job is to take the space the capped panel beside it does not. */
 /* ── G7: THE PANEL REDUCES TO ITS CONTENT ────────────────────────────────
@@ -6794,7 +6799,23 @@ textarea::placeholder { color: var(--muted); }
 }
 .ys-line--total { border-bottom: none; border-top: 1px solid var(--hairline-strong); margin-top: 4px; }
 .ys-year { color: var(--muted); font-size: 12px; }
-.ys-amount { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* ── FINDING 3 RE-POINTED, AND THE PURGE IS WHY ──────────────────────────
+   Round 41 item 6 finding 3: `flex: 1 1 0` let a nowrap figure be given less
+   room than its own glyphs, so three year figures overlapped by 27px each at
+   1240 and the head read "YEAR 1YEAR 2YEAR 3". The protection lived on
+   `.ys-cell, .ys-total`, which this round purged as a phantom because no
+   markup renders them.
+
+   THE RULE WAS DEAD AND THE CLAIM WAS NOT. `.ys-line` is what renders now, and
+   nothing stopped its amount shrinking below its digits. A retirement is two
+   claims (Verification 7): the thing is gone, and what still points at it has
+   been dealt with - and a CLAIM pointing at it counts. */
+.ys-amount {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 
 /* L1: guidance one hover away. A real control - focusable, and carrying the
    same words to a screen reader through aria-label - not a decorative glyph
@@ -8514,7 +8535,29 @@ textarea.lead-field-input,
 .stmt-total .stmt-lbl { font-weight: 600; }
 .stmt-total .stmt-num { font-weight: 700; }
 .stmt-grand .stmt-num:last-child { color: var(--green); }
-.stmt-result > .stmt-row-line { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 150px); }
+/* ── R-ADJ2, JOHN'S RULING 2026-09-26: THE PROFIT ROW IS AN A1 FINDING ────
+   Measured at 671px and 731px from the label to its figure, over A1's 600px
+   backstop. The backstop stays where it is and the ROW moves, by this
+   statement's own adjacency mechanism rather than by a new one.
+
+   WHY THIS TIER AND NOT THE OTHERS. A normal row carries FOUR money columns,
+   so `.stmt`'s 980px cap leaves its label track about 280px. A result row
+   carries ONE, so the same cap leaves its label track about 760px, and a short
+   label like "Profit" ends with most of that track empty between it and its
+   figure. E1 recorded the counter-intuitive half of this already: the gap is
+   EMPTY LABEL TRACK, so widening the money columns NARROWS the run the eye
+   crosses, and narrowing the figures makes the reading worse.
+
+   THE CAP IS THE FAMILY'S OWN TOOL, the one `.stmt` uses at 980px and
+   `.stmt-drawer-table` at 640px. 560px is derived rather than chosen: the row
+   spends 18px on the twisty, 150px on the figure, 20px on two gaps and 32px on
+   padding, so the label track is the cap minus 220px, and with "Profit" about
+   45px wide the worst gap is the cap minus 255px. 560px puts it near 305px,
+   inside E1's own 350px eye span and well inside the backstop. */
+.stmt-result > .stmt-row-line {
+  grid-template-columns: 18px minmax(0, 1fr) minmax(0, 150px);
+  max-width: 560px;
+}
 .stmt-margin-final { font-family: var(--mono); font-size: 20px; font-weight: 700; text-align: right; }
 .stmt-margin-final.on-target { color: var(--green); }
 .stmt-margin-final.under-target { color: var(--attention); }
@@ -8837,13 +8880,13 @@ textarea.lead-field-input,
   --opex-head-h: calc(var(--field-label-size) * 1.5 + 6px);
   display: grid;
   grid-template-columns: auto minmax(0, auto);
-  grid-template-rows: var(--opex-head-h) 1fr;
+  grid-template-rows: auto var(--opex-head-h) 1fr;
   justify-content: start;
   column-gap: 24px;
   align-items: start;
 }
 .opex-tables > * { min-width: 0; }
-.opex-tables > #deal-opex-table { grid-column: 1; grid-row: 1 / span 2; }
+.opex-tables > #deal-opex-table { grid-column: 1; grid-row: 2 / span 2; }
 .opex-tables > .opex-year-head {
   grid-column: 2;
   grid-row: 1;
@@ -8853,7 +8896,13 @@ textarea.lead-field-input,
   align-items: flex-end;
   color: var(--green);
 }
-.opex-tables > #deal-opex-year-slot { grid-column: 2; grid-row: 2; }
+.opex-tables > #deal-opex-year-slot { grid-column: 2; grid-row: 3; }
+/* ── A5: THE RADIOS SIT IN THE SCHEDULE'S OWN COLUMN ─────────────────────
+   John's ruling: a control group sits WITH the content it affects. A row is
+   added ABOVE the head track for them, and the fee table spans from the head
+   down so NOTHING ELSE ON THE PANEL MOVES relative to the head it already sat
+   against. */
+.opex-tables > .a5-invoicing { grid-column: 2; grid-row: 1; align-self: end; }
 #deal-opex-table thead th {
   height: var(--opex-head-h);
   padding-top: 0;

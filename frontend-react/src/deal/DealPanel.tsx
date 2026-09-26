@@ -105,10 +105,35 @@ function CensusField({ field, value, rates, onChange, help, bare, options }: {
     // THE CATALOG FIGURE AS A PLACEHOLDER, NEVER AS A VALUE. An empty box here
     // means "no override, use the catalog", so showing the catalog number as
     // the value would record a per-deal override of the catalog on every deal.
-    ? `catalog: ${money(rates[field.placeholderFromCatalog])}`
+    /* ── THE PLACEHOLDER-FORMAT RULE, JOHN'S RIDER 2026-09-26 ──────────────
+       A PLACEHOLDER CARRIES A VALUE FITTING THE FIELD'S FORMAT, NEVER PROSE.
+
+       S1 sizes a box to its FORMAT, so a placeholder longer than the format is
+       clipped by construction, and the two offenders were measured on John's
+       own screenshots: `catalog: 2,000.00` rendered as `catalog: 2,0(` and
+       `no override` as `no ov`. A clipped placeholder is worse than none: it
+       says a word the reader cannot finish and looks like a truncated VALUE.
+
+       The catalog figure loses its "catalog: " prefix and is simply the
+       number, which is what it always was; the prefix was prose explaining a
+       convention the empty box already states. `numOrUndefined` takes the em
+       dash, the same mark this estate already uses for "not in the catalog" in
+       the product grid, which fits every format because it is one glyph.
+
+       `0` IS LEFT ALONE because it is a value and it fits.
+
+       `not recorded` GOES TOO, AND I FIRST KEPT IT AND WAS WRONG. The reasoning
+       was that it is the wording Architecture 11 rests on for a cleared field.
+       Measured, it needs 73px in boxes of 30 and 31px, so six fields rendered
+       it clipped: the rule applies to it exactly as it applies to the other
+       two. Architecture 11 is untouched, because what it governs is what a
+       missing VALUE SAYS, and that wording lives in `rows.ts`, `panelParts`,
+       `cashflow.ts` and the approval card, none of which is a placeholder. An
+       empty box with a dash in it is not a claim about the value; the deal
+       sheet row beneath it still says "not recorded" in words. */
+    ? money(rates[field.placeholderFromCatalog])
     : field.contract === 'num' ? '0'
-    : field.contract === 'numOrUndefined' ? 'no override'
-    : 'not recorded')
+    : '—')
 
   return (
     // htmlFor, not merely a wrapping label. The vanilla writes
