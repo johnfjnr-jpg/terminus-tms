@@ -12,7 +12,7 @@
 // UNWIRED: needs a browser, a live server and a signed-in session.
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('sizing/probe-live.mjs')
-import { readFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { freshOpportunity, tearDown } from '../fixtures.mjs'
 import { api } from '../api-client.mjs'
 import { FORMATS, widestValueFor, formatFor } from '../../src/lib/field-formats.js'
@@ -24,6 +24,24 @@ const S = JSON.parse(readFileSync(`${ROOT}/session-ref.json`, 'utf8'))
 const TAG = process.env.C_TAG ?? 'sizelive'
 const FAST = process.env.C_FAST === '1'
 let pass = 0, fail = 0
+
+/* ── THE RUN EMITS ITS OWN NUMBERS TO A FILE, AND THE COUNT IS READ FROM IT ─
+   Every line this probe prints is teed into `live-run.txt`, and no pass count
+   is claimed from a terminal that scrolled. The previous run of this probe
+   produced nine screenshots and a pass count that existed nowhere on disk,
+   which is a hand-carried number by the time it reaches a report (Evidence:
+   every number describing a run is emitted by the run).
+
+   Written in a `catch`/`finally` so a run that THROWS still leaves what it
+   measured, and the file states how many states it reached so a partial run
+   cannot be read as a complete one. */
+const RESULTS = `${OUT}live-run.txt`
+const LOG = []
+const emit = console.log.bind(console)
+console.log = (...a) => { const line = a.map((x) => typeof x === 'string' ? x : String(x)).join(' ')
+  LOG.push(line); emit(line) }
+const flush = () => { writeFileSync(RESULTS, LOG.join('\n') + '\n') }
+
 const check = (ok, what) => { if (ok) { pass++; console.log(`    ok   ${what}`) }
   else { fail++; console.log(`    FAIL ${what}`) } }
 
@@ -36,6 +54,10 @@ const base = {
   milestones: [{ month: 1, label: 'Contract start', pct: 40 }],
   contractorMilestones: [{ month: 1, label: 'Contract start', pct: 50 }],
 }
+
+/* Declared OUT here because the `catch` and the summary both read them, and a
+   `let` inside the `try` is not in scope in either. */
+let states = 0, STATES = 0, threw = null
 
 const b = await puppeteer.launch({ headless: 'new' })
 try {
@@ -127,6 +149,12 @@ try {
     : [['capex', 'twoPhase'], ['capex', 'hybrid'], ['opex', 'twoPhase']]
   const WIDTHS = FAST ? [1440] : [1920, 1440, 1240]
   const seen = new Set()
+  STATES = WIDTHS.length * COMBOS.length
+  console.log(`sizing live probe   ${new Date().toISOString()}`)
+  console.log(`opportunity ${oppId}   tag ${TAG}   fast ${FAST ? 'yes' : 'no'}`)
+  console.log(`widths ${WIDTHS.join(', ')}   combos `
+    + COMBOS.map(([m, st]) => `${m}/${st}`).join(', ')
+    + `   states ${STATES}`)
   for (const width of WIDTHS) {
     for (const [mode, structure] of COMBOS) {
       /* FACTORING FOLLOWS THE MODE'S STATE, so N5's colour comparison is
@@ -189,14 +217,44 @@ try {
           return { t: r.top, b: r.bottom, l: r.left, r: r.right } }
         const sched = [...document.querySelectorAll('[data-testid="year-schedule"], [data-testid="hybrid-schedule"]')]
           .filter(vis)[0]
+        /* ── THE ROW CLASSES ARE READ FROM THE COMPONENTS, ONE PER RENDERER ─
+           Guessed once as `.ys-row` and found nothing, which under the old
+           `if` guard made N7 a silent skip. The second guess was no better:
+           `YearScheduleView` renders TWO row classes, `.ds-row` when the
+           schedule kind is `hybrid` and `.ys-line` otherwise, so fixing the
+           hybrid slot left the OPEX slot reporting "not found" - a miss that
+           looked like a measurement.
+
+           Each class below names its renderer. Two classes in the first
+           version matched NOTHING IN THE ESTATE: `.ys-row` is in the
+           stylesheet and in no markup, and `.opex-row` is in neither, so the
+           OPEX per-unit row was only ever found by the `tbody tr` fallback.
+
+             .ds-row     YearScheduleView, kind 'hybrid'   panelParts.tsx:59
+             .ys-line    YearScheduleView, the year stack  panelParts.tsx:82
+             .ms-grid-row  MilestoneGrid
+             tbody tr    OpexTable and the install table (real tables) */
         const firstFigure = (root) => { if (!root) return null
-          const e = [...root.querySelectorAll('.ys-row, .ms-grid-row, tbody tr, .opex-row')].filter(vis)[0]
+          const e = [...root.querySelectorAll('.ds-row, .ys-line, .ms-grid-row, tbody tr')].filter(vis)[0]
           return e ? box(e) : null }
         return {
           inv: box('#deal-invoicing-toggle'), sched: box(sched),
           invTops: [...document.querySelectorAll('#deal-invoicing-toggle .ring-radio')]
             .map((e) => Math.round(e.getBoundingClientRect().top)),
           units: box('#deal-units-card'), install: box('#deal-section-2'),
+          /* N1 PAIRS THE ROWS, so it reads every row's top rather than the
+             first and a pitch. Pitch is a proxy for "the rest of them line
+             up"; the tops ARE the claim.
+
+             THE TOTAL ROW IS NOT A PER-UNIT ROW: the install tbody ends with
+             the cost/price total, which has no unit row to pair with. The
+             product rows are identified by CARRYING a units cell rather than
+             by position, so the pairing survives a row being added. */
+          unitRows: [...document.querySelectorAll('.unit-cards .unit-card:not(.unit-card--head)')]
+            .filter(vis).map((e) => Math.round(e.getBoundingClientRect().top)),
+          installRows: [...document.querySelectorAll('#deal-install-table tbody tr')]
+            .filter((tr) => vis(tr) && tr.querySelector('[id^="deal-install-units-"]'))
+            .map((e) => Math.round(e.getBoundingClientRect().top)),
           unitRow1: box('.unit-cards .unit-card:not(.unit-card--head)'),
           installRow1: (() => { const t = document.querySelector('#deal-section-2 tbody tr')
             return t ? box(t) : null })(),
@@ -220,32 +278,67 @@ try {
       check(geo.invTops.length === 2 && new Set(geo.invTops).size === 1,
         `N6 the invoicing radios are horizontal (${JSON.stringify(geo.invTops)})`)
 
-      /* ── N1 IS MEASURED AND NOT ASSERTED, AND THE REPORT SAYS WHY ───────
-         N1 asks the Units rows to top-align with the Installation panel's
-         per-unit lines, "each subsequent row level". Measured, that is not a
-         spacing fix: the two lists differ in BOTH terms.
+      /* ── N1: THE TWO ROW LISTS PAIR OFF, ROW BY ROW ─────────────────────
+         John, 2026-09-26: the Units card rows top-align with the Installation
+         per-unit rows, in the same dress. ASSERTED, not printed - it is what
+         this round builds, and a finding the round is about that produces no
+         assertion is the shape the N7 silent skip already wore once.
 
-         The numbers are printed on every run so the finding stays measured
-         rather than remembered. An assertion here would be red for something
-         deliberately not built, which would gate the round on a scope
-         discovery rather than report it. */
-      if (geo.unitRow1 && geo.installRow1) {
-        console.log(`    N1 MEASURED, NOT BUILT: first unit row at ${Math.round(geo.unitRow1.t)}, `
-          + `first install row at ${Math.round(geo.installRow1.t)}, `
-          + `offset ${Math.round(geo.installRow1.t - geo.unitRow1.t)}px`)
-        console.log(`       row pitch: units ${geo.unitPitch ?? '?'}px, install ${geo.installPitch ?? '?'}px`)
+         PAIRED TOPS RATHER THAN A FIRST ROW AND A PITCH. Equal pitch is a
+         proxy; the tops are the claim, and at 1920 the pitches differed (68
+         against 53) while at 1440 they did not, so a pitch check would have
+         passed two thirds of the states the claim fails.
+
+         TWO PIXELS, FOR SUB-PIXEL ROUNDING ONLY: a hairline resolves to 0.5px
+         at some device ratios and these tops are read as rounded integers. It
+         is not a budget for a layout that nearly aligns. */
+      check(geo.unitRows.length > 0 && geo.installRows.length > 0,
+        `N1 both row lists are present (${geo.unitRows.length} unit, ${geo.installRows.length} install)`)
+      check(geo.unitRows.length === geo.installRows.length,
+        `N1 the lists hold the same number of product rows `
+        + `(${geo.unitRows.length} unit / ${geo.installRows.length} install)`)
+      {
+        const off = geo.unitRows.map((u, i) => geo.installRows[i] === undefined ? null
+          : geo.installRows[i] - u)
+        check(off.length > 0 && off.every((d) => d !== null && Math.abs(d) <= 2),
+          `N1 every Units row is level with its Installation row `
+          + `(offsets ${JSON.stringify(off)})`)
       }
 
-      // ── N7: two tables sharing a row start their figures level ────────
-      if (structure === 'hybrid' && geo.msFirst && geo.hostFirst) {
-        check(Math.abs(geo.msFirst.t - geo.hostFirst.t) <= 4,
-          `N7 Hybrid: milestones and hosting first figure rows are level `
-          + `(${Math.round(geo.msFirst.t)} against ${Math.round(geo.hostFirst.t)})`)
+      /* ── N7: TWO TABLES SHARING A ROW START THEIR FIGURES LEVEL ─────────
+         John, 2026-09-26: under Hybrid, and wherever two tables share a row,
+         the first figure rows top-align.
+
+         THE SUBJECTS ARE ASSERTED TO EXIST, AND THAT IS THE WHOLE LESSON HERE.
+         The first version wrapped both comparisons in `if (a && b)`, so when a
+         selector found nothing the checks silently did not run: the suite
+         reported 84 of 84 with the string "N7" appearing NOWHERE in it, which
+         is a silent skip wearing a pass (Verification 14). The comparison is
+         still guarded below, but absence now FAILS on its own line first, so
+         the guard cannot hide anything. */
+      if (structure === 'hybrid') {
+        check(!!geo.msFirst && !!geo.hostFirst,
+          `N7 Hybrid: both figure rows were found `
+          + `(milestones ${geo.msFirst ? 'found' : 'NOT FOUND'}, `
+          + `hosting ${geo.hostFirst ? 'found' : 'NOT FOUND'})`)
+        if (geo.msFirst && geo.hostFirst) {
+          check(Math.abs(geo.msFirst.t - geo.hostFirst.t) <= 2,
+            `N7 Hybrid: milestones and hosting first figure rows are level `
+            + `(${Math.round(geo.msFirst.t)} against ${Math.round(geo.hostFirst.t)}, `
+            + `offset ${Math.round(geo.msFirst.t - geo.hostFirst.t)}px)`)
+        }
       }
-      if (mode === 'opex' && geo.opexFirst && geo.opexYearFirst) {
-        check(Math.abs(geo.opexFirst.t - geo.opexYearFirst.t) <= 4,
-          `N7 OPEX: per-unit and yearly first figure rows are level `
-          + `(${Math.round(geo.opexFirst.t)} against ${Math.round(geo.opexYearFirst.t)})`)
+      if (mode === 'opex') {
+        check(!!geo.opexFirst && !!geo.opexYearFirst,
+          `N7 OPEX: both figure rows were found `
+          + `(per-unit ${geo.opexFirst ? 'found' : 'NOT FOUND'}, `
+          + `yearly ${geo.opexYearFirst ? 'found' : 'NOT FOUND'})`)
+        if (geo.opexFirst && geo.opexYearFirst) {
+          check(Math.abs(geo.opexFirst.t - geo.opexYearFirst.t) <= 2,
+            `N7 OPEX: per-unit and yearly first figure rows are level `
+            + `(${Math.round(geo.opexFirst.t)} against ${Math.round(geo.opexYearFirst.t)}, `
+            + `offset ${Math.round(geo.opexFirst.t - geo.opexYearFirst.t)}px)`)
+        }
       }
 
       // ── S2: one font per role across the commercial panels ────────────
@@ -264,9 +357,18 @@ try {
       check(roles.unitsCell && roles.installCell && roles.unitsCell === roles.installCell,
         `S2 the Units and Installation CELL fonts are equal (${roles.unitsCell} / ${roles.installCell})`)
       console.log(`    photograph ${await shot(`live-${width}-${mode}-${structure}`)}`)
+      states++
     }
   }
   console.log(`\nnumeric inputs the guard measured across all states: ${seen.size}`)
+} catch (e) {
+  threw = e
+  console.log(`\nTHE RUN THREW, so every count below is over the states it reached:`)
+  console.log(String(e && e.stack ? e.stack : e))
 } finally { await b.close(); await tearDown(TAG) }
-console.log(`\n${pass} of ${pass + fail} checks passed`)
-process.exit(fail ? 1 : 0)
+console.log(`\nstates completed: ${states} of ${STATES}`)
+console.log(`${pass} of ${pass + fail} checks passed`)
+console.log(threw ? `RUN INCOMPLETE` : states === STATES ? `RUN COMPLETE` : `RUN INCOMPLETE`)
+console.log(`written by the run to ${RESULTS}`)
+flush()
+process.exit(fail || threw || states !== STATES ? 1 : 0)
