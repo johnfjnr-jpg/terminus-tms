@@ -11852,3 +11852,91 @@ create-Opportunity actions stay on the Contacts list.**
 **And two live records in the count are John's own** - "Road Runner" and
 "SPIKE DOG", from his walk. Checked against the owner id rather than
 assumed to be residue, and left alone.
+
+---
+
+# THE FIELD SIZING STANDARD
+
+**Set by John 2026-09-26 as S1, permanent. The registry is
+`src/lib/field-formats.js` and this section points at it rather than restating
+it: a standard written out twice is two readers of one rule.**
+
+> every numeric input declares its maximum format (a format string), held in
+> ONE registry, not per-site literals. An input's width derives from its format
+> string measured in the input's own computed font, plus fixed padding.
+
+**The five formats**, which are John's own strings:
+
+```
+money-large   xxx,xxx.xx        money-small   x,xxx.xx
+percent       xx.x              months        XXX            count   XX
+```
+
+## Why the registry is the source, and not the stylesheet
+
+A width in a stylesheet is a number that was right for the font somebody had
+when they typed it. The census that opened this round found that exactly:
+`.unit-cards .unit-card input { width: 72px }` was reasoned as "four figures",
+and 72px is roughly four MONO digits while those boxes render in 13px Satoshi,
+where `99` measures 15px. `#deal-factoring-ratePct { width: 76px }` was
+measured against its requirement one round earlier and was already a literal
+that would go wrong the day the type scale moved.
+
+**Measuring in the element's own resolved font makes the width FOLLOW the type
+rather than agree with it for a while.** That is the whole of the standard.
+
+## A DIGIT IS WIDER THAN AN `x`, AND THE STANDARD HAS TO SAY SO
+
+Measured in 13px Satoshi, the estate's input font:
+
+```
+format         format string   widest real value
+money-large        59.0px           65.6px
+money-small        46.6px           50.6px
+percent            23.3px           25.6px
+months             26.6px           21.5px
+count              17.1px           15.2px
+```
+
+**Three of the five formats measure NARROWER than the widest value they
+exist to hold.** Sizing to the format string alone would give money-large a
+59px box for a number that needs 66px, so the box would clip the very figure
+the format describes.
+
+**So the width is the wider of the two, plus the padding**, and John's 100% to
+135% band is what leaves room for it: 66px sits inside 59px to 80px, so one
+width satisfies the guard AND holds the value. `widestValueFor` derives the
+second string by substituting the widest digit for every placeholder, which is
+what a format string MEANS rather than a second table of numbers to maintain.
+
+## The padding is forced, not chosen
+
+`FIELD_PADDING_PX` is **4**. The band's ceiling is 135% of the format string,
+and the ratio a fixed padding produces is worst for the SHORTEST format:
+`count` at 17.1px can spend 5.97px before it reaches the ceiling, and `percent`
+5.91px, and the width is ceiled to a whole pixel which can spend another.
+
+**Six was tried first and measured 138% live, three points over.** Four leaves
+every format between 117% and 129%.
+
+`months` sets the floor from the other side, and it is the reason the padding
+cannot simply be made small: its widest real value is NARROWER than its format
+string, so too little padding would put the box under 100%.
+
+## The guard
+
+**Estate-wide, live, and it names the control and both numbers.** Every visible
+numeric input's rendered width must sit within 100% to 135% of its format
+string measured in that input's own computed font, and must not be narrower
+than the widest value that format can hold. `scripts/sizing/probe-live.mjs`.
+
+**A field the registry does not name gets NO DEFAULT.** `formatFor` returns
+null, the component leaves the width alone, and the guard reports the field by
+name. A default here would be the per-site literal this standard removes,
+hidden one level down where nothing could see it.
+
+## What this does not cover, stated so nobody assumes it does
+
+The standard is about NUMERIC inputs. Text fields, selects and dates are
+unnamed by the registry and unmeasured by the guard, because a name or an
+address has no maximum format to declare.

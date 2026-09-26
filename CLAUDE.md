@@ -168,6 +168,19 @@ not resolve it quietly.
    A phase that ships no diff still commits, even if only the brief: the
    branch should carry its own scope from the start.
 
+   **AND THE BRIEF IS THE FIRST COMMIT, NOT MERELY AN EARLY ONE. Set by John
+   2026-09-26, the sizing standard round.** That round reached six findings,
+   two screens and a permanent standard in `DESIGN_PRINCIPLES.md` **with no
+   brief in the repository at all** - none tracked, untracked or stashed - and
+   nothing detected it, because every phase had a conversation to work from and
+   the work was going well.
+
+   **A ROUND WITH NO COMMITTED BRIEF HAS NO STOP-RULE REFERENT.** The standing
+   instruction is to stop where the brief does not cover something; with no
+   brief that test cannot be applied, and the scope lives only in a session
+   that ends. The finding surfaced when a mid-round ruling asked for a stop
+   "if the brief does not cover it" and there was nothing to read.
+
    **AND THE STALE-SERVER CLAUSE REACHES PROBES, NOT ONLY BROWSERS.** The
    convert atomicity round, 2026-09-08. Round 17A's instance is a person's
    browser served new frontend code against old backend code. **The same process

@@ -580,10 +580,46 @@ test('Units Required is one box of four rows with four-figure inputs', () => {
   // width is not the claim, and M8 widens it to carry the unit cost and the
   // hosting cost per month. So the assertion is re-pointed at the property it
   // was always about: a SINGLE grid column, whatever its width.
-  assert.match(css, /\.unit-cards \{[^}]*grid-template-columns: minmax\(0, \d+px\)/,
-    'one column, so the four counts read as a set rather than as four cards')
-  assert.match(css, /\.unit-cards \.unit-card input \{[^}]*width: 72px/,
-    'four figures, not a full-width box for a two-digit number')
+  /* ── RE-POINTED AGAIN BY R-SZ2, 2026-09-26, and both old anchors stay
+     visible above. The ONE BOX claim is still the claim and still holds: the
+     merged per-product grid is one bordered box whose rows are products. What
+     is gone is `.unit-cards`, because the box now holds the installation
+     columns too, which is what let the two lists' rows stay level.
+
+     The assertion reads the grid's own single declaration rather than a width:
+     one `grid-template-columns` on `.product-grid`, so the counts still read
+     as a set rather than as four cards. */
+  assert.match(css, /\.product-grid \{[^}]*grid-template-columns:/,
+    'one grid, so the four products read as a set rather than as four cards')
+  assert.match(css, /\.product-grid \{[^}]*border: 1px solid/,
+    'the ONE BOX claim: the products sit in a single bordered box')
+  // ── RE-POINTED BY S1, 2026-09-26, and the old anchor is left visible ────
+  //
+  // It read `width: 72px` with the note "four figures, not a full-width box
+  // for a two-digit number". The intent is exactly S1's and the number was the
+  // per-site literal S1 removes: 72px is roughly four MONO digits, and these
+  // boxes render in 13px Satoshi where `99` measures 15px.
+  //
+  // The claim moves to what now decides the width: the field is DECLARED in
+  // the registry, and the estate-wide guard measures what the screen does with
+  // that declaration. A width literal here would be the thing the standard
+  // forbids, so its ABSENCE is what this asserts.
+  /* ── RE-POINTED BY R-SZ2, AND THE ABSENCE CHECK HAD GONE VACUOUS ────────
+     Both read `.unit-cards .unit-card input`, which the merge retires. The
+     `text-align` one failed honestly. The `width:` one did NOT: a negative
+     assertion over a selector that no longer exists matches nothing and passes
+     forever, which is Verification 14's "true by absence" wearing a guard.
+     It would have gone on reporting that S1 was holding while nothing was
+     being checked at all. Both now name the merged grid's own cells. */
+  assert.ok(!/\.product-grid \.ig-cell input \{[^}]*width:/.test(css),
+    'the grid input boxes carry a width literal again, which S1 removes')
+  assert.match(css, /\.product-grid \.ig-cell input \{[^}]*text-align: right/,
+    'a column of counts reads down its last digit')
+  const registry = readCode(new URL('../../src/lib/field-formats.js', import.meta.url))
+  for (const id of ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']) {
+    assert.match(registry, new RegExp(`'${id}':\\s*'count'`),
+      `${id} is not declared as a count in the sizing registry`)
+  }
   // WALK 8: the four rows are MAPPED from `UNIT_FIELDS`, so four is a property
   // of that list and the card is rendered once per member. Both are asserted:
   // the list has four names, and the renderer turns each into a `unit-card`.
@@ -591,16 +627,25 @@ test('Units Required is one box of four rows with four-figure inputs', () => {
   // M8 MADE THE LIST OBJECTS rather than strings, because each row now names
   // the two catalog rates it reads. Counted by `id:` so the count is still a
   // property of the list rather than of how it happens to be written.
+  /* ── RE-POINTED BY R-SZ2: ONE LIST, BECAUSE THERE IS ONE GRID ───────────
+     `UNIT_FIELDS` and `INSTALL_ROWS` are both gone, and their going is the
+     point rather than a casualty. They enumerated THE SAME FOUR PRODUCTS IN
+     THE SAME ORDER, in two lists that agreed by inspection, which is
+     Verification 20's second reader waiting to drift. The merge leaves one
+     `PRODUCTS`, and four is still a property of the list rather than of the
+     markup. Counted by `key:` for the reason M8 counted by `id:`. */
   const intakeSrc = readCode(new URL('../../frontend-react/src/deal/intake.tsx', import.meta.url))
-  const unitList = intakeSrc.match(/const UNIT_FIELDS = \[([\s\S]*?)\] as const/)
-  assert.ok(unitList, 'UNIT_FIELDS is gone, so nothing builds the Units Required box')
-  assert.equal([...unitList[1].matchAll(/id: '([^']+)'/g)].length, 4, 'four rows')
-  assert.match(intakeSrc, /<div className="unit-card" key=\{f\.id\}>/,
-    'the unit row is no longer one card per field')
+  const unitList = intakeSrc.match(/const PRODUCTS = \[([\s\S]*?)\] as const/)
+  assert.ok(unitList, 'PRODUCTS is gone, so nothing builds the per-product grid')
+  assert.equal([...unitList[1].matchAll(/key: '([^']+)'/g)].length, 4, 'four rows')
+  assert.ok(!/const UNIT_FIELDS =|const INSTALL_ROWS =/.test(intakeSrc),
+    'a second product list is back, which is the drift R-SZ2 removed')
+  assert.match(intakeSrc, /data-testid=\{`ig-product-\$\{p\.key\}`\}/,
+    'the row no longer names its product once per product')
   // M8: and the two catalog columns are read-only text, never a control.
-  assert.match(intakeSrc, /<span className="unit-card-cost"/,
+  assert.match(intakeSrc, /className="ig-cell ig-num ig-catalog"/,
     'the catalog costs are no longer read-only text')
-  assert.ok(!/unit-card-cost[^>]*<input/.test(intakeSrc),
+  assert.ok(!/ig-catalog[^>]*<input/.test(intakeSrc),
     'a catalog cost gained an input, which R-C2a keeps off a deal')
 })
 
@@ -620,7 +665,20 @@ test('the ruled layout: two side-by-sides, and cash flow is its own section', ()
   assert.match(html, /sectionFrame\(SECTION\['deal-sections-1-2'\]/,
     'the intake wrapper is no longer rendered as a section frame')
   assert.match(html, /<section className="deal-intake-col" id="deal-section-1">/)
-  assert.match(html, /<section className="deal-intake-col" id="deal-section-2">/)
+  /* ── RE-POINTED BY R-SZ2, 2026-09-26 ──────────────────────────────────
+     `#deal-section-2` is retired. It was the SECOND COLUMN of the intake
+     pairing, and there is no second column: the Units card and the
+     Installation per-unit table are one per-product grid, because their rows
+     had to stay level and two lists can only do that by sharing row tracks.
+
+     THE CLAIM THIS LINE WAS MAKING IS NOT DROPPED, IT MOVES. It said the
+     intake renders as two columns of one frame. What is load-bearing now is
+     that the merged grid exists and is one grid, so the line asserts THAT
+     rather than being deleted for failing. */
+  assert.match(html, /id="deal-product-grid"/,
+    'the merged per-product grid is no longer rendered')
+  assert.ok(!/id="deal-section-2"/.test(html),
+    'deal-section-2 is retired by R-SZ2 and must not come back as a second column')
   // WALK 8: sections 5 and 6 are rendered through `sectionFrame` from the
   // SECTION config, so their identity is the config entry and their frame is
   // the shared renderer. The nesting claim - the grid is INSIDE section 6 -
@@ -642,8 +700,24 @@ test('the ruled layout: two side-by-sides, and cash flow is its own section', ()
 
   // ASYMMETRIC ON PURPOSE, which is the brief's own warning made into a rule:
   // the installation text is three paragraphs and two narrow columns crowd it.
-  assert.match(css, /\.deal-section--intake \{[^}]*grid-template-columns: minmax\(0, 340px\) minmax\(0, 1fr\)/,
-    'equal halves would give the prose ~420px at 1240 to save nothing')
+  /* ── SUPERSEDED BY R-SZ2, 2026-09-26, AND QUOTED RATHER THAN DELETED ────
+     It read:
+
+       grid-template-columns: minmax(0, 340px) minmax(0, 1fr)
+       'equal halves would give the prose ~420px at 1240 to save nothing'
+
+     ASYMMETRIC ON PURPOSE was right about the layout it described: a narrow
+     Units card beside Installation's three paragraphs. Those two columns are
+     exactly what would not line up - measured 64 to 145px apart, converging,
+     so the row HEIGHTS differed and no work above the rows could have fixed
+     it - and John's ruling merges them into one per-product grid.
+
+     There is no pairing left to be asymmetric about. The claim that replaces
+     it is the one that now matters: the intake frame is a SINGLE column, so
+     nothing can reintroduce a second one and put the two lists back out of
+     step. */
+  assert.match(css, /\.deal-section--intake \{[^}]*grid-template-columns: minmax\(0, 1fr\);/,
+    'the intake frame must stay ONE column: a second column is what R-SZ2 removed')
   // ── W-F REVERSED THIS. Round 41, seventh walk ──────────────────────────
   //
   // The 940px cap was written when Cash Flow sat beside something, and the

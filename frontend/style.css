@@ -13,6 +13,21 @@
 */
 
 :root {
+  /* ── S2: ONE TOKEN PER ROLE, John's ruling 2026-09-26 ──────────────────
+     The census found 18 distinct fonts in use on the commercial panels. These
+     name the roles the ruling names, so a panel reads the role rather than
+     picking a number, and two panels cannot drift apart without moving one
+     declaration.
+
+     `--field-label-size` is 10.5px because that is what `.form-group label`
+     already used across the estate; the Units card's 9px was the outlier and
+     is what made it read as shrunken type beside the Installation panel. The
+     larger of two sizes wins here because the smaller was the defect. */
+  --field-label-size:      10.5px;
+  --field-label-tracking:  0.1em;
+  --numeric-cell-size:     13px;
+  --secondary-note-size:   11px;
+
   --dark:            #1A1B23;
   --black:           #15161C;
   --white:           #F2F2F0;
@@ -1177,11 +1192,30 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
      measurement disagreed. The pairing walk is run after every edit here for
      that reason, and a count of openers and closers is not it. */
   grid-template-columns: 375px minmax(0, 280px);
+  grid-template-rows: auto auto auto 1fr;
   justify-content: start;
-  gap: 20px;
+  gap: 0 20px;
   margin-top: 22px;
   align-items: start;
 }
+/* ── R-SZ2 / N7: THE SHARED HEAD TRACK ───────────────────────────────────
+   Track 3 holds BOTH heads, so track 4 starts after the taller of them and
+   both bodies begin level. The two wrapper divs are gone from the markup for
+   this: a row track can only be shared by direct children.
+
+   W13's COLUMN numbers are untouched and are NOT superseded. They describe
+   which column is how wide, and there are still two columns. What changed is
+   the ROW structure, which W13 never spoke about.
+
+   `gap` became `0 20px` because the 20px was a COLUMN gap that now also
+   applies between the four row tracks. The vertical rhythm is the elements'
+   own margins, exactly as it was when they were stacked inside a div. */
+.hg-title { grid-column: 1; grid-row: 1; }
+.hg-note { grid-column: 1; grid-row: 2; }
+.hg-colhead { grid-column: 1; grid-row: 3; align-self: end; }
+.hg-colhead--right { grid-column: 2; grid-row: 3; margin-bottom: 6px; color: var(--green); }
+.hg-body { grid-column: 1; grid-row: 4; }
+#deal-hybrid-schedule.hg-body { grid-column: 2; grid-row: 4; }
 .ms-grid-head {
   font-family: var(--mono);
   font-size: 9px;
@@ -1191,7 +1225,13 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   margin-bottom: 6px;
 }
 .ms-grid-row { margin-bottom: 6px; }
-.ms-grid-row input { min-width: 0; width: 100%; }
+/* ── S1: THE GRID ROWS NO LONGER SET A WIDTH ─────────────────────────────
+   `width: 100%` made every grid box as wide as its column, which is the
+   per-site literal the standard removes wearing a percentage. The boxes size
+   themselves from the registry's format now, measured in their own font.
+   `min-width: 0` stays: it stops the grid column refusing to shrink, which is
+   about the COLUMN rather than about the box. */
+.ms-grid-row input { min-width: 0; }
 
 /* ── AND THE FOURTH CELL STOPS WEARING THE BROWSER'S BORDER ──────────────
    This is the other half of O6's "partial input borders", and it is NOT the
@@ -1507,104 +1547,92 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    already records - two grids with independent columns laid out the headers
    and the fields separately, and three of four headers sat 372 to 400px from
    what they named. */
-.unit-cards {
+/* ── R-SZ2: THE MERGED PER-PRODUCT GRID ──────────────────────────────────
+   John's ruling 2026-09-26, option A. The Units card and the Installation
+   per-unit table are ONE grid, one row per product, because their rows had to
+   stay level and two lists can only do that by sharing row tracks.
+
+   EVERY CELL IS A DIRECT CHILD. A product's cells are in one grid row, so
+   N1 is satisfied by construction rather than by a measurement that has to
+   keep holding. The head cells share the grid's first row for the same
+   reason, which is N7's construction applied here.
+
+   THE COLUMNS ARE `auto`, WHICH IS S1's OWN CONSEQUENCE. The inputs size
+   themselves from the format registry in their own computed font, so a column
+   that sized itself in pixels would be a second reader of the type scale
+   (Verification 20). The column follows the field; the field follows the type.
+
+   ── THE SUPERSEDED RULES, QUOTED RATHER THAN DELETED ─────────────────────
+   They described a card that no longer exists, and each is answered here:
+
+     .unit-cards            display:grid; grid-template-columns: minmax(0,464px)
+                            a width cap for a card sitting in a 340px column.
+                            There is no second column to sit beside.
+     .unit-cards .unit-card grid-template-columns: minmax(0,1fr) 72px 80px 72px
+                            four per-row columns, declared per row. The row is
+                            now the grid's own row and declares nothing.
+     .unit-card--head       font-size: 9px, "it is not a `<th>` and does not
+                            pretend to be". The second half is truer than ever
+                            and the 9px was S2's third size, already retired.
+     .unit-card label       the S2 role token, `--field-label-*`, which the
+                            head cells carry now. G9's ruling that a field
+                            label is one role and therefore one colour is
+                            unaffected: it is about `label.deal-field`, which
+                            the bare inputs in this grid no longer render, and
+                            which is still read by every other panel.
+     .unit-cards .unit-card .deal-field
+                            the F-COM wrapper that restated the card's first
+                            two columns inward, because the React panel wrapped
+                            label and input in ONE `label.deal-field` and the
+                            card's second column went unused. The grid renders
+                            the input BARE and names the product in its own
+                            cell, so there is no wrapper to reach through. */
+.product-grid {
   display: grid;
-  grid-template-columns: minmax(0, 464px);
-  justify-content: start;
-  gap: 0;
-  border: 1px solid var(--hairline-strong);
-}
-.unit-cards .unit-card {
-  border: none;
-  border-bottom: 1px solid var(--hairline);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 80px 72px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  column-gap: 16px;
+  border: 1px solid var(--hairline-strong);
+  padding: 0 12px;
 }
-/* The heading row names the three figure columns once. It is not a `<th>` and
-   does not pretend to be: this is a grid, and a table header would be a second
-   grid with its own columns, which is the fault above. */
-.unit-cards .unit-card--head {
+.product-grid--full {
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto auto auto auto;
+}
+.product-grid .ig-head {
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: var(--field-label-size);
+  letter-spacing: var(--field-label-tracking);
   text-transform: uppercase;
   color: var(--muted);
-  padding-bottom: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline-strong);
+  align-self: end;
 }
-.unit-cards .unit-card--head span { text-align: right; }
-.unit-cards .unit-card--head span:first-child { text-align: left; }
-/* READ-ONLY, so it is text rather than a box. Right-aligned to the same edge
-   the count uses, because a column of figures reads down its last digit. */
-.unit-card-cost {
+.product-grid .ig-cell {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+.product-grid .ig-num { text-align: right; }
+.product-grid .ig-product { font-size: 13px; color: var(--white); }
+/* READ-ONLY, so it is text rather than a box. The treatment is the retired
+   `.unit-card-cost`, which was right about the role and only ever wrong about
+   where it lived. */
+.product-grid .ig-catalog {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--muted);
-  text-align: right;
   white-space: nowrap;
 }
-.unit-cards .unit-card:last-child { border-bottom: none; }
-.unit-cards .unit-card label { margin-bottom: 0; }
-/* FOUR FIGURES. The widest realistic count is four digits, and an input sized
-   for a paragraph invites one. */
-.unit-cards .unit-card input {
-  width: 72px;
-  text-align: right;
-}
-
-/* ── F-COM: THE CARD'S TWO COLUMNS REACH THE FIELD AGAIN ────────────────
-   `.unit-cards .unit-card` above declares `minmax(0, 1fr) 72px` with a 12px
-   gap: a label column and a number column. That works for markup with the
-   label and the input as SIBLINGS, which is what the vanilla gave it.
-
-   The React panel wraps both in ONE `<label class="deal-field">`, so the card's
-   grid receives a single child, its second column is never used, and the span
-   and the input sit inline HARD AGAINST each other - measured at a 0px gap on
-   SafeSight new infra, AQ sensor and HEMIR, which with a white input reads as
-   the box sitting on the label.
-
-   So the wrapper carries the same intent inward. The declaration is not
-   repeated as numbers: the columns and the gap are what the card already
-   declares, restated here at the level the markup actually has. */
-/* M8: the wrapper carries the row's FIRST TWO columns, which is what it always
-   did; the two catalog cells are siblings of it and take the other two. */
-.unit-cards .unit-card .deal-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px;
-  align-items: center;
-  gap: 12px;
-  grid-column: 1 / span 2;
-}
-.unit-card {
-  border: 1px solid var(--hairline-strong);
-  padding: 12px;
-}
-/* ── G9: A FIELD LABEL IS ONE ROLE, SO IT IS ONE COLOUR ──────────────────
-   Measured before: `Contract duration` rendered #f2f2f0 at 15.29:1 and
-   `SafeSight, existing infra` rendered #5f6065 at 2.73:1 - and BOTH are
-   `label.deal-field`, from the same census entry list. The only difference
-   was the ANCESTOR: this rule set a colour and `.terms-field-row` set none,
-   so the label inherited white there. The colour of a label was a property
-   of which card it landed in.
-
-   The two compute the same token now, and a probe asserts it rather than a
-   comment claiming it.
-
-   THE HIERARCHY SURVIVES IN TYPOGRAPHY, NOT IN DIMNESS. This label stays 9px
-   mono uppercase, which is what makes it read as a caption. Dimming it to
-   2.73:1 was doing that job with contrast, and contrast is the one property
-   a reader with poor eyesight cannot recover. */
-.unit-card label {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--white);
-  display: block;
-  margin-bottom: 8px;
-}
+/* Right-alignment stays, and S1's note on why is unchanged: it is what makes a
+   column of counts read down its last digit, and it is not a width. */
+.product-grid .ig-cell input { text-align: right; }
+.product-grid .ig-total { border-bottom: none; }
+/* HIDDEN, NOT ABSENT. The retired install table carried `hidden` and kept its
+   inputs, so a responsibility that is not Per Unit has never meant those
+   fields do not exist. `display: none` leaves the four visible cells of each
+   row to auto-place into the four-column template, so the rows stay rows. */
+.product-grid:not(.product-grid--full) .ig-install { display: none; }
 
 /* ── Computed pricing cards (Hw / Hosting Setup) ────────────────
    Two peer cards, each self-contained with Item/Cost/Margin%/Price
@@ -1740,7 +1768,8 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    on source order - the control then took the grid track's auto width, 145px
    for a two-digit percentage. One extra class settles it where the rule
    belongs rather than relocating the block and hoping nothing moves again. */
-.pg-card .terms-field-row .deal-field input { width: 76px; text-align: right; }
+/* S1: the width comes from the registry; the alignment is this row's own. */
+.pg-card .terms-field-row .deal-field input { text-align: right; }
 .pg-card .terms-field-row .deal-field select { width: 104px; }
 .terms-field-row:last-child { border-bottom: none; }
 
@@ -2416,10 +2445,12 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1 / -1; }
 
+/* S2: the field-label role reads its size and tracking from the token, which
+   the Units card reads too. One writer, two readers. */
 .form-group label {
   font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
+  font-size: var(--field-label-size);
+  letter-spacing: var(--field-label-tracking);
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -5868,14 +5899,24 @@ textarea::placeholder { color: var(--muted); }
    It collapses to one column below 1100px on the same threshold the other pair
    used, because two columns of anything in half a laptop width is worse than
    scrolling. */
+/* ── R-SZ2: ONE COLUMN, BECAUSE THE TWO LISTS ARE ONE GRID ───────────────
+   SUPERSEDED, QUOTED NOT DELETED:
+
+     grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+     @media (max-width: 1100px) { grid-template-columns: minmax(0, 1fr); }
+
+   The 340px column held the Units card and the `1fr` held Installation. Those
+   were the two columns whose rows would not line up, and the merge removes the
+   pairing by removing the second column: the products are rows of one grid
+   now, and the grid handles its own columns.
+
+   The media query goes with it. It collapsed two columns into one at 1100px,
+   and there is one at every width. */
 .deal-section--intake {
   display: grid;
-  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
   align-items: start;
-}
-@media (max-width: 1100px) {
-  .deal-section--intake { grid-template-columns: minmax(0, 1fr); }
 }
 .deal-intake-col { min-width: 0; display: block; }
 .deal-intake-col + .deal-intake-col { padding-top: 0; }
@@ -6581,16 +6622,22 @@ textarea::placeholder { color: var(--muted); }
    tighter 6px that says they belong together. Flattening both to one number
    would separate a label from its own input as much as from its neighbour,
    which is Payment Terms' own convention read the wrong way. */
-/* ── M9: THE FACTORING INPUTS ARE SIZED FOR WHAT THEY HOLD ───────────────
-   Both were the full column width - 355px at 1920 - for a rate of `xx.x%` and
-   a term of `XXX`. Sized from the REQUIREMENT rather than from a measurement
-   of the result: the live probe types the widest realistic value into each and
-   asserts it is not clipped, which is the check a number read off a screenshot
-   cannot be (Verification 47).
+/* ── M9 IS SUPERSEDED BY S1, AND THE OLD RULE IS LEFT VISIBLE ────────────
+   M9 gave these two boxes hand-picked widths:
 
-   The labels are unchanged, per the finding. */
-.po-factoring-panel #deal-factoring-ratePct { width: 76px; text-align: right; }
-.po-factoring-panel #deal-factoring-termMonths { width: 64px; text-align: right; }
+     #deal-factoring-ratePct   { width: 76px }
+     #deal-factoring-termMonths { width: 64px }
+
+   Both were measured against their requirement and both were right. They are
+   also exactly what S1 forbids: a per-site literal, correct for the font
+   somebody had when they typed it and silently wrong the day the type scale
+   moves. The registry now derives both from their declared formats - `percent`
+   and `months` - measured in each box's own computed font.
+
+   The alignment stays here, because right-alignment is a property of a column
+   of figures rather than of a width. */
+.po-factoring-panel #deal-factoring-ratePct,
+.po-factoring-panel #deal-factoring-termMonths { text-align: right; }
 .po-factoring-panel { --po-rhythm: 14px; }
 .po-factoring-panel > * + * { margin-top: var(--po-rhythm); }
 #deal-factoring-fields > label + * { margin-top: 0; }
@@ -6613,7 +6660,9 @@ textarea::placeholder { color: var(--muted); }
   text-transform: uppercase;
   color: var(--muted);
 }
-.po-field input { width: 100%; }
+/* S1: `width: 100%` here is what made the factoring rate and term as wide as
+   their column - 355px at 1920 for a value of `xx.x`. The registry sizes them
+   now, so the panel says nothing about their width. */
 
 /* Stacked, because a quarter-width panel cannot hold two buttons side by side
    and the labels are "Straight-line" and "Declining balance". */
@@ -8612,7 +8661,8 @@ textarea.lead-field-input,
    centre its items horizontally. Nothing is added for the direction; what is
    added is the spacing beneath, so the group reads as a group. */
 #deal-structure-toggle { margin-bottom: 18px; }
-#deal-invoicing-toggle { margin-top: 18px; }
+/* N6: the radios sit ABOVE the money now, so the rhythm goes below them. */
+#deal-invoicing-toggle { margin-bottom: 18px; }
 
 /* ── M1 and M10: THE TWO-SIDED SELECTOR ──────────────────────────────────
    Both states named, either side of the track, the one in force in the estate
@@ -8633,24 +8683,33 @@ textarea.lead-field-input,
   white-space: nowrap;
 }
 .deal-toggle-side[data-active="true"] { color: var(--green); }
-/* The labels sit OUTSIDE, so the button is the track alone: the left padding
-   that made room for text goes with them. */
-.btn-ghost.deal-toggle--flanked { padding: 0; width: 42px; }
-/* ── THE KNOB TRAVELS TOWARD THE ACTIVE SIDE, AND NEEDS NO INVERSION ──────
-   `on` is the RIGHT-hand label - OPEX right of CAPEX, Declining right of
-   Straight-line - and `.deal-toggle` already travels right when `is-on`. The
-   slider-direction round had to invert this because L1 put the active label on
-   the LEFT; M1 reverses the order instead, so travel and order agree by
-   construction rather than by a rule somebody has to remember.
+/* ── N5, John's ruling 2026-09-26: THE TRACK AND KNOB ARE THE FACTORING
+   CONTROL'S, EXACTLY. The superseded rules are quoted because they were a
+   deliberate decision and this reverses it.
 
-   THE TRAVEL IS 22px, NOT the base 12px, and that was measured rather than
-   chosen: at 12px the knob's centre moved 377 to 389 while the labels sat at
-   333 and 443, so "nearer the active label" held by two pixels in one state.
-   These rules sit AFTER `.deal-toggle`'s, which is what makes them win: equal
-   specificity, decided on source order. */
-.deal-toggle--flanked::before { left: 0; width: 40px; height: 16px; border-radius: 8px; }
-.deal-toggle--flanked::after { left: 4px; width: 10px; height: 10px; transform: translate(0, -50%); }
-.deal-toggle--flanked.is-on::after { transform: translate(22px, -50%); }
+   M1 gave the flanked variant its own geometry:
+
+     .btn-ghost.deal-toggle--flanked { padding: 0; width: 42px }
+     .deal-toggle--flanked::before   { left: 0; width: 40px; height: 16px }
+     .deal-toggle--flanked::after    { left: 4px; width: 10px; height: 10px }
+     .deal-toggle--flanked.is-on::after { transform: translate(22px, -50%) }
+
+   The 22px travel was measured and was right FOR THAT CONTROL: at the base
+   12px the knob's centre moved 377 to 389 while the labels sat at 333 and 443,
+   so "nearer the active label" held by two pixels.
+
+   JOHN'S RULING SUPERSEDES THE TWO-KINDS TAXONOMY. The track and knob are the
+   same object on both controls, so they take `.deal-toggle`'s own ::before and
+   ::after untouched and this file says nothing about them. What remains is the
+   one thing the flanked variant still needs: its label is outside, so the
+   button has no text to make room for.
+
+   THE TRAVEL IS THEREFORE 12px AGAIN, the base one, and "the knob is nearer
+   the active label" is no longer the claim the live probe makes. It asserts
+   the knob is at the track's LEFT OR RIGHT END, which is a relationship
+   between the knob and the track rather than between the knob and a word, and
+   is true at any travel. */
+.btn-ghost.deal-toggle--flanked { padding-left: 36px; width: auto; }
 
 /* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────────────────
    `flex-start` is the whole of "the stagger removed": the yearly table used to
@@ -8660,13 +8719,50 @@ textarea.lead-field-input,
    1440 and 605px at 1240. They share the row at 1440 and cannot at 1240, so
    they stack there - still top-aligned, and with no type shrunk and no figure
    clipped to force it. */
+/* ── R-SZ2 / N7: THE OPEX PAIR'S HEADS TAKE ONE DECLARED HEIGHT ──────────
+   SUPERSEDED, QUOTED NOT DELETED: `display: flex; align-items: flex-start;
+   flex-wrap: wrap`. Flex put the two columns' TOPS level, which is not the
+   claim: the claim is that their first FIGURE ROWS are level, and they were
+   12px apart at every width because the two heads were different heights.
+
+   `--opex-head-h` IS DERIVED FROM THE TYPE, NOT CHOSEN. It is the field-label
+   token's line box plus the 6px the head has always carried beneath it, so it
+   follows the type scale the way S1's widths do. Both the table's own `th` and
+   the yearly head consume it, so the two bodies start at the same offset by
+   construction. One token with two consumers, not two numbers that agree.
+
+   A real `<table>` cannot put its `thead` in a parent's row track, which is
+   why this is a shared height rather than a shared track. */
 .opex-tables {
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  flex-wrap: wrap;
+  --opex-head-h: calc(var(--field-label-size) * 1.5 + 6px);
+  display: grid;
+  grid-template-columns: auto minmax(0, auto);
+  grid-template-rows: var(--opex-head-h) 1fr;
+  justify-content: start;
+  column-gap: 24px;
+  align-items: start;
 }
 .opex-tables > * { min-width: 0; }
+.opex-tables > #deal-opex-table { grid-column: 1; grid-row: 1 / span 2; }
+.opex-tables > .opex-year-head {
+  grid-column: 2;
+  grid-row: 1;
+  height: var(--opex-head-h);
+  margin: 0;
+  display: flex;
+  align-items: flex-end;
+  color: var(--green);
+}
+.opex-tables > #deal-opex-year-slot { grid-column: 2; grid-row: 2; }
+#deal-opex-table thead th {
+  height: var(--opex-head-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  vertical-align: bottom;
+}
+/* The CAPEX slot has nothing to be level with, so it keeps the head's own
+   spacing rather than inheriting a rule written for a pair. */
+.capex-year-head { margin-bottom: 6px; color: var(--green); }
 /* L3's "stagger removed" is exact: the OPEX table carries `margin: 4px 0 14px`
    from the round that built it, so inside this row its top margin put it 4px
    below the yearly table. Measured at 679 against 675 and zeroed here rather

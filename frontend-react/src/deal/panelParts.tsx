@@ -4,6 +4,7 @@ import type { ReconciliationView, MilestoneOption } from './milestones'
 import { milestoneUsd } from '../../../src/lib/milestone-schedule.js'
 import type { InstallVisibility, StructureVisibility, ToggleState } from './installation'
 import { money } from './rows'
+import { SizedInput } from './useFieldWidth'
 // The SAME reader the vanilla paints the accent from. Verification 20.
 import { marginPresentation } from '../../../src/lib/deal-inputs.js'
 
@@ -48,12 +49,26 @@ export function CashFlowGrid({ months, rows, scrollRef }: {
   )
 }
 
+/* ── R-SZ2: THE SCHEDULE'S HEAD IS RENDERED BY ITS SLOT, NOT BY THIS VIEW ──
+   N7 asks the first figure rows of two lists sharing a row to be level, and
+   the construction is a shared head track. A head track can only be shared by
+   grid ITEMS, so the head has to be a sibling of the body in the slot's grid
+   rather than the body's first child here.
+
+   THE TEXT IS UNCHANGED AND IS STILL THE SCHEDULE'S OWN: `section5.tsx`
+   renders `schedule.label`, passed down from the one place that builds it, so
+   this is a move and not a second reader (Verification 20).
+
+   `data-testid="hybrid-schedule"` AND `data-testid="year-schedule"` STILL
+   CARRY A BOX, which is required: N6 measures the schedule's top against the
+   invoicing group's bottom, and an element with no box measures as zero. That
+   is why the head moved out rather than the wrapper becoming `display:
+   contents`. */
 export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
   if (schedule.kind === 'none') return <div data-testid="year-schedule" />
   if (schedule.kind === 'hybrid') {
     return (
       <div data-testid="hybrid-schedule">
-        <p className="label" style={{ marginBottom: 10, color: 'var(--green)' }}>{schedule.label}</p>
         {schedule.years.map((y) => (
           <div className="ds-row" key={y.label}>
             <span className="ds-label">{y.label}</span>
@@ -75,7 +90,6 @@ export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
   // collided at 1240. Read down, each year is a labelled line.
   return (
     <div data-testid="year-schedule">
-      <p className="label" style={{ marginBottom: 6, color: 'var(--green)' }}>{schedule.label} (USD)</p>
       <div className="ys-stack">
         {schedule.years.map((y) => (
           <div className="ys-line" key={y.label}>
@@ -132,7 +146,8 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options
     <div data-testid="milestone-grid">
       {rows.map((r) => (
         <div className="ms-grid-row" key={r.row}>
-          <input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
+          {/* S1: sized from the registry's format for this id. */}
+          <SizedInput id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
             value={values[r.month] ?? ''} onChange={(e) => onChange(r.month, e.target.value)} />
           {/* ── R-W12: THE PROTOTYPE'S DROPDOWN, RESTORED ──────────────────
               This was a free-text input. The prototype rendered a `<select>`
@@ -148,7 +163,7 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options
             value={values[r.label] ?? ''} onChange={(e) => onChange(r.label, e.target.value)}>
             {options(r.row).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <input id={r.pct} data-testid={r.pct} inputMode="decimal"
+          <SizedInput id={r.pct} data-testid={r.pct} inputMode="decimal"
             value={values[r.pct] ?? ''} onChange={(e) => onChange(r.pct, e.target.value)} />
           {/* ── THE COMMENT THAT WAS FALSE, CORRECTED (R-N1) ───────────────
               It read: "THE USD IS COMPUTED and shown read-only, so the two
@@ -164,7 +179,7 @@ export function MilestoneGrid({ rows, values, usdFor, onChange, warning, options
               It is true now, and by construction rather than by assertion:
               there is one derivation, `milestoneUsd`, and all three readers
               call it. There is no second number to disagree with. */}
-          <input id={r.usd} data-testid={r.usd} className="is-computed"
+          <SizedInput id={r.usd} data-testid={r.usd} className="is-computed"
             readOnly tabIndex={-1} value={usdFor(r.row)} />
         </div>
       ))}
@@ -234,7 +249,7 @@ export function ContractorGrid({ rows, values, options, onTyped, view, base }: {
       </div>
       {rows.map((r) => (
         <div className="cm-grid-row" key={r.row}>
-          <input id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
+          <SizedInput id={r.month} data-testid={r.month} inputMode="numeric" maxLength={2}
             className="int-only"
             value={values[r.month] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.month, e.target.value)} />
           {/* THE STORED-UNKNOWN BEHAVIOUR IS UNTOUCHED: `options` still keeps
@@ -246,7 +261,7 @@ export function ContractorGrid({ rows, values, options, onTyped, view, base }: {
           </select>
           {/* BOTH SIDES ARE WRITABLE: whichever the person types on decides
               which one follows. That is the round trip, not a convenience. */}
-          <input id={r.pct} data-testid={r.pct} inputMode="decimal"
+          <SizedInput id={r.pct} data-testid={r.pct} inputMode="decimal"
             value={values[r.pct] ?? ''} onChange={(e) => onTyped(r.row, 'pct', r.pct, e.target.value)} />
           {/* ── R-N1: THE AMOUNT IS DERIVED, AND STILL TYPEABLE ────────────
               It rendered `values[r.usd]`, a stored figure that went stale the
@@ -257,7 +272,7 @@ export function ContractorGrid({ rows, values, options, onTyped, view, base }: {
               still works and still sets the percentage - that round trip is
               the point of this grid - but what the row CARRIES is the
               percentage, so there is nothing left to go stale. */}
-          <input id={r.usd} data-testid={r.usd} inputMode="decimal"
+          <SizedInput id={r.usd} data-testid={r.usd} inputMode="decimal"
             value={derivedUsd(r.row)}
             onChange={(e) => onTyped(r.row, 'usd', r.usd, e.target.value)} />
         </div>

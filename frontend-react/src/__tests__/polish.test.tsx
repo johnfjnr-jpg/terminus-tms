@@ -228,19 +228,37 @@ describe('M4, M6 and M3: the radios, the recovery period and the duration', () =
   })
 })
 
-describe('M7: the invoicing radios sit beneath the money', () => {
-  test('M7a: under Two-phase invoicing follows the fee table in document order', async () => {
+/* ── M7 IS SUPERSEDED BY N6, John's ruling 2026-09-26, AND THE POLARITY
+   INVERTS. M7 put the invoicing radios BENEATH the money; N6 puts them ABOVE.
+
+   M7's REASONING SURVIVES INTACT and is worth keeping, because it was about
+   the hard part rather than the direction: "beneath the fee table under
+   Two-phase and beneath the hosting schedule under Hybrid" is ONE placement,
+   not two, once the rail is gone, because the fee table and the Hybrid grid
+   are siblings in that flow. Reversed, that still holds - a group BEFORE both
+   precedes whichever one renders - so N6 is still one group and not two, which
+   is what F4 established and what matters. */
+describe('N6: the invoicing radios sit ABOVE the money', () => {
+  test('N6a: under Two-phase invoicing PRECEDES the fee table in document order', async () => {
     await mount({ structure: 'twoPhase' })
     const sched = q('[data-testid="year-schedule"], [data-testid="hybrid-schedule"]')!
     const inv = q('#deal-invoicing-toggle')!
-    expect(sched.compareDocumentPosition(inv) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(inv.compareDocumentPosition(sched) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  test('M7b: under Hybrid invoicing follows the hosting schedule', async () => {
+  test('N6b: under Hybrid invoicing PRECEDES the hosting schedule', async () => {
     await mount({ structure: 'hybrid' })
     const sched = q('[data-testid="year-schedule"], [data-testid="hybrid-schedule"]')!
     const inv = q('#deal-invoicing-toggle')!
-    expect(sched.compareDocumentPosition(inv) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(inv.compareDocumentPosition(sched) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  test('N6c: and it is still ONE group, which is what F4 established', async () => {
+    for (const structure of ['twoPhase', 'hybrid'] as const) {
+      await mount({ structure })
+      expect(host.querySelectorAll('#deal-invoicing-toggle').length, structure).toBe(1)
+      expect(host.querySelectorAll('[data-invoicing]').length, structure).toBe(2)
+    }
   })
 
   test('M7c: the ruled Option A survives, one hosting render per structure', async () => {

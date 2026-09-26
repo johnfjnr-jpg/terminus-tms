@@ -65,7 +65,7 @@ const INVOICING = [
 
 
 export function PaymentTermsSection({
-  ui, setUi, vis, duration, renderField, milestoneGrid, yearSchedule,
+  ui, setUi, vis, duration, renderField, milestoneGrid, yearSchedule, scheduleHead,
   opex,
 }: {
   ui: UiState
@@ -75,6 +75,11 @@ export function PaymentTermsSection({
   renderField(id: string): ReactNode
   milestoneGrid: ReactNode
   yearSchedule: ReactNode
+
+  /** R-SZ2: the schedule's own head text, rendered by the SLOT so it can be a
+      grid item in the slot's shared head track. Built once where the schedule
+      is built, so it is a move rather than a second reader. */
+  scheduleHead: ReactNode
 
   /** R-OX2: the OPEX table, built by the panel so this file lays out only. */
   opex: ReactNode
@@ -191,6 +196,27 @@ export function PaymentTermsSection({
             </div>
           </div>
 
+          {/* ── N6: THE INVOICING RADIOS RENDER ABOVE THE MONEY ─────────────
+              John's ruling 2026-09-26, superseding M7, which put them beneath.
+
+              M7'S REASONING IS LEFT HERE BECAUSE IT WAS RIGHT ABOUT THE HARD
+              PART: "beneath the fee table under Two-phase and beneath the
+              hosting schedule under Hybrid" is ONE placement, not two, once the
+              rail is gone, because the fee table and the Hybrid grid are
+              siblings in this flow. That still holds with the polarity
+              reversed: a group BEFORE both of them precedes whichever one
+              renders, so this is still one group and not two.
+
+              And it is still one group for the reason F4 established: two
+              groups writing one choice is the defect, not the layout. */}
+          <div className="ring-radio-group" id="deal-invoicing-toggle">
+            <span className="label">Invoicing</span>
+            {INVOICING.map((o) => (
+              <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
+                active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
+            ))}
+          </div>
+
           {/* ── THE MONEY ────────────────────────────────────────────────────
               F5/F3 OPTION A stands: ONE `yearSchedule`, rendered here unless
               the Hybrid grid below is going to render it. Both gate on the SAME
@@ -201,11 +227,34 @@ export function PaymentTermsSection({
               in the completion round and is not restored: it was false from the
               moment it was written, because this slot was gated on the MODE and
               the Hybrid slot on the STRUCTURE. */}
+          {/* ── R-SZ2 / N7: THE OPEX PAIR SHARES A HEAD TRACK ──────────────
+              Two tables sharing a row, so their first figure rows are level.
+              Measured before: the per-unit rows started 12px ABOVE the yearly
+              rows at every width, because the table's `<thead>` is 20px and
+              the yearly head stack was 32.25px - a `.label` contributing its
+              own 10.5px top margin, 15.75px of line and a 6px bottom margin.
+
+              THE DEFECT WAS INVISIBLE UNTIL THIS ROUND. The probe looked for
+              `.ys-row`, which nothing renders, so the yearly row was reported
+              "not found" and the comparison silently never ran.
+
+              A REAL `<table>` CANNOT PARTICIPATE IN A PARENT'S ROW TRACKS, so
+              the two heads consume ONE declared height instead, `--opex-head-h`
+              on `.opex-tables`, read by the table's `th` and by the head
+              below. One token, two consumers: the bodies then start at the
+              same offset by construction rather than by matching numbers,
+              which is N5's own lesson from this round. */}
           <div className={`opex-tables${opexOn ? '' : ' hidden'}`} id="deal-opex-tables">
             {opexOn ? opex : null}
+            {opexOn ? <p className="label opex-year-head" data-testid="opex-year-head">{scheduleHead}</p> : null}
             {opexOn ? <div id="deal-opex-year-slot">{yearSchedule}</div> : null}
           </div>
-          {opexOn || hybridOn ? null : <div id="deal-capex-year-slot">{yearSchedule}</div>}
+          {opexOn || hybridOn ? null : (
+            <>
+              <p className="label capex-year-head" data-testid="capex-year-head">{scheduleHead}</p>
+              <div id="deal-capex-year-slot">{yearSchedule}</div>
+            </>
+          )}
 
 
           {/* ── F4: `#deal-top-schedule-row` IS RETIRED ─────────────────────
@@ -222,11 +271,26 @@ export function PaymentTermsSection({
               that reads as a slot and is a leftover. */}
 
 
+          {/* ── R-SZ2 / N7: THE TWO COLUMNS SHARE ROW TRACKS ───────────────
+              The milestones column carried a heading, a field note and a grid
+              head above its rows; the hosting column carried a label. Measured
+              at 67px apart at all three widths, and constant, because the
+              difference is structural rather than a wrap.
+
+              THE TWO WRAPPER DIVS ARE GONE so every part is a direct child of
+              this grid and can be placed in a named row track. The milestone
+              head and the hosting head share track 3, so track 4 begins after
+              the TALLER of the two, whatever either contains, and both bodies
+              start there. Nothing is measured against anything.
+
+              `display: contents` on the wrappers was the cheaper route and is
+              NOT taken: N6 measures `[data-testid="hybrid-schedule"]` as a box
+              against the invoicing group, and an element with no box measures
+              as zero. */}
           <div id="deal-hybrid-group" className={vis.hybridGroup ? '' : 'hidden'}>
-            <div>
-              <p className="label">Customer payment milestones (hardware)</p>
-              <p className="field-note">When the customer pays us. Later payments increase the working capital we fund.</p>
-              {/* ── R-O5/O6: ONE GRID, NOT TWO NESTED TABLES ───────────────
+            <p className="label hg-title">Customer payment milestones (hardware)</p>
+            <p className="field-note hg-note">When the customer pays us. Later payments increase the working capital we fund.</p>
+            {/* ── R-O5/O6: ONE GRID, NOT TWO NESTED TABLES ───────────────
                   The table is gone. It carried a `<thead>` of four `<th>` and
                   put the whole of `MilestoneGrid`, WHICH RENDERS ITS OWN
                   TABLE, inside its single `<tbody>`. Two tables with
@@ -248,35 +312,18 @@ export function PaymentTermsSection({
                   AND THE BORDER FRAGMENTS DIE WITH THE TABLE. The partial
                   outlines were table cells each carrying their own edge; with
                   one grid there are no cell walls to render. */}
-              <div className="ms-grid-head" data-testid="ms-grid-head">
-                <div>Month</div><div>Project milestone</div><div>%</div><div>USD</div>
-              </div>
-              <div id="deal-milestones-tbody">{milestoneGrid}</div>
+            <div className="ms-grid-head hg-colhead" data-testid="ms-grid-head">
+              <div>Month</div><div>Project milestone</div><div>%</div><div>USD</div>
             </div>
-            <div>
-              {/* F4: the hybrid invoicing group is gone. One control in the
-                  rail writes the choice for every structure. */}
-              {/* F5/F3 OPTION A: the ONE render, collapsed into the Hybrid
-                  grid, beside the milestones at full card width. */}
-              <div id="deal-hybrid-schedule">{hybridOn ? yearSchedule : null}</div>
-            </div>
+            <div id="deal-milestones-tbody" className="hg-body">{milestoneGrid}</div>
+            {/* F4: the hybrid invoicing group is gone. One control in the
+                rail writes the choice for every structure. */}
+            {/* F5/F3 OPTION A: the ONE render, collapsed into the Hybrid
+                grid, beside the milestones at full card width. */}
+            <p className="label hg-colhead hg-colhead--right">{scheduleHead}</p>
+            <div id="deal-hybrid-schedule" className="hg-body">{hybridOn ? yearSchedule : null}</div>
           </div>
 
-          {/* ── M7: THE INVOICING RADIOS SIT BENEATH THE MONEY ──────────────
-              "beneath the fee table under Two-phase and beneath the hosting
-              schedule under Hybrid" is ONE placement, not two, once the rail is
-              gone: the fee table and the Hybrid grid are siblings in this flow,
-              so a group after both of them follows whichever one rendered.
-
-              Stating it as two positions would need two groups, and two groups
-              writing one choice is the defect F4 removed. */}
-          <div className="ring-radio-group" id="deal-invoicing-toggle">
-            <span className="label">Invoicing</span>
-            {INVOICING.map((o) => (
-              <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
-                active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
-            ))}
-          </div>
         </div>
       </div>
 

@@ -16,6 +16,7 @@
 // Units Required card and the statement drawers edit. Not a copy.
 import type { ReactNode } from 'react'
 import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
+import { SizedInput } from './useFieldWidth'
 
 export interface OpexRow {
   key: string
@@ -52,7 +53,7 @@ export function OpexTable({ rows, values, onValue }: {
     // depart from: a box with no derivation behind it has nothing to override.
     const override = stored !== '' && shown !== ''
     return (
-      <input type="text" data-testid={id} id={id} data-contract="numOrUndefined"
+      <SizedInput type="text" data-testid={id} id={id} data-contract="numOrUndefined"
         className={`stmt-edit${override ? ' stmt-edit-override' : ''}`}
         data-override={override ? 'true' : 'false'}
         value={stored !== '' ? stored : shown}
@@ -93,7 +94,7 @@ export function OpexTable({ rows, values, onValue }: {
                     {r.units}
                   </span>
                 ) : (
-                  <input type="text" data-testid={`deal-opexunits-${k}`} className="stmt-edit"
+                  <SizedInput type="text" data-testid={`deal-opexunits-${k}`} className="stmt-edit"
                     data-contract="numOrUndefined"
                     value={values[COUNT_ID[k]] ?? ''}
                     onChange={(e) => onValue(COUNT_ID[k], e.target.value)} />
