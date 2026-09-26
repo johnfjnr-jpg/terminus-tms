@@ -122,6 +122,42 @@ opens.
 
 ---
 
+## THE PROOF STEP FOUND SOMETHING THE RULING DID NOT ANTICIPATE
+
+R-PT3 asks for the issued version's figures to be **"non-zero, matching a
+direct derivation run over that snapshot"**. That is the right test and, on its
+own, **it cannot detect the fault it exists to detect.**
+
+Measured, by injecting the fault: `structure === 'single'` in
+`deal-calculator.js` changed to a name nothing produces, which is exactly
+"somebody removed the meaning along with the option".
+
+```
+FAIL single still recovers over the FULL TERM: recov null against duration 60
+FAIL single still recovers over the FULL TERM: recov null against duration 36
+
+the page MATCHES the direct derivation   ok, on both records
+total cost matches                       ok, on both records
+achieved margin matches                  ok, on both records
+```
+
+**THE MATCH SURVIVES THE FAULT, because the page and the "direct derivation"
+are the SAME READER.** Both call `calculateDeal`. Break the calculator and both
+move together, agreeing perfectly on a figure that has silently changed. That
+is Verification 20 arriving inside a proof: two readers that cannot disagree
+are one reader, and a comparison between them measures nothing.
+
+**So the proof carries a SEMANTIC anchor as well as the match**: `single` still
+reports `structure: 'single'`, and `recov` still equals the contract duration,
+which is the one thing the calculator does with the value. That is the
+assertion the injection fires on, and it is the only one that does.
+
+**The figures being NON-ZERO is the ruling's own guard against the neighbouring
+failure** and it is kept for that reason: two derivations that both collapse to
+zero also agree perfectly, which this estate has shipped before.
+
+---
+
 ## Standing method
 
 - Measurements on the LIVE surface, never inferred from source.
