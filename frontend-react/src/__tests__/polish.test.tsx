@@ -108,6 +108,19 @@ describe('M10: repayment method is the same two-sided control', () => {
       + ' [data-testid="deal-method-label-declining"]').map((e) => e.getAttribute('data-testid'))
     expect(order).toEqual([
       'deal-method-label-straight', 'deal-method-toggle', 'deal-method-label-declining'])
+    /* ── AND THE TEXT, WHICH THE ORDER ABOVE CANNOT SEE ──────────────────
+       A calibration injection that swapped the two labels came back SILENT
+       with ZERO failures. The test ids are bound to the SIDE by the component
+       - `testidLeft` and `testidRight` - so their document order is fixed by
+       construction and no swap of the WORDS can move it. The assertion was
+       true of any labelling whatsoever.
+
+       M1a happened not to have this hole because it asserts its label text as
+       well; this did not, and the silence is what said so (Verification 51:
+       the injection that comes back silent is naming a claim nothing
+       asserts). */
+    expect(q('[data-testid="deal-method-label-straight"]')!.textContent!.trim()).toBe('STRAIGHT-LINE')
+    expect(q('[data-testid="deal-method-label-declining"]')!.textContent!.trim()).toBe('DECLINING BALANCE')
   })
 
   test('M10b: it is the shared DealToggle and marks the active side', async () => {
