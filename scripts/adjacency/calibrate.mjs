@@ -72,9 +72,14 @@ const INJECTIONS = [
     expect: 'A5 the radios sit OVER' },
 
   /* A6: one row stops sharing the card's two-column shape. */
+  /* RE-POINTED: W2 split `.deal-field` and `.po-row` into separate rules when
+     the repayment row began stacking at every width, so the old anchor matched
+     nothing and the harness REFUSED THE RUN rather than scoring a sweep against
+     a fault it never applied. Breaking the two-column shape on the rate and
+     term rows is what leaves their right edges disagreeing now. */
   { id: 'A6 one row leaves the shared edge', kind: 'live', file: CSS,
-    find: '#deal-factoring-fields .deal-field,\n#deal-factoring-fields .po-row {',
-    put: '#deal-factoring-fields .po-row {',
+    find: '#deal-factoring-fields .deal-field {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto;\n  gap: 12px;\n  align-items: center;\n}',
+    put: '#deal-factoring-fields .deal-field {\n  display: flex;\n  gap: 12px;\n  align-items: center;\n}',
     expect: 'A6' },
 
   /* ── W2: THE OVERPRINT FORCED BACK ─────────────────────────────────────
@@ -95,8 +100,8 @@ const INJECTIONS = [
      check that measures INK rather than boxes: box against box, this state
      reads clean while "REPAYMENT METHOD" prints through "STRAIGHT-LINE". */
   { id: 'W2 the label forced back into its control', kind: 'live', file: CSS,
-    find: '#deal-factoring-fields .po-row {\\n  display: flex;\\n  flex-direction: column;\\n  align-items: stretch;\\n  gap: 6px;\\n}',
-    put: '#deal-factoring-fields .po-row {\\n  display: grid;\\n  grid-template-columns: minmax(0, 1fr) auto;\\n  gap: 12px;\\n  align-items: center;\\n}',
+    find: '#deal-factoring-fields .po-row {\n  display: flex;\n  flex-direction: column;\n  align-items: stretch;\n  gap: 6px;\n}',
+    put: '#deal-factoring-fields .po-row {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto;\n  gap: 12px;\n  align-items: center;\n}',
     expect: 'W2 no box on the schedule stack intersects' },
 
   /* ── W1: THE HALVES STACKED AGAIN ─────────────────────────────────────── */
