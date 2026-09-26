@@ -11,6 +11,18 @@ a finding.
 
 ## The loop
 
+**EVERY ROUND'S FIRST COMMIT IS ITS BRIEF. Set by John 2026-09-26, permanent.**
+Not the first code commit, and not the commit after Phase 0: the first commit on
+the round branch. **A round with no committed brief has no stop-rule referent**,
+so "stop where the brief does not cover it" cannot fire, and the scope exists
+only in a conversation the next session will not have.
+
+The sizing standard round ran six findings, two screens and a permanent standard
+in `DESIGN_PRINCIPLES.md` deep **with no brief in the repository at all** -
+none tracked, untracked or stashed - and nothing detected it. The gap was
+invisible precisely because the work was going well, which is the argument for a
+mechanism over a habit: nothing in the estate can see an absent document.
+
 Brief in the repo, then phases in order, then a report, then sign-off, then
 the next phase. Nothing is pushed without the explicit word. A round closes
 on the word, never on the work feeling finished.
