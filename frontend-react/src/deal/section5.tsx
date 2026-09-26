@@ -37,8 +37,19 @@ function RingRadio({ attr, value, label, note, active, onPick }: {
 // R-PT2: the label and its explanation are two things, so they are two strings.
 // The parenthetical WAS the explanation all along; it becomes the secondary
 // line rather than new copy, so nothing is invented and nothing is lost.
+/* ── R-PT3: SINGLE PHASE IS NOT OFFERED FOR NEW PRICING ───────────────────
+   John's ruling, 2026-09-26: CAPEX offers Two-phase and Hybrid. OPEX IS the
+   single-phase mode, so the choice was always a duplicate of the mode switch
+   sitting two rows above it.
+
+   THE OPTION LEAVES THIS LIST. THE VALUE DOES NOT LEAVE THE SYSTEM, and the
+   distinction is the whole of the ruling. `effectiveStructure` still returns
+   `'single'` for every OPEX deal, `deal-calculator.js` still reads
+   `structure === 'single' ? months`, and three issued versions carry
+   `inputs.structure = 'single'` frozen inside them. The brief records what
+   `single` means to the derivation, permanently, because the meaning has to
+   outlive the control. */
 const STRUCTURES = [
-  { value: 'single', label: 'Single phase', note: 'recovery over full term' },
   { value: 'twoPhase', label: 'Two-phase', note: 'hardware recovery then hosting' },
   { value: 'hybrid', label: 'Hybrid', note: 'milestone + hosting' },
 ]
@@ -54,7 +65,7 @@ const INVOICING = [
 
 
 export function PaymentTermsSection({
-  ui, setUi, vis, duration, renderField, milestoneGrid, yearSchedule, hybridSchedule,
+  ui, setUi, vis, duration, renderField, milestoneGrid, yearSchedule,
   opex,
 }: {
   ui: UiState
@@ -64,12 +75,17 @@ export function PaymentTermsSection({
   renderField(id: string): ReactNode
   milestoneGrid: ReactNode
   yearSchedule: ReactNode
-  hybridSchedule: ReactNode
+
   /** R-OX2: the OPEX table, built by the panel so this file lays out only. */
   opex: ReactNode
 }) {
   const fx = factoringToggle(ui)
   const opexOn = ui.paymentMode === 'opex'
+  // ONE expression, read by the content column and by the Hybrid grid, so the
+  // two slots cannot disagree about who renders the schedule. The double render
+  // F3 exists to remove came from gating one on the MODE and the other on the
+  // STRUCTURE (Verification 20: a second reader of one value always drifts).
+  const hybridOn = effectiveStructure(ui) === 'hybrid'
   const mode = {
     label: opexOn ? 'OPEX' : 'CAPEX',
     title: opexOn
@@ -172,21 +188,33 @@ export function PaymentTermsSection({
               the whole point of the rail: the CAPEX tables used to begin below
               a block of radios and the OPEX ones did not.
 
-              THE YEARLY TABLE IS RENDERED EXACTLY ONCE, in whichever slot the
-              mode calls for. Two mounts of one schedule would be two readers of
-              one derivation and would satisfy every assertion about where it
-              is.
+              ── THE CLAIM THAT FOLLOWED WAS FALSE AND IS CORRECTED HERE ──
+              R-PT2 wrote: "THE YEARLY TABLE IS RENDERED EXACTLY ONCE, in
+              whichever slot the mode calls for. Two mounts of one schedule
+              would be two readers of one derivation and would satisfy every
+              assertion about where it is."
 
-              L3'S SIDE-BY-SIDE AT 1440 IS SUPERSEDED, and it was measured
-              rather than assumed: the rail is 178px and the two OPEX tables
-              need 749px, against 551px of content at 1440. They stack beside
-              the rail at both widths now. R-PT2 is the later ruling and it
-              re-lays this panel; reported rather than absorbed. */}
+              THE SECOND SENTENCE WAS RIGHT AND THE FIRST WAS FALSE FROM THE
+              MOMENT IT WAS WRITTEN. `DealPanel` passed the same
+              `<YearScheduleView>` twice, as `yearSchedule` and as
+              `hybridSchedule`, and this slot was gated on the MODE while the
+              Hybrid slot was gated on the STRUCTURE. Under Hybrid both
+              rendered and both were VISIBLE, measured live at y=2443 beside
+              the rail and y=2841 in the Hybrid grid.
+
+              A hardcoded claim about configuration has a shelf life and cannot
+              be falsified by anything (Architecture 9's fourth variant). This
+              one survived a round because it described an intention.
+
+              F5/F3 RULED, OPTION A, 2026-09-26: ONE `yearSchedule` prop, and
+              this slot renders it only when the Hybrid grid is not going to.
+              The gating is on the SAME expression in both places, so the two
+              cannot disagree again. */}
           <div className={`opex-tables${opexOn ? '' : ' hidden'}`} id="deal-opex-tables">
             {opexOn ? opex : null}
             {opexOn ? <div id="deal-opex-year-slot">{yearSchedule}</div> : null}
           </div>
-              {opexOn ? null : <div id="deal-capex-year-slot">{yearSchedule}</div>}
+              {opexOn || hybridOn ? null : <div id="deal-capex-year-slot">{yearSchedule}</div>}
             </div>
           </div>
 
@@ -239,7 +267,9 @@ export function PaymentTermsSection({
             <div>
               {/* F4: the hybrid invoicing group is gone. One control in the
                   rail writes the choice for every structure. */}
-              <div id="deal-hybrid-schedule">{hybridSchedule}</div>
+              {/* F5/F3 OPTION A: the ONE render, collapsed into the Hybrid
+                  grid, beside the milestones at full card width. */}
+              <div id="deal-hybrid-schedule">{hybridOn ? yearSchedule : null}</div>
             </div>
           </div>
         </div>

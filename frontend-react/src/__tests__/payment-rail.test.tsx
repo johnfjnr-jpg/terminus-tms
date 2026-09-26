@@ -66,10 +66,12 @@ describe('R-PT2: the rail and the content column', () => {
     expect(rail()!.firstElementChild!.contains(s!)).toBe(true)
   })
 
-  test('P3: under CAPEX the rail holds the three radios and the content does not', async () => {
+  // R-PT3, 2026-09-26: three radios became two. The claim is about WHERE they
+  // live, which is what R-PT2 ruled and is unchanged.
+  test('P3: under CAPEX the rail holds the radios and the content does not', async () => {
     await mount()
     const inRail = [...rail()!.querySelectorAll('[data-structure]')].map((e) => e.getAttribute('data-structure'))
-    expect(inRail).toEqual(['single', 'twoPhase', 'hybrid'])
+    expect(inRail).toEqual(['twoPhase', 'hybrid'])
     expect(content()!.querySelectorAll('[data-structure]')).toHaveLength(0)
   })
 
@@ -80,8 +82,9 @@ describe('R-PT2: the rail and the content column', () => {
       label: r.querySelector('.ring-radio-label')!.textContent!.trim(),
       note: r.querySelector('.ring-radio-note')?.textContent?.trim() ?? null,
     }))
+    // R-PT3 removed the Single phase row. The two that remain keep R-PT2's
+    // shape: a label and a secondary line, never one run-on string.
     expect(read).toEqual([
-      { label: 'Single phase', note: 'recovery over full term' },
       { label: 'Two-phase', note: 'hardware recovery then hosting' },
       { label: 'Hybrid', note: 'milestone + hosting' },
     ])

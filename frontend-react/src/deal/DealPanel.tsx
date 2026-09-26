@@ -554,12 +554,31 @@ export function DealPanel({
               literal `null` is why no test could fail: there was no wrong
               output to assert against, only an absence.
 
-              ONE SCHEDULE, COMPUTED ONCE, READ TWICE. The two slots are two
-              PLACES on the screen, not two derivations - the hybrid group and
-              the non-hybrid group are mutually exclusive, so exactly one of
-              them renders. Calling `buildYearSchedule` again for the second
-              slot would be Verification 20's second reader, agreeing today and
-              free to drift. */}
+              ── AND THE PARAGRAPH THAT STOOD HERE WAS TRUE WHEN WRITTEN AND
+                 FALSE WHEN READ. IT IS THE SECOND OF THE TWO FALSE COMMENTS
+                 THE F3 RULING NAMES. It said:
+
+                 "ONE SCHEDULE, COMPUTED ONCE, READ TWICE. The two slots are
+                 two PLACES on the screen, not two derivations - the hybrid
+                 group and the non-hybrid group are mutually exclusive, so
+                 exactly one of them renders."
+
+              The first sentence was always right. THE MUTUAL EXCLUSION WAS
+              TRUE OF THE SCREEN R-O4 DESCRIBED and stopped being true one
+              round later: R-PT2 moved the non-hybrid schedule out of
+              `#deal-top-schedule-row`, which was hidden under Hybrid, into the
+              content column, which is not. Two slots that had been exclusive
+              by their containers became exclusive by nothing at all, and
+              nothing in this comment could notice.
+
+              A structural claim inherited from the screen it was written about
+              is Architecture 9's shape: code built for a screen that then
+              changed, with the difference that a comment keeps asserting.
+
+              F5/F3 RULED, OPTION A, 2026-09-26: ONE PROP. There is no second
+              slot to be exclusive with, and `section5` gates both places on
+              one `hybridOn` expression, so the arrangement cannot drift apart
+              again without a test failing. */}
           <PaymentTermsSection
             ui={ui} setUi={setUi}
             vis={structureVisibility({ ...ui, structure: effectiveStructure(ui) })}
@@ -584,8 +603,7 @@ export function DealPanel({
                 warning={customerScheduleWarning(
                   (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
             }
-            yearSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null}
-            hybridSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null} />
+            yearSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null} />
         </>
       ))}
 

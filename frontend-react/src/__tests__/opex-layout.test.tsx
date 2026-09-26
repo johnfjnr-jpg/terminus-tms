@@ -92,11 +92,14 @@ describe('L1, as superseded by F1: the mode control', () => {
 })
 
 describe('L2: the recovery radios under OPEX', () => {
-  test('L2a: under CAPEX the three radios are in the DOM, exactly as today', async () => {
+  // R-PT3, 2026-09-26: the list is now Two-phase and Hybrid. L2's claim is
+  // about CAPEX showing radios at all, against OPEX showing none, and that is
+  // untouched; the old anchor read `['single', 'twoPhase', 'hybrid']`.
+  test('L2a: under CAPEX the radios are in the DOM', async () => {
     await mount()
     const radios = [...host.querySelectorAll('#deal-structure-toggle [data-structure]')]
       .map((e) => e.getAttribute('data-structure'))
-    expect(radios).toEqual(['single', 'twoPhase', 'hybrid'])
+    expect(radios).toEqual(['twoPhase', 'hybrid'])
   })
 
   test('L2b: under OPEX they are ABSENT, not disabled and not hidden', async () => {
