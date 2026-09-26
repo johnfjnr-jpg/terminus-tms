@@ -51,9 +51,26 @@ panel", stated as something a guard can measure.
 
 So A1 is stated as two clauses:
 
-1. **WIDTH INVARIANCE, the operative rule.** A row's label-to-first-figure gap
-   measured at 1920, 1440 and 1240 agrees within **8px**. A gap that grows with
-   the panel is the defect this standard exists to name.
+1. **THE GAP DOES NOT GROW WITH THE PANEL, the operative rule.** A row's
+   label-to-first-figure gap at 1920 exceeds its gap at 1240 by no more than
+   **100px**.
+
+   **SUPERSEDED WITHIN THE HOUR, AND THE FIRST VERSION IS QUOTED RATHER THAN
+   DELETED.** It read: *"WIDTH INVARIANCE. A row's gap measured at 1920, 1440
+   and 1240 agrees within 8px."* That rested on a premise the red-first run
+   falsified: the estate's rows are NOT constant across widths. `pg-row` reads
+   84/84/284, `pg-row pg-total` 145/145/345, `ds-row` 191/191/119 and
+   `stmt-row-line` 570/570/510, because labels wrap at 1240 and the rows
+   reflow. A spread rule flags most of the deal screen, none of it a named
+   finding.
+
+   **The premise failed, so the rule is re-taken rather than re-weighed**
+   (Verification 29). What separates the good rows from the defect is
+   DIRECTION: the defect grows with the PANEL, 42 to 171 to 651 and 477 to 677
+   to 1157, while the estate's rows grow at the NARROW end where a label wraps.
+   Positive growth across the full 680px of width range tops out at **+72px**
+   on `ds-row`; the product grid grows **+609px** and **+680px**. 100px passes
+   every shipped row and fails the defect by six times.
 2. **AN ABSOLUTE BACKSTOP of 600px**, which sits above the estate's worst
    shipped row and below the defect at every width it appears. It is a
    backstop rather than the standard, and it is stated because A1 asks for a

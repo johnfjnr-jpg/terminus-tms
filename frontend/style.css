@@ -1587,16 +1587,46 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
                             card's second column went unused. The grid renders
                             the input BARE and names the product in its own
                             cell, so there is no wrapper to reach through. */
+/* ── A2/A3: THE GRID SIZES TO ITS CONTENT, NOT THE PANEL ─────────────────
+   John's finding, 2026-09-26. SUPERSEDED, QUOTED NOT DELETED:
+
+     grid-template-columns: minmax(0, 1fr) auto auto auto;
+     .product-grid--full { minmax(0, 1fr) auto auto auto auto auto auto auto }
+
+   `minmax(0, 1fr)` ON THE PRODUCT COLUMN IS THE NAMED MECHANISM AND IT DIES
+   HERE. A `1fr` track absorbs every spare pixel the panel has, so the label
+   column grew with the viewport and pushed the figures away from the labels
+   they belong to. Measured, the gap from a product name to its unit count ran
+   42px at 1240, 171px at 1440 and 651px at 1920, and 477 to 677 to 1157 under
+   Lump Sum where four columns share the same spare width between them.
+
+   `width: max-content` IS WHAT MAKES THE BOX FOLLOW THE CONTENT. Content-sized
+   tracks alone are not enough: a grid with free space STRETCHES its auto
+   tracks to fill the container, so the columns would have drifted apart again
+   by another route. With the box sized to its content there is no free space
+   to distribute.
+
+   `max-width: 100%` KEEPS 1240 HONEST. At the narrowest width the content is
+   wider than the panel, so the cap lets the tracks compress toward min-content
+   and the labels wrap, which is what they already did.
+
+   A3 NEEDS NO SEPARATE RULE, AND THAT IS THE POINT OF DOING IT THIS WAY. The
+   install half is hidden with `display: none`, so its cells leave grid
+   placement entirely and the four-column template is the whole grid: the
+   tracks collapse because there is nothing in them, not because a rule says
+   they should. */
 .product-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto auto auto auto;
+  width: max-content;
+  max-width: 100%;
   align-items: center;
   column-gap: 16px;
   border: 1px solid var(--hairline-strong);
   padding: 0 12px;
 }
 .product-grid--full {
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto auto auto auto;
+  grid-template-columns: repeat(8, auto);
 }
 .product-grid .ig-head {
   font-family: var(--mono);
@@ -2413,7 +2443,15 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    Found by this round's own guard rather than by looking, which is the one
    direction that works here: the overflow is offscreen at 1240 and a
    screenshot of the section does not show what is past its edge. */
-#deal-section-2 .form-grid {
+/* ── RE-POINTED BY A4, AND THE SIZING ROUND ORPHANED IT ──────────────────
+   This read `#deal-section-2 .form-grid`. R-SZ2 RETIRED `#deal-section-2` as
+   an element, so the selector has matched nothing since, and the two rules it
+   carried stopped applying silently. Verification 41's clause exactly: when a
+   surface is retired, grep for everything that POINTS at it. The retirement
+   listed the ids the render carries and did not sweep the stylesheet, and
+   `probe-dead-selectors` is advisory rather than a gate stage, so nothing
+   caught it. Both rules now name the merged intake's own head block. */
+#deal-intake-head {
   grid-template-columns: max-content minmax(0, max-content);
   justify-content: start;
 }
@@ -2427,7 +2465,13 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    104px the label ran straight into the value and the panel read
    "LUMP SUM COST250000". Stacked here, the way `.form-group` beside it
    already stacks its own label and control. */
-#deal-section-2 .deal-field {
+/* A4, JOHN'S FINDING 2026-09-26, AND IT IS THE SAME DEFECT THIS RULE ALREADY
+   FIXED ONCE. The comment above is the original diagnosis and it still reads
+   true: at 104px the label runs straight into the value and the panel reads
+   "LUMP SUM COST250000". What changed is not the defect but the SELECTOR, and
+   an orphaned fix is worse than no fix, because the reasoning sits in the file
+   looking like it is in force. */
+#deal-intake-head .deal-field {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -2441,6 +2485,35 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    which is what N2 asked for. Same tool, same mistake as walk 5's hybrid
    column: `max-content` measures the prose, not the fields. */
 #deal-lump-summary { max-width: 320px; }
+
+/* ── A6: THE PO FACTORING CARD'S THREE CONTROLS SHARE ONE RIGHT EDGE ─────
+   John's finding, 2026-09-26: the rate field, the term field and the repayment
+   slider each ended at a different place, and the term field wrapped onto a
+   second line at 1240.
+
+   THE PATTERN IS THE ESTATE'S OWN, NOT A NEW ONE. `.terms-field-row
+   .deal-field` already solves exactly this on the Structural Terms card:
+   `minmax(0, 1fr) auto`, label left and control right, so every control in the
+   card ends at the card's own content edge and the edges agree BY
+   CONSTRUCTION rather than by three widths that happen to match.
+
+   The repayment row needed wrapping before it could join: its label and its
+   toggle were bare siblings of the two fields, so each found its own width.
+   `.po-row` is a div rather than a label because it wraps a control that is
+   not an input, and `.deal-field` carries no element-type baggage to inherit:
+   it has no base layout rule of its own, only scoped variants.
+
+   THE FLANKING LABELS RIDE WITH THE CONTROL, per the ruled layout, because
+   they are inside the toggle: STRAIGHT-LINE left of the track and DECLINING
+   BALANCE right, so the right edge this aligns is DECLINING BALANCE's. Field
+   sizes are untouched and stay per the S1 formats. */
+#deal-factoring-fields .deal-field,
+#deal-factoring-fields .po-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
 
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1 / -1; }
@@ -6579,7 +6652,34 @@ textarea::placeholder { color: var(--muted); }
    slack between them. */
 .deal-payment-region {
   display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(190px, 25%);
+  /* ── A6: THE FACTORING CARD IS SIZED BY ITS CONTENT, NOT BY A PERCENTAGE
+     SUPERSEDED, QUOTED NOT DELETED: `minmax(190px, 25%)`.
+
+     25% of the region is a PANEL-sized track, which is the fault A1 names one
+     card over. Measured, it gave the factoring card 235px of inner width while
+     the repayment control needs 292px: STRAIGHT-LINE at 91px, the track at
+     58px and DECLINING BALANCE at 119px. The control overflowed the card by
+     69px and its right edge could not agree with the rate and term inputs,
+     which is A6 in one number.
+
+     The overflow is NOT new. It predates this round: the flanking label spilled
+     past the card's border in John's own screenshot, silently, because nothing
+     measured where that control ended.
+
+     `max-content` lets the card be as wide as the control it holds and no
+     wider, so the three right edges agree by construction. The 190px floor
+     stays: it is what stops the card collapsing when factoring is off and the
+     card holds only its toggle. */
+  /* CAPPED, AND THE CAP IS A CORRECTION TO THE LINE ABOVE. Plain `max-content`
+     let the card take whatever it wanted and it STARVED THE LEFT COLUMN: the
+     hybrid schedule's gaps went 191/82/10 across the three widths where they
+     had been 191/191/119, a growth of 181px against the standard's 100px
+     allowance. A defect this change created, so it is part of this change.
+
+     340px is derived, not chosen: the repayment control measures 292px and the
+     card carries 16px of padding each side, so 324px is what the content needs
+     and 340 leaves the rate and term rows their label column. */
+  grid-template-columns: minmax(0, max-content) minmax(190px, 340px);
   justify-content: start;
   gap: 20px;
   align-items: start;

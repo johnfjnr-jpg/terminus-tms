@@ -347,6 +347,11 @@ export function PaymentTermsSection({
           <div className="po-field" id="deal-factoring-fields">
             {renderField('deal-factoring-ratePct')}
             {renderField('deal-factoring-termMonths')}
+            {/* ── A6: THE REPAYMENT ROW IS A ROW, so it can share the rate and
+                term rows' right edge. The label and the control were bare
+                siblings of the two fields, so each found its own width and the
+                three controls ended at three different places. */}
+            <div className="po-row">
             <label>Repayment method</label>
             {/* ── M10: THE SAME TWO-SIDED CONTROL M1 USES ─────────────────
                 It was two stacked full-width buttons, which is a different
@@ -369,6 +374,7 @@ export function PaymentTermsSection({
                 onClick={() => setUi({
                   factoringMethod: ui.factoringMethod === 'declining' ? 'straight' : 'declining',
                 })} />
+            </div>
             </div>
           </div>
         ) : null}
