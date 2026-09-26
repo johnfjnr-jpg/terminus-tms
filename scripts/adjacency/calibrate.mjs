@@ -45,9 +45,13 @@ const INJECTIONS = [
      was still in force: the slack split eight ways and the gap grew 76px,
      inside the 100px allowance. The original defect needed the 1fr on the
      product column of the template ACTUALLY IN USE, which takes all of it. */
-  { id: 'A2 the panel-sized stretch REGROWN', kind: 'live', file: CSS,
-    find: '  grid-template-columns: auto auto auto auto;\n  width: max-content;\n  max-width: 100%;\n  align-items: center;\n  column-gap: 16px;\n  border: 1px solid var(--hairline-strong);\n  padding: 0 12px;\n}\n.product-grid--full {\n  grid-template-columns: repeat(8, auto);\n}',
-    put: '  grid-template-columns: minmax(0, 1fr) auto auto auto;\n  max-width: 100%;\n  align-items: center;\n  column-gap: 16px;\n  border: 1px solid var(--hairline-strong);\n  padding: 0 12px;\n}\n.product-grid--full {\n  grid-template-columns: minmax(0, 1fr) repeat(7, auto);\n}',
+  { id: 'A2 the panel-sized stretch REGROWN (both locks)', kind: 'live', file: CSS,
+    find: ['  grid-template-columns: auto auto auto auto;\n  width: max-content;\n  max-width: 100%;',
+      '.product-grid--full {\n  grid-template-columns: repeat(8, auto);\n}',
+      '  grid-template-columns: max-content max-content;\n  justify-content: start;'],
+    put: ['  grid-template-columns: minmax(0, 1fr) auto auto auto;\n  max-width: 100%;',
+      '.product-grid--full {\n  grid-template-columns: minmax(0, 1fr) repeat(7, auto);\n}',
+      '  grid-template-columns: minmax(0, 1fr) max-content;\n  justify-content: start;'],
     expect: 'A1 no row' },
 
   /* A4: the label put back on one line with its value. */
@@ -72,6 +76,23 @@ const INJECTIONS = [
     find: '#deal-factoring-fields .deal-field,\n#deal-factoring-fields .po-row {',
     put: '#deal-factoring-fields .po-row {',
     expect: 'A6' },
+
+  /* ── W2: THE OVERPRINT FORCED BACK ─────────────────────────────────────
+     The heading returns to the radios' row, which is exactly the state this
+     round found: two boxes in one grid cell, printing over each other. It is
+     also the calibration that matters most here, because the assertion it
+     proves is the one that REPLACED a check which passed while the screen was
+     wrong. */
+  { id: 'W2 the heading forced back into the radios row', kind: 'live', file: CSS,
+    find: '.opex-tables > .opex-year-head {\n  grid-column: 2;\n  grid-row: 2;',
+    put: '.opex-tables > .opex-year-head {\n  grid-column: 2;\n  grid-row: 1;',
+    expect: 'W2 no box on the schedule stack intersects' },
+
+  /* ── W1: THE HALVES STACKED AGAIN ─────────────────────────────────────── */
+  { id: 'W1 the two halves STACKED again', kind: 'live', file: CSS,
+    find: '.units-row {\n  display: grid;\n  grid-template-columns: max-content max-content;',
+    put: '.units-row {\n  display: block;\n  grid-template-columns: max-content max-content;',
+    expect: 'W1 the milestone table sits RIGHT' },
 
   /* THE METHOD FIX ITSELF: a dead selector regrown. */
   { id: 'a DEAD SELECTOR regrown', kind: 'suite', file: CSS,
@@ -121,13 +142,26 @@ const run = (kind) => {
 const results = []
 try {
   for (const inj of INJECTIONS) {
+    /* ── AN INJECTION MAY NEED MORE THAN ONE EDIT, because a claim can be
+       protected by more than one mechanism. A2 went SILENT once W1 wrapped the
+       product grid in a `max-content` track: the grid is content-sized by its
+       PARENT as well as by itself, so removing its own `width: max-content` no
+       longer lets it stretch. The guard was right; the injection was removing
+       one of two locks. Each pair is still anchored EXACTLY ONCE. */
     const src = original[inj.file]
-    const n = src.split(inj.find).length - 1
-    if (n !== 1) {
-      console.error(`STOP: ${inj.id} anchor matches ${n} times in ${inj.file}, not once`)
-      restore('a refused anchor'); rmSync(MARKER, { force: true }); process.exit(4)
+    const pairs = Array.isArray(inj.find)
+      ? inj.find.map((f, i) => [f, inj.put[i]])
+      : [[inj.find, inj.put]]
+    let next = src
+    for (const [f, put] of pairs) {
+      const n = next.split(f).length - 1
+      if (n !== 1) {
+        console.error(`STOP: ${inj.id} anchor matches ${n} times in ${inj.file}, not once`)
+        restore('a refused anchor'); rmSync(MARKER, { force: true }); process.exit(4)
+      }
+      next = next.replace(f, put)
     }
-    writeFileSync(abs(inj.file), src.replace(inj.find, inj.put))
+    writeFileSync(abs(inj.file), next)
     if (readFileSync(abs(inj.file), 'utf8') === src) {
       console.error(`STOP: ${inj.id} did not change ${inj.file}`)
       restore('an edit that did not land'); rmSync(MARKER, { force: true }); process.exit(5)
