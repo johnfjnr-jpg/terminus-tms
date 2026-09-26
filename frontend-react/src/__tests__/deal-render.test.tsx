@@ -358,10 +358,15 @@ describe('the empty-state contracts at render level', () => {
     // The four installation margins keep the generic treatment, so they are
     // where the generic contract is asserted. Both are covered: the card
     // treatment is asserted in deal-section4.test.tsx B8.
+    /* ── RE-POINTED BY THE PLACEHOLDER-FORMAT RIDER, 2026-09-26 ───────────
+       The claim is unchanged: a numOrUndefined box holds no value and says so
+       in its placeholder. WHAT it says changed, because `no override` is prose
+       in a box S1 sizes to `xx.x`, and it rendered as `no ov`. The em dash is
+       this estate's own mark for an absent figure and fits every format. */
     for (const k of ['inSsEx', 'inSsNew', 'inAqm']) {
       const el = must(`deal-margin-${k}`) as HTMLInputElement
       expect(el.value).toBe('')
-      expect(el.placeholder).toBe('no override')
+      expect(el.placeholder).toBe('—')
     }
   })
 
@@ -369,9 +374,12 @@ describe('the empty-state contracts at render level', () => {
     await mount()
     const el = must('deal-inSsExisting') as HTMLInputElement
     expect(el.value).toBe('')
-    expect(el.placeholder).toContain('catalog')
-    // Derived from the fixture rather than typed.
+    /* RE-POINTED: the prefix "catalog: " is prose and made the placeholder
+       longer than the format S1 sizes the box to, so it clipped. The figure
+       itself is the placeholder and is still derived from the fixture rather
+       than typed. */
     expect(el.placeholder).toContain(String(RATES.inSsExisting))
+    expect(el.placeholder).not.toContain('catalog')
   })
 
   test('a num box shows "0" as its placeholder, because empty IS zero there', async () => {
@@ -381,7 +389,11 @@ describe('the empty-state contracts at render level', () => {
 
   test('a numOrNull box says "not recorded"', async () => {
     await mount()
-    expect((must('deal-gstPct') as HTMLInputElement).placeholder).toBe('not recorded')
+    /* RE-POINTED BY THE PLACEHOLDER-FORMAT RIDER: "not recorded" needs 73px in
+       a 30px box, so six fields rendered it clipped. The claim that a cleared
+       field SAYS it is not recorded is unchanged and is asserted where the
+       VALUE is displayed; a placeholder is not that surface. */
+    expect((must('deal-gstPct') as HTMLInputElement).placeholder).toBe('—')
   })
 
   // ── AN emptyToNull FIELD OFFERS NO NUMERIC KEYPAD ──────────────────────

@@ -91,6 +91,16 @@ export function PaymentTermsSection({
   // F3 exists to remove came from gating one on the MODE and the other on the
   // STRUCTURE (Verification 20: a second reader of one value always drifts).
   const hybridOn = effectiveStructure(ui) === 'hybrid'
+  /* A5: built ONCE, placed once, in whichever slot is live. */
+  const invoicingGroup = (
+    <div className="ring-radio-group a5-invoicing" id="deal-invoicing-toggle">
+      <span className="label">Invoicing</span>
+      {INVOICING.map((o) => (
+        <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
+          active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
+      ))}
+    </div>
+  )
   const mode = {
     label: opexOn ? 'OPEX' : 'CAPEX',
     title: opexOn
@@ -209,13 +219,17 @@ export function PaymentTermsSection({
 
               And it is still one group for the reason F4 established: two
               groups writing one choice is the defect, not the layout. */}
-          <div className="ring-radio-group" id="deal-invoicing-toggle">
-            <span className="label">Invoicing</span>
-            {INVOICING.map((o) => (
-              <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
-                active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
-            ))}
-          </div>
+          {/* ── A5, JOHN'S RULING 2026-09-26: THE GROUP MOVED, IT DID NOT
+              MULTIPLY ─────────────────────────────────────────────────────
+              A control group sits WITH the content it affects. The radios
+              stood here, above everything, and now render inside whichever
+              schedule slot is live, directly above the numbers they change.
+
+              STILL ONE GROUP, which is F4's ruling and the thing this could
+              most easily have broken: `opexOn`, `hybridOn` and the two-phase
+              case are MUTUALLY EXCLUSIVE, so `invoicingGroup` is built once
+              and placed once. Two groups writing one choice is the defect,
+              not the layout. */}
 
           {/* ── THE MONEY ────────────────────────────────────────────────────
               F5/F3 OPTION A stands: ONE `yearSchedule`, rendered here unless
@@ -246,11 +260,15 @@ export function PaymentTermsSection({
               which is N5's own lesson from this round. */}
           <div className={`opex-tables${opexOn ? '' : ' hidden'}`} id="deal-opex-tables">
             {opexOn ? opex : null}
+            {/* A5: above the invoiced-fee schedule, in its own column. */}
+            {opexOn ? invoicingGroup : null}
             {opexOn ? <p className="label opex-year-head" data-testid="opex-year-head">{scheduleHead}</p> : null}
             {opexOn ? <div id="deal-opex-year-slot">{yearSchedule}</div> : null}
           </div>
           {opexOn || hybridOn ? null : (
             <>
+              {/* A5: Two-phase, directly above the fee schedule. */}
+              {invoicingGroup}
               <p className="label capex-year-head" data-testid="capex-year-head">{scheduleHead}</p>
               <div id="deal-capex-year-slot">{yearSchedule}</div>
             </>
@@ -320,6 +338,8 @@ export function PaymentTermsSection({
                 rail writes the choice for every structure. */}
             {/* F5/F3 OPTION A: the ONE render, collapsed into the Hybrid
                 grid, beside the milestones at full card width. */}
+            {/* A5: Hybrid, directly above the HOSTING schedule. */}
+            {hybridOn ? invoicingGroup : null}
             <p className="label hg-colhead hg-colhead--right">{scheduleHead}</p>
             <div id="deal-hybrid-schedule" className="hg-body">{hybridOn ? yearSchedule : null}</div>
           </div>
@@ -347,6 +367,11 @@ export function PaymentTermsSection({
           <div className="po-field" id="deal-factoring-fields">
             {renderField('deal-factoring-ratePct')}
             {renderField('deal-factoring-termMonths')}
+            {/* ── A6: THE REPAYMENT ROW IS A ROW, so it can share the rate and
+                term rows' right edge. The label and the control were bare
+                siblings of the two fields, so each found its own width and the
+                three controls ended at three different places. */}
+            <div className="po-row">
             <label>Repayment method</label>
             {/* ── M10: THE SAME TWO-SIDED CONTROL M1 USES ─────────────────
                 It was two stacked full-width buttons, which is a different
@@ -369,6 +394,7 @@ export function PaymentTermsSection({
                 onClick={() => setUi({
                   factoringMethod: ui.factoringMethod === 'declining' ? 'straight' : 'declining',
                 })} />
+            </div>
             </div>
           </div>
         ) : null}
