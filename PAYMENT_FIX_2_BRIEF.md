@@ -158,6 +158,63 @@ zero also agree perfectly, which this estate has shipped before.
 
 ---
 
+## THE PHASES, RECONCILED BY COUNTING
+
+Counted from the commits on this branch, not read off this file.
+
+| Phase | Commit |
+|---|---|
+| The brief, John's rulings, and what `single` permanently means | `3c3742a` |
+| R-PT3 rail and F5/F3 Option A: two radios, one render | `faa701d` |
+| R-PT3 migrated, read back, interpreter proved | `5b1edfe` |
+| The migrated record rendered, at both widths | `3813cec` |
+| Close-out | this commit |
+| `CURRENT_STATE.md` | the next |
+
+**Rulings in force: 3** - R-PT3, F5/F3 Option A, and the standing
+named-findings-only rule. All three were in this file before any work began,
+so nothing had to be appended late (build discipline 7).
+
+---
+
+## DISPOSITION, ITEM BY ITEM
+
+| | Disposition |
+|---|---|
+| **R-PT3, the screen** | **BUILT.** CAPEX offers Two-phase and Hybrid. Single phase is offered nowhere, in either mode |
+| **R-PT3, the migration** | **DONE.** Two explicit revisions, reason recorded as the first note in each log, read back from the database, nothing else moved |
+| **R-PT3, the proof** | **DONE, and it changed the test.** See the section above: the match alone cannot detect the fault, so the proof carries a semantic anchor |
+| **R-PT3, `single` recorded** | **DONE**, permanently, above |
+| **F3** | **BUILT.** One render in every structure and mode, asserted as an enumeration over all four combinations |
+| **F5, Option A** | **BUILT.** Side by side, top-aligned, full card width, below the rail row, zero overflow |
+
+**What this round does NOT establish.** The empty area beside the rail under
+Hybrid is accepted per the ruling and is not a measurement of anything. And the
+migration is proven inert for THESE TWO RECORDS on their current payloads; it
+is not a general claim that OPEX and CAPEX-single price identically for any
+deal, because a record carrying an OPEX fee or margin override would reprice.
+
+---
+
+## CARRIED, NOT BUILT
+
+Recorded and queued rather than folded in, per the standing rule.
+
+1. **`SwitchButton` writes `btn-ghost deal-toggle` itself**, so the gross-up
+   control reaches the toggle treatment by a third route. F1 named the mode and
+   factoring controls only. Carried from the previous round.
+2. **A stored `capex` + `single` record would now show no active radio.** No
+   live record is in that state after this migration, and no control can create
+   one, so it is unreachable rather than latent. Deliberately NOT auto-mapped in
+   `uiFromPayload`: that would be exactly the silent data rewrite the ruling
+   forbids.
+3. **Two dev servers are running**, one with `--watch` from 23 September that
+   holds no port, and one without `--watch` on 3000. Measured, no `src/` file
+   has changed since the latter started, so nothing this round measured was
+   stale. Named because the estate has no detector for it.
+
+---
+
 ## Standing method
 
 - Measurements on the LIVE surface, never inferred from source.
