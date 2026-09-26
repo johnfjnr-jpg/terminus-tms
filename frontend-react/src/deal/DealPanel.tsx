@@ -502,7 +502,7 @@ export function DealPanel({
         <>
           <section className="deal-intake-col" id="deal-section-1">
             <p className="section-title">Units Required</p>
-            <UnitCards renderField={renderField} />
+            <UnitCards renderField={renderField} rates={resolvedRates as Record<string, number>} />
             {censusFields('deal-sections-1-2')}
           </section>
           <InstallationSection

@@ -134,8 +134,23 @@ export const ADOPTED_CLASSES: readonly string[] = [
   "under-target",
   "unit-card",
   "unit-cards",
-  "view-toggle",
-  "view-toggle--stacked",
+  /* ── RETIRED FROM THIS LIST BY M10, 2026-09-26 ────────────────────────
+     Both were adopted from the vanilla's REPAYMENT METHOD control: two
+     stacked full-width buttons. John's ruling replaces that control with the
+     same two-sided `DealToggle` the mode switch uses, so the deal panel's
+     render no longer carries either class.
+
+     THE RATCHET IS NOT RE-OPENED. `KNOWN_MISSING_CLASSES` stays empty: these
+     are not classes the render OUGHT to carry and has lost, they are classes
+     of a control that no longer exists. Exempting them would have turned a
+     closed ratchet into a list of excuses, which is what that comment warns
+     against.
+
+     `view-toggle` SURVIVES ELSEWHERE and that is why it is worth saying: the
+     version card still uses it, and so does `frontend/index.html`. What ends
+     is the DEAL PANEL's use of it, which is what this list is about.
+     `view-toggle--stacked` is dead estate-wide, so its stylesheet rules go
+     with it - a retirement is two claims (Verification 7). */
   "ys-amount",
   "ys-line",
   "ys-line--total",

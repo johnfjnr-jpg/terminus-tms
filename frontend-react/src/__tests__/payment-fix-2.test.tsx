@@ -112,10 +112,15 @@ describe('F3: the hosting schedule renders exactly once', () => {
     expect(el.closest('#deal-hybrid-group')).not.toBeNull()
   })
 
-  test('F3c: outside Hybrid the one render is in the content column', async () => {
+  /* RE-TAKEN: M4 retires the rail and its content column, so "in the content
+     column" has no subject. The claim was always that the ONE render is NOT in
+     the Hybrid grid when the structure is not Hybrid, which is what decides
+     which of the two slots rendered it. */
+  test('F3c: outside Hybrid the one render is NOT in the Hybrid grid', async () => {
     await mount({ paymentMode: 'capex', structure: 'twoPhase' })
     const el = q('[data-testid="year-schedule"], [data-testid="hybrid-schedule"]')!
-    expect(el.closest('#deal-payment-content')).not.toBeNull()
+    expect(el.closest('#deal-hybrid-group')).toBeNull()
+    expect(el.closest('.payment-card')).not.toBeNull()
   })
 
   test('F3d: the milestones and the schedule are siblings in the Hybrid grid', async () => {

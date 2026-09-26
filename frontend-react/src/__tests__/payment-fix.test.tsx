@@ -65,30 +65,48 @@ describe('F1: one toggle component, worn twice', () => {
     expect(factoring().dataset.dealToggle).toBe('true')
   })
 
-  test('F1b: they wear the same dress, and the mode control carries no size override', async () => {
+  /* ── RE-TAKEN BY M1, 2026-09-26, AND THE OLD CLAIM IS QUOTED ────────────
+     F1b read: "they wear the same dress", comparing the two class lists
+     exactly, and "the mode control carries no size override".
+
+     The second half stands and is kept: `.opex-slider` is gone and stays gone.
+     The FIRST half cannot survive John's ruling, because the ruling is that
+     these are two KINDS of control: a two-state selector carries
+     `deal-toggle--flanked` and an on/off switch does not. An identical class
+     list would now mean the distinction had not been made.
+
+     So the claim becomes what it was always reaching for: ONE COMPONENT, one
+     base dress, and the only difference between them is the variant. */
+  test('F1b: one base dress, and the only difference is the declared variant', async () => {
     await mount()
-    const dress = (b: HTMLButtonElement) => [...b.classList].filter((c) => c !== 'is-on').sort().join(' ')
-    expect(dress(mode())).toBe(dress(factoring()))
-    // `.opex-slider` is what made it a different size: no padding and a fixed
-    // 42px track. F1 removes the size difference, so it removes the class.
+    const base = (b: HTMLButtonElement) =>
+      [...b.classList].filter((c) => c !== 'is-on' && c !== 'deal-toggle--flanked').sort().join(' ')
+    expect(base(mode())).toBe(base(factoring()))
     expect(mode().classList.contains('opex-slider')).toBe(false)
+    // and the variant IS declared, rather than the two differing by accident
+    expect(mode().classList.contains('deal-toggle--flanked')).toBe(true)
+    expect(factoring().classList.contains('deal-toggle--flanked')).toBe(false)
   })
 
-  test('F1c: the mode control names its state inside itself, as the factoring one does', async () => {
-    /* EXACT, not a substring. The first version asserted `toMatch(/CAPEX/)`,
-       and the calibration injection that renamed the label to `CAPEX mode`
-       came back SILENT with ZERO failures - a substring that cannot fail
-       (Verification 17), on the one claim this test exists for. The live probe
-       compared exactly and would have caught it; the unit test would not. */
-    await mount({ paymentMode: 'capex' })
-    expect(mode().textContent!.trim()).toBe('CAPEX')
-    await mount({ paymentMode: 'opex' })
-    expect(mode().textContent!.trim()).toBe('OPEX')
-    // SUPERSEDES L1's flanking labels. A label outside the button is exactly
-    // the thing that made the two controls different sizes, so keeping them
-    // and claiming "same size" would be a claim the screen contradicts.
-    expect(q('[data-testid="deal-mode-label-opex"]')).toBeNull()
-    expect(q('[data-testid="deal-mode-label-capex"]')).toBeNull()
+  /* ── SUPERSEDED BY M1, 2026-09-26. The claim is INVERTED, deliberately ──
+     F1c asserted the state was named INSIDE the button and that the flanking
+     labels were absent, on the reasoning that flanking labels are what made
+     the two controls different sizes. That reasoning was correct and is no
+     longer decisive: John's ruling separates a two-state SELECTOR, which names
+     both states outside, from an on/off SWITCH, which names its one state
+     inside. The polish round's M1a to M1e assert the new shape in full; what is
+     kept here is the half of F1c that survives, which is that the factoring
+     toggle still names its state inside itself. */
+  test('F1c, as superseded by M1: the ON/OFF switch still names its state inside', async () => {
+    /* EXACT, not a substring. The first version asserted `toMatch(/FACTORING/)`
+       and a calibration injection renaming the label came back SILENT with
+       ZERO failures - a substring that cannot fail (Verification 17). */
+    await mount({ factoringEnabled: false })
+    expect(factoring().textContent!.trim()).toBe('Factoring disabled')
+    await mount({ factoringEnabled: true })
+    expect(factoring().textContent!.trim()).toBe('Factoring enabled')
+    // and it takes NO flanking labels, which is the distinction M1 draws
+    expect(q('[data-testid="deal-factoring-label-left"]')).toBeNull()
   })
 
   test('F1d: it is still a switch and still says what a click will do', async () => {
@@ -100,12 +118,17 @@ describe('F1: one toggle component, worn twice', () => {
 })
 
 describe('F4: the invoicing radios join the rail', () => {
-  test('F4a: invoicing is INSIDE the rail, in every structure', async () => {
+  /* ── RE-TAKEN BY M7, 2026-09-26. The rail is retired, so "inside the rail"
+     has no subject. F4's real claim was that there is ONE invoicing group and
+     it is on this surface; M7 then rules WHERE, which is beneath the money.
+     The position is asserted in the polish round's M7a and M7b; what stands
+     here is that the group exists, once, in every structure. */
+  test('F4a, as re-taken by M7: one invoicing group, in every structure', async () => {
     for (const structure of ['twoPhase', 'single', 'hybrid'] as const) {
       await mount({ structure })
       const inv = q('#deal-invoicing-toggle')
       expect(inv, `invoicing missing under ${structure}`).not.toBeNull()
-      expect(rail().contains(inv!), `invoicing outside the rail under ${structure}`).toBe(true)
+      expect(host.querySelectorAll('#deal-invoicing-toggle').length).toBe(1)
     }
   })
 
@@ -125,11 +148,16 @@ describe('F4: the invoicing radios join the rail', () => {
     expect(radios.compareDocumentPosition(inv) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  test('F4d: the recovery period stays with them, in the rail', async () => {
+  /* ── RE-TAKEN BY M6 AND M3. The rail is gone; both readouts are in the card.
+     M6 then adds that the recovery INPUT appears only on a CHOSEN Two-phase,
+     and M3 renames the single-phase readout to Contract Duration, because that
+     is what it always showed. */
+  test('F4d, as re-taken by M6 and M3: both live in the payment card', async () => {
+    const card = () => host.querySelector('.payment-card')!
     await mount({ structure: 'twoPhase' })
-    expect(rail().contains(q('#deal-recovery-group'))).toBe(true)
+    expect(card().contains(q('#deal-recovery-group'))).toBe(true)
     await mount({ structure: 'single' })
-    expect(rail().contains(q('#deal-recovery-readonly'))).toBe(true)
+    expect(card().contains(q('[data-testid="deal-contract-duration"]'))).toBe(true)
   })
 })
 
@@ -137,9 +165,18 @@ describe('F2: the radios share one gutter', () => {
   // The gutter itself is geometry and belongs to the live probe. What is
   // assertable here is that the rail's radio groups are built from ONE column
   // treatment, because two column classes would be two gutters by construction.
-  test('F2a: recovery and invoicing use the same column treatment', async () => {
+  /* ── SUPERSEDED BY M4: the radios return to HORIZONTAL. F2's gutter was a
+     property of the vertical COLUMN - three labels of three widths centred by
+     an inherited `align-items: center` gave three left edges. A horizontal row
+     has no such gutter to share, so the claim does not survive its subject.
+
+     What replaces it is the same intent one level up: both groups are the SAME
+     treatment, so a change to one cannot leave the other behind. */
+  test('F2a, as superseded by M4: both groups are the same (horizontal) treatment', async () => {
     await mount({ structure: 'twoPhase' })
-    expect(q('#deal-structure-toggle')!.classList.contains('ring-radio-column')).toBe(true)
-    expect(q('#deal-invoicing-toggle')!.classList.contains('ring-radio-column')).toBe(true)
+    for (const id of ['#deal-structure-toggle', '#deal-invoicing-toggle']) {
+      expect(q(id)!.classList.contains('ring-radio-group'), id).toBe(true)
+      expect(q(id)!.classList.contains('ring-radio-column'), id).toBe(false)
+    }
   })
 })

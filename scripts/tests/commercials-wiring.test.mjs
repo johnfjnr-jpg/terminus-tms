@@ -572,19 +572,36 @@ test('the three payload consumers are untouched', () => {
 test('Units Required is one box of four rows with four-figure inputs', () => {
   const css = readCode(new URL('../../frontend/style.css', import.meta.url))
   const html = DEAL_TREE
-  assert.match(css, /\.unit-cards \{[^}]*grid-template-columns: minmax\(0, 320px\)/,
+  // ── RE-POINTED BY M8, 2026-09-26, and the old anchor is left visible ────
+  //
+  // It read `grid-template-columns: minmax(0, 320px)` with the note "one
+  // column, so the four counts read as a set rather than as four cards". The
+  // ONE BOX claim is what that assertion was for and it is unchanged; the
+  // width is not the claim, and M8 widens it to carry the unit cost and the
+  // hosting cost per month. So the assertion is re-pointed at the property it
+  // was always about: a SINGLE grid column, whatever its width.
+  assert.match(css, /\.unit-cards \{[^}]*grid-template-columns: minmax\(0, \d+px\)/,
     'one column, so the four counts read as a set rather than as four cards')
   assert.match(css, /\.unit-cards \.unit-card input \{[^}]*width: 72px/,
     'four figures, not a full-width box for a two-digit number')
   // WALK 8: the four rows are MAPPED from `UNIT_FIELDS`, so four is a property
   // of that list and the card is rendered once per member. Both are asserted:
   // the list has four names, and the renderer turns each into a `unit-card`.
+  //
+  // M8 MADE THE LIST OBJECTS rather than strings, because each row now names
+  // the two catalog rates it reads. Counted by `id:` so the count is still a
+  // property of the list rather than of how it happens to be written.
   const intakeSrc = readCode(new URL('../../frontend-react/src/deal/intake.tsx', import.meta.url))
-  const unitList = intakeSrc.match(/const UNIT_FIELDS = \[([^\]]*)\]/)
+  const unitList = intakeSrc.match(/const UNIT_FIELDS = \[([\s\S]*?)\] as const/)
   assert.ok(unitList, 'UNIT_FIELDS is gone, so nothing builds the Units Required box')
-  assert.equal([...unitList[1].matchAll(/'([^']+)'/g)].length, 4, 'four rows')
-  assert.match(intakeSrc, /<div className="unit-card" key=\{id\}>/,
+  assert.equal([...unitList[1].matchAll(/id: '([^']+)'/g)].length, 4, 'four rows')
+  assert.match(intakeSrc, /<div className="unit-card" key=\{f\.id\}>/,
     'the unit row is no longer one card per field')
+  // M8: and the two catalog columns are read-only text, never a control.
+  assert.match(intakeSrc, /<span className="unit-card-cost"/,
+    'the catalog costs are no longer read-only text')
+  assert.ok(!/unit-card-cost[^>]*<input/.test(intakeSrc),
+    'a catalog cost gained an input, which R-C2a keeps off a deal')
 })
 
 test('the ruled layout: two side-by-sides, and cash flow is its own section', () => {

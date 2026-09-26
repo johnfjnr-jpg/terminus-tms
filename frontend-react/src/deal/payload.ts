@@ -117,6 +117,11 @@ export const HOSTING_FEE_KEYS = ['hoSs', 'hoAqm', 'hoHemir'] as const
  * afterwards. Everything that reads the structure - the radios, the visibility,
  * the payload the record receives - reads it through here.
  */
+/** M6: absent means chosen. One expression, so no caller decides it twice. */
+export function structureWasChosen(ui: Pick<UiState, 'structureChosen'>): boolean {
+  return ui.structureChosen !== false
+}
+
 export function effectiveStructure(ui: Pick<UiState, 'structure' | 'paymentMode'>): string {
   return ui.paymentMode === 'opex' ? 'single' : ui.structure
 }
@@ -126,6 +131,29 @@ export const MILESTONE_ROWS = 5
 export interface UiState {
   installResp: string
   structure: string
+  /**
+   * M6, John's walk 2026-09-26: whether the structure was CHOSEN or merely
+   * DEFAULTED.
+   *
+   * M5 and M6 ask two different questions about one state. M5: a CAPEX record
+   * with no stored structure renders Two-phase SELECTED. M6: its Recovery
+   * Period stays HIDDEN "under CAPEX-default until selection changes it". Both
+   * are satisfiable only if the surface can tell a default from a choice, and
+   * `structure` alone cannot, because `uiFromPayload` collapses the absence.
+   *
+   * It is NOT written to the payload. `readPayload` still saves
+   * `effectiveStructure(ui)`, so the ruling's "display-and-save-forward, no
+   * bulk write" holds: nothing changes in a stored record until somebody saves
+   * it, and then it saves the same value it always would have.
+   *
+   * OPTIONAL, AND ABSENT MEANS CHOSEN. `uiFromPayload` always sets it, so the
+   * live path is explicit either way. A `UiState` built by hand with a
+   * structure in it IS a chosen structure - that is what writing it down
+   * means - so the default is the safe reading rather than a convenience:
+   * getting it wrong shows a recovery period that should be hidden, never
+   * hides one that should show.
+   */
+  structureChosen?: boolean
   invoicing: string
   grossUp: boolean
   factoringEnabled: boolean
@@ -443,6 +471,10 @@ export function uiFromPayload(payload: Record<string, unknown> | null | undefine
   return {
     installResp: (p.installResp as string) || 'Client Own Installation Team',
     structure: (p.structure as string) || 'twoPhase',
+    // M6: the default is a DISPLAY fact; the absence of the key is the record's
+    // fact. Keeping both is what lets M5 select the radio and M6 hide the
+    // recovery period at the same moment.
+    structureChosen: typeof p.structure === 'string' && p.structure !== '',
     invoicing: (p.invoicing as string) || 'annual',
     grossUp: !!p.grossUp,
     factoringEnabled: !!f.enabled,
