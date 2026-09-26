@@ -97,6 +97,21 @@ try {
     await p.evaluate(() => new Promise((r) => setTimeout(r, 250)))
     await p.screenshot({ path: `${OUT}${name}.png` })
   }
+  /* MEASURE FIRST, CAPTURE SECOND, and never photograph the element whose own
+     geometry is the claim: Puppeteer suppresses the scrollbar for an element
+     capture and does not put it back. These are PAGE captures, taken after
+     every measurement in the state. */
+  const shotAt = async (sel, name) => {
+    const found = await p.evaluate((s) => {
+      const e = document.querySelector(s)
+      if (!e) return false
+      e.scrollIntoView({ block: 'center' })
+      return true
+    }, sel)
+    if (!found) return
+    await p.evaluate(() => new Promise((r) => setTimeout(r, 300)))
+    await p.screenshot({ path: `${OUT}${name}.png` })
+  }
   const walk = () => p.evaluate(() => {
     const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
     const dead = (e) => !!e.closest('#deal-form-vanilla, #deal-version-vanilla, #ref-vanilla')
@@ -524,7 +539,12 @@ try {
       const over = rows.filter((r) => r.max > BACKSTOP)
       check(over.length === 0, `A1 backstop: no gap exceeds ${BACKSTOP}px`
         + (over.length ? `\n         ${over.map((o) => `${o.key.slice(0, 40)} at ${o.max}px ("${o.sample}")`).join('\n         ')}` : ''))
-      await shot(`gaps-${width}-${mode}-${structure}-${resp.includes('Lump') ? 'lump' : 'perunit'}`)
+      const tag = `${width}-${mode}-${structure}-${resp.includes('Lump') ? 'lump' : 'perunit'}-fx${fxOn ? 'on' : 'off'}`
+      await shot(`gaps-${tag}`)
+      /* THE TWO SURFACES THE RULING ASKS TO SEE, photographed where they are
+         rather than wherever the product grid happens to leave the page. */
+      await shotAt('#deal-po-factoring', `card-${tag}`)
+      await shotAt('.stmt-result', `stmt-${tag}`)
       states++
     }
     /* ── A1's OPERATIVE CLAUSE ─────────────────────────────────────────── */
