@@ -138,6 +138,8 @@ export function IntakeSection({
           is retired as an element and its id lives on here as the install
           half's own marker, because callers ask "are the per-unit rows
           showing?" and that is still a real question. */}
+      <div className="units-row">
+      <div className="units-row-left">
       <div className={`product-grid${half ? ' product-grid--full' : ''}`}
         id="deal-product-grid" data-testid="deal-product-grid"
         data-install-half={half ? 'true' : 'false'}>
@@ -183,15 +185,23 @@ export function IntakeSection({
         <div className="ig-cell ig-num ig-total ig-install col-mono" id="deal-install-total-price"
           data-testid="deal-install-total-price">{fig(group?.rawTotalPrice)}</div>
       </div>
+        <p className="field-note" data-testid="unit-cards-basis">
+          Unit and hosting costs are catalog values, read-only here and priced from the
+          cost basis named in the Deal Summary.
+        </p>
+      </div>
 
-      <p className="field-note" data-testid="unit-cards-basis">
-        Unit and hosting costs are catalog values, read-only here and priced from the
-        cost basis named in the Deal Summary.
-      </p>
-
+      {/* ── W1, JOHN'S FINDING 2026-09-26: THE MILESTONE TABLE SITS BESIDE
+          THE GRID, NOT UNDER IT ────────────────────────────────────────────
+          It renders where the contractor group renders, which is Lump Sum;
+          under Per Unit there is no right-hand half and the grid keeps its own
+          width. The two heads share one declared height so the first figure
+          rows are level, which is N7's construction for a pair that cannot
+          share a row track because each half is its own grid. */}
       <div className={vis.contractorGroup ? '' : 'hidden'} id="deal-contractor-group"
         data-testid="deal-contractor-group">
         {contractorGrid}
+      </div>
       </div>
       {censusFields}
     </section>

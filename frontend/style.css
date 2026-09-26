@@ -1668,6 +1668,50 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    row to auto-place into the four-column template, so the rows stay rows. */
 .product-grid:not(.product-grid--full) .ig-install { display: none; }
 
+/* ── W1: THE GRID AND THE MILESTONE TABLE, SIDE BY SIDE ──────────────────
+   John's finding 2026-09-26. The milestone table rendered UNDER the product
+   grid; it now sits beside it, grid left.
+
+   MEASURED BEFORE MOVING IT, AND THE CONTENT IS WHAT WAS MEASURED. The
+   milestone grid renders at the panel's full width because it is a block, but
+   its columns are FIXED at 44 + 195 + 44 + 64 plus three 4px gaps, which is
+   359px. With the grid at 442px under Lump Sum and a 24px gap, the pair needs
+   825px of the 876px the panel has at 1240, so both halves fit without
+   clipping a figure. Measuring the CONTAINER instead would have read 1342 of
+   876 and stopped the round on a number about the wrong thing.
+
+   `max-content` on both tracks with `justify-content: start` keeps each half
+   at the width of what it holds, which is A1's own standard: a row sized to
+   the panel is the fault, and these are sized to their content. */
+.units-row {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  justify-content: start;
+  column-gap: 24px;
+  align-items: start;
+  /* ── ONE HEAD HEIGHT, TWO CONSUMERS, WHICH IS N7's CONSTRUCTION FOR A PAIR
+     THAT CANNOT SHARE A ROW TRACK. Each half is its own grid, so neither can
+     put its head in the other's track: the OPEX pair had the same problem and
+     the same answer. The value is not chosen, it is how `.ig-head` is already
+     composed - the field-label line box, 8px of padding each side and the 1px
+     rule - so the taller head keeps its own size and the shorter one grows to
+     meet it. */
+  --w1-head-h: calc(var(--field-label-size) * 1.5 + 17px);
+}
+.units-row .ig-head,
+.units-row .cm-grid-head {
+  height: var(--w1-head-h);
+  box-sizing: border-box;
+}
+/* The shorter head's text sits on its rule rather than floating in the space
+   it just gained. */
+/* AND ITS MARGIN GOES, because the shared head band already carries the space.
+   Measured: `.cm-grid-head` adds 6px beneath itself while `.ig-head` keeps its
+   8px INSIDE its own height, so the milestone rows started 5px low. The band is
+   the whole head, gap included, on both sides. */
+.units-row .cm-grid-head { align-items: end; margin-bottom: 0; }
+.units-row-left { min-width: 0; }
+
 /* ── Computed pricing cards (Hw / Hosting Setup) ────────────────
    Two peer cards, each self-contained with Item/Cost/Margin%/Price
    columns and its own Total row (Terminus Ops.dc.html lines 1347-1367).
@@ -8887,9 +8931,21 @@ textarea.lead-field-input,
 }
 .opex-tables > * { min-width: 0; }
 .opex-tables > #deal-opex-table { grid-column: 1; grid-row: 2 / span 2; }
+/* ── W2: THE HEADING MOVES TO ROW 2, AND THIS IS THE OVERPRINT ───────────
+   John's finding 2026-09-26. A5 added a row above the head track for the
+   radios and moved the fee table and the year slot down to suit, AND LEFT THE
+   HEADING IN ROW 1. The radios and the heading occupied the same cell and
+   printed over each other: measured 322 x 22px of overlap at 1920 and
+   289 x 22px at 1240.
+
+   A5's OWN ASSERTION COULD NOT SEE IT. It compared the radios with the
+   schedule's BODY, which is in row 3 and never overlapped anything, so the
+   check passed on every run while the screen was wrong. The guard now asserts
+   that no box on the stack intersects another, at every site a control group
+   sits on a panel. */
 .opex-tables > .opex-year-head {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 2;
   height: var(--opex-head-h);
   margin: 0;
   display: flex;

@@ -282,6 +282,71 @@ try {
       await p.evaluate(() => new Promise((r) => setTimeout(r, 600)))
       console.log(`\n── ${width}  ${combo} ──`)
       const rows = await walk()
+      if (process.env.C_HEADS === '1') {
+        const h = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const m = (sel) => { const e = [...document.querySelectorAll(sel)].filter(vis)[0]
+            if (!e) return 'ABSENT'
+            const r = e.getBoundingClientRect(); const cs = getComputedStyle(e)
+            return `top ${r.top.toFixed(1)} bot ${r.bottom.toFixed(1)} ${r.height.toFixed(1)}h pad ${cs.paddingTop}/${cs.paddingBottom} mar ${cs.marginTop}/${cs.marginBottom} border ${cs.borderTopWidth}/${cs.borderBottomWidth}` }
+          return { grid: m('#deal-product-grid'), cg: m('#deal-contractor-group'),
+            igHead: m('#deal-product-grid .ig-head'), cmHead: m('#deal-contractor-group .cm-grid-head'),
+            cmRow: m('#deal-contractor-group .cm-grid-row'), igCell: m('[data-testid^="ig-units-"]') }
+        })
+        for (const [k, v] of Object.entries(h)) console.log(`  HEADS ${k.padEnd(7)} ${v}`)
+        const w2d = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const m = (sel) => { const e = [...document.querySelectorAll(sel)].filter(vis)[0]
+            if (!e) return 'ABSENT'
+            const r = e.getBoundingClientRect(); const cs = getComputedStyle(e)
+            return `[${Math.round(r.left)}..${Math.round(r.right)}] x [${Math.round(r.top)}..${Math.round(r.bottom)}] ${cs.display} row ${cs.gridRow} mar ${cs.marginTop}/${cs.marginBottom}` }
+          return { radios: m('#deal-invoicing-toggle'), head: m('.opex-year-head, .capex-year-head, .hg-colhead--right'),
+            body: m('#deal-opex-year-slot, #deal-capex-year-slot, #deal-hybrid-schedule'),
+            container: m('#deal-opex-tables') }
+        })
+        for (const [k, v] of Object.entries(w2d)) console.log(`  W2BOX ${k.padEnd(9)} ${v}`)
+      }
+      if (process.env.C_W1 === '1') {
+        const w1 = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const b = (sel) => { const e = document.querySelector(sel)
+            if (!e || !vis(e)) return null
+            const r = e.getBoundingClientRect(); return { w: Math.round(r.width), l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), bot: Math.round(r.bottom) } }
+          const panel = b('#deal-section-1')
+          const grid = b('#deal-product-grid')
+          const cg = b('#deal-contractor-group')
+          // W2: does anything overprint anything on the schedule stack?
+          const parts = [['radios', '#deal-invoicing-toggle'],
+            ['head', '.opex-year-head, .capex-year-head, .hg-colhead--right'],
+            ['body', '#deal-opex-year-slot'], ['body2', '#deal-capex-year-slot'],
+            ['body3', '#deal-hybrid-schedule']]
+            .map(([n, s]) => [n, b(s)]).filter(([, r]) => r)
+          const hits = []
+          for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+            const [na, a] = parts[i], [nb, bb] = parts[j]
+            const ox = Math.min(a.r, bb.r) - Math.max(a.l, bb.l)
+            const oy = Math.min(a.bot, bb.bot) - Math.max(a.t, bb.t)
+            if (ox > 0 && oy > 0) hits.push(`${na} x ${nb} overlap ${ox}x${oy}`)
+          }
+          /* THE CONTRACTOR GRID'S CONTENT WIDTH, NOT ITS BLOCK WIDTH. It is a
+             block today so it fills the panel, and "needs 2022 of 1556" would
+             be measuring the container rather than what it holds. */
+          /* THE GRID'S OWN ROWS, not every descendant: the group also holds a
+             prose warning that wraps to whatever it is given, so measuring all
+             descendants measures the container again. */
+          const rows = [...document.querySelectorAll('#deal-contractor-group .cm-grid-row, #deal-contractor-group .cm-grid-head, #deal-contractor-group [class*="grid-row"], #deal-contractor-group table')]
+            .filter(vis).map((e) => e.getBoundingClientRect())
+          const cgContent = rows.length ? Math.round(Math.max(...rows.map((r) => r.width))) : null
+          const kinds = [...new Set([...document.querySelectorAll('#deal-contractor-group > *, #deal-contractor-group > * > *')]
+            .filter(vis).map((e) => `${e.tagName}.${(e.className || '').toString().split(' ')[0]}:${Math.round(e.getBoundingClientRect().width)}`))]
+          return { panel, grid, cg, cgContent, kinds, hits }
+        })
+        console.log(`  W1 panel ${w1.panel ? w1.panel.w : '-'}w  grid ${w1.grid ? w1.grid.w : '-'}w  contractor ${w1.cg ? w1.cg.w : '-'}w`
+          + (w1.cgContent ? `  contractor CONTENT ${w1.cgContent}w` : '')
+          + (w1.grid && w1.cgContent && w1.panel ? `  side-by-side needs ${w1.grid.w + w1.cgContent + 24} of ${w1.panel.w}` : ''))
+        if (w1.kinds) console.log(`  W1 children: ${w1.kinds.join('  ')}`)
+        console.log(`  W2 intersections: ${w1.hits.length ? w1.hits.join('; ') : 'none'}`)
+      }
       if (process.env.C_DIAG === '1') {
         const d = await p.evaluate(() => {
           const box = (sel) => { const e = document.querySelector(sel); if (!e) return 'ABSENT'
@@ -534,6 +599,68 @@ try {
       })
       check(ph.length === 0, `A-PH every placeholder fits its box`
         + (ph.length ? `\n         ${[...new Set(ph)].join('\n         ')}` : ' (measured in each box\'s own font)'))
+
+      /* ── W2: NOTHING ON THE SCHEDULE STACK OVERPRINTS ANYTHING ────────
+         John's finding 2026-09-26, and it is about the guard above. A5
+         asserted the radios' box sits ABOVE the schedule and PASSED WHILE THE
+         TEXT OVERPRINTED, because it measured the radios against the schedule's
+         BODY and the HEADING sits between them: the one element they collided
+         with was the one nothing compared them to. Being above the body says
+         nothing about what is in between.
+
+         THIS JOINS THE ESTATE GUARD FAMILY at every A5 site, so an overprint is
+         red wherever a control group sits on a panel rather than only where it
+         was found. */
+      const w2 = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const one = (sels) => sels.map((s) => document.querySelector(s)).find((e) => e && vis(e))
+        const parts = [
+          ['radios', one(['#deal-invoicing-toggle'])],
+          ['heading', one(['.opex-year-head', '.capex-year-head', '.hg-colhead--right'])],
+          ['schedule', one(['#deal-opex-year-slot', '#deal-capex-year-slot', '#deal-hybrid-schedule'])],
+        ].filter(([, e]) => e).map(([n, e]) => [n, e.getBoundingClientRect()])
+        const hits = []
+        for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+          const [na, a] = parts[i], [nb, b] = parts[j]
+          const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+          const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+          if (ox > 0 && oy > 0) hits.push(`${na} x ${nb} by ${Math.round(ox)}x${Math.round(oy)}px`)
+        }
+        return { n: parts.length, hits }
+      })
+      check(w2.n >= 2, `W2 there are boxes to compare on the schedule stack (${w2.n})`)
+      check(w2.hits.length === 0, `W2 no box on the schedule stack intersects another`
+        + (w2.hits.length ? `\n         ${w2.hits.join('\n         ')}` : ' (radios, heading, schedule)'))
+
+      /* ── W1: THE GRID AND THE MILESTONE TABLE SIT SIDE BY SIDE ─────────
+         Only where the contractor group renders, which is Lump Sum. Asserted as
+         a RELATIONSHIP between two elements rather than as the CSS that
+         achieves it. */
+      const w1c = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const bx = (sel) => { const e = document.querySelector(sel)
+          return e && vis(e) ? e.getBoundingClientRect() : null }
+        const grid = bx('#deal-product-grid')
+        const cg = bx('#deal-contractor-group')
+        if (!grid || !cg) return { present: false }
+        const firstProduct = [...document.querySelectorAll('[data-testid^="ig-units-"]')].filter(vis)[0]
+        const firstMs = [...document.querySelectorAll('#deal-contractor-group .cm-grid-row')].filter(vis)[0]
+        return { present: true,
+          gridRight: Math.round(grid.right), cgLeft: Math.round(cg.left),
+          vOverlap: Math.round(Math.min(grid.bottom, cg.bottom) - Math.max(grid.top, cg.top)),
+          rowGap: firstProduct && firstMs
+            ? Math.round(firstMs.getBoundingClientRect().top - firstProduct.getBoundingClientRect().top)
+            : null }
+      })
+      if (w1c.present) {
+        check(w1c.cgLeft >= w1c.gridRight,
+          `W1 the milestone table sits RIGHT of the product grid `
+          + `(grid ends ${w1c.gridRight}, table starts ${w1c.cgLeft})`)
+        check(w1c.vOverlap > 0,
+          `W1 and BESIDE it rather than below (${w1c.vOverlap}px of shared vertical span)`)
+        check(w1c.rowGap !== null && Math.abs(w1c.rowGap) <= 2,
+          `W1 the first figure rows are level (${w1c.rowGap}px apart)`)
+      }
 
       check(rows.length > 0, `A1 the walk found label+figure rows at all (${rows.length} containers)`)
       const over = rows.filter((r) => r.max > BACKSTOP)
