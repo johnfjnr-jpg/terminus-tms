@@ -25,22 +25,56 @@
    "same size" cannot be satisfied while they exist. With one label inside the
    button there are no longer two sides for a knob to be nearer to, so the
    direction rule does not become false - it stops having a subject. */
-export function DealToggle({ id, testid, on, label, title, ariaLabel, onClick }: {
+/* ── AND THE VARIANT, John's ruling 2026-09-26 ────────────────────────────
+   The paragraph above is left standing because its reasoning was sound and is
+   now only half the story. F1 removed the flanking labels because they were
+   what made the two controls different sizes. True, and no longer decisive:
+
+     A TWO-STATE SELECTOR names both of its states, either side of the track,
+     and the knob travels toward the one in force.
+     AN ON/OFF SWITCH names the one state it is in, inside the button.
+
+   Those are different questions, and every previous round treated them as one
+   control. `flank` is which question this instance is asking.
+
+   THE KNOB NEEDS NO CSS INVERSION and that is a consequence of the ruling
+   rather than a coincidence. `.deal-toggle` travels RIGHT when `is-on`, and
+   both selectors here put the `on` state on the RIGHT: OPEX right of CAPEX,
+   Declining balance right of Straight-line. The slider-direction round had to
+   invert the travel because L1 had put the `on` label on the LEFT. Caller
+   contract: `on` is the RIGHT-HAND label. */
+export function DealToggle({ id, testid, on, label, title, ariaLabel, onClick, flank }: {
   id: string
   testid: string
   on: boolean
-  /** The state, named in the button, which is how the factoring toggle reads. */
-  label: string
+  /** The state, named in the button. ON/OFF switches only; omitted when `flank`
+      names both states outside. */
+  label?: string
   /** What a click will do. A toggle showing only a state leaves the reader
       guessing which way it goes. */
   title: string
   ariaLabel?: string
   onClick(): void
+  /** A two-state selector: both states named, `on` being the RIGHT one. The
+      labels carry `data-active` and the STYLESHEET colours them, so the
+      marking is one fact with one writer. */
+  flank?: { left: string, right: string, testidLeft: string, testidRight: string }
 }) {
-  return (
+  const button = (
     <button type="button" id={id} data-testid={testid} data-deal-toggle="true"
-      className={`btn-ghost deal-toggle${on ? ' is-on' : ''}`}
+      className={`btn-ghost deal-toggle${flank ? ' deal-toggle--flanked' : ''}${on ? ' is-on' : ''}`}
       role="switch" aria-checked={on ? 'true' : 'false'} title={title}
-      aria-label={ariaLabel} onClick={onClick}>{label}</button>
+      aria-label={ariaLabel ?? (flank ? `${flank.left} or ${flank.right}, currently ${on ? flank.right : flank.left}` : undefined)}
+      onClick={onClick}>{flank ? null : label}</button>
+  )
+  if (!flank) return button
+  return (
+    <span className="deal-toggle-pair">
+      <span className="deal-toggle-side" data-testid={flank.testidLeft}
+        data-active={on ? 'false' : 'true'}>{flank.left}</span>
+      {button}
+      <span className="deal-toggle-side" data-testid={flank.testidRight}
+        data-active={on ? 'true' : 'false'}>{flank.right}</span>
+    </span>
   )
 }

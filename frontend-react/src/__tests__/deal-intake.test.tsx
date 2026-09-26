@@ -59,7 +59,10 @@ const must = (id: string) => { const e = el(id); if (!e) throw new Error(`no #${
 describe('section 1: the units', () => {
   test('I1: four unit cards, each with a label pointing at its own input', async () => {
     await mount()
-    const cards = [...host.querySelectorAll('.unit-cards .unit-card')]
+    // M8 added a HEADING row, which is a `.unit-card` too because it shares
+    // the row grid - that sharing is what keeps the headings aligned with the
+    // figures. The claim is about the DATA rows, so it says so.
+    const cards = [...host.querySelectorAll('.unit-cards .unit-card:not(.unit-card--head)')]
     expect(cards).toHaveLength(4)
     const ids = ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']
     for (const [i, id] of ids.entries()) {
@@ -69,6 +72,48 @@ describe('section 1: the units', () => {
       // focused by its label and nothing visible fails.
       expect(card.querySelector(`label[for="${id}"]`), id).not.toBeNull()
     }
+  })
+
+  /* ── M8: THE TWO CATALOG COLUMNS ────────────────────────────────────────
+     Read-only, catalog, and named once. The VALUES are the catalog's, so this
+     asserts they are the catalog's rather than asserting a number: a hardcoded
+     expectation here would be a second reader of the rate table. */
+  test('M8: every unit row carries a unit cost and a hosting cost, read-only', async () => {
+    await mount()
+    const ids = ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']
+    for (const id of ids) {
+      for (const suffix of ['unitCost', 'hostingCost']) {
+        const cell = host.querySelector(`[data-testid="${id}-${suffix}"]`)
+        expect(cell, `${id}-${suffix}`).not.toBeNull()
+        // READ-ONLY: text, not a control. R-C2a keeps catalog costs off the deal.
+        expect(cell!.querySelector('input, select, textarea'), `${id}-${suffix}`).toBeNull()
+        expect(cell!.textContent!.trim().length, `${id}-${suffix}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  test('M8: the columns are named once, and the basis is named once', async () => {
+    await mount()
+    const head = host.querySelector('[data-testid="unit-cards-head"]')!
+    expect([...head.children].map((c) => c.textContent!.trim()))
+      .toEqual(['', 'Units', 'Unit Cost', 'Hosting Cost/mth'])
+    expect(host.querySelectorAll('[data-testid="unit-cards-head"]')).toHaveLength(1)
+    expect(host.querySelectorAll('[data-testid="unit-cards-basis"]')).toHaveLength(1)
+  })
+
+  test('M8: both SafeSight rows read the SAME unit rate, because they are one product', async () => {
+    await mount()
+    const v = (t: string) => host.querySelector(`[data-testid="${t}"]`)!.textContent!.trim()
+    expect(v('deal-ssExisting-unitCost')).toBe(v('deal-ssNew-unitCost'))
+    expect(v('deal-ssExisting-hostingCost')).toBe(v('deal-ssNew-hostingCost'))
+    // and they are NOT all the same figure, or the assertion above is vacuous
+    expect(v('deal-ssExisting-unitCost')).not.toBe(v('deal-hemir-unitCost'))
+  })
+
+  test('M8: warranty is not a unit row and gains nothing', async () => {
+    await mount()
+    expect(host.querySelector('[data-testid="deal-warrantyPct-unitCost"]')).toBeNull()
+    expect(host.querySelectorAll('.unit-cards .unit-card:not(.unit-card--head)')).toHaveLength(4)
   })
 
   test('and the unit cards live in the intake column, not loose in the section', async () => {

@@ -324,16 +324,29 @@ describe('surface 4: the installation tab and the button machinery', () => {
 
   test('hybrid replaces the recovery row and the invoicing radios', () => {
     const h = structureVisibility({ ...UI, structure: 'hybrid' })
-    // F4 retired `topScheduleRow` and `invoicingToggle`: the row is gone and
-    // the one invoicing group lives in the rail in every structure.
-    expect(h).toEqual({ recoveryGroup: false, recoveryReadonly: false, hybridGroup: true })
+    // F4 retired `topScheduleRow` and `invoicingToggle`. M3 then renamed
+    // `recoveryReadonly` to `contractDuration`, because single phase recovers
+    // over the whole term so the figure was always the contract duration: the
+    // old name described where the field came from rather than what it shows.
+    expect(h).toEqual({ recoveryGroup: false, contractDuration: false, hybridGroup: true })
   })
 
-  test('two-phase shows recovery as an INPUT, single as a READOUT', () => {
+  test('two-phase shows recovery as an INPUT, single as a DURATION READOUT', () => {
     expect(structureVisibility({ ...UI, structure: 'twoPhase' }).recoveryGroup).toBe(true)
-    expect(structureVisibility({ ...UI, structure: 'twoPhase' }).recoveryReadonly).toBe(false)
-    expect(structureVisibility({ ...UI, structure: 'single' }).recoveryReadonly).toBe(true)
+    expect(structureVisibility({ ...UI, structure: 'twoPhase' }).contractDuration).toBe(false)
+    expect(structureVisibility({ ...UI, structure: 'single' }).contractDuration).toBe(true)
     expect(structureVisibility({ ...UI, structure: 'single' }).recoveryGroup).toBe(false)
+  })
+
+  // M6: chosen versus defaulted, which `structure` alone cannot express.
+  test('a DEFAULTED two-phase hides the recovery input; a chosen one shows it', () => {
+    expect(structureVisibility({ ...UI, structure: 'twoPhase', structureChosen: false })
+      .recoveryGroup).toBe(false)
+    expect(structureVisibility({ ...UI, structure: 'twoPhase', structureChosen: true })
+      .recoveryGroup).toBe(true)
+    // absent means chosen, which is the safe reading: it shows a period that
+    // could be hidden, never hides one that should show.
+    expect(structureVisibility({ ...UI, structure: 'twoPhase' }).recoveryGroup).toBe(true)
   })
 
   // W-E: the two toggles are the same control and must behave identically.

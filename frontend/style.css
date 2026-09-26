@@ -1495,9 +1495,21 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 
    ONE BOX, four rows, on the left. The section is unchanged in the order of
    sections: this is the shape of the box, not a new side-by-side. */
+/* ── M8: THE UNIT ROW GAINS ITS TWO CATALOG COLUMNS ──────────────────────
+   John's walk, 2026-09-26. The widths are sized from the REQUIREMENT, not from
+   a result: `xx,xxx.xx` is nine mono glyphs and `x,xxx.xx` is eight, and the
+   live probe asserts a real widest value fits rather than asserting the number
+   below (Verification 47).
+
+   ONE GRID, FOUR USERS, which is what keeps the header aligned with the rows:
+   the heading row, the four data rows and the wrapper inside each of them all
+   declare the same template. That is the lesson the hybrid milestone grid
+   already records - two grids with independent columns laid out the headers
+   and the fields separately, and three of four headers sat 372 to 400px from
+   what they named. */
 .unit-cards {
   display: grid;
-  grid-template-columns: minmax(0, 320px);
+  grid-template-columns: minmax(0, 464px);
   justify-content: start;
   gap: 0;
   border: 1px solid var(--hairline-strong);
@@ -1506,10 +1518,32 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border: none;
   border-bottom: 1px solid var(--hairline);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px;
+  grid-template-columns: minmax(0, 1fr) 72px 80px 72px;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
+}
+/* The heading row names the three figure columns once. It is not a `<th>` and
+   does not pretend to be: this is a grid, and a table header would be a second
+   grid with its own columns, which is the fault above. */
+.unit-cards .unit-card--head {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 6px;
+}
+.unit-cards .unit-card--head span { text-align: right; }
+.unit-cards .unit-card--head span:first-child { text-align: left; }
+/* READ-ONLY, so it is text rather than a box. Right-aligned to the same edge
+   the count uses, because a column of figures reads down its last digit. */
+.unit-card-cost {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
 }
 .unit-cards .unit-card:last-child { border-bottom: none; }
 .unit-cards .unit-card label { margin-bottom: 0; }
@@ -1534,11 +1568,14 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    So the wrapper carries the same intent inward. The declaration is not
    repeated as numbers: the columns and the gap are what the card already
    declares, restated here at the level the markup actually has. */
+/* M8: the wrapper carries the row's FIRST TWO columns, which is what it always
+   did; the two catalog cells are siblings of it and take the other two. */
 .unit-cards .unit-card .deal-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 72px;
   align-items: center;
   gap: 12px;
+  grid-column: 1 / span 2;
 }
 .unit-card {
   border: 1px solid var(--hairline-strong);
@@ -6483,9 +6520,26 @@ textarea::placeholder { color: var(--muted); }
    cap is a MAXIMUM, not a fixed width: at 1240 a quarter is 200px and a rate
    field needs about that, so the minmax floor stops it collapsing under the
    figures it holds. */
+/* ── M2: THE FACTORING CARD SITS IMMEDIATELY RIGHT OF THE PAYMENT CARD ────
+   John's walk, 2026-09-26. Measured before the change, the gap between the two
+   cards was 20px at 1240, 20px at 1440 and **347px at 1920**.
+
+   THE CAUSE IS NOT THE GAP, WHICH WAS ALWAYS 20px. The first column was
+   `minmax(0, 1fr)` and took every pixel going - 1147px at 1920 - while
+   `.payment-terms-panel` is capped at `max-width: 820px`. The 327px difference
+   sat inside the first column, so the second column began wherever the column
+   ended rather than wherever the card did.
+
+   `max-content` makes the column the card's own width, so the cap that already
+   exists is the single writer of it (Verification 20: the alternative is
+   repeating 820px here, which agrees today and drifts the day somebody changes
+   one). `justify-content: start` packs the pair left rather than stretching
+   the row, which is what leaves the gap at 20px instead of distributing the
+   slack between them. */
 .deal-payment-region {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(190px, 25%);
+  grid-template-columns: minmax(0, max-content) minmax(190px, 25%);
+  justify-content: start;
   gap: 20px;
   align-items: start;
 }
@@ -6527,6 +6581,16 @@ textarea::placeholder { color: var(--muted); }
    tighter 6px that says they belong together. Flattening both to one number
    would separate a label from its own input as much as from its neighbour,
    which is Payment Terms' own convention read the wrong way. */
+/* ── M9: THE FACTORING INPUTS ARE SIZED FOR WHAT THEY HOLD ───────────────
+   Both were the full column width - 355px at 1920 - for a rate of `xx.x%` and
+   a term of `XXX`. Sized from the REQUIREMENT rather than from a measurement
+   of the result: the live probe types the widest realistic value into each and
+   asserts it is not clipped, which is the check a number read off a screenshot
+   cannot be (Verification 47).
+
+   The labels are unchanged, per the finding. */
+.po-factoring-panel #deal-factoring-ratePct { width: 76px; text-align: right; }
+.po-factoring-panel #deal-factoring-termMonths { width: 64px; text-align: right; }
 .po-factoring-panel { --po-rhythm: 14px; }
 .po-factoring-panel > * + * { margin-top: var(--po-rhythm); }
 #deal-factoring-fields > label + * { margin-top: 0; }
@@ -6550,11 +6614,18 @@ textarea::placeholder { color: var(--muted); }
   color: var(--muted);
 }
 .po-field input { width: 100%; }
-.po-factoring-panel .view-toggle--stacked button { font-size: 13px; font-family: var(--body); }
+
 /* Stacked, because a quarter-width panel cannot hold two buttons side by side
    and the labels are "Straight-line" and "Declining balance". */
-.view-toggle--stacked { display: flex; flex-direction: column; align-items: stretch; }
-.view-toggle--stacked button { width: 100%; }
+/* ── `.view-toggle--stacked` IS RETIRED, M10, 2026-09-26 ─────────────────
+   It dressed the repayment method control as two stacked full-width buttons.
+   John's ruling replaces that with the two-sided `DealToggle` the mode switch
+   uses, and the class is now dead estate-wide - the version card and
+   `index.html` use plain `.view-toggle`, which stays.
+
+   A retirement is two claims (Verification 7): the rules are GONE, and nothing
+   still points at them. The second is why these went rather than being left
+   harmlessly unused. */
 
 /* L4: the yearly figures read down. Each line is a label and a right-aligned
    figure, tabular so the digits line up between years. */
@@ -8496,72 +8567,37 @@ textarea.lead-field-input,
    A 126px rail leaves 453px, which is exactly what the table needs, and a
    wrapped explanation shrinks no type and clips no figure. Measured both ways
    by the live probe rather than trusted to this comment. */
-.pt-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
-}
-/* 178px was the measured width of the LABEL AND ITS LINE. The row also carries
-   a 14px ring and an 8px gap, so a 178px rail left the longest explanation
-   wrapping at 1440 - not clipped, but not what the measurement meant either.
-   200px gives it one line and still leaves 529px of content against a 453px
-   table. */
-/* ── F4: THE RAIL SEPARATES ITS GROUPS ───────────────────────────────────
-   Found by opening the screenshot with all 90 live checks green, which is
-   Verification 4 doing the only job that could have caught it.
+/* ── THE RAIL IS RETIRED, John's ruling 2026-09-26 ────────────────────────
+   `.pt-row`, `.pt-rail` and `.pt-content` are gone, and so is the column
+   treatment the radios wore inside them.
 
-   The rail was a plain block, so the mode toggle, the recovery radios, the
-   invoicing radios and the recovery field sat flush against one another. Each
-   radio carries an explanation beneath it in the muted treatment, so
-   `INVOICING` rendered immediately under "milestone + hosting" and read as
-   part of the Hybrid radio rather than as the heading of the next group. Same
-   for `RECOVERY PERIOD (MONTHS)` under "Monthly".
+   WHAT THE RAIL WAS FOR, recorded because the problem it solved is real and
+   will come back if nobody remembers it: the money used to start below a block
+   of radios under CAPEX and at the top under OPEX, so the two modes disagreed
+   about where the figures began. The rail fixed that by putting every control
+   beside the money instead of above it.
 
-   A column with a gap LARGER than the 12px gap inside a group is what makes a
-   heading belong to what follows it rather than to what precedes it. The rule
-   is the relationship, not the number: between-group must exceed within-group,
-   and the live probe asserts exactly that rather than asserting 22px. */
-.pt-rail {
-  flex: 0 0 200px;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-.pt-content { flex: 1 1 auto; min-width: 0; }
-/* R-PT2's own claim is that the money starts at the same height in BOTH modes,
-   and it did not: measured at 28px below the panel top under CAPEX against 17px
-   under OPEX, because the yearly table leads with a label carrying a top margin
-   and the per-unit table does not. Zeroed at the column rather than at either
-   table, so a third thing put in this slot inherits the alignment. */
-/* The first rule here targeted `.pt-content > :first-child` and changed
-   NOTHING, because that child is the OPEX table row, which is `display: none`
-   under CAPEX and takes no space. The offset was 11px of the yearly schedule's
-   own heading margin, one level further in. Measured by walking the chain and
-   printing each element's offset rather than guessing a second time. */
+   WHAT IT COST, measured over the two rounds it existed: a vertical radio
+   column whose inherited `align-items: center` gave three labels three
+   different left edges; a second gutter to align; four groups stacked into
+   126px at 1240; and a content column of 453px, which is why Hybrid's two
+   tables could not sit side by side in it and F5 had to be ruled.
+
+   The flat card keeps the alignment property for nothing, because there is one
+   column: both modes now start their money at the same place by construction.
+
+   `.ring-radio-column` goes with it. F2's one-gutter fix was a property of the
+   COLUMN - a horizontal row has no such gutter - so the rule does not survive
+   its subject. `.ring-radio-stacked` and `.ring-radio-note` STAY: a radio still
+   carries a label and a secondary line, which is R-PT2's, and is independent of
+   the direction the group runs in. */
+.pt-mode { margin-bottom: 18px; }
+/* R-PT2 measured the money starting 28px below the panel top under CAPEX
+   against 17px under OPEX, because the yearly table leads with a label carrying
+   a top margin and the per-unit table does not. The rail is gone and this
+   stays: the two tables still lead differently, and zeroing it here keeps a
+   third thing put in this slot inheriting the same alignment. */
 #deal-capex-year-slot > * > .label:first-child { margin-top: 0; }
-/* ── F2: ONE GUTTER ──────────────────────────────────────────────────────
-   John's walk, 2026-09-25: the recovery radios align on one gutter. Measured
-   before the fix, the three rings sat at x = 353, 330 and 359 at 1440.
-
-   THE CAUSE IS AN INHERITED `align-items`, not a missing one. `.ring-radio-group`
-   is a WRAPPING ROW and sets `align-items: center` to centre its items
-   vertically. `.ring-radio-column` turns the direction to `column` and the same
-   declaration then means something else entirely: centred HORIZONTALLY. Each
-   radio is as wide as its own label and note, so three different widths gave
-   three different left edges, and nothing in the column rule said so.
-
-   One declaration fixes it and it belongs here rather than on the children,
-   because the gutter is a property of the COLUMN. F4's invoicing group joins
-   the same column treatment and inherits the same gutter by construction
-   rather than by a second rule agreeing with this one. */
-.ring-radio-column {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-}
-.ring-radio-column .ring-radio { align-items: flex-start; }
 .ring-radio-stacked .ring-radio-text { display: block; }
 .ring-radio-note {
   display: block;
@@ -8570,9 +8606,51 @@ textarea.lead-field-input,
   line-height: 1.35;
   margin-top: 2px;
 }
-@media (max-width: 1400px) {
-  .pt-rail { flex-basis: 126px; }
+/* ── M4: THE RADIOS RUN HORIZONTALLY, AND THE ROW WRAPS RATHER THAN CLIPS ──
+   `.ring-radio-group` is already a wrapping row with `align-items: center`,
+   which is correct for a row and was exactly what made the column version
+   centre its items horizontally. Nothing is added for the direction; what is
+   added is the spacing beneath, so the group reads as a group. */
+#deal-structure-toggle { margin-bottom: 18px; }
+#deal-invoicing-toggle { margin-top: 18px; }
+
+/* ── M1 and M10: THE TWO-SIDED SELECTOR ──────────────────────────────────
+   Both states named, either side of the track, the one in force in the estate
+   green through its token. Never a literal, and the live probe reads the
+   COMPUTED colour at both positions rather than the class, because a class
+   assertion cannot see a rule that lost the cascade. */
+.deal-toggle-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
 }
+.deal-toggle-side {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  transition: color 120ms ease;
+  white-space: nowrap;
+}
+.deal-toggle-side[data-active="true"] { color: var(--green); }
+/* The labels sit OUTSIDE, so the button is the track alone: the left padding
+   that made room for text goes with them. */
+.btn-ghost.deal-toggle--flanked { padding: 0; width: 42px; }
+/* ── THE KNOB TRAVELS TOWARD THE ACTIVE SIDE, AND NEEDS NO INVERSION ──────
+   `on` is the RIGHT-hand label - OPEX right of CAPEX, Declining right of
+   Straight-line - and `.deal-toggle` already travels right when `is-on`. The
+   slider-direction round had to invert this because L1 put the active label on
+   the LEFT; M1 reverses the order instead, so travel and order agree by
+   construction rather than by a rule somebody has to remember.
+
+   THE TRAVEL IS 22px, NOT the base 12px, and that was measured rather than
+   chosen: at 12px the knob's centre moved 377 to 389 while the labels sat at
+   333 and 443, so "nearer the active label" held by two pixels in one state.
+   These rules sit AFTER `.deal-toggle`'s, which is what makes them win: equal
+   specificity, decided on source order. */
+.deal-toggle--flanked::before { left: 0; width: 40px; height: 16px; border-radius: 8px; }
+.deal-toggle--flanked::after { left: 4px; width: 10px; height: 10px; transform: translate(0, -50%); }
+.deal-toggle--flanked.is-on::after { transform: translate(22px, -50%); }
 
 /* ── L3: THE TWO TABLES SHARE A ROW, TOP-ALIGNED ─────────────────────────
    `flex-start` is the whole of "the stagger removed": the yearly table used to

@@ -86,16 +86,35 @@ beforeEach(() => { vi.resetModules() })
 
 // ─────────────────────────────────────────────────────────────────────────
 describe('the census renders, contract by contract', () => {
+  /* ── M11 MADE TWO CENSUS INPUTS CONDITIONAL, so this mounts with factoring
+     ENABLED. The guard's intent - an input cannot be lost silently - is
+     unchanged and is still asserted over the WHOLE census; what changed is
+     that the state in which every input can render is now an explicit one.
+
+     Mounting with factoring off and shrinking the expected list would have
+     been the weaker move: it would have let a future loss of any OTHER input
+     hide behind the same exemption. The conditionality is asserted separately
+     below instead, by name, so the two factoring inputs are the only ones that
+     may ever disappear. */
+  const ALL_ON: UiState = { ...UI, factoringEnabled: true }
+  const FACTORING_ONLY = ['deal-factoring-ratePct', 'deal-factoring-termMonths']
+
   test('every census input has a control', async () => {
-    await mount()
+    await mount(VALUES, ALL_ON)
     for (const f of CENSUS) expect($(f.id), f.id).not.toBeNull()
   })
 
   test('and the count matches the census, so an input cannot be lost silently', async () => {
-    await mount()
+    await mount(VALUES, ALL_ON)
     const rendered = ALL_INPUT_IDS.filter((id) => $(id))
     expect(rendered).toHaveLength(ALL_INPUT_IDS.length)
     expect(ALL_INPUT_IDS.length).toBeGreaterThanOrEqual(39)
+  })
+
+  test('M11: factoring OFF removes exactly the two factoring inputs, and nothing else', async () => {
+    await mount(VALUES, { ...UI, factoringEnabled: false })
+    const missing = ALL_INPUT_IDS.filter((id) => !$(id))
+    expect(missing.sort()).toEqual([...FACTORING_ONLY].sort())
   })
 
   test('all eleven numOrUndefined margin inputs exist, by NAME not by count', async () => {
@@ -104,7 +123,7 @@ describe('the census renders, contract by contract', () => {
   })
 
   test('each input declares the contract its key is read under', async () => {
-    await mount()
+    await mount(VALUES, ALL_ON)
     for (const f of CENSUS) {
       expect(must(f.id).closest('[data-contract]')!.getAttribute('data-contract'), f.id).toBe(f.contract)
     }
@@ -159,8 +178,11 @@ describe('the census renders, contract by contract', () => {
     }
   })
 
+  // Factoring ENABLED: the two factoring inputs are the panel's only `num`
+  // contract, so M11 takes that contract off the screen with them. The claim
+  // is that all four contracts EXIST, which needs the state in which they can.
   test('the four contracts are all present on the panel', async () => {
-    await mount()
+    await mount(VALUES, ALL_ON)
     const seen = new Set([...host.querySelectorAll('[data-contract]')].map((n) => n.getAttribute('data-contract')))
     expect([...seen].sort()).toEqual(['emptyToNull', 'num', 'numOrNull', 'numOrUndefined'])
   })
@@ -478,7 +500,11 @@ describe('no rate box prefills a value nobody entered', () => {
     //
     // A record that holds two counts and none of the guarded keys, put through
     // the same payload-to-form path a loaded record takes.
-    await mount(valuesFromPayload({ ssExisting: 10, aqm: 4 }))
+    // Factoring ENABLED, because M11 removes its two boxes from the DOM when
+    // it is off and an absent box cannot be asserted empty. The claim is about
+    // what a box PREFILLS, so the box has to exist for the claim to have a
+    // subject at all (Verification 14: an assertion satisfied by absence).
+    await mount(valuesFromPayload({ ssExisting: 10, aqm: 4 }), { ...UI, factoringEnabled: true })
     const missing: string[] = []
     const prefilled: string[] = []
     for (const key of ZERO_IS_NOT_A_VALUE) {

@@ -1,4 +1,5 @@
 import type { UiState } from './payload'
+import { structureWasChosen } from './payload'
 
 // ── THE INSTALLATION TAB AND THE BUTTON STATE MACHINERY ──────────────────
 //
@@ -31,7 +32,18 @@ export function installVisibility(ui: UiState): InstallVisibility {
 
 export interface StructureVisibility {
   recoveryGroup: boolean
-  recoveryReadonly: boolean
+  /**
+   * M3, John's walk 2026-09-26: under OPEX the period displays as "Contract
+   * Duration", read-only and informational.
+   *
+   * RENAMED FROM `recoveryReadonly`, because that name had stopped describing
+   * it. The flag is true exactly when the effective structure is `single`,
+   * which since R-OX1 means OPEX, and OPEX has no recovery period to read out:
+   * what it shows is the CONTRACT DURATION, read from the same stored field
+   * Structural Terms writes. A name asserting a property nobody re-checked is
+   * this file's own recorded failure mode (Verification 19).
+   */
+  contractDuration: boolean
   hybridGroup: boolean
 }
 
@@ -50,8 +62,11 @@ export interface StructureVisibility {
 export function structureVisibility(ui: UiState): StructureVisibility {
   const s = ui.structure
   return {
-    recoveryGroup: s === 'twoPhase',
-    recoveryReadonly: s === 'single',
+    // M6: Two-phase AND actually chosen. A defaulted Two-phase renders its
+    // radio selected (M5) and keeps the recovery period hidden until somebody
+    // makes the choice, which is the distinction `structureChosen` carries.
+    recoveryGroup: s === 'twoPhase' && structureWasChosen(ui),
+    contractDuration: s === 'single',
     hybridGroup: s === 'hybrid',
   }
 }

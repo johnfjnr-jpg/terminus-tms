@@ -102,121 +102,110 @@ export function PaymentTermsSection({
               178px with nothing wrapping. At 1240 that leaves 401px of content
               against a 453px table, so the rail narrows there and the secondary
               lines wrap - which shrinks no type and clips no money. */}
-          <div className="pt-row">
-            <div className="pt-rail" id="deal-payment-rail" data-testid="deal-payment-rail">
-              {/* ── F1: THE SHARED TOGGLE, AND WHAT IT SUPERSEDES ──────────
-                  R-OX1 built this as "the same dress and interaction as the
-                  factoring toggle", which was true of the wiring and false of
-                  the markup: two buttons carrying one class string is not one
-                  component. L1 then moved the labels OUT either side of a bare
-                  42px track, which made the two controls different sizes.
+          {/* ── M1: THE MODE CONTROL, CAPEX | toggle | OPEX ─────────────────
+              John's ruling, 2026-09-26, and it is the third on this control in
+              four rounds, so the history is in the round brief rather than
+              here. What matters at the site:
 
-                  John's walk, 2026-09-25: it IS the factoring toggle. One
-                  component, one dress, one size, the state named inside the
-                  button. `DealToggle` carries the reasoning and the L1
-                  supersession in full. */}
-              <div className="pt-mode" id="deal-payment-mode-field">
-                <DealToggle id="deal-payment-mode-toggle" testid="deal-payment-mode-toggle"
-                  on={opexOn} label={mode.label} title={mode.title}
-                  ariaLabel={`Payment mode, currently ${mode.label}`}
-                  onClick={() => setUi({
-                    paymentMode: opexOn ? 'capex' : 'opex',
-                    // R-OX1: OPEX locks recovery to single phase. Set HERE rather
-                    // than only disabling the radios, because the structure is what
-                    // prices the deal and a screen showing `single` while the record
-                    // holds `twoPhase` is two readers of one value. It matters more
-                    // now: L2 removes the radios, so this is the only writer left.
-                    ...(opexOn ? {} : { structure: 'single' }),
-                  })} />
-              </div>
-              {/* ── L2 IN THE RAIL: UNDER OPEX THE RADIOS ARE ABSENT ───────
-                  Amended by John mid-round: nothing stands in their place
-                  either. Absence rather than a disabled control, because a
-                  disabled radio still answers a query and still says a choice
-                  exists.
+              `on` MEANS OPEX, AND OPEX IS THE RIGHT-HAND LABEL. That is the
+              whole reason no CSS inversion is needed. `.deal-toggle` travels
+              right when `is-on`; the slider-direction round had to invert it
+              only because L1 had put the active label on the LEFT. Order and
+              travel now agree by construction rather than by a rule. */}
+          <div className="pt-mode" id="deal-payment-mode-field">
+            <DealToggle id="deal-payment-mode-toggle" testid="deal-payment-mode-toggle"
+              on={opexOn} title={mode.title}
+              flank={{ left: 'CAPEX', right: 'OPEX',
+                testidLeft: 'deal-mode-label-capex', testidRight: 'deal-mode-label-opex' }}
+              onClick={() => setUi({
+                paymentMode: opexOn ? 'capex' : 'opex',
+                // R-OX1: OPEX locks the structure to single phase. Set HERE
+                // rather than only in the radios, because the structure is what
+                // prices the deal and a screen showing `twoPhase` while the
+                // record holds `single` is two readers of one value.
+                //
+                // ── AND THE RETURN PATH, WHICH R-PT3 BROKE AND THIS FIXES ──
+                // Before R-PT3 this set `single` on the way IN and nothing on
+                // the way OUT, which was harmless while `single` was still a
+                // CAPEX radio: the control came back showing Single phase.
+                // R-PT3 removed that radio, so coming back to CAPEX left the
+                // record holding a structure NO RADIO MATCHES and the group
+                // rendering with nothing selected. Mine, from the previous
+                // round, so it is part of this change rather than a carried
+                // finding.
+                //
+                // Coming back lands on the DEFAULT, not on a choice:
+                // `structureChosen: false` is what keeps M5 (the radio renders
+                // selected) and M6 (the recovery period stays hidden) both true.
+                ...(opexOn
+                  ? { structure: 'twoPhase', structureChosen: false }
+                  : { structure: 'single', structureChosen: true }),
+              })} />
+          </div>
 
-                  R-PT2 makes them a VERTICAL column in the rail, each a label
-                  with its explanation beneath. */}
-              {opexOn ? null : (
-                <div className="ring-radio-group ring-radio-column" id="deal-structure-toggle" role="radiogroup">
-                  {STRUCTURES.map((o) => (
-                    <RingRadio key={o.value} attr="data-structure" value={o.value}
-                      label={o.label} note={o.note}
-                      active={effectiveStructure(ui) === o.value}
-                      onPick={() => setUi({ structure: o.value })} />
-                  ))}
-                </div>
-              )}
-              {/* ── F4: THE INVOICING RADIOS JOIN THE RAIL ─────────────────
-                  John's walk, 2026-09-25: "beneath the recovery radios, same
-                  gutter, same alignment. Recovery period stays with them."
+          {/* ── M4: THE RECOVERY RADIOS ARE HORIZONTAL AGAIN ────────────────
+              One row, at the panel top under the mode control. R-PT2 made them
+              a vertical column in a rail and F4 gave that rail three more
+              groups; John's ruling retires the rail, so the column treatment
+              goes with it and `.ring-radio-group` is the horizontal row it
+              always was.
 
-                  So the recovery field and its single-phase readout come too.
-                  They used to sit in `#deal-top-schedule-row`, a three-slot row
-                  whose third slot R-PT2 had already emptied; with these two gone
-                  the row has nothing left and is retired rather than left
-                  standing as an empty container for somebody to find.
-
-                  AND THE HYBRID COPY GOES WITH IT. Hybrid carried its own
-                  invoicing group, so the choice had two controls writing it and
-                  two groups reading it. One control in the rail serves every
-                  structure, which is Verification 20's remedy rather than its
-                  symptom. */}
-              <div className="ring-radio-group ring-radio-column" id="deal-invoicing-toggle">
-                <span className="label">Invoicing</span>
-                {INVOICING.map((o) => (
-                  <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
-                    active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
-                ))}
-              </div>
-              <div className={`form-group${vis.recoveryGroup ? '' : ' hidden'}`} id="deal-recovery-group">
-                {renderField('deal-recoveryMonths')}
-              </div>
-              {/* SINGLE PHASE HAS NO SEPARATE RECOVERY: it recovers over the whole
-                  term, so the figure is a READOUT of the duration rather than an
-                  input. A blank duration is not zero months and says so. */}
-              <div id="deal-recovery-readonly" className={vis.recoveryReadonly ? '' : 'hidden'}>
-                <span className="label">Recovery period</span>
-                <div id="deal-recovery-readonly-value" data-testid="deal-recovery-readonly-value">
-                  {duration ? `${duration} months` : 'Contract duration not set'}
-                </div>
-              </div>
+              L2 STANDS: under OPEX the radios are ABSENT, not disabled and not
+              hidden. A disabled radio still answers a query and still says a
+              choice exists. */}
+          {opexOn ? null : (
+            <div className="ring-radio-group" id="deal-structure-toggle" role="radiogroup">
+              {STRUCTURES.map((o) => (
+                <RingRadio key={o.value} attr="data-structure" value={o.value}
+                  label={o.label} note={o.note}
+                  active={effectiveStructure(ui) === o.value}
+                  onPick={() => setUi({ structure: o.value, structureChosen: true })} />
+              ))}
             </div>
-            <div className="pt-content" id="deal-payment-content" data-testid="deal-payment-content">
-          {/* ── R-PT2: THE CONTENT COLUMN ───────────────────────────────
-              The money starts at the top of the panel in BOTH modes, which is
-              the whole point of the rail: the CAPEX tables used to begin below
-              a block of radios and the OPEX ones did not.
+          )}
 
-              ── THE CLAIM THAT FOLLOWED WAS FALSE AND IS CORRECTED HERE ──
-              R-PT2 wrote: "THE YEARLY TABLE IS RENDERED EXACTLY ONCE, in
-              whichever slot the mode calls for. Two mounts of one schedule
-              would be two readers of one derivation and would satisfy every
-              assertion about where it is."
+          {/* ── M6: THE RECOVERY PERIOD, BELOW THE RADIOS, ONLY WHEN CHOSEN ──
+              Two-phase AND actually selected. A DEFAULTED Two-phase renders its
+              radio selected (M5) and keeps this hidden, which is why
+              `structureChosen` exists: `structure` alone cannot tell a default
+              from a choice, because `uiFromPayload` collapses the absence. */}
+          <div className={`form-group${vis.recoveryGroup ? '' : ' hidden'}`} id="deal-recovery-group">
+            {renderField('deal-recoveryMonths')}
+          </div>
 
-              THE SECOND SENTENCE WAS RIGHT AND THE FIRST WAS FALSE FROM THE
-              MOMENT IT WAS WRITTEN. `DealPanel` passed the same
-              `<YearScheduleView>` twice, as `yearSchedule` and as
-              `hybridSchedule`, and this slot was gated on the MODE while the
-              Hybrid slot was gated on the STRUCTURE. Under Hybrid both
-              rendered and both were VISIBLE, measured live at y=2443 beside
-              the rail and y=2841 in the Hybrid grid.
+          {/* ── M3: UNDER OPEX, THE CONTRACT DURATION ───────────────────────
+              Read-only and informational, reading the SAME stored field
+              Structural Terms writes. There is no second store and no second
+              control: this surface only displays `deal-duration`.
 
-              A hardcoded claim about configuration has a shelf life and cannot
-              be falsified by anything (Architecture 9's fourth variant). This
-              one survived a round because it described an intention.
+              IT WAS LABELLED "Recovery period" AND THAT HAD STOPPED BEING TRUE.
+              Single phase recovers over the whole term, so the figure was
+              always the contract duration; the label described the field's
+              origin rather than what it shows. A blank duration says so rather
+              than printing a bare number. */}
+          <div id="deal-contract-duration" data-testid="deal-contract-duration"
+            className={vis.contractDuration ? '' : 'hidden'}>
+            <span className="label">Contract Duration</span>
+            <div id="deal-contract-duration-value" data-testid="deal-contract-duration-value">
+              {duration ? `${duration} months` : 'Contract duration not set'}
+            </div>
+          </div>
 
-              F5/F3 RULED, OPTION A, 2026-09-26: ONE `yearSchedule` prop, and
-              this slot renders it only when the Hybrid grid is not going to.
-              The gating is on the SAME expression in both places, so the two
-              cannot disagree again. */}
+          {/* ── THE MONEY ────────────────────────────────────────────────────
+              F5/F3 OPTION A stands: ONE `yearSchedule`, rendered here unless
+              the Hybrid grid below is going to render it. Both gate on the SAME
+              `hybridOn` expression, so they cannot drift apart.
+
+              The false claim R-PT2 wrote here - "THE YEARLY TABLE IS RENDERED
+              EXACTLY ONCE, in whichever slot the mode calls for" - was corrected
+              in the completion round and is not restored: it was false from the
+              moment it was written, because this slot was gated on the MODE and
+              the Hybrid slot on the STRUCTURE. */}
           <div className={`opex-tables${opexOn ? '' : ' hidden'}`} id="deal-opex-tables">
             {opexOn ? opex : null}
             {opexOn ? <div id="deal-opex-year-slot">{yearSchedule}</div> : null}
           </div>
-              {opexOn || hybridOn ? null : <div id="deal-capex-year-slot">{yearSchedule}</div>}
-            </div>
-          </div>
+          {opexOn || hybridOn ? null : <div id="deal-capex-year-slot">{yearSchedule}</div>}
 
 
           {/* ── F4: `#deal-top-schedule-row` IS RETIRED ─────────────────────
@@ -272,6 +261,22 @@ export function PaymentTermsSection({
               <div id="deal-hybrid-schedule">{hybridOn ? yearSchedule : null}</div>
             </div>
           </div>
+
+          {/* ── M7: THE INVOICING RADIOS SIT BENEATH THE MONEY ──────────────
+              "beneath the fee table under Two-phase and beneath the hosting
+              schedule under Hybrid" is ONE placement, not two, once the rail is
+              gone: the fee table and the Hybrid grid are siblings in this flow,
+              so a group after both of them follows whichever one rendered.
+
+              Stating it as two positions would need two groups, and two groups
+              writing one choice is the defect F4 removed. */}
+          <div className="ring-radio-group" id="deal-invoicing-toggle">
+            <span className="label">Invoicing</span>
+            {INVOICING.map((o) => (
+              <RingRadio key={o.value} attr="data-invoicing" value={o.value} label={o.label}
+                active={ui.invoicing === o.value} onPick={() => setUi({ invoicing: o.value })} />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -285,18 +290,41 @@ export function PaymentTermsSection({
             on={fx.on} label={fx.label} title={fx.title}
             onClick={() => setUi({ factoringEnabled: !ui.factoringEnabled })} />
         </div>
-        <div className={`po-field${fx.on ? '' : ' hidden'}`} id="deal-factoring-fields">
-          {renderField('deal-factoring-ratePct')}
-          {renderField('deal-factoring-termMonths')}
-          <label>Repayment method</label>
-          <div className="view-toggle view-toggle--stacked" id="deal-factoring-method-toggle">
-            {[{ m: 'straight', l: 'Straight-line' }, { m: 'declining', l: 'Declining balance' }].map((o) => (
-              <button key={o.m} type="button" data-method={o.m}
-                className={ui.factoringMethod === o.m ? 'active' : ''}
-                onClick={() => setUi({ factoringMethod: o.m })}>{o.l}</button>
-            ))}
+        {/* ── M11: DISABLED MEANS ABSENT, NOT HIDDEN ─────────────────────
+            The block carried `hidden`, so the rate, the term and the method
+            were in the DOM and answering queries on a deal with no factoring.
+            Absence is the claim John's ruling makes, and it is the same
+            reasoning L2 used for the structure radios under OPEX: a control
+            that is merely hidden still says a choice exists. */}
+        {fx.on ? (
+          <div className="po-field" id="deal-factoring-fields">
+            {renderField('deal-factoring-ratePct')}
+            {renderField('deal-factoring-termMonths')}
+            <label>Repayment method</label>
+            {/* ── M10: THE SAME TWO-SIDED CONTROL M1 USES ─────────────────
+                It was two stacked full-width buttons, which is a different
+                shape for the same question the mode control asks. One
+                component, and `on` is the RIGHT label, which is the contract
+                `DealToggle` states: declining balance sits right of
+                straight-line, so the knob travels toward the method in force.
+
+                THE STORED VALUE IS UNCHANGED. `factoringMethod` is still
+                'straight' or 'declining'; only the control that writes it
+                moved. */}
+            <div id="deal-factoring-method-toggle">
+              <DealToggle id="deal-method-toggle" testid="deal-method-toggle"
+                on={ui.factoringMethod === 'declining'}
+                title={ui.factoringMethod === 'declining'
+                  ? 'Interest is charged on the declining balance. Click for straight-line.'
+                  : 'Interest is charged straight-line. Click for declining balance.'}
+                flank={{ left: 'STRAIGHT-LINE', right: 'DECLINING BALANCE',
+                  testidLeft: 'deal-method-label-straight', testidRight: 'deal-method-label-declining' }}
+                onClick={() => setUi({
+                  factoringMethod: ui.factoringMethod === 'declining' ? 'straight' : 'declining',
+                })} />
+            </div>
           </div>
-        </div>
+        ) : null}
       </aside>
     </div>
   )

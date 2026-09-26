@@ -112,12 +112,21 @@ describe('the choices mark themselves', () => {
     expect(active).toEqual(['monthly'])
   })
 
+  /* ── RE-TAKEN BY M10: the repayment method is the two-sided DealToggle ──
+     It was two `<button data-method>` elements, one carrying `.active`. The
+     claim - the control marks the method in force - is unchanged; what it
+     marks with is now the flanking label's `data-active`, the same mechanism
+     the mode control uses. */
   test('P10: the repayment method toggle marks the chosen method', async () => {
     await mount({ factoringEnabled: true, factoringMethod: 'declining' })
-    const btns = [...must('deal-factoring-method-toggle').querySelectorAll('button')]
-    expect(btns.map((b) => b.dataset.method)).toEqual(['straight', 'declining'])
-    expect(btns.filter((b) => b.classList.contains('active')).map((b) => b.dataset.method))
-      .toEqual(['declining'])
+    expect(must('deal-factoring-method-toggle').querySelectorAll('button[data-method]').length).toBe(0)
+    // BY TEST ID, not by `el()`: this file's helper looks up `#id`, and the
+    // flanking labels are identified by `data-testid`. A helper that returns
+    // null for the wrong reason reads exactly like a missing element.
+    const side = (t: string) =>
+      (host.querySelector(`[data-testid="${t}"]`) as HTMLElement | null)?.dataset.active
+    expect(side('deal-method-label-declining')).toBe('true')
+    expect(side('deal-method-label-straight')).toBe('false')
   })
 })
 
@@ -130,11 +139,12 @@ describe('what each structure shows', () => {
     expect(el('deal-top-schedule-row')).toBeNull()
     expect(hidden('deal-invoicing-toggle')).toBe(false)
     expect(hidden('deal-recovery-group')).toBe(false)
-    expect(hidden('deal-recovery-readonly')).toBe(true)
+    // M3 renamed the single-phase readout to Contract Duration.
+    expect(hidden('deal-contract-duration')).toBe(true)
     expect(hidden('deal-hybrid-group')).toBe(true)
   })
 
-  test('hybrid brings its own schedule, and invoicing STAYS in the rail', async () => {
+  test('hybrid brings its own schedule, and invoicing stays on the surface', async () => {
     await mount({ structure: 'hybrid' })
     expect(el('deal-top-schedule-row')).toBeNull()
     // F4: the one invoicing control serves every structure, so under hybrid it
@@ -144,18 +154,21 @@ describe('what each structure shows', () => {
     expect(hidden('deal-hybrid-group')).toBe(false)
   })
 
-  test('P5: single shows the recovery as a READOUT, and it reads the duration', async () => {
+  /* M3: the readout is the CONTRACT DURATION, which is what it always showed.
+     Single phase recovers over the whole term, so "Recovery period" described
+     where the field came from rather than what it says. */
+  test('P5: single shows the CONTRACT DURATION as a readout, and it reads it', async () => {
     await mount({ structure: 'single' })
     expect(hidden('deal-recovery-group')).toBe(true)
-    expect(hidden('deal-recovery-readonly')).toBe(false)
-    expect(must('deal-recovery-readonly-value').textContent).toBe('36 months')
+    expect(hidden('deal-contract-duration')).toBe(false)
+    expect(must('deal-contract-duration-value').textContent).toBe('36 months')
   })
 
   test('and says the duration is not set rather than showing zero months', async () => {
     // A blank duration is not zero months. The readout has its own wording for
     // the absence, because the figure it replaces is one somebody prices on.
     await mount({ structure: 'single' }, { ...VALUES, 'deal-duration': '' })
-    expect(must('deal-recovery-readonly-value').textContent).toBe('Contract duration not set')
+    expect(must('deal-contract-duration-value').textContent).toBe('Contract duration not set')
   })
 })
 
@@ -168,7 +181,10 @@ describe('the factoring switch', () => {
     expect(sw.getAttribute('aria-checked')).toBe('false')
     expect(sw.classList.contains('is-on')).toBe(false)
     expect(sw.title).toContain('Click to turn it on')
-    expect(hidden('deal-factoring-fields')).toBe(true)
+    // M11: ABSENT, not hidden. A hidden control still answers a query and
+    // still says a choice exists; the polish round's M11a asserts the three
+    // controls individually.
+    expect(el('deal-factoring-fields')).toBeNull()
   })
 
   test('and on says so, and shows them', async () => {

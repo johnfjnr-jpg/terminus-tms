@@ -19,15 +19,62 @@ export const INSTALL_RESPONSIBILITIES = [
   'Terminus - Reseller Installation',
 ]
 
-const UNIT_FIELDS = ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']
+/* ── M8: EACH UNIT ROW NAMES ITS CATALOG COSTS ───────────────────────────
+   John's walk, 2026-09-26: two READ-ONLY columns beside each unit count, the
+   unit cost and the hosting cost per month.
 
-export function UnitCards({ renderField }: { renderField(id: string): ReactNode }) {
+   THE RATE KEYS ARE THE CENSUS'S OWN, not a second mapping written here.
+   `CATALOG_DISPLAYS` already says which rate each product reads, and these are
+   the same keys; writing them again as literals would be Verification 20's
+   second reader, agreeing today and free to drift the next time a product is
+   added. Both SafeSight rows read the SafeSight rate, because existing and new
+   infrastructure differ in INSTALLATION, not in the unit itself.
+
+   READ-ONLY AND CATALOG, per R-C2a: a unit cost is not stored on a deal, so
+   there is nothing here to edit and nothing to save. The cost basis is named
+   ONCE on the card rather than per row, because it is one basis. */
+const UNIT_FIELDS = [
+  { id: 'deal-ssExisting', unit: 'ssUnitCost', hosting: 'hoSafesight' },
+  { id: 'deal-ssNew', unit: 'ssUnitCost', hosting: 'hoSafesight' },
+  { id: 'deal-aqm', unit: 'aqUnitCost', hosting: 'hoAqm' },
+  { id: 'deal-hemir', unit: 'hemirUnitCost', hosting: 'hoHemir' },
+] as const
+
+/** Two decimals, grouped, or an em dash when the catalog has no rate. A blank
+    cell and a zero say different things and neither says "not in the catalog". */
+const rate = (rates: Record<string, number> | undefined, key: string) => {
+  const v = rates?.[key]
+  return typeof v === 'number' && Number.isFinite(v)
+    ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '—'
+}
+
+export function UnitCards({ renderField, rates }: {
+  renderField(id: string): ReactNode
+  rates?: Record<string, number>
+}) {
   return (
-    <div className="unit-cards">
-      {UNIT_FIELDS.map((id) => (
-        <div className="unit-card" key={id}>{renderField(id)}</div>
-      ))}
-    </div>
+    <>
+      <div className="unit-cards" id="deal-units-card">
+        <div className="unit-card unit-card--head" data-testid="unit-cards-head">
+          <span />
+          <span>Units</span>
+          <span>Unit Cost</span>
+          <span>Hosting Cost/mth</span>
+        </div>
+        {UNIT_FIELDS.map((f) => (
+          <div className="unit-card" key={f.id}>
+            {renderField(f.id)}
+            <span className="unit-card-cost" data-testid={`${f.id}-unitCost`}>{rate(rates, f.unit)}</span>
+            <span className="unit-card-cost" data-testid={`${f.id}-hostingCost`}>{rate(rates, f.hosting)}</span>
+          </div>
+        ))}
+      </div>
+      <p className="field-note" data-testid="unit-cards-basis">
+        Unit and hosting costs are catalog values, read-only here and priced from the
+        cost basis named in the Deal Summary.
+      </p>
+    </>
   )
 }
 

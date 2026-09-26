@@ -58,19 +58,38 @@ const must = (id: string) => { const e = el(id); if (!e) throw new Error(`no ${i
    exactly one mode is shown, and a click moves it. What is genuinely gone is
    the ORDER claim (`OPEX, slider, CAPEX`), because there is no longer anything
    to be between. */
-describe('L1, as superseded by F1: the mode control', () => {
-  test('L1a: the control names the mode, and there are no flanking labels', async () => {
+/* ── AND L1 IS RESTORED BY M1, WHICH IS A ROUND TRIP WORTH NAMING ────────
+   This block has now been written three ways in four rounds, and the history
+   is the point rather than an embarrassment:
+
+     L1   flanking OPEX | slider | CAPEX, active side green
+     F1   labels INSIDE the button, flanking labels asserted ABSENT
+     M1   flanking labels again, CAPEX | toggle | OPEX, order REVERSED
+
+   F1's reasoning was that flanking labels made the two toggles different
+   sizes. That was measured and is still true. What John's ruling adds is that
+   the two controls are asking DIFFERENT QUESTIONS - a two-state selector names
+   both states, an on/off switch names the one it is in - so a difference in
+   size between them is a difference in kind, not an inconsistency.
+
+   The order is NOT a restoration: L1 had OPEX on the left, M1 has CAPEX. That
+   is what lets the knob travel right for OPEX with no CSS inversion, which is
+   the rule the slider-direction round had to invert for L1's layout. */
+describe('L1, as restored by M1: the mode control', () => {
+  test('L1a: the control is flanked by both modes, CAPEX then OPEX', async () => {
     await mount()
-    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('CAPEX')
-    expect(el('deal-mode-label-opex')).toBeNull()
-    expect(el('deal-mode-label-capex')).toBeNull()
+    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('')
+    expect(must('deal-mode-label-capex').textContent!.trim()).toBe('CAPEX')
+    expect(must('deal-mode-label-opex').textContent!.trim()).toBe('OPEX')
   })
 
-  test('L1b: exactly ONE mode is named, and it is the one in state', async () => {
+  test('L1b: exactly ONE side is marked, and it is the one in state', async () => {
     await mount()
-    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('CAPEX')
+    expect(must('deal-mode-label-capex').dataset.active).toBe('true')
+    expect(must('deal-mode-label-opex').dataset.active).toBe('false')
     await mount({ paymentMode: 'opex' })
-    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('OPEX')
+    expect(must('deal-mode-label-opex').dataset.active).toBe('true')
+    expect(must('deal-mode-label-capex').dataset.active).toBe('false')
   })
 
   test('L1c: it is a switch, keyboard reachable, and names itself', async () => {
@@ -83,11 +102,12 @@ describe('L1, as superseded by F1: the mode control', () => {
     expect(s.hasAttribute('disabled')).toBe(false)
   })
 
-  test('L1d: clicking it moves the mode and the label together', async () => {
+  test('L1d: clicking it moves the mode and the marking together', async () => {
     await mount()
     await act(async () => { must('deal-payment-mode-toggle').click() })
     expect(must('deal-payment-mode-toggle').getAttribute('aria-checked')).toBe('true')
-    expect(must('deal-payment-mode-toggle').textContent!.trim()).toBe('OPEX')
+    expect(must('deal-mode-label-opex').dataset.active).toBe('true')
+    expect(must('deal-mode-label-capex').dataset.active).toBe('false')
   })
 })
 

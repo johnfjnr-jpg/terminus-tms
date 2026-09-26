@@ -45,39 +45,53 @@ const mount = async (ui: Partial<UiState> = {}) => {
   })
   await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 }
-const rail = () => host.querySelector('#deal-payment-rail')
-const content = () => host.querySelector('#deal-payment-content')
+const card = () => host.querySelector('.payment-card')
 
-describe('R-PT2: the rail and the content column', () => {
-  test('P1: both exist, and the rail comes first', async () => {
+/* ── R-PT2 IS RETIRED, John's ruling 2026-09-26, AND ITS CLAIMS ARE RE-TAKEN ──
+   The rail existed so the money started at the top of the panel in both modes.
+   That was a real problem and the rail was a real answer to it. What the rail
+   then cost, across two rounds, was a vertical radio column, a second gutter
+   to align, four groups stacked in 126px at 1240, and a content column so
+   narrow that Hybrid's two tables could not sit side by side in it.
+
+   THE CLAIMS BELOW ARE THE SAME CLAIMS, re-pointed at the flat card. P1's
+   "the rail comes first" becomes "the controls come before the money", which
+   is what P1 was really about; P6's "the money is in the content column"
+   becomes "the money is in the card"; P2's "the slider is at the top" is
+   unchanged in meaning and now means the top of the card.
+
+   P3, P4 and P7 are unchanged in substance and simply no longer mention a
+   rail. Nothing here is weakened to make it pass: the one claim that GOES is
+   P3's "and the content column does not hold radios", which cannot survive the
+   column's removal and was a statement about the rail rather than about the
+   screen. */
+describe('R-PT2 retired: the controls, then the money, in one card', () => {
+  test('P1: the controls come BEFORE the money, which is what the rail was for', async () => {
     await mount()
-    expect(rail()).not.toBeNull()
-    expect(content()).not.toBeNull()
-    // A RELATIONSHIP rather than a class: "left rail" is an order claim in the
-    // document, and the live probe checks it is also an order on screen.
-    expect(rail()!.compareDocumentPosition(content()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(host.querySelector('#deal-payment-rail'), 'the rail is retired').toBeNull()
+    expect(host.querySelector('#deal-payment-content'), 'the content column is retired').toBeNull()
+    const modeCtl = host.querySelector('#deal-payment-mode-field')!
+    const money = host.querySelector('#deal-capex-year-slot')!
+    expect(modeCtl.compareDocumentPosition(money) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  test('P2: the slider sits at the TOP of the rail', async () => {
+  test('P2: the mode control sits at the TOP of the card', async () => {
     await mount()
-    const s = rail()!.querySelector('[data-testid="deal-payment-mode-toggle"]')
-    expect(s, 'the slider is not in the rail').not.toBeNull()
-    // FIRST in the rail, which is what "top" means before any layout runs.
-    expect(rail()!.firstElementChild!.contains(s!)).toBe(true)
+    const s = card()!.querySelector('[data-testid="deal-payment-mode-toggle"]')
+    expect(s, 'the mode control is not in the card').not.toBeNull()
+    // FIRST in the card, which is what "top" means before any layout runs.
+    expect(card()!.firstElementChild!.contains(s!)).toBe(true)
   })
 
-  // R-PT3, 2026-09-26: three radios became two. The claim is about WHERE they
-  // live, which is what R-PT2 ruled and is unchanged.
-  test('P3: under CAPEX the rail holds the radios and the content does not', async () => {
+  test('P3: under CAPEX the card holds the two radios', async () => {
     await mount()
-    const inRail = [...rail()!.querySelectorAll('[data-structure]')].map((e) => e.getAttribute('data-structure'))
-    expect(inRail).toEqual(['twoPhase', 'hybrid'])
-    expect(content()!.querySelectorAll('[data-structure]')).toHaveLength(0)
+    const inCard = [...card()!.querySelectorAll('[data-structure]')].map((e) => e.getAttribute('data-structure'))
+    expect(inCard).toEqual(['twoPhase', 'hybrid'])
   })
 
   test('P4: each radio is a LABEL plus a secondary line, not one run-on string', async () => {
     await mount()
-    const rows = [...rail()!.querySelectorAll('[data-structure]')]
+    const rows = [...card()!.querySelectorAll('[data-structure]')]
     const read = rows.map((r) => ({
       label: r.querySelector('.ring-radio-label')!.textContent!.trim(),
       note: r.querySelector('.ring-radio-note')?.textContent?.trim() ?? null,
@@ -92,20 +106,20 @@ describe('R-PT2: the rail and the content column', () => {
     for (const r of read) expect(r.label).not.toContain('(')
   })
 
-  test('P5: under OPEX the rail holds no radios, per L2', async () => {
+  test('P5: under OPEX there are no structure radios, per L2', async () => {
     await mount({ paymentMode: 'opex' })
     expect(host.querySelector('#deal-structure-toggle')).toBeNull()
-    expect(rail()!.querySelectorAll('[data-structure]')).toHaveLength(0)
-    // and the slider is still there, in the same place
-    expect(rail()!.querySelector('[data-testid="deal-payment-mode-toggle"]')).not.toBeNull()
+    expect(card()!.querySelectorAll('[data-structure]')).toHaveLength(0)
+    // and the mode control is still there, in the same place
+    expect(card()!.querySelector('[data-testid="deal-payment-mode-toggle"]')).not.toBeNull()
   })
 
-  test('P6: the money content is in the CONTENT column in both modes', async () => {
+  test('P6: the money is in the card in both modes', async () => {
     await mount()
-    expect(content()!.querySelector('#deal-capex-year-slot')?.children.length ?? 0).toBeGreaterThan(0)
+    expect(card()!.querySelector('#deal-capex-year-slot')?.children.length ?? 0).toBeGreaterThan(0)
     await mount({ paymentMode: 'opex' })
-    expect(content()!.querySelector('#deal-opex-table')).not.toBeNull()
-    expect(content()!.querySelector('#deal-opex-year-slot')?.children.length ?? 0).toBeGreaterThan(0)
+    expect(card()!.querySelector('#deal-opex-table')).not.toBeNull()
+    expect(card()!.querySelector('#deal-opex-year-slot')?.children.length ?? 0).toBeGreaterThan(0)
   })
 
   test('P7: and the yearly table exists exactly ONCE, whichever mode', async () => {
