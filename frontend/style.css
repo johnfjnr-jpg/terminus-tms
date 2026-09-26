@@ -2512,13 +2512,35 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    they are inside the toggle: STRAIGHT-LINE left of the track and DECLINING
    BALANCE right, so the right edge this aligns is DECLINING BALANCE's. Field
    sizes are untouched and stay per the S1 formats. */
-#deal-factoring-fields .deal-field,
-#deal-factoring-fields .po-row {
+#deal-factoring-fields .deal-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
 }
+/* ── W2: THE REPAYMENT ROW STACKS AT EVERY WIDTH, AND THIS IS A DEFECT A6
+   CREATED ────────────────────────────────────────────────────────────────
+   A6 gave all three rows the card's two-column shape. The rate and term
+   controls are 30px boxes and fit beside their labels; THE REPAYMENT CONTROL
+   IS 292px in a card of 340, so its column took everything and left the label
+   about 4px. The label did not shrink, it OVERFLOWED: "REPAYMENT METHOD"
+   printed through "STRAIGHT-LINE", measured 52 x 24px of overlapping ink.
+
+   FOUND BY OPENING THE SCREENSHOT, and it had shipped: last round I read the
+   STACKED 1240 card and the statement, and never the 1920 card, where this is
+   the only width the row is side by side. Verification 4's own sentence.
+
+   R-ADJ1 already stacks this row below 1360. Stacking it at every width is the
+   same treatment applied consistently rather than a second shape, and A6's
+   claim survives: the control is right-aligned, so its right edge is still the
+   card's content edge, which is where the rate and term inputs end. */
+#deal-factoring-fields .po-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+#deal-factoring-fields .po-row > #deal-factoring-method-toggle { align-self: flex-end; }
 
 /* ── R-ADJ1, JOHN'S RULING 2026-09-26: 1240 IS DIFFERENT, AND IT IS THE ONE
    WIDTH WHERE THE REGION CANNOT CARRY ALL THREE ─────────────────────────────
@@ -2542,12 +2564,18 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    The stacked pattern is the estate's own, the one `#deal-intake-head
    .deal-field` uses, rather than a third way of stacking a label. */
 @media (max-width: 1360px) {
-  #deal-factoring-fields .po-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
+  /* R-ADJ1's stacking rule for this row is retired: the row stacks at EVERY
+     width now, because at 1920 its label overflowed into its control. The
+     region's column change below is what R-ADJ1 still carries.
+
+     WHAT IT DOES CARRY IS WHICH WAY THE CONTROL OVERFLOWS. Above 1360 the card
+     is 340px and the 292px control FITS, so right-aligning it puts its edge on
+     the card's content edge, which is A6's claim. Below 1360 the card returns
+     to its percentage and is about 235px, so the control cannot fit either
+     way: right-aligned, the overflow runs LEFT across the gap and prints over
+     the schedule, measured at 53px. Left-aligned it runs right into empty
+     space, which is where it has always gone. */
+  #deal-factoring-fields .po-row > #deal-factoring-method-toggle { align-self: flex-start; }
 }
 
 .form-group { display: flex; flex-direction: column; gap: 6px; }

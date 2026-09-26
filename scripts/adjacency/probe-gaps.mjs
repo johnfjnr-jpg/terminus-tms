@@ -614,11 +614,44 @@ try {
       const w2 = await p.evaluate(() => {
         const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
         const one = (sels) => sels.map((s) => document.querySelector(s)).find((e) => e && vis(e))
+        /* ── THE INK, NOT THE BOX, AND THE BOX MISSED THE FIRST ONE ─────────
+           Measured box against box, the factoring card came back clean while
+           "REPAYMENT METHOD" was visibly printing through "STRAIGHT-LINE": the
+           label's box is a 4px column and its TEXT overflows it. An element's
+           box is where the layout put it; the ink is what a reader sees, and
+           overprint is a claim about the ink.
+
+           So each part's extent is its box UNION the rects of its own text,
+           which is the same Range measurement A1 uses for a label's right
+           edge. */
+        const inkOf = (e) => {
+          const r = e.getBoundingClientRect()
+          let { left, right, top, bottom } = r
+          const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT)
+          for (let n = w.nextNode(); n; n = w.nextNode()) {
+            if (!n.nodeValue || !n.nodeValue.trim()) continue
+            const rg = document.createRange(); rg.selectNodeContents(n)
+            const b = rg.getBoundingClientRect()
+            if (b.width <= 0 || b.height <= 0) continue
+            left = Math.min(left, b.left); right = Math.max(right, b.right)
+            top = Math.min(top, b.top); bottom = Math.max(bottom, b.bottom)
+          }
+          return { left, right, top, bottom }
+        }
+        /* ── EVERY SITE WHERE A CONTROL GROUP SITS ON A PANEL, which is what
+           John's ruling asks for: overprint red everywhere, not only where it
+           was found. The PO factoring card is one of those sites, and reading
+           the 1920 screenshot found it overprinting there too - "REPAYMENT
+           METHOD" wrapping into "STRAIGHT-LINE" - which the schedule-only
+           version of this check could not have seen. */
         const parts = [
           ['radios', one(['#deal-invoicing-toggle'])],
           ['heading', one(['.opex-year-head', '.capex-year-head', '.hg-colhead--right'])],
           ['schedule', one(['#deal-opex-year-slot', '#deal-capex-year-slot', '#deal-hybrid-schedule'])],
-        ].filter(([, e]) => e).map(([n, e]) => [n, e.getBoundingClientRect()])
+          ['repay label', one(['.po-row label'])],
+          ['repay control', one(['#deal-factoring-method-toggle'])],
+          ['factoring toggle', one(['#deal-factoring-toggle'])],
+        ].filter(([, e]) => e).map(([n, e]) => [n, inkOf(e)])
         const hits = []
         for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
           const [na, a] = parts[i], [nb, b] = parts[j]

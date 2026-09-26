@@ -88,6 +88,17 @@ const INJECTIONS = [
     put: '.opex-tables > .opex-year-head {\n  grid-column: 2;\n  grid-row: 1;',
     expect: 'W2 no box on the schedule stack intersects' },
 
+  /* ── W2's SECOND SITE: THE LABEL FORCED BACK INTO ITS CONTROL ───────────
+     The repayment row returns to the two-column shape A6 gave it, where the
+     292px control takes the card and leaves the label about 4px. The label
+     does not shrink, it OVERFLOWS, so this injection tests the half of the
+     check that measures INK rather than boxes: box against box, this state
+     reads clean while "REPAYMENT METHOD" prints through "STRAIGHT-LINE". */
+  { id: 'W2 the label forced back into its control', kind: 'live', file: CSS,
+    find: '#deal-factoring-fields .po-row {\\n  display: flex;\\n  flex-direction: column;\\n  align-items: stretch;\\n  gap: 6px;\\n}',
+    put: '#deal-factoring-fields .po-row {\\n  display: grid;\\n  grid-template-columns: minmax(0, 1fr) auto;\\n  gap: 12px;\\n  align-items: center;\\n}',
+    expect: 'W2 no box on the schedule stack intersects' },
+
   /* ── W1: THE HALVES STACKED AGAIN ─────────────────────────────────────── */
   { id: 'W1 the two halves STACKED again', kind: 'live', file: CSS,
     find: '.units-row {\n  display: grid;\n  grid-template-columns: max-content max-content;',
