@@ -69,17 +69,20 @@ describe('the payment terms structure', () => {
     expect(host.querySelector('.po-factoring-panel')).not.toBeNull()
   })
 
-  test('a ring radio is a ring, a dot and a label, three times over', async () => {
+  // R-PT3, 2026-09-26: THREE became TWO. Single phase is not offered for new
+  // pricing, because OPEX IS the single-phase mode. The claim here is about
+  // what a ring radio is MADE OF, which is unchanged; only the count moved.
+  test('a ring radio is a ring, a dot and a label, twice over', async () => {
     await mount()
     const radios = [...must('deal-structure-toggle').querySelectorAll('.ring-radio')]
-    expect(radios).toHaveLength(3)
+    expect(radios).toHaveLength(2)
     for (const r of radios) {
       expect(r.querySelector('.ring-radio-ring')).not.toBeNull()
       expect(r.querySelector('.ring-radio-ring .ring-radio-dot')).not.toBeNull()
       expect(r.querySelector('.ring-radio-label')!.textContent).not.toBe('')
     }
     expect(radios.map((r) => (r as HTMLElement).dataset.structure))
-      .toEqual(['single', 'twoPhase', 'hybrid'])
+      .toEqual(['twoPhase', 'hybrid'])
   })
 })
 
