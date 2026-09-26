@@ -130,6 +130,83 @@ rather than assumed before the cap moves.
 
 ---
 
+## THE PHASES, RECONCILED BY COUNTING
+
+Counted from the commits on this branch, not read off this file.
+
+| Phase | Commit |
+|---|---|
+| The brief, John's supersessions, and Phase 0 measured | `e307636` |
+| M1 to M11 built: the rail retires and the two-sided selector returns | `99a9e77` |
+| Live proof 342/342 and calibration 13 of 13 | `84830d8` |
+| Database read-back on every stored value touched | `ac22c9f` |
+| Close-out | this commit |
+| `CURRENT_STATE.md` | the next |
+
+**Rulings in force: 3** - the eleven findings, the three supersessions, and the
+standing named-findings-only rule. All three were in this file before any work
+began, so nothing had to be appended late.
+
+---
+
+## DISPOSITION, ITEM BY ITEM
+
+| | Disposition |
+|---|---|
+| **M1** | **BUILT.** CAPEX \| toggle \| OPEX, knob and highlight asserted as computed geometry and computed colour in both states |
+| **M2** | **BUILT.** 20px at 1920, 1440 and 1240, against 347px at 1920 before |
+| **M3** | **BUILT.** Contract Duration, read-only, one store, asserted |
+| **M4** | **BUILT.** One row, rings aligned, under the mode control |
+| **M5** | **ALREADY HELD; ASSERTED.** Phase 0 found the default already in both readers. The stop condition was not met and nothing was migrated |
+| **M6** | **BUILT**, and it is why `structureChosen` exists |
+| **M7** | **BUILT.** One placement serves both structures, because the rail's removal makes the fee table and the Hybrid grid siblings |
+| **M8** | **BUILT.** Two read-only catalog columns, nothing clipping at either width |
+| **M9** | **BUILT.** 76px and 64px, proven by the values not clipping rather than by the numbers |
+| **M10** | **BUILT**, stored value unchanged, both directions driven and read back |
+| **M11** | **BUILT.** Absent, not hidden |
+
+**What this round does NOT establish.** The rail's retirement is a layout
+ruling, not a measurement that the flat card is better; what IS measured is
+that the money now starts at one place in both modes by construction rather
+than by a rule. And M5 is asserted rather than changed: the eight records are
+untouched, and the default remains display-and-save-forward.
+
+---
+
+## THE SUPERSEDED ASSERTIONS, RE-TAKEN
+
+John's ruling asks for these to be re-taken with reasoning left at their sites.
+Every one is, and the list is here so the count is checkable:
+
+| Where | What was re-taken |
+|---|---|
+| `payment-rail.test.tsx` | the whole file: P1 to P6, from the rail to the flat card. P3's "and the content column holds none" is the one claim that GOES, because it was about the rail rather than the screen |
+| `opex-layout.test.tsx` | L1a, L1b, L1d - the third writing of this block in four rounds, and the round trip is named at the site |
+| `payment-fix.test.tsx` | F1b, F1c, F2a, F4a, F4d |
+| `payment-fix-2.test.tsx` | F3c |
+| `deal-section5.test.tsx` | P2/P3/P4/P6, P5, P8/P9, P10 |
+| `deal-surfaces.test.ts` | the renamed visibility flag, plus a new chosen-versus-defaulted case |
+| `deal-panel.test.tsx` | the census, kept at FULL strength rather than shrunk |
+| `deal-intake.test.tsx` | I1, plus four new M8 cases |
+| `commercials-wiring.test.mjs` | the Units grid: re-pointed at ONE COLUMN, which is what it was always about |
+| `adopted-identity.ts` | two classes retired from the list rather than exempted in the ratchet |
+
+---
+
+## CARRIED, NOT BUILT
+
+1. `SwitchButton` writes the toggle treatment itself, a third route to it.
+   Carried from two rounds ago; M1 and M10 name the mode, factoring and
+   repayment controls only.
+2. Two dev servers are running, one holding no port. No `src/` file changed
+   this round, so nothing measured was stale.
+3. **The default for an absent structure lives in TWO readers** -
+   `uiFromPayload` and `deal-inputs.js:619` - which agree. M5a asserts they
+   agree; making one a caller of the other is design work this round did not
+   ask for.
+
+---
+
 ## Standing method
 
 - Measurements on the LIVE surface, never inferred from source.
