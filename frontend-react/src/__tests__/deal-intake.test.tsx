@@ -57,12 +57,21 @@ const el = (id: string) => host.querySelector(`#${id}`) as HTMLElement | null
 const must = (id: string) => { const e = el(id); if (!e) throw new Error(`no #${id}`); return e }
 
 describe('section 1: the units', () => {
-  test('I1: four unit cards, each with a label pointing at its own input', async () => {
+  /* ── RE-POINTED BY R-SZ2, 2026-09-26 ───────────────────────────────────
+     There is no `.unit-card` and no `.unit-cards`. The Units card and the
+     Installation per-unit table are ONE per-product grid, because their rows
+     had to stay level and two lists can only do that by sharing row tracks.
+
+     THE CLAIM IS UNCHANGED AND THE SUBJECT MOVED: four products, each with its
+     own units input, and the input named by its product. What was a card is a
+     ROW, and a row's cells are identified by the product key they carry rather
+     than by a wrapper element, because a flat grid has no row element to ask.
+
+     The head row that M8 added is no longer a data row wearing the same class,
+     so the `:not(.unit-card--head)` exclusion has nothing to exclude. */
+  test('I1: four product rows, each with its own units input', async () => {
     await mount()
-    // M8 added a HEADING row, which is a `.unit-card` too because it shares
-    // the row grid - that sharing is what keeps the headings aligned with the
-    // figures. The claim is about the DATA rows, so it says so.
-    const cards = [...host.querySelectorAll('.unit-cards .unit-card:not(.unit-card--head)')]
+    const cards = [...host.querySelectorAll('[data-testid^="ig-units-"]')]
     expect(cards).toHaveLength(4)
     const ids = ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']
     for (const [i, id] of ids.entries()) {
@@ -94,10 +103,13 @@ describe('section 1: the units', () => {
 
   test('M8: the columns are named once, and the basis is named once', async () => {
     await mount()
-    const head = host.querySelector('[data-testid="unit-cards-head"]')!
-    expect([...head.children].map((c) => c.textContent!.trim()))
-      .toEqual(['', 'Units', 'Unit Cost', 'Hosting Cost/mth'])
-    expect(host.querySelectorAll('[data-testid="unit-cards-head"]')).toHaveLength(1)
+    /* RE-POINTED BY R-SZ2: one head track for the whole grid, so the columns
+       of both halves are named once in one row. The blank first cell is gone
+       because the product column now has a name of its own. */
+    const heads = [...host.querySelectorAll('#deal-product-grid .ig-head')]
+    expect(heads.map((c) => c.textContent!.trim())).toEqual(
+      ['Product', 'Units', 'Unit cost', 'Hosting cost/mth',
+        'Rate (USD, from Base Cost Data)', 'Cost (USD)', 'Margin %', 'Price (USD)'])
     expect(host.querySelectorAll('[data-testid="unit-cards-basis"]')).toHaveLength(1)
   })
 
@@ -113,12 +125,12 @@ describe('section 1: the units', () => {
   test('M8: warranty is not a unit row and gains nothing', async () => {
     await mount()
     expect(host.querySelector('[data-testid="deal-warrantyPct-unitCost"]')).toBeNull()
-    expect(host.querySelectorAll('.unit-cards .unit-card:not(.unit-card--head)')).toHaveLength(4)
+    expect(host.querySelectorAll('[data-testid^="ig-product-"]')).toHaveLength(4)
   })
 
-  test('and the unit cards live in the intake column, not loose in the section', async () => {
+  test('and the product grid lives in the intake column, not loose in the section', async () => {
     await mount()
-    expect(host.querySelector('.unit-cards')!.closest('.deal-intake-col')).not.toBeNull()
+    expect(host.querySelector('#deal-product-grid')!.closest('.deal-intake-col')).not.toBeNull()
   })
 })
 
@@ -133,20 +145,31 @@ describe('section 2: installation', () => {
 
   test('I3: the per-unit table carries the counts, and holds the rate and margin inputs', async () => {
     await mount({ installResp: 'Terminus Contractor - Per Unit' })
-    const table = must('deal-install-table')
-    for (const [id, want] of [['deal-install-units-inSsEx', '40'], ['deal-install-units-inSsNew', '25'],
-      ['deal-install-units-inAqm', '12'], ['deal-install-units-inHemir', '8']] as const) {
-      const cell = must(id)
-      expect(cell.textContent, id).toBe(want)
-      expect(cell.classList.contains('col-mono'), id).toBe(true)
+    /* ── RE-POINTED BY R-SZ2, AND THE COUNT IS NOW READ ONCE ───────────────
+       `deal-install-units-*` is retired. It was a READ-ONLY DISPLAY of the same
+       number the Units input holds, in a separate table, and the merge puts the
+       two on one row where showing it twice would be two readers of one value
+       (Verification 20) three centimetres apart.
+
+       So the claim becomes what it always meant: the row carries its count, and
+       the count is the one the deal records. Read from the input, which is the
+       thing that holds it. */
+    const grid = must('deal-product-grid')
+    for (const [key, id, want] of [['inSsEx', 'deal-ssExisting', '40'],
+      ['inSsNew', 'deal-ssNew', '25'], ['inAqm', 'deal-aqm', '12'],
+      ['inHemir', 'deal-hemir', '8']] as const) {
+      const cell = host.querySelector(`[data-testid="ig-units-${key}"]`)
+      expect(cell, key).not.toBeNull()
+      expect((cell!.querySelector(`#${id}`) as HTMLInputElement).value, key).toBe(want)
     }
-    // The rate and margin inputs belong to the table, not to the section, and
+    // The rate and margin inputs belong to the grid, not to the section, and
     // there is exactly one of each.
     for (const id of ['deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
       'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir']) {
       expect(host.querySelectorAll(`#${id}`), id).toHaveLength(1)
-      expect(must(id).closest('#deal-install-table'), id).not.toBeNull()
+      expect(must(id).closest('#deal-product-grid'), id).not.toBeNull()
     }
+    expect(grid.getAttribute('data-install-half')).toBe('true')
   })
 
   test('I4: the table totals its cost and price columns', async () => {
@@ -173,13 +196,19 @@ describe('I6: each responsibility shows its own group', () => {
   test('per unit points at the table', async () => {
     await mount({ installResp: 'Terminus Contractor - Per Unit' })
     expect(shown()).toEqual(['deal-install-seetable'])
-    expect(must('deal-install-table').classList.contains('hidden')).toBe(false)
+    /* RE-POINTED BY R-SZ2: the install half is a set of cells in the merged
+       grid rather than a table of its own, so the grid says whether the half
+       is showing. HIDDEN, NOT ABSENT, exactly as the table was: the inputs
+       stay in the document, which the census control guard depends on. */
+    expect(must('deal-product-grid').getAttribute('data-install-half')).toBe('true')
+    expect(must('deal-inSsExisting')).not.toBeNull()
   })
 
   test('lump sum asks for the cost', async () => {
     await mount({ installResp: 'Terminus Contractor - Lump Sum' })
     expect(shown()).toEqual(['deal-lumpCost-group'])
-    expect(must('deal-install-table').classList.contains('hidden')).toBe(true)
+    expect(must('deal-product-grid').getAttribute('data-install-half')).toBe('false')
+    expect(must('deal-inSsExisting')).not.toBeNull()
   })
 
   test('and the two Terminus-does-not-install cases say so', async () => {
@@ -292,7 +321,7 @@ describe('the bare inputs keep an accessible name', () => {
       'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir']
     for (const id of bare) {
       const el = must(id)
-      expect(el.closest('#deal-install-table'), `${id} is not in the table`).not.toBeNull()
+      expect(el.closest('#deal-product-grid'), `${id} is not in the grid`).not.toBeNull()
       const name = el.getAttribute('aria-label')
       expect(name, `${id} has no accessible name at all`).toBeTruthy()
       expect(name!.length, `${id}'s name is too short to say what it is`).toBeGreaterThan(3)
@@ -303,6 +332,13 @@ describe('the bare inputs keep an accessible name', () => {
     // The counterfactual: if every input carried aria-label the check above
     // would pass on a render that had stopped distinguishing the two cases.
     await mount()
-    expect(must('deal-ssExisting').getAttribute('aria-label')).toBeNull()
+    /* RE-POINTED BY R-SZ2, AND THE COUNTERFACTUAL HAD TO MOVE OR IT WOULD HAVE
+       INVERTED SILENTLY. `deal-ssExisting` was the labelled example; the merge
+       renders it BARE, because the product is named once in its own column, so
+       it now carries an aria-label like every other bare input and asserting it
+       does not would be asserting the defect. `deal-lumpCost` is still rendered
+       with its visible label and is what the claim is about. */
+    expect(must('deal-lumpCost').getAttribute('aria-label')).toBeNull()
+    expect(must('deal-ssExisting').getAttribute('aria-label')).toBeTruthy()
   })
 })

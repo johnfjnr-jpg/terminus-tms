@@ -79,7 +79,6 @@ export const ADOPTED_CLASSES: readonly string[] = [
   "dm-row--lead",
   "dm-row--memo",
   "dm-row--sum",
-  "doc-table",
   "ds-label",
   "ds-row",
   "ds-value",
@@ -132,8 +131,26 @@ export const ADOPTED_CLASSES: readonly string[] = [
   "terms-field-row",
   "total",
   "under-target",
-  "unit-card",
-  "unit-cards",
+  /* ── RETIRED FROM THIS LIST BY R-SZ2, 2026-09-26 ──────────────────────
+     `doc-table`, `unit-card` and `unit-cards`.
+
+     John's ruling merges the Units card and the Installation per-unit table
+     into ONE per-product grid, because their rows had to stay level and two
+     lists can only do that by sharing row tracks. The card and the table are
+     not restyled, they are GONE as structures, so the deal panel's render no
+     longer carries any of the three.
+
+     THE RATCHET IS NOT RE-OPENED. `KNOWN_MISSING_CLASSES` stays empty. These
+     are not classes the render ought to carry and has lost; they are classes
+     of two structures that no longer exist, which is the same disposition M10
+     took a fortnight ago and for the same reason.
+
+     `doc-table` SURVIVES ELSEWHERE, and that is why it is worth saying: it is
+     the estate's data grid and `KeyContacts.tsx` still renders it, so its
+     stylesheet rules stay. What ends is the DEAL PANEL's use of it, which is
+     what this list is about. `unit-card` and `unit-cards` are dead estate-wide
+     and their rules go with them, a retirement being two claims
+     (Verification 7). */
   /* ── RETIRED FROM THIS LIST BY M10, 2026-09-26 ────────────────────────
      Both were adopted from the vanilla's REPAYMENT METHOD control: two
      stacked full-width buttons. John's ruling replaces that control with the

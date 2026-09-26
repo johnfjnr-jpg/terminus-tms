@@ -49,12 +49,26 @@ export function CashFlowGrid({ months, rows, scrollRef }: {
   )
 }
 
+/* ── R-SZ2: THE SCHEDULE'S HEAD IS RENDERED BY ITS SLOT, NOT BY THIS VIEW ──
+   N7 asks the first figure rows of two lists sharing a row to be level, and
+   the construction is a shared head track. A head track can only be shared by
+   grid ITEMS, so the head has to be a sibling of the body in the slot's grid
+   rather than the body's first child here.
+
+   THE TEXT IS UNCHANGED AND IS STILL THE SCHEDULE'S OWN: `section5.tsx`
+   renders `schedule.label`, passed down from the one place that builds it, so
+   this is a move and not a second reader (Verification 20).
+
+   `data-testid="hybrid-schedule"` AND `data-testid="year-schedule"` STILL
+   CARRY A BOX, which is required: N6 measures the schedule's top against the
+   invoicing group's bottom, and an element with no box measures as zero. That
+   is why the head moved out rather than the wrapper becoming `display:
+   contents`. */
 export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
   if (schedule.kind === 'none') return <div data-testid="year-schedule" />
   if (schedule.kind === 'hybrid') {
     return (
       <div data-testid="hybrid-schedule">
-        <p className="label" style={{ marginBottom: 10, color: 'var(--green)' }}>{schedule.label}</p>
         {schedule.years.map((y) => (
           <div className="ds-row" key={y.label}>
             <span className="ds-label">{y.label}</span>
@@ -76,7 +90,6 @@ export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
   // collided at 1240. Read down, each year is a labelled line.
   return (
     <div data-testid="year-schedule">
-      <p className="label" style={{ marginBottom: 6, color: 'var(--green)' }}>{schedule.label} (USD)</p>
       <div className="ys-stack">
         {schedule.years.map((y) => (
           <div className="ys-line" key={y.label}>

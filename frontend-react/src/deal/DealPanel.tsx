@@ -32,7 +32,7 @@ import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './secti
 import { PaymentTermsSection } from './section5'
 import { OpexTable } from './OpexTable'
 import { opexRows } from '../../../src/lib/opex.js'
-import { UnitCards, InstallationSection } from './intake'
+import { IntakeSection } from './intake'
 import { StructuralTermsSection, CashFlowSection } from './section36'
 import { PANELS, latchView, latchAllView, toggleAll, toggleOne } from './latch'
 import { DealSummarySection, SummaryNotices } from './section4'
@@ -507,18 +507,22 @@ export function DealPanel({
 
       {sectionFrame(SECTION['deal-sections-1-2'], (
         <>
-          <section className="deal-intake-col" id="deal-section-1">
-            <p className="section-title">Units Required</p>
-            <UnitCards renderField={renderField} rates={resolvedRates as Record<string, number>} />
-            {censusFields('deal-sections-1-2')}
-          </section>
-          <InstallationSection
+          {/* ── R-SZ2: ONE SECTION, ONE PER-PRODUCT GRID ──────────────────
+              `#deal-section-2` is RETIRED as an element. It was the second
+              column of a two-column intake grid, and there is no second column
+              any more: the two lists it separated are one grid whose rows are
+              products. `#deal-section-1` carries the merged intake, and the
+              panel's own id `deal-sections-1-2` is unchanged, which is what
+              `sections.ts` maps every field of both halves to already. */}
+          <IntakeSection
             vis={installVisibility(ui)}
             group={(result as { groups?: { installGroup?: never } } | null)?.groups?.installGroup}
             payload={payload}
             renderField={renderField}
+            rates={resolvedRates as Record<string, number>}
+            censusFields={censusFields('deal-sections-1-2')}
             installResp={ui.installResp}
-            onInstallResp={(v) => setUi({ installResp: v })}
+            onInstallResp={(v: string) => setUi({ installResp: v })}
             contractorGrid={
               <ContractorGrid rows={CONTRACTOR_INPUTS} values={values}
                 options={(i) => milestoneOptions(values[`deal-cm-${i}-label`])}
@@ -610,7 +614,15 @@ export function DealPanel({
                 warning={customerScheduleWarning(
                   (payload.milestones ?? []) as { month?: number; usd?: number }[], oneOffPrice)} />
             }
-            yearSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null} />
+            yearSchedule={schedule ? <YearScheduleView schedule={schedule} /> : null}
+            /* R-SZ2: the schedule's head, built HERE because this is where the
+               schedule is built, and rendered by whichever slot takes it so it
+               can sit in that slot's shared head track. The `(USD)` suffix is
+               the non-hybrid branch's own, kept exactly as `YearScheduleView`
+               rendered it, so this is a move and not a rewording. */
+            scheduleHead={schedule && schedule.kind !== 'none'
+              ? (schedule.kind === 'hybrid' ? schedule.label : `${schedule.label} (USD)`)
+              : null} />
         </>
       ))}
 

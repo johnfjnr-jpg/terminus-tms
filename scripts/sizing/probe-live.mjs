@@ -250,11 +250,22 @@ try {
              the cost/price total, which has no unit row to pair with. The
              product rows are identified by CARRYING a units cell rather than
              by position, so the pairing survives a row being added. */
-          unitRows: [...document.querySelectorAll('.unit-cards .unit-card:not(.unit-card--head)')]
+          /* ── RE-POINTED BY R-SZ2 TO THE MERGED GRID'S OWN CELLS ───────
+             `.unit-card` and `#deal-install-table` are retired. N1's claim is
+             unchanged and its subjects are now the two HALVES of one product
+             row: the units cell and the rate cell.
+
+             THIS IS STILL A REAL MEASUREMENT AND NOT A TAUTOLOGY, which is
+             the thing to check when a claim becomes structural. Two cells of
+             one grid row share a track only while they ARE in one grid row:
+             an `align-self`, a stray `display: block` on a half, a wrapper
+             element reintroduced around either half, or a template that
+             stops accounting for every cell all separate them, and the
+             calibration injects exactly that. */
+          unitRows: [...document.querySelectorAll('[data-testid^="ig-units-"]')]
             .filter(vis).map((e) => Math.round(e.getBoundingClientRect().top)),
-          installRows: [...document.querySelectorAll('#deal-install-table tbody tr')]
-            .filter((tr) => vis(tr) && tr.querySelector('[id^="deal-install-units-"]'))
-            .map((e) => Math.round(e.getBoundingClientRect().top)),
+          installRows: [...document.querySelectorAll('[data-testid^="ig-rate-"]')]
+            .filter(vis).map((e) => Math.round(e.getBoundingClientRect().top)),
           unitRow1: box('.unit-cards .unit-card:not(.unit-card--head)'),
           installRow1: (() => { const t = document.querySelector('#deal-section-2 tbody tr')
             return t ? box(t) : null })(),
@@ -345,17 +356,23 @@ try {
       const roles = await p.evaluate(() => {
         const one = (sel) => { const e = document.querySelector(sel); if (!e) return null
           const cs = getComputedStyle(e); return `${cs.fontSize} ${cs.fontFamily.split(',')[0].replace(/["']/g, '')}` }
+        /* ── RE-POINTED BY R-SZ2 ──────────────────────────────────────────
+           S2 asks for ONE token per role across the commercial panels. The
+           two panels it compared are one grid now, so the comparison that
+           still means something is between the grid's COLUMN HEADS and the
+           form's FIELD LABELS - the two places the label role is rendered on
+           this surface - and between the grid's own two kinds of cell. */
         return {
-          unitsLabel: one('.unit-cards .unit-card .deal-field-label, .unit-cards .unit-card label span'),
-          installLabel: one('#deal-section-2 label'),
-          unitsCell: one('.unit-cards .unit-card input'),
-          installCell: one('#deal-section-2 tbody input'),
+          unitsLabel: one('#deal-product-grid .ig-head'),
+          installLabel: one('#deal-intake-head .form-group label'),
+          unitsCell: one('[data-testid^="ig-units-"] input'),
+          installCell: one('[data-testid^="ig-rate-"] input'),
         }
       })
-      check(roles.unitsLabel && roles.installLabel && roles.unitsLabel === roles.installLabel,
-        `S2 the Units and Installation LABEL fonts are equal (${roles.unitsLabel} / ${roles.installLabel})`)
-      check(roles.unitsCell && roles.installCell && roles.unitsCell === roles.installCell,
-        `S2 the Units and Installation CELL fonts are equal (${roles.unitsCell} / ${roles.installCell})`)
+      check(!!roles.unitsLabel && !!roles.installLabel && roles.unitsLabel === roles.installLabel,
+        `S2 the grid HEAD and the form LABEL fonts are equal (${roles.unitsLabel} / ${roles.installLabel})`)
+      check(!!roles.unitsCell && !!roles.installCell && roles.unitsCell === roles.installCell,
+        `S2 the units and rate CELL fonts are equal (${roles.unitsCell} / ${roles.installCell})`)
       console.log(`    photograph ${await shot(`live-${width}-${mode}-${structure}`)}`)
       states++
     }

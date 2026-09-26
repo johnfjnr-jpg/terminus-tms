@@ -261,17 +261,28 @@ describe('the milestone grids render', () => {
 // ATTRIBUTE where the vanilla uses a `hidden` CLASS. Reading the attribute on
 // the real markup would have returned false for every state.
 const hiddenClass = (id: string) => must(id).classList.contains('hidden')
+/* ── RE-POINTED BY R-SZ2, 2026-09-26 ────────────────────────────────────────
+   `#deal-install-table` is retired: the Installation per-unit rows are the
+   install half of the merged per-product grid, so "are the rows showing?" is
+   answered by the grid rather than by a table of its own.
+
+   THE CLAIM IS THE SAME CLAIM - the signpost co-appears with the rows it
+   points at - and it is still read off the RENDER rather than off the
+   visibility function both sides derive from, which is what stops this
+   becoming two readers agreeing with each other (Verification 20). */
+const installHalfHidden = () =>
+  must('deal-product-grid').getAttribute('data-install-half') === 'false'
 
 describe('the installation tab: the signpost co-appears with its rows', () => {
   test('per unit shows both', async () => {
     await mount(V, { ...UI, installResp: 'Terminus Contractor - Per Unit' })
-    expect(hiddenClass('deal-install-table')).toBe(false)
+    expect(installHalfHidden()).toBe(false)
     expect(hiddenClass('deal-detail-signpost')).toBe(false)
   })
 
   test('lump sum hides both and shows the contractor group', async () => {
     await mount(V, { ...UI, installResp: 'Terminus Contractor - Lump Sum' })
-    expect(hiddenClass('deal-install-table')).toBe(true)
+    expect(installHalfHidden()).toBe(true)
     expect(hiddenClass('deal-detail-signpost')).toBe(true)
     expect(hiddenClass('deal-contractor-group')).toBe(false)
   })
@@ -280,7 +291,7 @@ describe('the installation tab: the signpost co-appears with its rows', () => {
     for (const r of ['Terminus Contractor - Per Unit', 'Terminus Contractor - Lump Sum',
       'Client Own Installation Team']) {
       await mount(V, { ...UI, installResp: r })
-        expect(hiddenClass('deal-detail-signpost'), r).toBe(hiddenClass('deal-install-table'))
+        expect(hiddenClass('deal-detail-signpost'), r).toBe(installHalfHidden())
     }
   })
 

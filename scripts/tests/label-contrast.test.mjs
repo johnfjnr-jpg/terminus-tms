@@ -46,11 +46,25 @@ test('G9 3: a field label is ONE role, so it is ONE colour', () => {
   // margin, and the one that sets the colour. A regex taking the first match
   // asserted against the margin rule and passed while saying nothing, which
   // is Verification 19's silent omission arriving inside a guard.
-  const rules = [...css.matchAll(/\.unit-card label\s*\{([^}]*)\}/g)].map((m) => m[1])
-  assert.ok(rules.length >= 1, '.unit-card label is gone, so the label role has no rule to check')
+  /* ── RE-POINTED BY R-SZ2, 2026-09-26, AND THE GUARD'S OWN SELF-CHECK IS
+     WHAT CAUGHT IT. `.unit-card label` is gone: the merge renders the units
+     inputs BARE, because a product is named once per row in its own cell, so
+     there is no per-input label in that grid to carry a colour.
+
+     THE ROLE DID NOT DISAPPEAR, IT MOVED TO THE CELL THAT NAMES THE ROW.
+     `.ig-product` is what a reader sees as the name of a line of figures, and
+     the claim is unchanged: it must not be dimmer than the colour the terms
+     card inherits.
+
+     The `assert.ok` above it is kept exactly as it was, and it is the reason
+     this re-point happened deliberately rather than by the rule quietly
+     matching nothing. */
+  const rules = [...css.matchAll(/\.product-grid \.ig-product\s*\{([^}]*)\}/g)].map((m) => m[1])
+  assert.ok(rules.length >= 1,
+    '.product-grid .ig-product is gone, so the label role has no rule to check')
   const coloured = rules.filter((b) => /color:/.test(b))
   assert.equal(coloured.length, 1,
-    `${coloured.length} of ${rules.length} .unit-card label rules set a colour; exactly one should`)
+    `${coloured.length} of ${rules.length} .ig-product rules set a colour; exactly one should`)
   assert.match(coloured[0], /color:\s*var\(--white\)/,
-    'the unit card label does not take the shared label colour')
+    'the product name does not take the shared label colour')
 })
