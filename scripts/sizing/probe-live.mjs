@@ -145,7 +145,14 @@ try {
     if (f) formats[id] = { format: f, spec: FORMATS[f], widest: widestValueFor(f) }
   }
 
-  const COMBOS = FAST ? [['capex', 'twoPhase']]
+  /* ── FAST REACHES THE STATES N7 LIVES IN ────────────────────────────
+     It was `capex/twoPhase`, which triggers NEITHER the Hybrid branch nor the
+     OPEX one, so a calibration of N7 under FAST would have injected a fault
+     into a check that never ran and scored the silence as a missing detector.
+     Verification 51's caveat: confirm the injection could have fired before
+     reading its silence. These two states cover S1, S2, N1, N5, N6 and both
+     halves of N7. */
+  const COMBOS = FAST ? [['capex', 'hybrid'], ['opex', 'twoPhase']]
     : [['capex', 'twoPhase'], ['capex', 'hybrid'], ['opex', 'twoPhase']]
   const WIDTHS = FAST ? [1440] : [1920, 1440, 1240]
   const seen = new Set()
