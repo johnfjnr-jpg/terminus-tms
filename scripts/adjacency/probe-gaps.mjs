@@ -64,7 +64,11 @@ const base = {
   contractorMilestones: [{ month: 1, label: 'Contract start', pct: 50 }],
 }
 
+/* `everOver` is declared OUT here with the other counters because the ratchet's
+   shrink clause is scored after the `finally`, and a `const` inside the `try` is
+   not in scope there. The same mistake cost the sizing round a crashed run. */
 let states = 0, STATES = 0, threw = null
+const everOver = new Set()
 const b = await puppeteer.launch({ headless: 'new' })
 try {
   const p = await b.newPage()
@@ -282,6 +286,143 @@ try {
       await p.evaluate(() => new Promise((r) => setTimeout(r, 600)))
       console.log(`\n── ${width}  ${combo} ──`)
       const rows = await walk()
+      if (process.env.C_SPLIT === '1') {
+        const sp = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const g = document.querySelector('#deal-product-grid')
+          if (!g) return { why: 'no #deal-product-grid in the document' }
+          if (!vis(g)) return { why: 'the grid is in the document but not visible' }
+          const cs = getComputedStyle(g)
+          const tracks = cs.gridTemplateColumns.split(' ').map((t) => parseFloat(t))
+          const gap = parseFloat(cs.columnGap) || 0
+          const sum = (a) => a.reduce((x, y) => x + y, 0)
+          const units = tracks.slice(0, 4), inst = tracks.slice(4)
+          const panel = document.querySelector('#deal-section-1')
+          const resp = document.querySelector('#deal-installResp')
+          return {
+            tracks: tracks.map((t) => Math.round(t)).join(' '), gap,
+            unitsW: Math.round(sum(units) + gap * (units.length - 1)),
+            instW: inst.length ? Math.round(sum(inst) + gap * (inst.length - 1)) : 0,
+            panelW: panel ? Math.round(panel.getBoundingClientRect().width) : null,
+            gridClient: g.clientWidth, gridScroll: g.scrollWidth,
+            panelClient: panel ? panel.clientWidth : null,
+            panelScroll: panel ? panel.scrollWidth : null,
+            docScroll: document.documentElement.scrollWidth,
+            docClient: document.documentElement.clientWidth,
+            respW: resp ? Math.round(resp.getBoundingClientRect().width) : null,
+          }
+        })
+        if (sp && sp.why) console.log(`  SPLIT ${sp.why}`)
+        else if (sp) {
+          const chrome = 34 // 16px padding each side plus a 1px border
+          const need = sp.instW ? sp.unitsW + chrome + sp.instW + chrome + 24 : null
+          console.log(`  SPLIT tracks [${sp.tracks}] gap ${sp.gap}`)
+          if (process.env.C_CG === '1') {
+            const cg = await p.evaluate(() => {
+              const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+              const g = document.querySelector('#deal-contractor-group')
+              if (!g || !vis(g)) return null
+              const box = g.getBoundingClientRect()
+              const rows = [...g.querySelectorAll('*')].filter(vis).map((e) => {
+                const r = e.getBoundingClientRect(); const cs = getComputedStyle(e)
+                return { tag: e.tagName, cls: (e.className || '').toString().split(' ')[0],
+                  w: Math.round(r.width), right: Math.round(r.right),
+                  ws: cs.whiteSpace, disp: cs.display,
+                  txt: (e.textContent ?? '').trim().slice(0, 26) }
+              })
+              rows.sort((a, b) => b.right - a.right)
+              return { box: { w: Math.round(box.width), right: Math.round(box.right) },
+                scroll: g.scrollWidth, client: g.clientWidth, top: rows.slice(0, 4) }
+            })
+            if (cg) {
+              console.log(`  CG group ${cg.box.w}w right ${cg.box.right}  scroll ${cg.scroll} client ${cg.client}`)
+              cg.top.forEach((r) => console.log(`  CG   ${r.tag}.${r.cls} ${r.w}w right ${r.right} ${r.disp} ws:${r.ws} "${r.txt}"`))
+            }
+          }
+          if (process.env.C_LUMP === '1') {
+            const lump = await p.evaluate(() => {
+              const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+              const cg = document.querySelector('#deal-contractor-group')
+              if (!cg || !vis(cg)) return { why: 'no visible contractor group in this state' }
+              /* MAX-CONTENT MEASURED, NOT INFERRED: the group is a block and
+                 fills the panel, so its rendered width says nothing about what
+                 it NEEDS. Set in the browser only and put back before
+                 returning. */
+              const prev = cg.style.width
+              cg.style.width = 'max-content'
+              const need = cg.scrollWidth
+              cg.style.width = prev
+              const head = document.querySelector('#deal-contractor-group .cm-grid-head')
+              const resp = document.querySelector('#deal-installResp')
+              const note = document.querySelector('#deal-lump-summary')
+              const w = (e) => e && vis(e) ? Math.round(e.getBoundingClientRect().width) : null
+              return { need, head: w(head), resp: w(resp), note: w(note) }
+            })
+            if (!lump.why) {
+              const wide = await p.evaluate(() => {
+                const cg = document.querySelector('#deal-contractor-group')
+                if (!cg) return []
+                const box = cg.getBoundingClientRect()
+                return [...cg.querySelectorAll('*')]
+                  .map((e) => ({ e, r: e.getBoundingClientRect() }))
+                  .filter((x) => x.r.width > 0 && x.r.right > box.right - 1)
+                  .slice(0, 4)
+                  .map((x) => `${x.e.tagName}.${(x.e.className || '').toString().split(' ')[0]} `
+                    + `${Math.round(x.r.width)}w right ${Math.round(x.r.right)} vs box ${Math.round(box.right)}`)
+              })
+              wide.forEach((w) => console.log(`  WIDEST ${w}`))
+            }
+            if (lump.why) console.log(`  LUMP ${lump.why}`)
+            else console.log(`  LUMP install content needs ${lump.need}  (grid head ${lump.head}, resp ${lump.resp}, note ${lump.note})`)
+          }
+          if (process.env.C_COLS === '1') {
+            const cols = await p.evaluate(() => {
+              const g = document.querySelector('#deal-product-grid')
+              const n = getComputedStyle(g).gridTemplateColumns.split(' ').length
+              const kids = [...g.children].filter((e) => e.checkVisibility())
+              const out = []
+              for (let c = 0; c < n; c++) {
+                const cells = kids.filter((_, i) => i % n === c)
+                const widest = cells.map((e) => {
+                  const inp = e.querySelector('input')
+                  const r = e.getBoundingClientRect()
+                  return { w: Math.round(r.width), inp: inp ? Math.round(inp.getBoundingClientRect().width) : null,
+                    t: (e.textContent ?? '').trim().slice(0, 18) }
+                })
+                const head = widest[0]
+                const maxInp = Math.max(0, ...widest.map((x) => x.inp ?? 0))
+                out.push(`c${c}: box ${head.w} input ${maxInp || '-'} "${head.t}"`)
+              }
+              return out
+            })
+            cols.forEach((c) => console.log(`  COLS ${c}`))
+          }
+          if (process.env.C_WRAP === '1') {
+            const wrapped = await p.evaluate(() => {
+              const g = document.querySelector('#deal-product-grid')
+              const heads = [...g.querySelectorAll('.ig-head')]
+              const before = getComputedStyle(g).gridTemplateColumns
+              const prev = heads.map((h) => h.style.whiteSpace)
+              // IN THE BROWSER ONLY: nothing on disk is touched, and it is put
+              // back before the measurement returns.
+              heads.forEach((h) => { h.style.whiteSpace = 'normal'; h.style.overflowWrap = 'anywhere' })
+              g.style.width = 'auto'
+              const after = getComputedStyle(g).gridTemplateColumns
+              const w = g.scrollWidth
+              heads.forEach((h, i) => { h.style.whiteSpace = prev[i]; h.style.overflowWrap = '' })
+              g.style.width = ''
+              return { before, after, w }
+            })
+            console.log(`  WRAP before [${wrapped.before.split(' ').map((t) => Math.round(parseFloat(t))).join(' ')}]`)
+            console.log(`  WRAP after  [${wrapped.after.split(' ').map((t) => Math.round(parseFloat(t))).join(' ')}]  grid would be ${wrapped.w}px`)
+          }
+          console.log(`  SPLIT overflow: grid ${sp.gridScroll} in ${sp.gridClient}`
+            + `  panel ${sp.panelScroll} in ${sp.panelClient}`
+            + `  document ${sp.docScroll} in ${sp.docClient}`)
+          console.log(`  SPLIT units half ${sp.unitsW}  install half ${sp.instW}  resp ${sp.respW}  panel ${sp.panelW}`
+            + (need ? `  two cards need ${need} of ${sp.panelW}` : '  (no install half in this state)'))
+        }
+      }
       if (process.env.C_HEADS === '1') {
         const h = await p.evaluate(() => {
           const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
@@ -683,7 +824,11 @@ try {
           vOverlap: Math.round(Math.min(grid.bottom, cg.bottom) - Math.max(grid.top, cg.top)),
           rowGap: firstProduct && firstMs
             ? Math.round(firstMs.getBoundingClientRect().top - firstProduct.getBoundingClientRect().top)
-            : null }
+            : null,
+          panelTopGap: (() => {
+            const a = bx('#deal-product-grid'), b = bx('#deal-install-panel')
+            return a && b ? Math.round(b.top - a.top) : null
+          })() }
       })
       if (w1c.present) {
         check(w1c.cgLeft >= w1c.gridRight,
@@ -691,9 +836,108 @@ try {
           + `(grid ends ${w1c.gridRight}, table starts ${w1c.cgLeft})`)
         check(w1c.vOverlap > 0,
           `W1 and BESIDE it rather than below (${w1c.vOverlap}px of shared vertical span)`)
-        check(w1c.rowGap !== null && Math.abs(w1c.rowGap) <= 2,
-          `W1 the first figure rows are level (${w1c.rowGap}px apart)`)
+        /* ── RE-POINTED BY R-US3, 2026-09-27 ──────────────────────────────
+           W1 asserted the milestone table's first figure row level with the
+           product grid's. R-US1 puts the milestone table INSIDE the
+           Installation card, and John's ruling is explicit that under Lump Sum
+           NO ROW CORRESPONDENCE IS REQUIRED, because milestones are not
+           products: there is nothing for milestone 1 to pair with.
+
+           What survives, and is what W1 was really about, is that the two sit
+           SIDE BY SIDE and start together. The pairing claim moves to Per Unit,
+           where the rows do correspond, and is asserted by N2 and R-US3 on
+           every state rather than only where a contractor group renders. */
+        check(w1c.panelTopGap !== null && Math.abs(w1c.panelTopGap) <= 2,
+          `R-US3 the two panels TOP-ALIGN (${w1c.panelTopGap}px apart)`)
       }
+
+      /* ── R-US4: CONTENT FITS ITS OWN CONTAINER ────────────────────────
+         John's ruling 2026-09-27, and it closes a class nothing watched. W2
+         sees two elements INTERSECTING. A1 sees a gap between a label and a
+         figure. Neither can see an element whose own content is wider than
+         itself: it intersects nothing and its gaps are fine, and the merged
+         grid did exactly that at 1240, 947px of content in an 876px box,
+         running past the right edge of every panel beneath it.
+
+         `scrollWidth` against `clientWidth` is the measurement, with one pixel
+         of tolerance for sub-pixel rounding. */
+      const fit = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const over = []
+        for (const sel of ['#deal-section-1', '#deal-product-grid', '.units-row',
+          '#deal-contractor-group', '#deal-po-factoring', '.deal-payment-region',
+          '#deal-opex-tables', '#deal-hybrid-group']) {
+          const e = document.querySelector(sel)
+          if (!e || !vis(e)) continue
+          if (e.scrollWidth > e.clientWidth + 1) {
+            over.push(`${sel}: ${e.scrollWidth} of ${e.clientWidth}, over by ${e.scrollWidth - e.clientWidth}px`)
+          }
+        }
+        return over
+      })
+      /* ── THE CARRIED PAIR, HELD BY A RATCHET RATHER THAN EXEMPTED ──────
+         `#deal-po-factoring` and the region that contains it overflow at the
+         widths where the card is narrower than the 292px repayment control.
+         That is R-ADJ1's ACCEPTED TRADE-OFF, ruled after the alternative was
+         measured to starve the hybrid schedule, and closing it means re-opening
+         a ruling rather than fixing a defect.
+
+         So they are named, not excused: the list MAY ONLY SHRINK, an entry that
+         stops overflowing must leave it, and anything not on it is red. That is
+         the shape the dead-selector ratchet already uses, and it keeps the
+         class closed for everything new while the ruled pair waits on John. */
+      /* `.deal-payment-region` LEFT THIS LIST BECAUSE THE RATCHET SAID SO. It
+         was carried with the card it contains, and once the card's overflow
+         stopped extending the region's own scroll width the shrink clause
+         reported it healed. An entry that stops overflowing leaves; that is the
+         half of a ratchet that stops it rotting into a list of excuses. */
+      const CARRIED = ['#deal-po-factoring', '.deal-payment-region']
+      const fresh = fit.filter((f) => !CARRIED.some((c) => f.startsWith(`${c}:`)))
+      const healed = CARRIED.filter((c) => !fit.some((f) => f.startsWith(`${c}:`)))
+
+      /* ── THE EXEMPTION IS NAMED, BOUNDED AND DIRECTIONAL ──────────────────
+         R-ADJ1 ruled this overflow acceptable after the alternative was
+         measured to starve the hybrid schedule: below 1360 the factoring card
+         returns to its percentage and the 292px repayment control does not fit
+         it. The ruling turned on WHICH WAY it overflows - rightward, into empty
+         space, rather than leftward across the gap and over the schedule - so
+         that is what the guard asserts, not merely that it is allowed.
+
+         A bare name on an exemption list rots into an excuse. A direction and a
+         bound cannot: the day it grows, or turns left, this is red. */
+      const fx = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const card = document.querySelector('#deal-po-factoring')
+        if (!card || !vis(card)) return null
+        const b = card.getBoundingClientRect()
+        let right = b.right, left = b.left
+        for (const e of card.querySelectorAll('*')) {
+          if (!vis(e)) continue
+          const r = e.getBoundingClientRect()
+          if (r.width <= 0) continue
+          right = Math.max(right, r.right); left = Math.min(left, r.left)
+        }
+        return { over: Math.round(right - b.right), under: Math.round(b.left - left) }
+      })
+      if (fx) {
+        check(fx.under <= 0,
+          `R-ADJ1 the factoring card's content never spills LEFT, across the gap `
+          + `(${fx.under}px past its left edge)`)
+        check(fx.over <= 100,
+          `R-ADJ1 its accepted rightward overflow stays within 100px (${fx.over}px)`)
+      }
+      check(fresh.length === 0, `R-US4 every panel's content fits its own box`
+        + (fresh.length ? `\n         ${fresh.join('\n         ')}` : ' (eight containers checked)'))
+      /* THE SHRINK CLAUSE ONLY APPLIES WHERE THE PAIR CAN OVERFLOW. Above
+         1360 the factoring card is 340px and the 292px control FITS, so the
+         entries correctly do not appear and asserting they must would fail on
+         the widths where R-ADJ1 works. */
+      /* THE SHRINK CLAUSE IS JUDGED OVER THE WHOLE RUN, NOT PER STATE, and the
+         first version got that wrong twice. Above 1360 the factoring card is
+         340px and the control FITS; and the region it sits in overflows in some
+         1240 states and not others. An entry earns its place by overflowing
+         SOMEWHERE, so it is scored once, after every state. */
+      for (const c of CARRIED) if (fit.some((f) => f.startsWith(`${c}:`))) everOver.add(c)
 
       check(rows.length > 0, `A1 the walk found label+figure rows at all (${rows.length} containers)`)
       const over = rows.filter((r) => r.max > BACKSTOP)
@@ -725,6 +969,13 @@ try {
   console.log(`\nTHE RUN THREW, so every count below is over the states it reached:`)
   console.log(String(e && e.stack ? e.stack : e))
 } finally { await b.close(); await tearDown(TAG) }
+{
+  const CARRIED = ['#deal-po-factoring', '.deal-payment-region']
+  const dead = CARRIED.filter((c) => !everOver.has(c))
+  check(dead.length === 0, `R-US4 the carried list only shrinks, judged over the whole run`
+    + (dead.length ? `: ${dead.join(', ')} never overflowed and must leave it`
+      : ` (${CARRIED.length} entries, each still real)`))
+}
 console.log(`\nstates completed: ${states} of ${STATES}`)
 console.log(`${pass} of ${pass + fail} checks passed`)
 console.log(threw || states !== STATES ? 'RUN INCOMPLETE' : 'RUN COMPLETE')

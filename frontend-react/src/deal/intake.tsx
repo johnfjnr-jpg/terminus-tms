@@ -2,6 +2,27 @@ import type { ReactNode } from 'react'
 import { Fragment } from 'react'
 import { money } from './rows'
 import type { InstallVisibility } from './installation'
+import { useColumnWidths } from './useFieldWidth'
+
+/* ── R-US4: WHAT EACH COLUMN HOLDS, AS A FORMAT ──────────────────────────
+   John's ruling: a column is sized to its CONTENT, figures per their S1
+   format, and a heading wider than that wraps within it. `null` is a text
+   column, which keeps `auto` because the registry has nothing to say about
+   words.
+
+   THE FORMATS ARE THE REGISTRY'S OWN, not a second opinion about how wide a
+   figure is: the catalog cells and the read-only cost and price cells hold the
+   same shapes their neighbouring inputs declare. */
+const COLUMN_FORMATS = [
+  null,           // Product, a label
+  'count',        // Units
+  'money-large',  // Unit cost, catalog, up to 100,000.00
+  'money-small',  // Hosting cost/mth
+  'money-large',  // Rate, the installation override
+  'money-large',  // Cost (USD)
+  'percent',      // Margin %
+  'money-large',  // Price (USD)
+]
 
 // ── SECTIONS 1 AND 2, MERGED: ONE PER-PRODUCT GRID ───────────────────────
 //
@@ -95,113 +116,132 @@ export function IntakeSection({
      the rows stay rows. */
   const half = vis.table
   const ins = 'ig-cell ig-num ig-install'
+  /* The hidden half's cells leave grid placement entirely, so the template is
+     four tracks when it is hidden and eight when it is shown. */
+  /* R-US4, one call per card: each card sizes its own columns from the
+     registry, and a heading wraps inside the column it is given. */
+  const unitsRef = useColumnWidths(COLUMN_FORMATS.slice(0, 4))
+  const instRef = useColumnWidths(half ? COLUMN_FORMATS.slice(4) : [])
 
   return (
     <section className="deal-intake-col" id="deal-section-1">
-      {/* ── THE RESPONSIBILITY BLOCK, ABOVE THE MERGED COLUMNS ────────────
-          R-SZ2 relocates it. It was between the Installation title and the
-          Installation table, so its height - which CHANGES with the viewport,
-          because it wraps - was most of what pushed one list below the other.
-          Above the grid it pushes both halves equally, which is to say it
-          pushes neither relative to the other. */}
-      <div className="form-grid" id="deal-intake-head">
-        <div className="form-group">
-          <label htmlFor="deal-installResp">Installation responsibility</label>
-          <select id="deal-installResp" data-testid="deal-installResp" value={installResp}
-            onChange={(e) => onInstallResp(e.target.value)}>
-            {INSTALL_RESPONSIBILITIES.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-        <div className={`form-group${vis.lumpCostGroup ? '' : ' hidden'}`} id="deal-lumpCost-group">
-          {renderField('deal-lumpCost')}
-          {/* WHERE THE FIGURE GOES, not just what it is: the lump sum is priced
-              once here and read in three other places, and the sentence says
-              so rather than leaving the reader to find out. */}
-          <p className="data-row-label" id="deal-lump-summary" data-testid="deal-lump-summary">
-            {`Lump sum cost $${money(payload.lumpSumCost ?? 0)}, priced at ${fig(group?.rawTotalPrice)}`
-              + ', carried into the Deal Summary, Deal sheet and Cash flow.'}
-          </p>
-        </div>
-        <div className={`form-group${vis.seeTable ? '' : ' hidden'}`} id="deal-install-seetable">
-          <label>Contractor pricing</label>
-          <p className="data-row-label">See table below.</p>
-        </div>
-        <div className={`form-group${vis.notApplicable ? '' : ' hidden'}`} id="deal-install-notapplicable">
-          <label>Contractor Price</label>
-          <p className="data-row-label">Not applicable.</p>
-        </div>
-      </div>
+      {/* ── R-US1: TWO PANELS, NOT ONE ─────────────────────────────────────
+          John's ruling 2026-09-27. Units Required and Installation are distinct
+          pricing functions and are two cards, each in estate card dress with
+          its own title.
 
-      {/* ── THE MERGED GRID ───────────────────────────────────────────────
-          Every cell is a DIRECT CHILD, so a product's cells share one row
-          track by construction rather than by agreement. `deal-install-table`
-          is retired as an element and its id lives on here as the install
-          half's own marker, because callers ask "are the per-unit rows
-          showing?" and that is still a real question. */}
+          THE OPTION-A RATIONALE IS QUOTED, NOT DELETED. R-SZ2 merged them
+          because their row offsets CONVERGED - 64/49/33/34 at 1920 and
+          127/128/129/145 at 1240 - so the row HEIGHTS differed and nothing
+          above the rows could have levelled row 2 onwards. What is superseded
+          is the conclusion that one GRID was the only way to share row tracks,
+          not the requirement that they share them.
+
+          SUBGRID IS WHAT MAKES BOTH TRUE AT ONCE. `.units-row` owns the row
+          tracks; each card takes them with `grid-template-rows: subgrid`. The
+          cards keep their own boxes, borders and titles, and a product's units
+          row and its install row are THE SAME TRACK, so R-US3's pairing is a
+          fact about the layout rather than a measurement that has to hold.
+
+          It is also why the responsibility block can sit inside the
+          Installation card per R-US2 without pushing its rows out of step: the
+          band it occupies is a shared track, and the Units card simply leaves
+          it empty. */}
       <div className="units-row">
-      <div className="units-row-left">
-      <div className={`product-grid${half ? ' product-grid--full' : ''}`}
-        id="deal-product-grid" data-testid="deal-product-grid"
-        data-install-half={half ? 'true' : 'false'}>
-        <div className="ig-head">Product</div>
-        <div className="ig-head ig-num">Units</div>
-        <div className="ig-head ig-num">Unit cost</div>
-        <div className="ig-head ig-num">Hosting cost/mth</div>
-        <div className="ig-head ig-num ig-install">Rate (USD, from Base Cost Data)</div>
-        <div className="ig-head ig-num ig-install">Cost (USD)</div>
-        <div className="ig-head ig-num ig-install">Margin %</div>
-        <div className="ig-head ig-num ig-install">Price (USD)</div>
-
-        {PRODUCTS.map((p) => {
-          const row = find(p.key)
-          return (
+        {/* THE UNITS PANEL KEEPS `#deal-product-grid`. It IS the product grid,
+            and every estate guard that names it - A1's walk, A3's track count,
+            N2's pairing, R-US4's containment - is still asking the same
+            question of the same thing. Renaming it would have been churn
+            dressed as tidiness. */}
+        <section className="panel-card product-grid" id="deal-product-grid"
+          data-testid="deal-units-panel" ref={unitsRef}>
+          <p className="section-title ur-title">Units Required</p>
+          {PRODUCTS.map((p, i) => (
             <Fragment key={p.key}>
-              <div className="ig-cell ig-product" data-testid={`ig-product-${p.key}`}>{p.label}</div>
-              <div className="ig-cell ig-num" data-testid={`ig-units-${p.key}`}>
-                {renderField(p.unitsId, true)}</div>
-              <div className="ig-cell ig-num ig-catalog" data-testid={`${p.unitsId}-unitCost`}>
-                {rate(rates, p.unit)}</div>
-              <div className="ig-cell ig-num ig-catalog" data-testid={`${p.unitsId}-hostingCost`}>
-                {rate(rates, p.hosting)}</div>
-              <div className={ins} data-testid={`ig-rate-${p.key}`}>{renderField(p.rateId, true)}</div>
-              <div className={`${ins} col-mono`} id={`deal-install-cost-${p.key}`}>
-                {fig(row?.rawCost)}</div>
-              <div className={ins}>{renderField(`deal-margin-${p.key}`, true)}</div>
-              <div className={`${ins} col-mono`} id={`deal-install-price-${p.key}`}>
-                {fig(row?.rawPrice)}</div>
+              <div className="ig-cell ig-product" style={{ gridRow: 4 + i }}
+                data-testid={`ig-product-${p.key}`}>{p.label}</div>
+              <div className="ig-cell ig-num" style={{ gridRow: 4 + i }}
+                data-testid={`ig-units-${p.key}`}>{renderField(p.unitsId, true)}</div>
+              <div className="ig-cell ig-num ig-catalog" style={{ gridRow: 4 + i }}
+                data-testid={`${p.unitsId}-unitCost`}>{rate(rates, p.unit)}</div>
+              <div className="ig-cell ig-num ig-catalog" style={{ gridRow: 4 + i }}
+                data-testid={`${p.unitsId}-hostingCost`}>{rate(rates, p.hosting)}</div>
             </Fragment>
-          )
-        })}
+          ))}
+          <div className="ig-head">Product</div>
+          <div className="ig-head ig-num">Units</div>
+          <div className="ig-head ig-num">Unit cost</div>
+          <div className="ig-head ig-num">Hosting cost/mth</div>
+          <p className="field-note ur-tail" data-testid="unit-cards-basis">
+            Unit and hosting costs are catalog values, read-only here and priced from the
+            cost basis named in the Deal Summary.
+          </p>
+        </section>
 
-        {/* The total row belongs to the install half and goes with it. Its
-            first four cells are the units half's columns, blank, so the row
-            reads as a rule under the figures rather than as a product. */}
-        <div className="ig-cell ig-total ig-install" /><div className="ig-cell ig-total ig-install" />
-        <div className="ig-cell ig-total ig-install" /><div className="ig-cell ig-total ig-install" />
-        <div className="ig-cell ig-total ig-install" />
-        <div className="ig-cell ig-num ig-total ig-install col-mono" id="deal-install-total-cost"
-          data-testid="deal-install-total-cost">{fig(group?.rawTotalCost)}</div>
-        <div className="ig-cell ig-total ig-install" />
-        <div className="ig-cell ig-num ig-total ig-install col-mono" id="deal-install-total-price"
-          data-testid="deal-install-total-price">{fig(group?.rawTotalPrice)}</div>
-      </div>
-        <p className="field-note" data-testid="unit-cards-basis">
-          Unit and hosting costs are catalog values, read-only here and priced from the
-          cost basis named in the Deal Summary.
-        </p>
-      </div>
+        <section className="panel-card product-grid" id="deal-install-panel"
+          data-testid="deal-install-panel" ref={instRef}
+          data-install-half={half ? 'true' : 'false'}>
+          <p className="section-title ur-title">Installation</p>
+          {/* ── R-US2: THE CONTROL SITS OVER WHAT IT CONTROLS ───────────── */}
+          <div className="form-grid ur-band" id="deal-intake-head">
+            <div className="form-group">
+              <label htmlFor="deal-installResp">Installation responsibility</label>
+              <select id="deal-installResp" data-testid="deal-installResp" value={installResp}
+                onChange={(e) => onInstallResp(e.target.value)}>
+                {INSTALL_RESPONSIBILITIES.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className={`form-group${vis.lumpCostGroup ? '' : ' hidden'}`} id="deal-lumpCost-group">
+              {renderField('deal-lumpCost')}
+              <p className="data-row-label" id="deal-lump-summary" data-testid="deal-lump-summary">
+                {`Lump sum cost $${money(payload.lumpSumCost ?? 0)}, priced at ${fig(group?.rawTotalPrice)}`
+                  + ', carried into the Deal Summary, Deal sheet and Cash flow.'}
+              </p>
+            </div>
+            <div className={`form-group${vis.seeTable ? '' : ' hidden'}`} id="deal-install-seetable">
+              <label>Contractor pricing</label>
+              <p className="data-row-label">See table below.</p>
+            </div>
+            <div className={`form-group${vis.notApplicable ? '' : ' hidden'}`} id="deal-install-notapplicable">
+              <label>Contractor Price</label>
+              <p className="data-row-label">Not applicable.</p>
+            </div>
+          </div>
 
-      {/* ── W1, JOHN'S FINDING 2026-09-26: THE MILESTONE TABLE SITS BESIDE
-          THE GRID, NOT UNDER IT ────────────────────────────────────────────
-          It renders where the contractor group renders, which is Lump Sum;
-          under Per Unit there is no right-hand half and the grid keeps its own
-          width. The two heads share one declared height so the first figure
-          rows are level, which is N7's construction for a pair that cannot
-          share a row track because each half is its own grid. */}
-      <div className={vis.contractorGroup ? '' : 'hidden'} id="deal-contractor-group"
-        data-testid="deal-contractor-group">
-        {contractorGrid}
-      </div>
+          {/* HIDDEN, NOT ABSENT, unchanged: the census control guard depends on
+              these inputs being in the document whatever the responsibility. */}
+          {PRODUCTS.map((p, i) => {
+            const row = find(p.key)
+            return (
+              <Fragment key={p.key}>
+                <div className={ins} style={{ gridRow: 4 + i }}
+                  data-testid={`ig-rate-${p.key}`}>{renderField(p.rateId, true)}</div>
+                <div className={`${ins} col-mono`} style={{ gridRow: 4 + i }}
+                  id={`deal-install-cost-${p.key}`}>{fig(row?.rawCost)}</div>
+                <div className={ins} style={{ gridRow: 4 + i }}>
+                  {renderField(`deal-margin-${p.key}`, true)}</div>
+                <div className={`${ins} col-mono`} style={{ gridRow: 4 + i }}
+                  id={`deal-install-price-${p.key}`}>{fig(row?.rawPrice)}</div>
+              </Fragment>
+            )
+          })}
+          <div className="ig-head ig-num ig-install">Rate (USD, from Base Cost Data)</div>
+          <div className="ig-head ig-num ig-install">Cost (USD)</div>
+          <div className="ig-head ig-num ig-install">Margin %</div>
+          <div className="ig-head ig-num ig-install">Price (USD)</div>
+
+          <div className="ig-cell ig-total ig-install ur-tail-a" />
+          <div className="ig-cell ig-num ig-total ig-install col-mono ur-tail-b" id="deal-install-total-cost"
+            data-testid="deal-install-total-cost">{fig(group?.rawTotalCost)}</div>
+          <div className="ig-cell ig-total ig-install ur-tail-c" />
+          <div className="ig-cell ig-num ig-total ig-install col-mono ur-tail-d" id="deal-install-total-price"
+            data-testid="deal-install-total-price">{fig(group?.rawTotalPrice)}</div>
+
+          <div className={`ur-contractor${vis.contractorGroup ? '' : ' hidden'}`}
+            id="deal-contractor-group" data-testid="deal-contractor-group">
+            {contractorGrid}
+          </div>
+        </section>
       </div>
       {censusFields}
     </section>

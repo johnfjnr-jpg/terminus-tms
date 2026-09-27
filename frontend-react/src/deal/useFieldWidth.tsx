@@ -72,6 +72,83 @@ export function useFieldWidth(id: string | null | undefined) {
 }
 
 /**
+ * ── R-US4: A COLUMN IS SIZED TO ITS CONTENT, AND A HEADING WRAPS INSIDE IT ─
+ *
+ * John's ruling 2026-09-27, a permanent line in the S1 standard: a column is
+ * sized to its CONTENT, figures per their S1 format, and a heading wider than
+ * that WRAPS within the column rather than widening it.
+ *
+ * THE COLUMN THAT PROVED IT: "Rate (USD, from Base Cost Data)" held a 70px box
+ * in a 228px column. A grid whose tracks are `auto` sizes every track to its
+ * max-content, and a heading's max-content is the whole phrase on ONE LINE, so
+ * the longest label in a column decided its width and the figures sat in a
+ * column three times what they needed. Measured across the grid, that cost
+ * 947px of content in an 876px panel at 1240.
+ *
+ * AND MAKING THE HEADING WRAP IS NOT ENOUGH, WHICH I MEASURED BEFORE BUILDING
+ * THIS. Setting `white-space: normal` on the heads moved no track: `auto`
+ * still resolves to max-content while the grid asks for max-content, so the
+ * one-line width wins whatever the wrapping allows. The track has to be TOLD
+ * the width; nothing about the heading can persuade it.
+ *
+ * THE WIDTH COMES FROM THE REGISTRY, measured in the grid's own resolved font,
+ * for the same reason S1 measures an input that way: a number in the
+ * stylesheet is right for the font somebody had when they typed it.
+ *
+ * THE FLOOR IS THE HEADING'S LONGEST WORD. A column narrower than one word
+ * cannot wrap, it can only overflow, and an overflowing heading is the fault
+ * this rule exists to end wearing different clothes. So a track is the wider of
+ * its format and its longest head word, which still never takes the heading's
+ * one-line width.
+ */
+export function useColumnWidths(formats: (string | null)[]) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const key = formats.join('|')
+
+  const apply = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    /* NO FORMATS MEANS NO TEMPLATE, AND THE CARD SIZES TO WHAT IT HOLDS. Under
+       Lump Sum the Installation card's own columns are hidden and its content
+       is the milestone grid, which SPANS them: fixed tracks from the registry
+       would have sized the card to four empty columns and let the spanning
+       grid overflow it by 24px. Measured, and the containment check said so. */
+    if (!key) { el.style.removeProperty('grid-template-columns'); return }
+    const heads = [...el.querySelectorAll<HTMLElement>('.ig-head')]
+    const cs = getComputedStyle(el)
+    const bodyFont = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+    const tracks = key.split('|').map((format, i) => {
+      // A text column keeps `auto`: it holds words, not figures, and the
+      // registry has nothing to say about it.
+      if (!format) return 'auto'
+      const figure = widthFor(format, (s: string) => measureIn(bodyFont, s))
+      const head = heads[i]
+      let word = 0
+      if (head) {
+        const hcs = getComputedStyle(head)
+        const headFont = `${hcs.fontStyle} ${hcs.fontWeight} ${hcs.fontSize} ${hcs.fontFamily}`
+        for (const w of (head.textContent ?? '').split(/\s+/)) {
+          word = Math.max(word, measureIn(headFont, w))
+        }
+      }
+      return `${Math.ceil(Math.max(figure, word))}px`
+    })
+    el.style.gridTemplateColumns = tracks.join(' ')
+  }, [key])
+
+  useLayoutEffect(() => {
+    apply()
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    if (!fonts?.ready) return
+    let live = true
+    fonts.ready.then(() => { if (live) apply() }).catch(() => {})
+    return () => { live = false }
+  }, [apply])
+
+  return ref
+}
+
+/**
  * The same rule as a component, for the generated grids.
  *
  * A HOOK CANNOT BE CALLED IN A LOOP, and the milestone, contractor and OPEX
