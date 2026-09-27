@@ -1053,6 +1053,37 @@ try {
             const cs = getComputedStyle(document.querySelector(s))
             return { bg: cs.backgroundColor, fill: cs.webkitTextFillColor, shadow: cs.boxShadow }
           }, sel)
+          /* THE PHOTOGRAPH THE RULING ASKED FOR, taken WHILE the pseudo-class
+             is forced, because a capture after releasing it is a picture of an
+             ordinary input. Measurements above are already taken, so the
+             capture cannot perturb them (Verification 4's clause). */
+          /* ONLY WHERE THE BOX IS ACTUALLY ON SCREEN, AND THE FIRST VERSION
+             WAS NOT. `#deal-lumpCost` exists in every state and is inside a
+             `hidden` group unless the responsibility is Lump Sum, so the shot
+             fired in all fifteen and the LAST one won - a picture of the
+             statement with no lump sum box in it. Caught by opening the image,
+             which is Verification 4's own remedy and its clause: confirm the
+             element is inside the captured region before treating the picture
+             as evidence.
+
+             Now it is gated on the control being visible, and the combo is in
+             the filename so a state cannot overwrite another's evidence
+             (Verification 44's naming clause). */
+          if (process.env.C_SHOT && sel === '#deal-lumpCost') {
+            const seen = await p.evaluate((s) => {
+              const e = document.querySelector(s)
+              if (!e || !e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return null
+              e.scrollIntoView({ block: 'center' })
+              const r = e.getBoundingClientRect()
+              return { top: Math.round(r.top), h: Math.round(r.height) }
+            }, sel)
+            if (seen) {
+              await p.evaluate(() => new Promise((r) => setTimeout(r, 250)))
+              const name = `${OUT}autofilled-${width}-${combo.replace(/[^a-z0-9]+/gi, '-')}.png`
+              await p.screenshot({ path: name })
+              console.log(`  SHOT ${name}  (:autofill forced, box at ${seen.top} h${seen.h})`)
+            }
+          }
           await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] })
           await cdp.detach()
         } catch (e) {
