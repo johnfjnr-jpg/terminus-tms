@@ -1629,9 +1629,63 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
   border: 1px solid var(--hairline-strong);
   padding: 0 12px;
 }
-.product-grid--full {
-  grid-template-columns: repeat(8, auto);
+/* ── R-US1: THE TWO PANELS, AND THE ROW TRACKS THEY SHARE ────────────────
+   SUPERSEDED, QUOTED NOT DELETED: `.product-grid--full { repeat(8, auto) }`.
+   One grid held both halves, so an eight-track template was how the install
+   half appeared. There are two cards now and each owns four tracks, so the
+   template is per card and comes from the registry at runtime.
+
+   `.units-row` OWNS THE ROW TRACKS AND THE CARDS TAKE THEM WITH `subgrid`.
+   That is what lets R-US1 and R-US3 both be true: the cards keep their own
+   boxes, borders and titles, and a product's units row and its install row are
+   THE SAME TRACK rather than two rows measured against each other.
+
+     1  the card titles
+     2  the band: the responsibility block, empty on the Units side
+     3  the column heads
+     4-7 one track per product
+     8  the tail: the catalog note, and the install totals
+
+   It is also why R-US2 can put the responsibility inside the Installation card
+   without pushing its rows out of step: the band is a shared track and the
+   Units card simply leaves it empty. */
+.units-row > .panel-card {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: 1 / -1;
+  border: 1px solid var(--hairline-strong);
+  padding: 14px 16px;
+  width: max-content;
+  align-content: start;
 }
+.ur-title { grid-column: 1 / -1; grid-row: 1; margin-bottom: 4px; }
+.ur-band { grid-column: 1 / -1; grid-row: 2; }
+.units-row .ig-head { grid-row: 3; }
+.ur-tail { grid-column: 1 / -1; grid-row: 8; }
+.ur-tail-a, .ur-tail-b, .ur-tail-c, .ur-tail-d { grid-row: 8; }
+/* The contractor group spans the card's columns, so without a width of its own
+   it takes the tracks' total and its own content overflowed it by 6px: the
+   totals row is wider than the milestone grid above it. `max-content` makes the
+   group as wide as its widest row, and the card follows. */
+/* AND NO `max-width: 100%`, which is what made the first attempt circular: the
+   group spans the card's tracks, so capping it at 100% capped it at the very
+   width it is supposed to be setting, and it stayed 6px short. */
+.ur-contractor { grid-column: 1 / -1; grid-row: 3 / -1; width: max-content; }
+/* ── THE PROSE MUST NOT SET THE CARD'S WIDTH ─────────────────────────────
+   `width: max-content` on the group asks for its widest content, and its widest
+   content is the SENTENCE beneath the figures, not the grid: "Under by
+   $125,000, 50.00 points." on one line is 6px wider than the milestone grid,
+   so the card sized itself to the warning and the grid overflowed it.
+
+   The same trap caught the Step 0 measurement of this very group, which read
+   the widest descendant and reported 1342px of 876 for a layout that needs 831.
+   `width: 0; min-width: 100%` is the idiom: the paragraph contributes nothing
+   to the intrinsic width and then fills whatever the grid settles on, so the
+   figures decide the card and the prose wraps inside it. */
+/* A DESCENDANT, NOT A CHILD: the warning is rendered by `ContractorGrid`, so
+   it is nested inside the group rather than a direct child, and `> p` matched
+   nothing. */
+.ur-contractor p { width: 0; min-width: 100%; }
 .product-grid .ig-head {
   font-family: var(--mono);
   font-size: var(--field-label-size);
@@ -1666,7 +1720,15 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    inputs, so a responsibility that is not Per Unit has never meant those
    fields do not exist. `display: none` leaves the four visible cells of each
    row to auto-place into the four-column template, so the rows stay rows. */
-.product-grid:not(.product-grid--full) .ig-install { display: none; }
+/* ── RE-POINTED BY R-US1: THE PANEL SAYS WHETHER ITS HALF IS SHOWING ─────
+   This read `.product-grid:not(.product-grid--full)`. R-US1 splits the one
+   grid into two cards, so there is no eight-track variant and nothing carries
+   that class: the selector matched nothing and the dead-selector gate said so.
+
+   `data-install-half` is what the Installation card already declares, and it is
+   the same question asked of the element that now owns the answer. HIDDEN, NOT
+   ABSENT is unchanged, and the census control guard still depends on it. */
+#deal-install-panel[data-install-half="false"] .ig-install { display: none; }
 
 /* ── W1: THE GRID AND THE MILESTONE TABLE, SIDE BY SIDE ──────────────────
    John's finding 2026-09-26. The milestone table rendered UNDER the product
@@ -1686,6 +1748,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .units-row {
   display: grid;
   grid-template-columns: max-content max-content;
+  grid-template-rows: auto auto auto repeat(4, auto) auto;
   justify-content: start;
   column-gap: 24px;
   align-items: start;
@@ -1710,7 +1773,8 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    8px INSIDE its own height, so the milestone rows started 5px low. The band is
    the whole head, gap included, on both sides. */
 .units-row .cm-grid-head { align-items: end; margin-bottom: 0; }
-.units-row-left { min-width: 0; }
+/* `.units-row-left` is gone with the wrapper it styled: W1's left column held
+   the grid and its note, and R-US1's Units CARD is that column now. */
 
 /* ── Computed pricing cards (Hw / Hosting Setup) ────────────────
    Two peer cards, each self-contained with Item/Cost/Margin%/Price
@@ -1974,7 +2038,23 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .cm-grid-head,
 .cm-grid-row {
   display: grid;
-  grid-template-columns: 44px 195px 44px 64px;
+  /* ── R-US4 APPLIED HERE TOO: THE LAST COLUMN IS SIZED BY ITS FIGURE ──────
+     SUPERSEDED, QUOTED NOT DELETED: `44px 195px 44px 64px`, the prototype's
+     own row, used three times in that block so the header, the fields and the
+     total all aligned.
+
+     THE 64px STOPPED BEING TRUE WHEN S1 ARRIVED. The amount input is sized at
+     runtime from its `money-large` format and measures 70px, so a 70px box sat
+     in a 64px column and pushed 6px past the group that holds it. Measured:
+     the inputs' right edge at 1138 against the group's 1132, which is the
+     whole of the contractor group's overflow.
+
+     `max-content` is R-US4's rule rather than a new number: the column is
+     sized to its content, and the content is a figure whose width the registry
+     already decides. The other three stay as the prototype set them, because
+     nothing S1 sizes lives in them. The milestone grid at `.ms-grid-*` keeps
+     the literal: its amount cell is not an S1 input. */
+  grid-template-columns: 44px 195px 44px max-content;
   gap: 4px;
   align-items: center;
 }
@@ -2456,8 +2536,19 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    listed the ids the render carries and did not sweep the stylesheet, and
    `probe-dead-selectors` is advisory rather than a gate stage, so nothing
    caught it. Both rules now name the merged intake's own head block. */
+/* ── R-US2: THE BAND IS ONE COLUMN NOW THAT IT LIVES IN A CARD ───────────
+   SUPERSEDED, QUOTED NOT DELETED: `grid-template-columns: max-content
+   minmax(0, max-content)`. Two columns were right when this block spanned the
+   whole intake panel and had the width to spend. Inside the Installation card
+   it set the CARD's width: the responsibility select at 232px beside the lump
+   sum note at 320px made the band 568px, so the card was 602px and the pair
+   overflowed the panel by 180px at 1240. Measured by the containment check,
+   which is the fault class R-US4 added it for.
+
+   Stacked, the band is as wide as its widest field and the card is as wide as
+   the milestone grid it holds, which is what R-US1 asks of a card. */
 #deal-intake-head {
-  grid-template-columns: max-content minmax(0, max-content);
+  grid-template-columns: minmax(0, max-content);
   justify-content: start;
 }
 #deal-installResp { width: 232px; }

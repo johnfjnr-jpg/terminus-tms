@@ -103,13 +103,21 @@ describe('section 1: the units', () => {
 
   test('M8: the columns are named once, and the basis is named once', async () => {
     await mount()
-    /* RE-POINTED BY R-SZ2: one head track for the whole grid, so the columns
-       of both halves are named once in one row. The blank first cell is gone
-       because the product column now has a name of its own. */
-    const heads = [...host.querySelectorAll('#deal-product-grid .ig-head')]
-    expect(heads.map((c) => c.textContent!.trim())).toEqual(
-      ['Product', 'Units', 'Unit cost', 'Hosting cost/mth',
-        'Rate (USD, from Base Cost Data)', 'Cost (USD)', 'Margin %', 'Price (USD)'])
+    /* ── RE-POINTED AGAIN BY R-US1, AND THE R-SZ2 REASONING IS QUOTED ──────
+       R-SZ2 wrote: "one head track for the whole grid, so the columns of both
+       halves are named once in one row". That was true of ONE grid. R-US1
+       splits the panel in two, so each card names its own columns, and the
+       claim it was making - EACH COLUMN IS NAMED, AND NAMED ONCE - is asserted
+       per card instead of over a single row.
+
+       The heads still share a row TRACK across the two cards, which is what
+       R-US3 needs; what changed is which element owns them. */
+    const unitHeads = [...host.querySelectorAll('#deal-product-grid .ig-head')]
+    expect(unitHeads.map((c) => c.textContent!.trim()))
+      .toEqual(['Product', 'Units', 'Unit cost', 'Hosting cost/mth'])
+    const instHeads = [...host.querySelectorAll('#deal-install-panel .ig-head')]
+    expect(instHeads.map((c) => c.textContent!.trim()))
+      .toEqual(['Rate (USD, from Base Cost Data)', 'Cost (USD)', 'Margin %', 'Price (USD)'])
     expect(host.querySelectorAll('[data-testid="unit-cards-basis"]')).toHaveLength(1)
   })
 
@@ -162,14 +170,25 @@ describe('section 2: installation', () => {
       expect(cell, key).not.toBeNull()
       expect((cell!.querySelector(`#${id}`) as HTMLInputElement).value, key).toBe(want)
     }
-    // The rate and margin inputs belong to the grid, not to the section, and
-    // there is exactly one of each.
+    /* ── RE-POINTED BY R-US1, AND THE R-SZ2 REASONING ABOVE STILL HOLDS ────
+       R-SZ2 put the rate and margin inputs in the merged grid and asserted they
+       belonged to it rather than loose in the section. THE CLAIM IS UNCHANGED
+       and the owner moved: they belong to the INSTALLATION card, which is what
+       "installation inputs live with installation" means now that there are two
+       cards. `deal-install-half` moves with them, because it is the
+       Installation panel that knows whether its half is showing. */
     for (const id of ['deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
       'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir']) {
       expect(host.querySelectorAll(`#${id}`), id).toHaveLength(1)
+      expect(must(id).closest('#deal-install-panel'), id).not.toBeNull()
+    }
+    // And the units inputs stay with the Units card, which is the other half of
+    // the same claim and is what the split could most easily have got wrong.
+    for (const id of ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']) {
       expect(must(id).closest('#deal-product-grid'), id).not.toBeNull()
     }
-    expect(grid.getAttribute('data-install-half')).toBe('true')
+    expect(grid).not.toBeNull()
+    expect(must('deal-install-panel').getAttribute('data-install-half')).toBe('true')
   })
 
   test('I4: the table totals its cost and price columns', async () => {
@@ -196,18 +215,23 @@ describe('I6: each responsibility shows its own group', () => {
   test('per unit points at the table', async () => {
     await mount({ installResp: 'Terminus Contractor - Per Unit' })
     expect(shown()).toEqual(['deal-install-seetable'])
-    /* RE-POINTED BY R-SZ2: the install half is a set of cells in the merged
-       grid rather than a table of its own, so the grid says whether the half
-       is showing. HIDDEN, NOT ABSENT, exactly as the table was: the inputs
-       stay in the document, which the census control guard depends on. */
-    expect(must('deal-product-grid').getAttribute('data-install-half')).toBe('true')
+    /* ── RE-POINTED BY R-US1, AND R-SZ2's REASONING IS QUOTED ─────────────
+       R-SZ2 wrote: "the install half is a set of cells in the merged grid
+       rather than a table of its own, so the GRID says whether the half is
+       showing". With two cards it is the INSTALLATION PANEL that says so,
+       which is the element the question is actually about.
+
+       HIDDEN, NOT ABSENT is unchanged and still the point: the inputs stay in
+       the document whatever the responsibility, which the census control guard
+       depends on. */
+    expect(must('deal-install-panel').getAttribute('data-install-half')).toBe('true')
     expect(must('deal-inSsExisting')).not.toBeNull()
   })
 
   test('lump sum asks for the cost', async () => {
     await mount({ installResp: 'Terminus Contractor - Lump Sum' })
     expect(shown()).toEqual(['deal-lumpCost-group'])
-    expect(must('deal-product-grid').getAttribute('data-install-half')).toBe('false')
+    expect(must('deal-install-panel').getAttribute('data-install-half')).toBe('false')
     expect(must('deal-inSsExisting')).not.toBeNull()
   })
 
@@ -321,7 +345,12 @@ describe('the bare inputs keep an accessible name', () => {
       'deal-margin-inSsEx', 'deal-margin-inSsNew', 'deal-margin-inAqm', 'deal-margin-inHemir']
     for (const id of bare) {
       const el = must(id)
-      expect(el.closest('#deal-product-grid'), `${id} is not in the grid`).not.toBeNull()
+      /* RE-POINTED BY R-US1: these are the INSTALLATION half's bare inputs, so
+         they sit in the Installation card. The claim is unchanged and is about
+         the input having a name, not about which card holds it; the ancestor
+         check is here so a bare input cannot drift out of a cell and lose the
+         column that explains it. */
+      expect(el.closest('#deal-install-panel'), `${id} is not in the install card`).not.toBeNull()
       const name = el.getAttribute('aria-label')
       expect(name, `${id} has no accessible name at all`).toBeTruthy()
       expect(name!.length, `${id}'s name is too short to say what it is`).toBeGreaterThan(3)

@@ -17,6 +17,7 @@ const puppeteer = await loadPuppeteer('adjacency/probe-gaps.mjs')
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { freshOpportunity, tearDown } from '../fixtures.mjs'
 import { api } from '../api-client.mjs'
+import { A1_ROSTER } from '../../src/lib/a1-roster.js'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const OUT = `${ROOT}/.verify/adjacency/`
@@ -64,7 +65,18 @@ const base = {
   contractorMilestones: [{ month: 1, label: 'Contract start', pct: 50 }],
 }
 
+/* `everOver` is declared OUT here with the other counters because the ratchet's
+   shrink clause is scored after the `finally`, and a `const` inside the `try` is
+   not in scope there. The same mistake cost the sizing round a crashed run. */
 let states = 0, STATES = 0, threw = null
+const everOver = new Set()
+/* R-A1P: what the walk actually found, per state, scored after the `finally`
+   for the same reason `everOver` is - a `const` inside the `try` is not in
+   scope there. `rosterSeen` maps a container key to the states it was found
+   in, so the report can say WHERE a container went missing rather than only
+   that it did. */
+const rosterSeen = new Map()
+const statesWalked = []
 const b = await puppeteer.launch({ headless: 'new' })
 try {
   const p = await b.newPage()
@@ -119,7 +131,14 @@ try {
     /* A FIGURE IS A NUMBER OR A BOX THAT HOLDS ONE. Both count, because half
        these rows are read-only cells and half are inputs, and a rule that saw
        only one kind would pass the grid this guard was written for. */
-    const FIG = /^[$(\-]?\s*[\d,]+(\.\d+)?\s*%?\)?$/
+    /* ── A SIGN AND A CURRENCY SYMBOL TOGETHER ARE STILL A FIGURE ──────────
+       This allowed ONE leading symbol, so "- $564,000" matched nothing and was
+       taken for a LABEL. It surfaced when a calibration widened the statement:
+       A1 then paired a cost figure with the figure beside it, reported an 8px
+       gap over three rows, and the injection that should have blown the
+       backstop came back SILENT. A detector that mistakes a figure for a label
+       does not report a wrong gap, it reports the wrong ROW. */
+    const FIG = /^[-(]?\s*\$?\s*[\d,]+(\.\d+)?\s*%?\)?$/
     const isFigure = (e) => {
       const i = e.querySelector('input')
       if (i) return true
@@ -168,9 +187,54 @@ try {
       if (cs.display !== 'grid') return []
       const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length
       if (cols < 2) return []
-      const out = []
-      for (let i = 0; i + cols <= kids.length; i += cols) out.push(kids.slice(i, i + cols))
-      return out
+      /* ── GROUPED BY THE ROW THEY RENDER ON, NOT BY COUNTING CHILDREN ─────
+         This chunked `children` in runs of `cols`, which assumes every child is
+         one cell and that they arrive in row order. R-US1's cards break both:
+         a title and a note SPAN the row, the heads are placed on track 3 rather
+         than first, and the cells carry explicit `grid-row`. Chunked, the runs
+         straddled rows and no group looked like a label beside a figure.
+
+         SO THE PRODUCT GRID FELL OUT OF THIS WALK ENTIRELY - the estate's main
+         pricing surface, measured zero times, and nothing said so: A1 reports
+         what it FINDS, and a container it cannot parse is simply absent from a
+         list of containers. It was caught by an injection that stretched that
+         grid by 680px and came back SILENT.
+
+         Grouping by rendered top is what a row IS. A spanning title lands alone
+         and is skipped for having one cell, which is correct. */
+      /* ── A ROW IS CELLS THAT OVERLAP VERTICALLY, NOT CELLS THAT SHARE A TOP
+         Grouping on `Math.round(top)` looked exact and was wrong: these rows are
+         `align-items: baseline`, so a statement row's six cells sat at tops
+         3134, 3135 and 3136 and split into THREE groups. It survived while some
+         group still held two cells. Widen the statement and the spread grows
+         until none does, and THE WHOLE CONTAINER LEAVES THE WALK - which is how
+         the A1 injection came back silent on a row it should have blown apart.
+
+         Two cells are in one row when their vertical spans overlap by more than
+         half the shorter of them. That is what a reader means by a row, and it
+         is indifferent to baseline alignment, to differing cell heights and to
+         sub-pixel rounding. */
+      const boxes = kids.map((k) => ({ k, r: k.getBoundingClientRect() }))
+        .filter((x) => x.r.height > 0)
+        .sort((a, b) => a.r.top - b.r.top)
+      const grouped = []
+      for (const b of boxes) {
+        const row = grouped[grouped.length - 1]
+        if (row) {
+          const top = Math.max(row.top, b.r.top), bot = Math.min(row.bottom, b.r.bottom)
+          const shorter = Math.min(row.bottom - row.top, b.r.height)
+          if (bot - top > shorter / 2) {
+            row.cells.push(b)
+            row.top = Math.min(row.top, b.r.top)
+            row.bottom = Math.max(row.bottom, b.r.bottom)
+            continue
+          }
+        }
+        grouped.push({ top: b.r.top, bottom: b.r.bottom, cells: [b] })
+      }
+      return grouped
+        .map((g) => g.cells.sort((x, y) => x.r.left - y.r.left).map((x) => x.k))
+        .filter((row) => row.length >= 2)
     }
     const seen = new Map()
     /* ── SCOPED TO THE VIEW UNDER TEST, NOT THE DOCUMENT ────────────────
@@ -179,7 +243,17 @@ try {
        several screens resident at once, so a document-wide walk answers for
        whatever is in the DOM (Verification 25's population clause). */
     const root = document.querySelector('#view-opportunity-detail') ?? document
-    const containers = [...root.querySelectorAll('table, div')].filter((e) => vis(e) && !dead(e))
+    /* ── `section` TOO, AND ITS ABSENCE COST THE MAIN SURFACE ──────────────
+       This read `table, div`. R-US1's cards are `<section>` elements, so the
+       product grid and the installation panel were not in the population at
+       all: the estate's main pricing surface, measured zero times, while A1
+       went on reporting nine healthy containers. A list of containers says
+       nothing about the one it never looked at.
+
+       Enumerating by TAG is the fault Verification 19 names, and it failed here
+       exactly as that rule says it does: on the unrecorded instance. */
+    const containers = [...root.querySelectorAll('table, div, section')]
+      .filter((e) => vis(e) && !dead(e))
     for (const c of containers) {
       let rows
       try { rows = rowsOf(c) } catch { continue }
@@ -282,6 +356,216 @@ try {
       await p.evaluate(() => new Promise((r) => setTimeout(r, 600)))
       console.log(`\n── ${width}  ${combo} ──`)
       const rows = await walk()
+      /* R-A1P: the population, recorded before anything is measured. A gap
+         assertion reads what the walk FOUND; this reads what it found
+         NOTHING of, which is the thing no amount of measuring can report. */
+      statesWalked.push(`${width} ${combo}`)
+      for (const r of rows) {
+        if (!rosterSeen.has(r.key)) rosterSeen.set(r.key, [])
+        rosterSeen.get(r.key).push(`${width} ${combo}`)
+      }
+      if (process.env.C_TRACE) {
+        const t = await p.evaluate((sel) => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const e = [...document.querySelectorAll(sel)].filter(vis)[0]
+          if (!e) return { why: 'no visible element for ' + sel }
+          const cs = getComputedStyle(e)
+          const kids = [...e.children].filter(vis)
+          const tops = kids.map((k) => Math.round(k.getBoundingClientRect().top))
+          return {
+            display: cs.display,
+            cols: cs.gridTemplateColumns,
+            colCount: cs.gridTemplateColumns.split(' ').filter(Boolean).length,
+            kids: kids.length,
+            distinctTops: [...new Set(tops)].length,
+            tops: tops.slice(0, 8),
+            texts: kids.slice(0, 6).map((k) => (k.textContent ?? '').trim().slice(0, 14)),
+          }
+        }, process.env.C_TRACE)
+        console.log(`  TRACE ${process.env.C_TRACE} ${JSON.stringify(t)}`)
+      }
+      if (process.env.C_STMT) {
+        const s = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const FIG = /^[-(]?\s*\$?\s*[\d,]+(\.\d+)?\s*%?\)?$/
+          return [...document.querySelectorAll('.stmt-row-line')].filter(vis).map((r) => ({
+            cols: getComputedStyle(r).gridTemplateColumns,
+            box: Math.round(r.getBoundingClientRect().width),
+            cells: [...r.children].filter(vis).map((c) => {
+              const t = (c.textContent ?? '').trim()
+              const b = c.getBoundingClientRect()
+              const range = document.createRange()
+              range.selectNodeContents(c)
+              const ink = range.getBoundingClientRect()
+              return { t: t.slice(0, 18), fig: FIG.test(t),
+                l: Math.round(b.left), r: Math.round(b.right),
+                il: Math.round(ink.left), ir: Math.round(ink.right) }
+            }),
+          }))
+        })
+        for (const r of s) {
+          console.log(`  STMT ${r.box}px [${r.cols}]`)
+          for (const c of r.cells) {
+            console.log(`       ${c.fig ? 'FIG' : '   '} box ${c.l}..${c.r}  ink ${c.il}..${c.ir}  "${c.t}"`)
+          }
+        }
+      }
+      if (process.env.C_SHOT) {
+        /* PICTURES ONLY, IN A RUN OF THEIR OWN. A capture suppresses the
+           scrollbar and does not put it back (Verification 4), so a shot taken
+           mid-state perturbs every check after it. This block runs only when
+           asked, and a run that sets it is not offered as a verdict. */
+        await p.evaluate(() => {
+          document.querySelector('.stmt')?.scrollIntoView({ block: 'center' })
+        })
+        await p.evaluate(() => new Promise((r) => setTimeout(r, 250)))
+        const name = `.verify/adjacency/stmt-${width}-${combo.replace(/[^a-z0-9]+/gi, '-')}.png`
+        await p.screenshot({ path: name })
+        const seen = await p.evaluate(() => {
+          const e = document.querySelector('.stmt')
+          if (!e) return 'no .stmt'
+          const r = e.getBoundingClientRect()
+          return `.stmt ${Math.round(r.width)}x${Math.round(r.height)} at top ${Math.round(r.top)} of ${innerHeight}`
+        })
+        console.log(`  SHOT ${name}  ${seen}`)
+      }
+      if (process.env.C_SPLIT === '1') {
+        const sp = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const g = document.querySelector('#deal-product-grid')
+          if (!g) return { why: 'no #deal-product-grid in the document' }
+          if (!vis(g)) return { why: 'the grid is in the document but not visible' }
+          const cs = getComputedStyle(g)
+          const tracks = cs.gridTemplateColumns.split(' ').map((t) => parseFloat(t))
+          const gap = parseFloat(cs.columnGap) || 0
+          const sum = (a) => a.reduce((x, y) => x + y, 0)
+          const units = tracks.slice(0, 4), inst = tracks.slice(4)
+          const panel = document.querySelector('#deal-section-1')
+          const resp = document.querySelector('#deal-installResp')
+          return {
+            tracks: tracks.map((t) => Math.round(t)).join(' '), gap,
+            unitsW: Math.round(sum(units) + gap * (units.length - 1)),
+            instW: inst.length ? Math.round(sum(inst) + gap * (inst.length - 1)) : 0,
+            panelW: panel ? Math.round(panel.getBoundingClientRect().width) : null,
+            gridClient: g.clientWidth, gridScroll: g.scrollWidth,
+            panelClient: panel ? panel.clientWidth : null,
+            panelScroll: panel ? panel.scrollWidth : null,
+            docScroll: document.documentElement.scrollWidth,
+            docClient: document.documentElement.clientWidth,
+            respW: resp ? Math.round(resp.getBoundingClientRect().width) : null,
+          }
+        })
+        if (sp && sp.why) console.log(`  SPLIT ${sp.why}`)
+        else if (sp) {
+          const chrome = 34 // 16px padding each side plus a 1px border
+          const need = sp.instW ? sp.unitsW + chrome + sp.instW + chrome + 24 : null
+          console.log(`  SPLIT tracks [${sp.tracks}] gap ${sp.gap}`)
+          if (process.env.C_CG === '1') {
+            const cg = await p.evaluate(() => {
+              const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+              const g = document.querySelector('#deal-contractor-group')
+              if (!g || !vis(g)) return null
+              const box = g.getBoundingClientRect()
+              const rows = [...g.querySelectorAll('*')].filter(vis).map((e) => {
+                const r = e.getBoundingClientRect(); const cs = getComputedStyle(e)
+                return { tag: e.tagName, cls: (e.className || '').toString().split(' ')[0],
+                  w: Math.round(r.width), right: Math.round(r.right),
+                  ws: cs.whiteSpace, disp: cs.display,
+                  txt: (e.textContent ?? '').trim().slice(0, 26) }
+              })
+              rows.sort((a, b) => b.right - a.right)
+              return { box: { w: Math.round(box.width), right: Math.round(box.right) },
+                scroll: g.scrollWidth, client: g.clientWidth, top: rows.slice(0, 4) }
+            })
+            if (cg) {
+              console.log(`  CG group ${cg.box.w}w right ${cg.box.right}  scroll ${cg.scroll} client ${cg.client}`)
+              cg.top.forEach((r) => console.log(`  CG   ${r.tag}.${r.cls} ${r.w}w right ${r.right} ${r.disp} ws:${r.ws} "${r.txt}"`))
+            }
+          }
+          if (process.env.C_LUMP === '1') {
+            const lump = await p.evaluate(() => {
+              const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+              const cg = document.querySelector('#deal-contractor-group')
+              if (!cg || !vis(cg)) return { why: 'no visible contractor group in this state' }
+              /* MAX-CONTENT MEASURED, NOT INFERRED: the group is a block and
+                 fills the panel, so its rendered width says nothing about what
+                 it NEEDS. Set in the browser only and put back before
+                 returning. */
+              const prev = cg.style.width
+              cg.style.width = 'max-content'
+              const need = cg.scrollWidth
+              cg.style.width = prev
+              const head = document.querySelector('#deal-contractor-group .cm-grid-head')
+              const resp = document.querySelector('#deal-installResp')
+              const note = document.querySelector('#deal-lump-summary')
+              const w = (e) => e && vis(e) ? Math.round(e.getBoundingClientRect().width) : null
+              return { need, head: w(head), resp: w(resp), note: w(note) }
+            })
+            if (!lump.why) {
+              const wide = await p.evaluate(() => {
+                const cg = document.querySelector('#deal-contractor-group')
+                if (!cg) return []
+                const box = cg.getBoundingClientRect()
+                return [...cg.querySelectorAll('*')]
+                  .map((e) => ({ e, r: e.getBoundingClientRect() }))
+                  .filter((x) => x.r.width > 0 && x.r.right > box.right - 1)
+                  .slice(0, 4)
+                  .map((x) => `${x.e.tagName}.${(x.e.className || '').toString().split(' ')[0]} `
+                    + `${Math.round(x.r.width)}w right ${Math.round(x.r.right)} vs box ${Math.round(box.right)}`)
+              })
+              wide.forEach((w) => console.log(`  WIDEST ${w}`))
+            }
+            if (lump.why) console.log(`  LUMP ${lump.why}`)
+            else console.log(`  LUMP install content needs ${lump.need}  (grid head ${lump.head}, resp ${lump.resp}, note ${lump.note})`)
+          }
+          if (process.env.C_COLS === '1') {
+            const cols = await p.evaluate(() => {
+              const g = document.querySelector('#deal-product-grid')
+              const n = getComputedStyle(g).gridTemplateColumns.split(' ').length
+              const kids = [...g.children].filter((e) => e.checkVisibility())
+              const out = []
+              for (let c = 0; c < n; c++) {
+                const cells = kids.filter((_, i) => i % n === c)
+                const widest = cells.map((e) => {
+                  const inp = e.querySelector('input')
+                  const r = e.getBoundingClientRect()
+                  return { w: Math.round(r.width), inp: inp ? Math.round(inp.getBoundingClientRect().width) : null,
+                    t: (e.textContent ?? '').trim().slice(0, 18) }
+                })
+                const head = widest[0]
+                const maxInp = Math.max(0, ...widest.map((x) => x.inp ?? 0))
+                out.push(`c${c}: box ${head.w} input ${maxInp || '-'} "${head.t}"`)
+              }
+              return out
+            })
+            cols.forEach((c) => console.log(`  COLS ${c}`))
+          }
+          if (process.env.C_WRAP === '1') {
+            const wrapped = await p.evaluate(() => {
+              const g = document.querySelector('#deal-product-grid')
+              const heads = [...g.querySelectorAll('.ig-head')]
+              const before = getComputedStyle(g).gridTemplateColumns
+              const prev = heads.map((h) => h.style.whiteSpace)
+              // IN THE BROWSER ONLY: nothing on disk is touched, and it is put
+              // back before the measurement returns.
+              heads.forEach((h) => { h.style.whiteSpace = 'normal'; h.style.overflowWrap = 'anywhere' })
+              g.style.width = 'auto'
+              const after = getComputedStyle(g).gridTemplateColumns
+              const w = g.scrollWidth
+              heads.forEach((h, i) => { h.style.whiteSpace = prev[i]; h.style.overflowWrap = '' })
+              g.style.width = ''
+              return { before, after, w }
+            })
+            console.log(`  WRAP before [${wrapped.before.split(' ').map((t) => Math.round(parseFloat(t))).join(' ')}]`)
+            console.log(`  WRAP after  [${wrapped.after.split(' ').map((t) => Math.round(parseFloat(t))).join(' ')}]  grid would be ${wrapped.w}px`)
+          }
+          console.log(`  SPLIT overflow: grid ${sp.gridScroll} in ${sp.gridClient}`
+            + `  panel ${sp.panelScroll} in ${sp.panelClient}`
+            + `  document ${sp.docScroll} in ${sp.docClient}`)
+          console.log(`  SPLIT units half ${sp.unitsW}  install half ${sp.instW}  resp ${sp.respW}  panel ${sp.panelW}`
+            + (need ? `  two cards need ${need} of ${sp.panelW}` : '  (no install half in this state)'))
+        }
+      }
       if (process.env.C_HEADS === '1') {
         const h = await p.evaluate(() => {
           const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
@@ -683,7 +967,11 @@ try {
           vOverlap: Math.round(Math.min(grid.bottom, cg.bottom) - Math.max(grid.top, cg.top)),
           rowGap: firstProduct && firstMs
             ? Math.round(firstMs.getBoundingClientRect().top - firstProduct.getBoundingClientRect().top)
-            : null }
+            : null,
+          panelTopGap: (() => {
+            const a = bx('#deal-product-grid'), b = bx('#deal-install-panel')
+            return a && b ? Math.round(b.top - a.top) : null
+          })() }
       })
       if (w1c.present) {
         check(w1c.cgLeft >= w1c.gridRight,
@@ -691,9 +979,108 @@ try {
           + `(grid ends ${w1c.gridRight}, table starts ${w1c.cgLeft})`)
         check(w1c.vOverlap > 0,
           `W1 and BESIDE it rather than below (${w1c.vOverlap}px of shared vertical span)`)
-        check(w1c.rowGap !== null && Math.abs(w1c.rowGap) <= 2,
-          `W1 the first figure rows are level (${w1c.rowGap}px apart)`)
+        /* ── RE-POINTED BY R-US3, 2026-09-27 ──────────────────────────────
+           W1 asserted the milestone table's first figure row level with the
+           product grid's. R-US1 puts the milestone table INSIDE the
+           Installation card, and John's ruling is explicit that under Lump Sum
+           NO ROW CORRESPONDENCE IS REQUIRED, because milestones are not
+           products: there is nothing for milestone 1 to pair with.
+
+           What survives, and is what W1 was really about, is that the two sit
+           SIDE BY SIDE and start together. The pairing claim moves to Per Unit,
+           where the rows do correspond, and is asserted by N2 and R-US3 on
+           every state rather than only where a contractor group renders. */
+        check(w1c.panelTopGap !== null && Math.abs(w1c.panelTopGap) <= 2,
+          `R-US3 the two panels TOP-ALIGN (${w1c.panelTopGap}px apart)`)
       }
+
+      /* ── R-US4: CONTENT FITS ITS OWN CONTAINER ────────────────────────
+         John's ruling 2026-09-27, and it closes a class nothing watched. W2
+         sees two elements INTERSECTING. A1 sees a gap between a label and a
+         figure. Neither can see an element whose own content is wider than
+         itself: it intersects nothing and its gaps are fine, and the merged
+         grid did exactly that at 1240, 947px of content in an 876px box,
+         running past the right edge of every panel beneath it.
+
+         `scrollWidth` against `clientWidth` is the measurement, with one pixel
+         of tolerance for sub-pixel rounding. */
+      const fit = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const over = []
+        for (const sel of ['#deal-section-1', '#deal-product-grid', '.units-row',
+          '#deal-contractor-group', '#deal-po-factoring', '.deal-payment-region',
+          '#deal-opex-tables', '#deal-hybrid-group']) {
+          const e = document.querySelector(sel)
+          if (!e || !vis(e)) continue
+          if (e.scrollWidth > e.clientWidth + 1) {
+            over.push(`${sel}: ${e.scrollWidth} of ${e.clientWidth}, over by ${e.scrollWidth - e.clientWidth}px`)
+          }
+        }
+        return over
+      })
+      /* ── THE CARRIED PAIR, HELD BY A RATCHET RATHER THAN EXEMPTED ──────
+         `#deal-po-factoring` and the region that contains it overflow at the
+         widths where the card is narrower than the 292px repayment control.
+         That is R-ADJ1's ACCEPTED TRADE-OFF, ruled after the alternative was
+         measured to starve the hybrid schedule, and closing it means re-opening
+         a ruling rather than fixing a defect.
+
+         So they are named, not excused: the list MAY ONLY SHRINK, an entry that
+         stops overflowing must leave it, and anything not on it is red. That is
+         the shape the dead-selector ratchet already uses, and it keeps the
+         class closed for everything new while the ruled pair waits on John. */
+      /* `.deal-payment-region` LEFT THIS LIST BECAUSE THE RATCHET SAID SO. It
+         was carried with the card it contains, and once the card's overflow
+         stopped extending the region's own scroll width the shrink clause
+         reported it healed. An entry that stops overflowing leaves; that is the
+         half of a ratchet that stops it rotting into a list of excuses. */
+      const CARRIED = ['#deal-po-factoring', '.deal-payment-region']
+      const fresh = fit.filter((f) => !CARRIED.some((c) => f.startsWith(`${c}:`)))
+      const healed = CARRIED.filter((c) => !fit.some((f) => f.startsWith(`${c}:`)))
+
+      /* ── THE EXEMPTION IS NAMED, BOUNDED AND DIRECTIONAL ──────────────────
+         R-ADJ1 ruled this overflow acceptable after the alternative was
+         measured to starve the hybrid schedule: below 1360 the factoring card
+         returns to its percentage and the 292px repayment control does not fit
+         it. The ruling turned on WHICH WAY it overflows - rightward, into empty
+         space, rather than leftward across the gap and over the schedule - so
+         that is what the guard asserts, not merely that it is allowed.
+
+         A bare name on an exemption list rots into an excuse. A direction and a
+         bound cannot: the day it grows, or turns left, this is red. */
+      const fx = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const card = document.querySelector('#deal-po-factoring')
+        if (!card || !vis(card)) return null
+        const b = card.getBoundingClientRect()
+        let right = b.right, left = b.left
+        for (const e of card.querySelectorAll('*')) {
+          if (!vis(e)) continue
+          const r = e.getBoundingClientRect()
+          if (r.width <= 0) continue
+          right = Math.max(right, r.right); left = Math.min(left, r.left)
+        }
+        return { over: Math.round(right - b.right), under: Math.round(b.left - left) }
+      })
+      if (fx) {
+        check(fx.under <= 0,
+          `R-ADJ1 the factoring card's content never spills LEFT, across the gap `
+          + `(${fx.under}px past its left edge)`)
+        check(fx.over <= 100,
+          `R-ADJ1 its accepted rightward overflow stays within 100px (${fx.over}px)`)
+      }
+      check(fresh.length === 0, `R-US4 every panel's content fits its own box`
+        + (fresh.length ? `\n         ${fresh.join('\n         ')}` : ' (eight containers checked)'))
+      /* THE SHRINK CLAUSE ONLY APPLIES WHERE THE PAIR CAN OVERFLOW. Above
+         1360 the factoring card is 340px and the 292px control FITS, so the
+         entries correctly do not appear and asserting they must would fail on
+         the widths where R-ADJ1 works. */
+      /* THE SHRINK CLAUSE IS JUDGED OVER THE WHOLE RUN, NOT PER STATE, and the
+         first version got that wrong twice. Above 1360 the factoring card is
+         340px and the control FITS; and the region it sits in overflows in some
+         1240 states and not others. An entry earns its place by overflowing
+         SOMEWHERE, so it is scored once, after every state. */
+      for (const c of CARRIED) if (fit.some((f) => f.startsWith(`${c}:`))) everOver.add(c)
 
       check(rows.length > 0, `A1 the walk found label+figure rows at all (${rows.length} containers)`)
       const over = rows.filter((r) => r.max > BACKSTOP)
@@ -725,6 +1112,71 @@ try {
   console.log(`\nTHE RUN THREW, so every count below is over the states it reached:`)
   console.log(String(e && e.stack ? e.stack : e))
 } finally { await b.close(); await tearDown(TAG) }
+/* ── R-A1P: A1 ASSERTS ITS POPULATION ───────────────────────────────────
+   John's ruling 2026-09-27. A guard that reports what it FINDS cannot report
+   what it has stopped finding, and twice in one round a container left this
+   walk silently: `#deal-product-grid` when R-US1 made the cards `<section>`,
+   and `.stmt-row-line` when a baseline-aligned row stopped grouping. The
+   second was hiding a 703px gap on the statement's Total cost row the whole
+   time, behind a guard reading 142 of 142.
+
+   BOTH DIRECTIONS, which is Verification 19's remedy rather than a second
+   thought: a rostered container MISSING is a red, and a container found that
+   nobody rostered is a red too. A one-way list rots, because the estate grows
+   containers faster than anybody remembers to register them.
+
+   SCORED OVER THE STATES ACTUALLY WALKED, WHICH IS NOT THE SAME AS ONLY ON A
+   COMPLETE RUN. The first version of this gated on `states === STATES`, so any
+   run that threw skipped the check entirely - a silent skip wearing a pass
+   (Verification 14), and it hid this check from its own calibration: the
+   injection hid the product grid, the probe threw before walking one state,
+   and the assertion written for exactly that fault never ran.
+
+   The scope is already right without the gate. `statesWalked` lists only
+   states whose walk COMPLETED, and each rostered container is asked for in
+   those states alone, so a partial run reports real absences over what it did
+   measure rather than artefacts of stopping. */
+if (statesWalked.length) {
+  /* EACH ENTRY IS ASKED WHICH OF THE WALKED STATES SHOULD CARRY IT, and is
+     asserted found in ALL of them. An entry no walked state matches is not a
+     pass and not a failure: this run cannot speak to it, so it is NAMED in
+     the result rather than quietly counted as satisfied. */
+  const missing = []
+  const skipped = []
+  for (const r of A1_ROSTER) {
+    const owed = statesWalked.filter((s) => r.inState(s))
+    if (!owed.length) { skipped.push(`${r.key} (${r.when})`); continue }
+    const seen = rosterSeen.get(r.key) ?? []
+    const absent = owed.filter((s) => !seen.includes(s))
+    if (absent.length) {
+      missing.push(`${r.key} (${r.what}) absent from ${absent.length} of the ${owed.length} states it is rostered for: ${absent.join(', ')}`)
+    }
+  }
+  check(missing.length === 0, `R-A1P every rostered container was FOUND and MEASURED`
+    + (missing.length ? `:\n         ${missing.join('\n         ')}`
+      : ` (${A1_ROSTER.length - skipped.length} of ${A1_ROSTER.length} rostered, over ${statesWalked.length} states)`)
+    + (skipped.length ? `\n         not carried by any state this run walked, so untested here: ${skipped.join(', ')}` : ''))
+
+  const known = new Set(A1_ROSTER.map((r) => r.key))
+  const stranger = [...rosterSeen.keys()].filter((k) => !known.has(k))
+  check(stranger.length === 0, `R-A1P every container the walk found is ROSTERED`
+    + (stranger.length ? `, and these are not: ${stranger.join(', ')}`
+      : ` (${rosterSeen.size} found)`))
+}
+/* AND THE RATCHET IS ONLY MEANINGFUL IF SOMETHING WAS MEASURED. On the run
+   that threw before walking any state, `everOver` was empty, so this fired and
+   said both carried entries "never overflowed and must leave it" - a shrink
+   verdict from an instrument that measured nothing (Verification 13: a count
+   of zero from an instrument never shown reaching one is not a measurement).
+   The run already fails on `states !== STATES`, so skipping here removes a
+   false finding without weakening the ratchet on any run that walked. */
+if (states > 0) {
+  const CARRIED = ['#deal-po-factoring', '.deal-payment-region']
+  const dead = CARRIED.filter((c) => !everOver.has(c))
+  check(dead.length === 0, `R-US4 the carried list only shrinks, judged over the whole run`
+    + (dead.length ? `: ${dead.join(', ')} never overflowed and must leave it`
+      : ` (${CARRIED.length} entries, each still real)`))
+}
 console.log(`\nstates completed: ${states} of ${STATES}`)
 console.log(`${pass} of ${pass + fail} checks passed`)
 console.log(threw || states !== STATES ? 'RUN INCOMPLETE' : 'RUN COMPLETE')

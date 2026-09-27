@@ -11940,3 +11940,79 @@ hidden one level down where nothing could see it.
 The standard is about NUMERIC inputs. Text fields, selects and dates are
 unnamed by the registry and unmeasured by the guard, because a name or an
 address has no maximum format to declare.
+# A WALKING GUARD ASSERTS ITS POPULATION, set by John 2026-09-27
+
+**The guard-writing discipline gains one line, and it is the only one of these
+that is about what a guard DOES NOT LOOK AT:**
+
+> **A guard that finds its subjects by walking the document asserts its
+> POPULATION, not only its property. A container that leaves the walk otherwise
+> leaves the estate's protection silently.**
+
+## Why it is not covered by anything already here
+
+Verification 9 says an invariant not proven capable of failing is not evidence,
+and its remedy is injection. **Injection proves the guard can fire on the
+containers it is looking at.** It says nothing about the containers it has
+stopped looking at, and a walk's population is not visible in its output: A1
+reports what it FINDS, so a container it cannot parse is simply absent from a
+list of containers, which reads exactly like a list of containers.
+
+Verification 25's population clause is the nearest neighbour and is about a
+claim quoted from too narrow an instrument. **This is narrower and quieter: the
+instrument is correct, the claim is correct, and the SUBJECT has left.**
+
+## The two instances, both in one round, both found by an injection coming back SILENT
+
+**`#deal-product-grid`.** R-US1 split one panel into two cards. The walk
+enumerated `table, div` and the cards are `<section>`; and `rowsOf` chunked a
+grid's children in runs of `cols`, which the new cards break by spanning and by
+explicit `grid-row`. **The estate's main pricing surface was measured zero
+times**, and nothing said so. Caught by an injection that stretched that grid by
+680px and came back silent.
+
+**`.stmt-row-line`.** `rowsOf` grouped a grid's children by `Math.round(top)`.
+These rows are `align-items: baseline`, so one row's six cells sat at tops 3134,
+3135 and 3136 and split into THREE groups. It survived while some group still
+held two cells; widening the statement grew the spread until none did, and the
+container left the walk entirely.
+
+## AND THE SECOND ONE WAS HIDING A REAL DEFECT, which is the argument
+
+Repairing the parse turned the healthy state red immediately. The C2
+statement's **Total cost** row measured **703px** from its label to its figure
+at 1920 and 643px at 1240, against a 600px backstop, because it shipped with
+three EMPTY group cells and was the only row in the statement with them. Every
+sibling carries a dash that leads the eye across.
+
+**The guard had read 142 of 142 for as long as the container had been
+unparseable.** The green was not wrong about what it measured; it was measuring
+a smaller estate than anybody thought.
+
+**So the cost of an unasserted population is not a theoretical gap in coverage.
+It is a defect sitting on the estate's most-read financial surface, behind a
+green gate, for as long as nobody happens to widen something.**
+
+## What the rule asks for in practice
+
+- **A declared roster.** The containers a walking guard is responsible for are
+  named in ONE place, and the guard asserts every rostered container was FOUND
+  and MEASURED on this run.
+- **An absent rostered container is its own RED**, named, and distinct from the
+  property failing. They are different faults with different fixes, and a guard
+  that reports them the same way teaches nobody anything.
+- **Retirement is a roster edit in the same commit**, shrink-only, so a
+  container cannot leave the estate's protection by leaving the estate quietly.
+
+## The known weakness, recorded rather than closed
+
+**A1 counts a hyphen and a U+2014 dash as a figure.** So a leader dash in a nearer column
+satisfies the backstop for a row whose real figure is much further away. On the
+statement it changes no verdict today - the worst real-figure gap among the
+other rows is 511px, inside the bound - so it is a precision weakness rather
+than a live defect.
+
+It is recorded here because it is the shape build discipline 3 warns about:
+**the reassuring verdict is the one that gets a proxy.** A1's pass can be
+supplied by a placeholder. QUEUED by John 2026-09-27 as a named detector
+weakness for a future round, not built.

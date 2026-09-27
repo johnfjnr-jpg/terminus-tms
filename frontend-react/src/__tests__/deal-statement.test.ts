@@ -119,6 +119,75 @@ describe('C1: the statement equals the derivation layer', () => {
     expect(st.totalCost.total).toBe(cellOf(rows, 'Total cost').total)
   })
 
+  // ── THE SUM ROW FOOTS ITS COLUMNS. John's ruling 2026-09-27 ───────────
+  //
+  // The row shipped with three EMPTY group cells, the only row in the
+  // statement with them, which A1 measured at 703px from label to figure once
+  // it could parse the container at all. The ruling: the group columns carry
+  // their REAL figures, no dash and no blank, and an equality is asserted.
+  //
+  // THE ASSERTION IS PER COLUMN, AGAINST THE LINES ABOVE, which is what binds
+  // the three new cells to `buildDealRows` without this file restating a
+  // derivation. Every `moneyOut` cell is already asserted equal to its
+  // `buildDealRows` cell by the test above, so footing the column against
+  // those cells inherits that binding rather than minting a second reader.
+  const num = (s?: string) => Number((s ?? '').replace(/[^0-9.]/g, '')) || 0
+
+  test('TOTAL COST foots each group column against the lines above it', () => {
+    const { st } = build()
+    for (const col of ['hardware', 'hosting', 'installation'] as const) {
+      // NOT BLANK, asserted before the arithmetic. A blank and a zero both
+      // read as 0 through `num`, so a footing test alone would pass on the
+      // very defect this exists to stop.
+      expect(st.totalCost[col], `the ${col} cell is blank again`).toBeTruthy()
+      const sum = st.moneyOut.reduce((a, l) => a + num(l[col]), 0)
+      expect(sum, `nothing in the ${col} column, so its footing means nothing`)
+        .toBeGreaterThan(0)
+      expect(num(st.totalCost[col]), `the ${col} column does not foot`).toBe(sum)
+    }
+  })
+
+  // ── AND IT DOES NOT ADD UP ACROSS, WHICH IS THE POINT ─────────────────
+  //
+  // The ruling asked that the three group figures sum to the Total cost
+  // figure. MEASURED, they cannot: on this fixture the groups are 885,500 and
+  // Total cost is 934,587. The difference is finance cost and the Test Bed
+  // cost, which are full-width rows belonging to no group, exactly as
+  // `deal-calculator.js` computes it:
+  //
+  //     totalDealCostAll = totals.totalDealCost + financeCost + whtBorne
+  //                        + testBedCostAmount
+  //
+  // So the reconciliation is asserted in the only form that can hold, with
+  // the three unattributed rows named. A guard that cannot pass would have
+  // been deleted by the first person it blocked.
+  test('TOTAL COST reconciles across once the unattributed rows are named', () => {
+    const { st } = build()
+    const groups = (['hardware', 'hosting', 'installation'] as const)
+      .reduce((a, c) => a + num(st.totalCost[c]), 0)
+    const unattributed = ['out-factoring', 'out-testbed', 'out-wht']
+      .reduce((a, k) => a + num(st.moneyOut.find((l) => l.key === k)?.total), 0)
+    // Non-vacuous both sides, or this passes on a deal with no financing,
+    // no Test Bed and no absorbed WHT - where the two sums agree trivially
+    // and the guard is measuring nothing.
+    expect(groups).toBeGreaterThan(0)
+    expect(unattributed).toBeGreaterThan(0)
+    expect(groups + unattributed).toBe(num(st.totalCost.total))
+  })
+
+  // BOTH BRANCHES OF THE HOSTING CELL (Verification 24). With the term not
+  // recorded the column has no figure to foot, and a zero there would be a
+  // value nobody entered - the recovery-period finding in a table cell. The
+  // claim is then a string equality with the line above, not arithmetic.
+  test('TOTAL COST says "not recorded" for hosting when the term is not', () => {
+    const { st } = build({ duration: '' })
+    const above = st.moneyOut.find((l) => l.key === 'out-hosting')!
+    expect(num(above.hosting)).toBe(0)
+    expect(st.totalCost.hosting).toBe(above.hosting)
+    // and the recorded branch really is different, or this proves nothing
+    expect(build().st.totalCost.hosting).not.toBe(st.totalCost.hosting)
+  })
+
   // ── C2 STEP 0: THE PROPERTY THE DELETED CONSTANTS ONLY DESCRIBED ──────
   //
   // `COST_ROW_COUNT = 6` claimed the cost rows sum to Total cost and said SIX

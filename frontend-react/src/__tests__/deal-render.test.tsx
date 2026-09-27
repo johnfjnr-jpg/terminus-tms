@@ -270,8 +270,17 @@ const hiddenClass = (id: string) => must(id).classList.contains('hidden')
    points at - and it is still read off the RENDER rather than off the
    visibility function both sides derive from, which is what stops this
    becoming two readers agreeing with each other (Verification 20). */
+/* ── RE-POINTED AGAIN BY R-US1, 2026-09-27, AND R-SZ2's NOTE ABOVE STANDS ──
+   R-SZ2 moved this question from `#deal-install-table` to the merged grid.
+   R-US1 splits that grid into two cards, so the element that knows whether the
+   per-unit rows are showing is the INSTALLATION PANEL.
+
+   THE CLAIM IS STILL THE SAME CLAIM - the signpost co-appears with the rows it
+   points at - and it is still read off the RENDER rather than off the
+   visibility function both sides derive from, which is what stops this becoming
+   two readers agreeing with each other. */
 const installHalfHidden = () =>
-  must('deal-product-grid').getAttribute('data-install-half') === 'false'
+  must('deal-install-panel').getAttribute('data-install-half') === 'false'
 
 describe('the installation tab: the signpost co-appears with its rows', () => {
   test('per unit shows both', async () => {
