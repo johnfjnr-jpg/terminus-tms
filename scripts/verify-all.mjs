@@ -65,6 +65,42 @@ const STAGES = [
     cmd: ['npm', ['test']],
     needs: 'nothing. This is what CI runs.',
   },
+  // ── THE SUB-KEY CENSUS. A2, ruled by John 2026-09-28 ───────────────────
+  //
+  // Does the pricing engine read any NESTED payload sub-key that no writer
+  // supplies? It is a stage rather than a test because it drives the engine
+  // through a proxy and reports a census, and because Verification 9's clause
+  // is explicit that a probe nothing SCHEDULES rots while its silence reads
+  // exactly like its success.
+  //
+  // It was born RED, on `contractorMilestones.usd`: a field the cash flow
+  // filtered and summed, that nothing wrote and the route refused. It is wired
+  // here now that the fix derives the figure and the census passes, so from
+  // this commit onward its green is a measurement rather than a hope.
+  {
+    name: 'payload sub-key census',
+    cmd: ['node', ['scripts/golden-deals/subkey-census.mjs']],
+    needs: 'nothing. Pure, and it drives the engine rather than grepping it.',
+  },
+  // ── THE FOUR GOLDEN DEALS. Deliverable 3 of the golden deals round ─────
+  //
+  // Re-prices all four reference deals through the live engine and compares
+  // EVERY figure against the committed expectations, exact match. This is the
+  // permanent guard on pricing: any change that moves a figure is red here and
+  // names the figure.
+  //
+  // IT SAYS PROVISIONAL ON EVERY RUN, INCLUDING A GREEN ONE, until John has
+  // reproduced the figures and confirmed them. A green means pricing has not
+  // moved since they were taken, not that they are right, and a suite implying
+  // a confirmation nobody gave would be worse than no suite.
+  //
+  // Calibrated by `scripts/golden-deals/calibrate.mjs`: five injections, five
+  // fired, every file byte-identical afterwards.
+  {
+    name: 'golden deals (PROVISIONAL)',
+    cmd: ['node', ['scripts/golden-deals-check']],
+    needs: 'nothing. Pure arithmetic against a fixture rate card.',
+  },
   {
     name: 'database suite',
     cmd: ['npm', ['run', 'test:db']],

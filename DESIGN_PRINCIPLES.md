@@ -12085,3 +12085,108 @@ the claim the rule makes, and nothing wider.
 enter is not a state the estate cannot TEST. Before recording a visual as
 unprovable, ask whether the protocol underneath the browser can set it
 directly.
+
+---
+
+# R-N1 EXTENDED: EVERY MILESTONE READER DERIVES DOLLARS FROM PCT
+
+**Ruled by John 2026-09-28**, at the golden deals round's Phase 0 stop.
+Extends R-N1 (John, 2026-09-21) rather than superseding it: the original
+sentence was right and its coverage was incomplete.
+
+> **Every milestone reader, customer and contractor, derives dollars from `pct`
+> through the one function. No stored dollar field on milestones.**
+
+## What the original said, and the half that was not true
+
+R-N1 reads, at `milestone-schedule.js:56`:
+
+> its dollar figure is derived here and nowhere else. **Every reader - the grid
+> cell, the reconciliation below, the cash flow in `deal-calculator.js` - calls
+> this**, so they cannot disagree by construction rather than by a comment
+> saying they cannot.
+
+**The customer milestones were re-pointed and the contractor milestones were
+not.** `due` maps every customer row through `milestoneUsd` before filtering
+(`deal-calculator.js:359`). `contractorMs` twenty lines below read a raw `usd`
+off the payload.
+
+**AND NOTHING WROTE THAT FIELD ANY MORE.**
+`readContractorMilestones` writes `month`, `label`, `pct`, `incomplete`
+(`payload.ts:266`), and `PATCH /opportunities/:id` answers **400** for any
+milestone row carrying a `usd`, naming the reason (`opportunities.js:748`). So
+`contractorStaged` was **false on every deal the system can save**,
+`contractorTotal` always zero, and the whole principal left in month 1 however
+the schedule read.
+
+## The sharpest statement of what that cost
+
+**The version gate refused to issue a schedule that did not sum to the lump
+sum, and the engine then priced the deal as though there were no schedule at
+all.** `deal-sheet-versions.js:319` derives correctly from `pct` and refuses with
+*"A version records a commercial commitment and cannot carry a payment schedule
+that does not match the price it is a schedule of."*
+
+Verification 43's family, inverted. Every instance recorded there is a DISPLAY
+beside a correct enforcement. **Here the display and the gate were both right,
+and the MODEL was the one that could not see it** - so no surface was wrong,
+because every surface was faithfully rendering the model's own answer.
+
+## Two schedules, two bases, one derivation
+
+The extension is not "use the same number". A customer milestone is a
+percentage of what the CUSTOMER is charged, `hardwarePriceAll`. A contractor
+milestone is a percentage of what the CONTRACTOR is paid, `lumpCost`. The bases
+differ and must; what may not differ is the function that turns a percentage
+into dollars.
+
+## What it cannot do, measured before the fix was taken
+
+**It cannot move a price, a cost or a margin.** Contract net, one-off price,
+total deal cost, achieved margin and finance cost are identical either way. It
+moves cash TIMING and closes by the last milestone month.
+
+**So it moves the reported cash trough only when the trough falls inside the
+staging window** - a monthly-invoicing deal, a shorter recovery, a later final
+milestone. The trough is what a salesperson reads to decide whether a deal can
+be funded, which is why it was worth stopping a round for.
+
+**That property is now asserted rather than remembered**, in
+`contractor-staging.test.mjs` and on golden deal G2, so a future change that
+moves a price while claiming to move timing is red.
+
+## The month 1 default is a decision, not a leftover
+
+A lump sum deal with **no** contractor schedule pays the whole principal in
+month 1. That remains correct and is now asserted as a counterfactual rather
+than left as the behaviour that happens to fall out: nobody has staged the
+payments, so there is nothing to defer, and the earliest possible outflow is
+the honest assumption for a cash position somebody funds against.
+
+## Why nothing caught it for a round, and the detector that will
+
+`buildCashFlowModel` appeared in **no test file in the repository**. The only
+test touching `contractorStaged: true` handed the renderer a cash flow object
+built by hand, so it exercised the LABEL and never the model, and
+`deal-inputs-golden.json` carries `contractorMilestones: []` on all fifteen
+shapes. **The branch had never run**, and a comment in
+`deal-render.test.tsx` asserted that it was "exercised at model level in
+Session C" - Verification 19, a claim of coverage nobody measured, which stopped
+anybody looking.
+
+**The general detector, and it is now a gate stage:** a key-level census of what
+the engine reads against what the surface writes was blind to this, because the
+key is both written and read and only the SUB-KEY is dead
+(Verification 33, a measure with a shape).
+`scripts/golden-deals/subkey-census.mjs` is aimed one level down, spies the
+engine's own reads through a proxy across five shapes, and refuses rather than
+passing when a bucket is unmeasured. **It was born red on this instance.**
+
+## The general lesson
+
+**A re-pointing is per READER, and the readers of one rule are not always in one
+place.** R-N1 named its readers in a sentence and three of the four were
+converted. The fourth was twenty lines from one that was, in the same function,
+and the difference between them was a single `.map`. When a ruling says "every
+reader calls this", the deliverable is an enumeration of the readers, not the
+sentence.

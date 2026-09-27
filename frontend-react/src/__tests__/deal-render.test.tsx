@@ -38,8 +38,11 @@ const UI: UiState = {
 //   this one          -> 0 negative cumulative months. The colouring rule is
 //                        UNTESTABLE on it.
 //   V_CASHNEG below   -> 12 negative and 12 positive. Both signs present.
-// And `contractorStaged` is FALSE on every shape measured, so the cash-out row
-// is "Hardware, warranty and installation" rather than the staged pair.
+// And this shape carries no contractor schedule, so the cash-out row is
+// "Hardware, warranty and installation" rather than the staged pair. (Corrected
+// 2026-09-28: this said "contractorStaged is FALSE on every shape measured",
+// which was true and whose reason was that the branch was unreachable. See the
+// note at the cash-out sign test below.)
 const V: Values = {
   'deal-ssExisting': '10', 'deal-aqm': '4', 'deal-duration': '24', 'deal-targetMargin': '30',
   'deal-warrantyPct': '5', 'deal-whtPct': '10', 'deal-gstPct': '9', 'deal-recoveryMonths': '12',
@@ -122,8 +125,27 @@ describe('the cash-flow grid renders its model', () => {
 
   test('CASH OUT CARRIES A LEADING MINUS, cash in does not', async () => {
     await mount()
-    // contractorStaged is false on every measured deal shape, so this is the
-    // unstaged label. The staged pair is exercised at model level in Session C.
+    // This fixture is not a lump sum deal, so it carries the unstaged label.
+    //
+    // CORRECTED 2026-09-28, golden deals round A3. This read "contractorStaged
+    // is false on every measured deal shape, so this is the unstaged label. The
+    // staged pair is exercised at model level in Session C."
+    //
+    // BOTH HALVES WERE WRONG, and the second was the damaging one. Nothing
+    // exercised the staged pair at model level in Session C or anywhere else:
+    // `buildCashFlowModel` appeared in NO test file in the repository, and the
+    // only test touching `contractorStaged: true` hands the renderer a cash
+    // flow object built by hand, so it exercises this LABEL and never the
+    // model. And `contractorStaged` was false on every shape because the branch
+    // was UNREACHABLE - the cash flow filtered contractor milestones on a `usd`
+    // field nothing wrote - not because the shapes happened not to stage.
+    //
+    // Verification 19: a measured fact stated as a property of the world. The
+    // measurement was true and the reason given for it was not, and a comment
+    // asserting coverage stopped anybody looking for a round.
+    //
+    // The model-level coverage now genuinely exists, in
+    // `scripts/tests/contractor-staging.test.mjs`.
     const out = cfRow('Hardware, warranty and installation').map((c) => c.textContent ?? '')
     const inn = cfRow('Hosting fee, annual in advance').map((c) => c.textContent ?? '')
     const outNums = out.filter((t) => t !== '-' && t !== '')

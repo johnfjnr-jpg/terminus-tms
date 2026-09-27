@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+// ── THE ACCEPTANCE HARNESS FOR THE FOUR GOLDEN DEALS ─────────────────────
+//
+//   node scripts/golden-deals-check
+//
+// It re-prices all four deals through the LIVE engine and compares EVERY
+// figure against the committed expectations, exact match. A change to pricing
+// that moves any of them is red, and the failure names the figure.
+//
+// ── PROVISIONAL UNTIL JOHN CONFIRMS ──────────────────────────────────────
+//
+// The expectations were produced by the engine, which means they record what it
+// DOES and not yet what it SHOULD. Until John has reproduced them in Excel and
+// confirmed, this suite says PROVISIONAL in its own output on every run,
+// including a green one, because a green suite that implies confirmation nobody
+// gave is worse than no suite.
+//
+// ── IT COMPARES, IT DOES NOT RE-BLESS ────────────────────────────────────
+//
+// There is no update flag here on purpose. Moving the expectations means
+// re-running `scripts/golden-deals/compute.mjs` deliberately, in a commit
+// somebody reads, and that is the whole control: a suite that can silently
+// adopt whatever the engine now says is a suite that cannot fail.
+import { readFileSync } from 'node:fs'
+import { GOLDEN_DEALS, GOLDEN_CATALOG } from './golden-deals/deals.mjs'
+import { priceGoldenDeal, flatten } from './golden-deals/engine.mjs'
+
+const EXPECT = 'scripts/golden-deals/expectations.json'
+const expected = JSON.parse(readFileSync(EXPECT, 'utf8'))
+
+const fails = []
+const checks = []
+const ok = (label) => { checks.push(label) }
+const bad = (label, detail) => { fails.push(`${label}\n       ${detail}`) }
+
+// ── THE CATALOG IS PART OF THE EXPECTATION ───────────────────────────────
+//
+// Without this, editing a rate in the fixture and re-running would move every
+// figure, the comparison would still be against the OLD expectations, and the
+// resulting red would name two hundred figures rather than the one rate that
+// caused it. Checking it first turns that into one line.
+for (const key of Object.keys(GOLDEN_CATALOG)) {
+  if (GOLDEN_CATALOG[key] !== expected.catalog[key]) {
+    bad(`the rate card has changed: ${key}`,
+      `expectations say ${expected.catalog[key]}, the fixture says ${GOLDEN_CATALOG[key]}. `
+      + 'Re-run scripts/golden-deals/compute.mjs deliberately if that is intended.')
+  }
+}
+if (!fails.length) ok('the rate card matches the expectations it was pinned against')
+
+// ── G1's STRUCTURE IS A COUPLING, NOT A FIXTURE DETAIL ───────────────────
+//
+// `readDealPayload` saves `effectiveStructure(ui)`, which is 'single' for every
+// OPEX deal, and `buildDealInputs` applies no OPEX rule of its own. A G1 that
+// lost this key would silently price as TWO-PHASE and still produce a full set
+// of plausible figures.
+const g1 = GOLDEN_DEALS.find((d) => d.id === 'G1')
+if (g1.payload.paymentMode === 'opex' && g1.payload.structure !== 'single') {
+  bad('G1 is an OPEX deal whose structure is not single',
+    `structure is ${JSON.stringify(g1.payload.structure)}. A saved OPEX record holds 'single'.`)
+} else {
+  ok("G1 carries the structure a saved OPEX record holds ('single')")
+}
+
+// ── EVERY FIGURE, EXACT ──────────────────────────────────────────────────
+let compared = 0
+for (const deal of GOLDEN_DEALS) {
+  const exp = expected.deals[deal.id]
+  if (!exp) { bad(`${deal.id} has no committed expectations`, 'Run compute.mjs.'); continue }
+  const got = flatten(priceGoldenDeal(deal))
+  const expKeys = Object.keys(exp.figures)
+  const gotKeys = Object.keys(got)
+
+  // A count of zero compared against a count of zero is not a comparison
+  // (Verification 14). The population is asserted before it is walked.
+  if (expKeys.length === 0) { bad(`${deal.id} pins no figures at all`, 'An empty expectation cannot fail.'); continue }
+
+  const missing = expKeys.filter((k) => !(k in got))
+  const added = gotKeys.filter((k) => !(k in exp.figures))
+  if (missing.length) bad(`${deal.id} no longer produces ${missing.length} pinned figure(s)`, missing.slice(0, 8).join(', '))
+  if (added.length) bad(`${deal.id} produces ${added.length} figure(s) nothing pins`, added.slice(0, 8).join(', '))
+
+  const moved = []
+  for (const k of expKeys) {
+    if (!(k in got)) continue
+    compared += 1
+    if (got[k] !== exp.figures[k]) moved.push(`${k}: expected ${exp.figures[k]}, got ${got[k]}`)
+  }
+  if (moved.length) {
+    bad(`${deal.id} ${moved.length} figure(s) moved`, moved.slice(0, 12).join('\n       ')
+      + (moved.length > 12 ? `\n       ... and ${moved.length - 12} more` : ''))
+  } else if (!missing.length && !added.length) {
+    ok(`${deal.id} all ${expKeys.length} figures exact`)
+  }
+}
+
+// ── A4: THE PAIRWISE PROPERTY, PERMANENT ON G2 ───────────────────────────
+//
+// Ruled by John 2026-09-28 from the Phase 0 measurement. A contractor schedule
+// stages COST OUT OF MONTH 1 and must not touch a price, a cost total or a
+// margin. It is asserted here as well as in contractor-staging.test.mjs because
+// the two guard different things: that one guards the model, and this guards the
+// GOLDEN - a future change that moved G2's margin while claiming to change
+// timing would be re-blessed by a compute.mjs run and caught here.
+{
+  const g2 = GOLDEN_DEALS.find((d) => d.id === 'G2')
+  const staged = priceGoldenDeal(g2).result
+  const unscheduled = priceGoldenDeal({
+    ...g2, payload: { ...g2.payload, contractorMilestones: [] },
+  }).result
+
+  const same = [
+    ['contract net', staged.totals.contractNet, unscheduled.totals.contractNet],
+    ['one-off price', staged.totals.oneOffPrice, unscheduled.totals.oneOffPrice],
+    ['hosting term price', staged.totals.hostingTermPrice, unscheduled.totals.hostingTermPrice],
+    ['total deal cost', staged.totalDealCostAll, unscheduled.totalDealCostAll],
+    ['achieved margin', staged.achievedMargin, unscheduled.achievedMargin],
+    ['P&L total cost', staged.cashFlow.totCost, unscheduled.cashFlow.totCost],
+    ['finance cost', staged.financeCost, unscheduled.financeCost],
+  ]
+  let held = true
+  for (const [label, a, b] of same) {
+    if (a !== b) { held = false; bad(`G2 staging moved the ${label}`, `${b} without the schedule, ${a} with it. Staging must move cash TIMING only.`) }
+  }
+
+  // AND THE TIMING MUST MOVE, or the seven equalities above are a description
+  // of two identical runs and prove nothing (Verification 14).
+  if (staged.cashFlow.rows[0].cum === unscheduled.cashFlow.rows[0].cum) {
+    held = false
+    bad('G2 staging moved NOTHING at all',
+      'month 1 cumulative cash is identical with and without the schedule, so the '
+      + 'seven equalities above are vacuous. This is the Phase 0 defect returning.')
+  }
+  if (staged.cashFlow.contractorStaged !== true) {
+    held = false
+    bad('G2 does not stage its contractor schedule',
+      'contractorStaged is false on a lump sum deal with three funded milestones.')
+  }
+  if (held) ok('G2 staging moves cash timing and nothing else, and it does move it')
+}
+
+// ── THE STATUS MAY BE STATED, BUT NOT SILENTLY FLIPPED ───────────────────
+//
+// FOUND BY CALIBRATING THIS FILE, which is what calibration is for. An
+// injection flipped `status` from PROVISIONAL to CONFIRMED by hand and the suite
+// stayed GREEN with the provisional warning simply gone: the one line telling a
+// reader these figures are unconfirmed could be removed without anything
+// objecting. Same family as a control that deletes its own evidence of use.
+//
+// The status HAS to be hand-editable, because it records a fact only John can
+// state. What must not be possible is stating it without saying who and when. So
+// CONFIRMED requires both, and a bare flip is now red rather than quiet.
+const status = expected.status ?? 'PROVISIONAL'
+const ALLOWED = ['PROVISIONAL', 'CONFIRMED']
+if (!ALLOWED.includes(status)) {
+  bad(`the expectations carry an unknown status ${JSON.stringify(status)}`,
+    `It must be one of ${ALLOWED.join(' or ')}.`)
+} else if (status === 'CONFIRMED' && !(expected.confirmedBy && expected.confirmedOn)) {
+  bad('the expectations say CONFIRMED and do not say by whom or when',
+    'A confirmation is somebody accepting these figures on a date. Add confirmedBy '
+    + 'and confirmedOn, or leave the status PROVISIONAL.')
+} else {
+  ok(status === 'CONFIRMED'
+    ? `confirmed by ${expected.confirmedBy} on ${expected.confirmedOn}`
+    : 'status PROVISIONAL, stated on every run')
+}
+console.log(`GOLDEN DEALS CHECK  status ${status}`)
+console.log(`  ${compared} figures compared across ${GOLDEN_DEALS.length} deals\n`)
+for (const c of checks) console.log(`  PASS  ${c}`)
+for (const f of fails) console.log(`  FAIL  ${f}`)
+console.log('')
+if (status !== 'CONFIRMED') {
+  console.log('PROVISIONAL: these figures are what the engine DOES, not yet what John has')
+  console.log('confirmed it SHOULD do. A green run here means pricing has not moved since')
+  console.log('they were taken. It does not mean they are right.')
+  console.log('')
+}
+if (fails.length) {
+  console.log(`FAIL: ${fails.length} check(s) failed.`)
+  process.exit(1)
+}
+console.log(`PASS: ${checks.length} checks, ${compared} figures exact.`)
