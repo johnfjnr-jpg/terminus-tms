@@ -143,6 +143,13 @@ try {
       bandCols: band ? getComputedStyle(band).gridTemplateColumns : null,
       groups,
       cmCols: head ? getComputedStyle(head).gridTemplateColumns : null,
+      cgVars: (() => {
+        const g = document.querySelector('[data-testid="contractor-grid"]')
+        if (!g) return 'no contractor-grid'
+        const rows = g.querySelectorAll('.cm-grid-row').length
+        return `pct=${g.style.getPropertyValue('--cm-pct-w') || 'UNSET'} `
+          + `amt=${g.style.getPropertyValue('--cm-amt-w') || 'UNSET'} rows=${rows}`
+      })(),
       headCells: [0, 1, 2, 3].map((i) => cell(head, i)),
       rowCells: [0, 1, 2, 3].map((i) => cell(row, i)),
     }
@@ -151,6 +158,7 @@ try {
   say(`  band columns   ${p2.bandCols}`)
   for (const g of p2.groups) say(`      ${String(g.id).padEnd(24)} ${g.left}..${g.right}  top ${g.top}`)
   say(`  cm-grid cols   ${p2.cmCols}`)
+  say(`  contractor vars ${p2.cgVars}`)
   const NAMES = ['Month', 'Milestone', '%', 'Amount']
   for (let i = 0; i < 4; i++) {
     const h = p2.headCells[i], r = p2.rowCells[i]

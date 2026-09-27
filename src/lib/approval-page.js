@@ -39,6 +39,8 @@ import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation, ra
 import { resolveRates, OVERRIDABLE_RATE_KEYS } from './rate-resolution.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
+// P6: the ONE version-label source, in place of the two copies this file held.
+import { versionLabel as sharedVersionLabel } from './version-label.js';
 import { frozenTermsSentences } from './system-defaults.js';
 // The bands, the thresholds and the words all live in one place, because the
 // Commercials reference panel shows a salesperson the same thing earlier.
@@ -858,9 +860,9 @@ export function buildApprovalPage({
   // this number reads first.
   const grouped = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-  const versionLabel = version
-    ? (version.major === 0 ? `V0.${version.minor}` : (version.minor === 0 ? `V${version.major}` : `V${version.major}.${version.minor}`))
-    : null;
+  // P6: the ONE version-label source. This was an inline ternary, one of four
+  // identical copies of the same rule.
+  const versionLabel = sharedVersionLabel(version);
 
   // ── 1. THE ASK ────────────────────────────────────────────────────────
   const ask = {
@@ -925,7 +927,7 @@ export function buildApprovalPage({
   const moved = baseline
     ? {
       baseline: {
-        label: baseline.major === 0 ? `V0.${baseline.minor}` : (baseline.minor === 0 ? `V${baseline.major}` : `V${baseline.major}.${baseline.minor}`),
+        label: sharedVersionLabel(baseline),
         revisionNumber: baseline.revision_number,
         approvedAt: baseline.approval?.decidedAt ?? null,
         reason: baseline.reason ?? null,

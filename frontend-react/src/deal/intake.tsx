@@ -96,7 +96,7 @@ export function IntakeSection({
   onInstallResp(v: string): void
   group: InstallGroup
   payload: Record<string, unknown>
-  renderField(id: string, bare?: boolean): ReactNode
+  renderField(id: string, bare?: boolean, help?: string): ReactNode
   contractorGrid: ReactNode
   rates?: Record<string, number>
   censusFields: ReactNode
@@ -191,12 +191,26 @@ export function IntakeSection({
                 {INSTALL_RESPONSIBILITIES.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
+            {/* ── P3: THE NOTE IS A DOT, NOT PROSE. John's walk 2026-09-27 ──
+                SUPERSEDED, QUOTED NOT DELETED: the same sentence rendered as a
+                `<p className="data-row-label" id="deal-lump-summary">` beneath
+                the field.
+
+                The estate already has ONE way of explaining a field, the
+                help-dot on the factoring rate and term, and this was a second
+                way sitting in the panel. The sentence is unchanged, the
+                expression that builds it is unchanged, and it now reaches the
+                reader through the affordance that every other explanation
+                uses.
+
+                AND IT IS WHAT MAKES P2 AFFORDABLE, which is why it lands
+                first. The band was stacked because "the responsibility select
+                at 232px beside the lump sum note at 320px made the band 568px"
+                and overflowed the panel at 1240. The 320px was this note. */}
             <div className={`form-group${vis.lumpCostGroup ? '' : ' hidden'}`} id="deal-lumpCost-group">
-              {renderField('deal-lumpCost')}
-              <p className="data-row-label" id="deal-lump-summary" data-testid="deal-lump-summary">
-                {`Lump sum cost $${money(payload.lumpSumCost ?? 0)}, priced at ${fig(group?.rawTotalPrice)}`
-                  + ', carried into the Deal Summary, Deal sheet and Cash flow.'}
-              </p>
+              {renderField('deal-lumpCost', false,
+                `Lump sum cost $${money(payload.lumpSumCost ?? 0)}, priced at ${fig(group?.rawTotalPrice)}`
+                + ', carried into the Deal Summary, Deal sheet and Cash flow.')}
             </div>
             <div className={`form-group${vis.seeTable ? '' : ' hidden'}`} id="deal-install-seetable">
               <label>Contractor pricing</label>

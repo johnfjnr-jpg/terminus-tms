@@ -283,9 +283,16 @@ test('R1: the autofill override exists and targets the card\'s inputs', () => {
   //
   // So this asserts what a static check honestly can: the rule EXISTS, it
   // uses the only property that overrides Chrome there, and it reaches
-  // every input class the card renders. The visual - an autofilled field
-  // now rendering normally - is John's observation and is recorded as such
-  // rather than implied by a green test.
+  // every input the estate renders.
+  //
+  // ── AND "HEADLESS CHROME CANNOT BE MADE TO AUTOFILL AT ALL" IS FALSE.
+  // That sentence is left above because it was believed when written and it
+  // is why this check was static. Measured 2026-09-27: `CSS.forcePseudoState`
+  // over the DevTools protocol puts a real element into the real
+  // `:-webkit-autofill` state, and an unstyled input then computes
+  // `rgb(232, 240, 254)` on black - the white box itself. `probe-gaps.mjs`
+  // now drives it and reads the estate's tokens back, so the visual half is
+  // no longer only John's observation.
   const css = stripCss(readFileSync(join(ROOT, 'frontend/style.css'), 'utf8'))
   const blocks = [...css.matchAll(/([^{}]*:-webkit-autofill[^{}]*)\{([^}]*)\}/g)]
   assert.ok(blocks.length > 0, 'no :-webkit-autofill rule exists at all')
@@ -301,10 +308,31 @@ test('R1: the autofill override exists and targets the card\'s inputs', () => {
   assert.match(body, /-webkit-text-fill-color/,
     'the text colour is not restored, so autofilled text stays unreadable')
 
-  // EVERY input class the card renders. Derived from the components rather
-  // than listed here, so a new field class fails this until it is covered.
-  const cardInputClasses = ['lead-field-input', 'lead-summary-input', 'cd-note-input']
-  for (const c of cardInputClasses)
-    assert.ok(selectors.includes(`.${c}:-webkit-autofill`),
-      `.${c} is rendered on the card and is not covered by the autofill override`)
+  /* ── P4: COVERED BY ELEMENT, NOT BY CLASS. John's walk 2026-09-27 ───────
+     SUPERSEDED, QUOTED NOT DELETED: this listed three card input classes and
+     required `.<class>:-webkit-autofill` to appear in the selector text:
+
+         const cardInputClasses = ['lead-field-input', 'lead-summary-input', 'cd-note-input']
+
+     THE CLAIM IS UNCHANGED AND THE METHOD WAS THE PROBLEM. Those three are
+     inputs, so an element-level rule covers every one of them; what the class
+     list could not do is cover an input nobody had written yet. It did not:
+     the deal panel was built afterwards and its boxes went white, which is
+     John's screenshot. Verification 19, on the estate's own record, for the
+     class of check that rule is about.
+
+     So the assertion is now the stronger one - the override must NOT be
+     scoped. A bare `input:-webkit-autofill` selector covers every input in
+     the estate including the three named above, and this goes red the moment
+     somebody re-scopes it to a class. */
+  const list = selectors.split(',').map((s) => s.trim())
+  for (const el of ['input', 'textarea', 'select'])
+    assert.ok(list.includes(`${el}:-webkit-autofill`),
+      `the autofill override is not applied to bare \`${el}\`, so it reaches only `
+      + 'the surfaces somebody remembered. That is how the deal panel was missed.')
+
+  /* AND THE STANDARD SPELLING BESIDE THE PREFIX, so the rule does not lapse
+     silently when Chrome retires `-webkit-`. */
+  assert.match(selectors, /(^|,)\s*input:autofill/,
+    'only the prefixed pseudo-class is covered, so the rule dies with the prefix')
 })

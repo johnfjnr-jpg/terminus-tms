@@ -1006,6 +1006,70 @@ try {
       check(rules.length === 0, `P1 no painted rule is struck through its own text`
         + (rules.length ? `:\n         ${rules.join('\n         ')}` : ' (every ruled element checked)'))
 
+      /* ── P4: AUTOFILL, PROVED AT THE MECHANISM ──────────────────────────
+         John's ruling 2026-09-27, and the ruling asked for honesty about what
+         a probe can and cannot simulate. This one CAN: Chrome's DevTools
+         protocol has `CSS.forcePseudoState`, which puts a real element into
+         the real `:-webkit-autofill` state, and the stylesheet then matches or
+         does not.
+
+         WHAT IT DOES NOT SIMULATE, stated because the difference matters: it
+         does not fill the control, so no value arrives and nothing is typed.
+         It drives the PSEUDO-CLASS, which is the only thing the rule keys on,
+         so it tests exactly the claim the rule makes and nothing about
+         Chrome's decision to offer a completion in the first place.
+
+         MEASURED UNSTYLED FIRST, which is what makes the green mean something:
+         an input with no rule computes `rgb(232, 240, 254)` on black in this
+         state. That is the white box in John's screenshot, and it is the value
+         this check would read if the rule stopped matching. */
+      /* THE EXPECTATION IS READ FROM AN ORDINARY INPUT, NOT FROM THE TOKEN.
+         The first version compared `getPropertyValue('--black')` against the
+         computed shadow and failed on a healthy estate: the token is `#15161C`
+         and the computed value is `rgb(21, 22, 28)`. Same colour, two
+         spellings, and a guard comparing them reports a defect that is not
+         there. Reading a real input's own computed background is also the
+         truer statement of the claim - an autofilled input should look like
+         the inputs beside it, whatever the tokens are called. */
+      const af = await p.evaluate(() => {
+        const ref = document.querySelector('#deal-targetMargin, input')
+        if (!ref) return null
+        const cs = getComputedStyle(ref)
+        return { black: cs.backgroundColor, white: cs.color }
+      })
+      const afHits = []
+      for (const sel of ['#deal-lumpCost', '#deal-cm-0-pct', '#deal-targetMargin']) {
+        const there = await p.evaluate((s) => !!document.querySelector(s), sel)
+        if (!there) continue
+        let got = null
+        try {
+          const cdp = await p.createCDPSession()
+          const doc = await cdp.send('DOM.getDocument')
+          const { nodeId } = await cdp.send('DOM.querySelector',
+            { nodeId: doc.root.nodeId, selector: sel })
+          await cdp.send('CSS.enable')
+          await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: ['autofill'] })
+          got = await p.evaluate((s) => {
+            const cs = getComputedStyle(document.querySelector(s))
+            return { bg: cs.backgroundColor, fill: cs.webkitTextFillColor, shadow: cs.boxShadow }
+          }, sel)
+          await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] })
+          await cdp.detach()
+        } catch (e) {
+          afHits.push(`${sel}: could not force the state (${String(e.message).slice(0, 50)})`)
+          continue
+        }
+        /* THE INSET SHADOW IS THE BACKGROUND, so that is what is asserted.
+           `backgroundColor` still reports the UA's own value in this state,
+           which is exactly why a rule setting `background-color` does not
+           work and this one does. */
+        const ok = !!af && got.shadow.includes(af.black) && got.fill === af.white
+        if (!ok) afHits.push(`${sel}: shadow "${got.shadow.slice(0, 44)}" fill ${got.fill}`)
+      }
+      check(afHits.length === 0, `P4 an autofilled input wears the estate's tokens`
+        + (afHits.length ? `:\n         ${afHits.join('\n         ')}`
+          : ` (forced :autofill, repainted to ${af.black} on ${af.white})`))
+
       /* ── W1: THE GRID AND THE MILESTONE TABLE SIT SIDE BY SIDE ─────────
          Only where the contractor group renders, which is Lump Sum. Asserted as
          a RELATIONSHIP between two elements rather than as the CSS that

@@ -4,7 +4,7 @@ import type { ReconciliationView, MilestoneOption } from './milestones'
 import { milestoneUsd } from '../../../src/lib/milestone-schedule.js'
 import type { InstallVisibility, StructureVisibility, ToggleState } from './installation'
 import { money } from './rows'
-import { SizedInput } from './useFieldWidth'
+import { SizedInput, useTrackWidths } from './useFieldWidth'
 // The SAME reader the vanilla paints the accent from. Verification 20.
 import { marginPresentation } from '../../../src/lib/deal-inputs.js'
 
@@ -234,8 +234,12 @@ export function ContractorGrid({ rows, values, options, onTyped, view, base }: {
     const n = pct === '' || pct == null ? null : Number(pct)
     return n === null || !Number.isFinite(n) || !base ? '' : milestoneUsd(n, base).toFixed(2)
   }
+  // P2: the % and amount tracks, measured once from the controls S1 sized and
+  // published for both the head and the rows to read. Cell 2 is %, cell 3 the
+  // amount.
+  const gridRef = useTrackWidths([['--cm-pct-w', 2], ['--cm-amt-w', 3]])
   return (
-    <div data-testid="contractor-grid">
+    <div data-testid="contractor-grid" ref={gridRef}>
       {/* ── W6-W9: ONE GRID WITH LABELLED COLUMNS, NOT A BARE TABLE ───────
           It was a `<table>` with no `<thead>` at all: four equal columns and
           nothing saying which was which, so Month and % were as wide as the

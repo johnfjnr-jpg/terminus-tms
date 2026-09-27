@@ -6981,8 +6981,31 @@ function renderOppHeadline(opp) {
     // RULED: "none", not blank, when nothing has been issued. A blank here
     // would read as a figure that failed to load rather than as a deal with no
     // issued proposal.
-    oppHeadlineFigure('Proposal version',
+    /* ── P5: RENAMED, AND THE SEMANTICS ARE DELIBERATELY UNCHANGED ─────────
+       John's walk 2026-09-27. SUPERSEDED, QUOTED NOT DELETED: the label read
+       "Proposal version".
+
+       A display rename stays a display rename (Architecture 6): the figure is
+       still `issued_major`, still the highest major among versions whose
+       status is `issued`, still "none" when nothing has been.
+
+       AND ONE THING WORTH A READER'S ATTENTION RATHER THAN A SILENT FIX: this
+       counts versions that were ISSUED, and the new name says APPROVED. Those
+       are different events in this estate. The ruling directed that the
+       semantics be preserved under the new name, so they are, and the
+       difference is recorded here rather than quietly resolved in either
+       direction. */
+    oppHeadlineFigure('Approved version',
       Number.isInteger(opp.issued_major) ? `V${opp.issued_major}` : null, { absent: 'none' }),
+    /* ── P6: THE RECORD'S OWN PRICING STATE, BESIDE THE APPROVED ONE ───────
+       Computed by `workingVersionOf` on the server, from the same
+       `pricingChanged` the approval gate reads, so the banner cannot disagree
+       with the gate about whether this record has moved. The browser formats
+       and decides nothing, which is this strip's own rule.
+
+       "none" for the same reason its neighbour says it: a record with no
+       version at all is a fact, and a blank would read as a failure to load. */
+    oppHeadlineFigure('Working version', opp.working_version ?? null, { absent: 'none' }),
   ].join('')
 }
 

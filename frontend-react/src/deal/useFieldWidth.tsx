@@ -156,6 +156,61 @@ export function useColumnWidths(formats: (string | null)[]) {
  * component is the ordinary way out: each instance calls the hook once, which
  * is what the rules of hooks require and what a `.map()` body cannot do.
  */
+/**
+ * ── P2: TWO GRIDS THAT MUST AGREE ON A TRACK. John's walk 2026-09-27 ──────
+ *
+ * `.cm-grid-head` and `.cm-grid-row` are SEPARATE grid elements sharing one
+ * template, which is how the header sits over the field it names. R-US4 made
+ * the amount column `max-content`, correctly, and **`max-content` resolves per
+ * grid**: the head's is the word "Amount" and the row's is a 70px input.
+ * Measured at 1920, the head's track was 36px and the row's input 70px, so the
+ * header covered the left half of its own column. The `%` header had the
+ * mirror of it - right-aligned into a 44px literal while its input was 30px,
+ * so the glyph sat 8px past the input's right edge, which is the crowding
+ * John reported.
+ *
+ * So the width is measured ONCE and published as a custom property both grids
+ * read. It is not a second reader of the registry: it reads the width S1 has
+ * already applied to the control, so the track is the control's own width by
+ * construction and cannot drift from it.
+ *
+ * CHILD EFFECTS RUN FIRST, which is what makes this safe: every `SizedInput`
+ * inside has applied its inline width before this parent effect measures. And
+ * the inline width beats `.cm-grid-row input { width: 100% }`, so setting the
+ * track to the input's width converges rather than oscillating.
+ */
+export function useTrackWidths(vars: Array<[string, number]>) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const key = JSON.stringify(vars)
+
+  const apply = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const row = el.querySelector('.cm-grid-row, .ms-grid-row')
+    if (!row) return
+    const kids = [...row.children]
+    for (const [name, i] of JSON.parse(key) as Array<[string, number]>) {
+      const k = kids[i] as HTMLElement | undefined
+      if (!k) continue
+      const c = (k.matches('input, select') ? k : k.querySelector('input, select')) as HTMLElement | null
+      if (!c) continue
+      const w = Math.ceil(c.getBoundingClientRect().width)
+      if (w > 0) el.style.setProperty(name, `${w}px`)
+    }
+  }, [key])
+
+  useLayoutEffect(() => {
+    apply()
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    if (!fonts?.ready) return
+    let live = true
+    fonts.ready.then(() => { if (live) apply() }).catch(() => {})
+    return () => { live = false }
+  })
+
+  return ref
+}
+
 export function SizedInput({ id, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { id?: string }) {
   /* THE REGISTRY KEY IS THE `id`, OR THE TEST ID WHERE THERE IS NO `id`.
      The OPEX table's unit boxes carry only a `data-testid`, because their
