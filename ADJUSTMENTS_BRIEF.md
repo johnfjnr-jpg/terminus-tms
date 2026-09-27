@@ -80,8 +80,16 @@ cannot make.
 
 **THE HISTORY, RECORDED SO THIS IS NOT READ AS A RECURRENCE.** White default
 buttons and token collapse were separate mechanisms, each already fixed.
-**Autofill is a third, never previously addressed**, and it is invisible until
-a browser has a saved value to offer.
+**Autofill is a third**, and it is invisible until a browser has a saved value
+to offer.
+
+**CORRECTED BY PHASE 0, AND THE RULING'S WORDING IS LEFT ABOVE ON PURPOSE.**
+The ruling said autofill was "never previously addressed". It was, at
+`style.css:8482` on 2026-09-13, with this exact technique, for six class
+selectors on the leads and contact surfaces. **What was never done is making it
+ESTATE-WIDE**, which is why the deal panel's inputs are bare. That is build
+discipline 6 for the fourth recorded time, and it is the reason this round's
+rule is written against ELEMENT selectors rather than a class list.
 
 ### P5: "Proposal Version" renames "Approved Version"
 
