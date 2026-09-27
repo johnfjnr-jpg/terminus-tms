@@ -122,6 +122,40 @@ cancel: no 0% margins, and no zero-unit lines except where a case needs one.
 
 ---
 
+## THE PHASE 0 STOP, AND JOHN'S RULING. Appended 2026-09-28
+
+Phase 0 stopped on a finding: the cash flow read contractor milestone dollars
+from a `usd` field nothing writes and the route refuses, so the schedule reached
+no arithmetic. Full measurement in `GOLDEN_DEALS_PHASE0_FINDING.md`.
+
+**RULED BY JOHN: OPTION (a).** The contractor milestone cash flow derives
+dollars from `pct` exactly as customer milestones do, and R-N1's sentence
+becomes true. **Rule 12 is resolved in favour of the derivation.**
+
+**ALL EXISTING RECORDS ARE TEST DATA**, so no census, no blast-radius report and
+no migration. **The stored `pct` payloads are already the correct shape and are
+not touched.**
+
+Five additions to this brief, each launched by that ruling:
+
+| | addition |
+|---|---|
+| A1 | **The fix.** `contractorMs` maps through `milestoneUsd(pct, lumpCost)` as `due` already does. **Red-first**: a MODEL-LEVEL test executes the staged branch through `buildCashFlowModel` with a payload shape the route accepts (`pct` only), asserts staged cash timing, FAILS on the current engine and passes after. **The first test in the estate to execute that branch, and its comment says so.** |
+| A2 | **The sub-key census wires into the gate as a permanent stage**, now that `usd` is read nowhere and written nowhere. The route's 400 stays. |
+| A3 | **`deal-render.test.tsx:125`'s false comment corrected** ("exercised at model level in Session C" - it was not). |
+| A4 | **The pairwise property becomes a permanent assertion on G2**: contract net, one-off price and achieved margin SAME; only cash TIMING moves. |
+| A5 | Then compute all four goldens **on the fixed engine**, write `PRICING_LOGIC.md` with the contractor staging rule stated plainly **and the month-1 default named for schedule-less lump sums**, build the PROVISIONAL harness, calibrate, close. G1 carries `structure: 'single'` per the Phase 0 correction. |
+
+**AND IT LANDS IN THE DECISIONS DOC AS R-N1 EXTENDED:** every milestone reader,
+customer and contractor, derives dollars from `pct` through the one function;
+no stored dollar field on milestones.
+
+Round mechanics unchanged: calibration both directions, live proof, close-out,
+CURRENT_STATE, `ls-remote` equality at merge expecting `620b845`, both gates,
+"ready for John's push".
+
+---
+
 ## THE STOP RULE
 
 Any red: STOP. Any pricing rule that turns out ambiguous or contradicted by a

@@ -29,16 +29,22 @@
 // `contractorMilestones` is ever brought into line, INJECT by adding a
 // sub-key read to one of the other two and confirm this still fires.
 //
-// ── NOT WIRED TO A GATE STAGE YET, AND THE REASON IS ON THE RECORD ───────
+// ── WIRED TO THE GATE AS A PERMANENT STAGE. A2, John 2026-09-28 ──────────
 //
-// Verification 9's clause: a probe nothing schedules rots, and its silence
-// reads like its success. This one is deliberately unwired PENDING JOHN'S
-// RULING on the finding it found, because the two possible rulings want
-// different things from it. If the engine is brought into line, this becomes
-// a permanent green guard and is wired. If the contractor schedule is ruled
-// a display-and-gate artefact that was never meant to reach the cash flow,
-// this needs a declared exemption for that one sub-key, and an exemption
-// minted before the ruling would be an exemption for a defect.
+// The paragraph this replaces said it was deliberately unwired pending the
+// ruling, because the two possible rulings wanted different things from it: a
+// fix makes it a permanent green guard, and a ruling that the schedule was
+// never meant to price would have needed a declared exemption for that
+// sub-key - which before the ruling would have been an exemption for a defect.
+//
+// JOHN RULED THE FIX. So `contractorMilestones.usd` is now read nowhere and
+// written nowhere, the census passes, and it is a stage in
+// `scripts/verify-all.mjs` named "payload sub-key census". The route's 400 on
+// an arriving `usd` stays, so the write side is closed independently of this.
+//
+// IT WAS BORN RED, which is what makes its green worth reading. Verification
+// 9's clause about a detector nothing schedules is the reason it is a stage
+// rather than a script somebody remembers to run.
 import { resolveRates } from '../../src/lib/rate-resolution.js'
 import { buildDealInputs } from '../../src/lib/deal-inputs.js'
 import { calculateDeal } from '../../src/lib/deal-calculator.js'

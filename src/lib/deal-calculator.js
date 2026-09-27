@@ -383,7 +383,41 @@ export function buildCashFlowModel({
 
   const principal = hardwareCostAll;
   const contractorBase = lumpSumDeal ? lumpCost : hardwareCostAll; // matches original: groups[1].rawTotalCost when not lump sum
-  const contractorMs = lumpSumDeal ? contractorMilestones.filter((x) => x.month > 0 && x.usd > 0) : [];
+  // ── R-N1 EXTENDED: THE CONTRACTOR SCHEDULE DERIVES TOO ─────────────────
+  //
+  // Ruled by John 2026-09-28, from the golden deals round's Phase 0 stop.
+  //
+  // R-N1 said in terms that "every reader - the grid cell, the reconciliation
+  // below, the CASH FLOW IN deal-calculator.js - calls this". The customer
+  // milestones twenty lines above were re-pointed and these were not, so this
+  // filtered and summed a `usd` field that nothing writes and the route
+  // REFUSES: `PATCH /opportunities/:id` answers 400 for a milestone row
+  // carrying one, naming the reason. `contractorStaged` was therefore FALSE on
+  // every deal the system can save, `contractorTotal` always zero, and the
+  // whole principal left in month 1 however the schedule read.
+  //
+  // MEANWHILE THE VERSION GATE REFUSED TO ISSUE A SCHEDULE THAT DID NOT SUM TO
+  // THE LUMP SUM (deal-sheet-versions.js:319), deriving correctly from `pct`.
+  // The gate enforced a schedule the engine ignored, which is Verification 43's
+  // family inverted: the display and the gate were right and the model was the
+  // one that could not see it.
+  //
+  // THE BASE IS `lumpCost`, not `hardwarePriceAll`. A contractor milestone is a
+  // percentage of what the CONTRACTOR is paid, and the customer milestones above
+  // are a percentage of what the CUSTOMER is charged. Two schedules, two bases,
+  // one derivation, and `contractorBase` on the line above already names this
+  // one. It is read through the same `milestoneUsd` so the cell, the
+  // reconciliation, the version refusal and this cannot disagree.
+  //
+  // THE FILTER STILL READS THE DERIVED FIGURE, exactly as `due` does: a
+  // zero-percent row is not a payment, and `month > 0` keeps a dateless
+  // commitment out of the cash flow while W-C leaves it counting toward the
+  // total and blocking a version.
+  const contractorMs = lumpSumDeal
+    ? contractorMilestones
+      .map((x) => ({ ...x, usd: milestoneUsd(x.pct, contractorBase) }))
+      .filter((x) => x.month > 0 && x.usd > 0)
+    : [];
   const contractorStaged = contractorMs.length > 0;
   const contractorTotal = contractorMs.reduce((s, x) => s + x.usd, 0);
   const upfrontCost = contractorStaged ? principal - contractorTotal : principal;

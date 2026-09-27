@@ -65,6 +65,23 @@ const STAGES = [
     cmd: ['npm', ['test']],
     needs: 'nothing. This is what CI runs.',
   },
+  // ── THE SUB-KEY CENSUS. A2, ruled by John 2026-09-28 ───────────────────
+  //
+  // Does the pricing engine read any NESTED payload sub-key that no writer
+  // supplies? It is a stage rather than a test because it drives the engine
+  // through a proxy and reports a census, and because Verification 9's clause
+  // is explicit that a probe nothing SCHEDULES rots while its silence reads
+  // exactly like its success.
+  //
+  // It was born RED, on `contractorMilestones.usd`: a field the cash flow
+  // filtered and summed, that nothing wrote and the route refused. It is wired
+  // here now that the fix derives the figure and the census passes, so from
+  // this commit onward its green is a measurement rather than a hope.
+  {
+    name: 'payload sub-key census',
+    cmd: ['node', ['scripts/golden-deals/subkey-census.mjs']],
+    needs: 'nothing. Pure, and it drives the engine rather than grepping it.',
+  },
   {
     name: 'database suite',
     cmd: ['npm', ['run', 'test:db']],
