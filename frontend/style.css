@@ -1761,9 +1761,32 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
      meet it. */
   --w1-head-h: calc(var(--field-label-size) * 1.5 + 17px);
 }
+/* ── P1: A MINIMUM, NOT A PIN. John's walk 2026-09-27 ────────────────────
+   SUPERSEDED, QUOTED NOT DELETED: `height: var(--w1-head-h)`.
+
+   THE PREMISE FOR THE PIN FAILED AND NOBODY RE-TOOK THE DECISION. Its own
+   comment reasons "Each half is its own grid, so neither can put its head in
+   the other's track", which was true when it was written. R-US1 then made both
+   cards `subgrid` on the parent's tracks with every head at `grid-row: 3`, so
+   the heads DO share a track now and the track already sizes itself to the
+   tallest. Measured at 1920: the shared track is 44.83px and the pin held every
+   head at 32.75px inside it.
+
+   WHAT THE PIN THEN COST. `--w1-head-h` is composed as "the field-label line
+   box, 8px of padding each side and the 1px rule" - ONE line box - and R-US4
+   afterwards accepted a two-line Rate heading. A head taller than its pinned
+   box overflows it, and the rule is painted at the BOX's edge, so the rule was
+   drawn through the wrapped words. Measured, three headings and not the one
+   reported: "Rate (USD, from Base Cost Data)" 21px past its rule, "Hosting
+   cost/mth" and "Margin %" 5px each.
+
+   `min-height` keeps everything the pin was for. The short heads still meet the
+   band's height, `align-self: end` still seats every rule on the track's bottom
+   edge, so the rules stay on ONE line across both cards - and a head that needs
+   two lines now takes them instead of being struck through. */
 .units-row .ig-head,
 .units-row .cm-grid-head {
-  height: var(--w1-head-h);
+  min-height: var(--w1-head-h);
   box-sizing: border-box;
 }
 /* The shorter head's text sits on its rule rather than floating in the space

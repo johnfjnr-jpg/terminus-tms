@@ -949,6 +949,63 @@ try {
       check(w2.hits.length === 0, `W2 no box on the schedule stack intersects another`
         + (w2.hits.length ? `\n         ${w2.hits.join('\n         ')}` : ' (radios, heading, schedule)'))
 
+      /* ── P1: AN ELEMENT'S INK INCLUDES ITS PAINTED BORDERS ──────────────
+         John's ruling 2026-09-27, and it closes a limit this guard recorded
+         about itself. `inkOf` above unions an element's BOX with its TEXT,
+         which is what a reader sees of a LABEL. It cannot see a RULE. A
+         painted border is ink too, and a rule drawn across a word is the
+         plainest overprint there is.
+
+         THE CLAIM IS STATED AS A RELATION, not as a CSS property (Verification
+         4's clause): for any element that paints a bottom rule and holds text,
+         the text must not continue BELOW that rule. `border-bottom-width` being
+         1px is how the rule is achieved; "nothing is struck through" is what
+         was claimed.
+
+         MEASURED BEFORE IT WAS WRITTEN, which is how the bound was chosen. The
+         Units head band pins every head to one line box
+         (`--w1-head-h`, composed as "the field-label line box, 8px of padding
+         each side and the 1px rule") and R-US4 then accepted a two-line Rate
+         heading. At 1920 the three one-line heads end 11px ABOVE their rule and
+         "Hosting cost/mth" ends 5px BELOW it. The tolerance is 1px, which is
+         under the healthy margin by an order of magnitude and over the
+         sub-pixel noise that rounding produces. */
+      const rules = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const root = document.querySelector('#view-opportunity-detail') ?? document
+        const out = []
+        for (const e of [...root.querySelectorAll('*')].filter(vis)) {
+          const cs = getComputedStyle(e)
+          const bw = parseFloat(cs.borderBottomWidth) || 0
+          if (bw <= 0 || cs.borderBottomStyle === 'none') continue
+          // A transparent rule paints nothing, so it cannot strike anything.
+          if (/^rgba\(.*,\s*0\)$/.test(cs.borderBottomColor)) continue
+          const box = e.getBoundingClientRect()
+          if (box.width <= 0 || box.height <= 0) continue
+          // ITS OWN text only. A neighbour's text crossing this rule is a
+          // different claim with a different fix, and is not what was ruled.
+          const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT)
+          let worst = null
+          for (let n = w.nextNode(); n; n = w.nextNode()) {
+            if (!n.nodeValue || !n.nodeValue.trim()) continue
+            const rg = document.createRange(); rg.selectNodeContents(n)
+            const t = rg.getBoundingClientRect()
+            if (t.width <= 0 || t.height <= 0) continue
+            const past = t.bottom - box.bottom
+            if (worst === null || past > worst.past) {
+              worst = { past, text: n.nodeValue.trim().slice(0, 22) }
+            }
+          }
+          if (worst && worst.past > 1) {
+            out.push(`${(e.id || e.className || e.tagName).toString().slice(0, 34)} `
+              + `"${worst.text}" runs ${Math.round(worst.past)}px past its own rule`)
+          }
+        }
+        return out
+      })
+      check(rules.length === 0, `P1 no painted rule is struck through its own text`
+        + (rules.length ? `:\n         ${rules.join('\n         ')}` : ' (every ruled element checked)'))
+
       /* ── W1: THE GRID AND THE MILESTONE TABLE SIT SIDE BY SIDE ─────────
          Only where the contractor group renders, which is Lump Sum. Asserted as
          a RELATIONSHIP between two elements rather than as the CSS that
