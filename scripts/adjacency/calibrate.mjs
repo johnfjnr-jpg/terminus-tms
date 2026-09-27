@@ -19,6 +19,8 @@ const key = (p) => p.replaceAll('/', '_')
 const abs = (p) => `${ROOT}/${p}`
 const CSS = 'frontend/style.css'
 const ANCHOR = '.product-grid .ig-total { border-bottom: none; }'
+const STMT = 'frontend-react/src/deal/statement.ts'
+const ROSTER = 'src/lib/a1-roster.js'
 
 const INJECTIONS = [
   /* A1: a GOOD row stretched. The result tier's cap is what brought the Profit
@@ -71,14 +73,31 @@ const INJECTIONS = [
       '  grid-template-columns: minmax(0, 1fr) max-content;\n  grid-template-rows: auto auto auto repeat(4, auto) auto;',
       '.product-grid .ig-total { border-bottom: none; }\n'
         + '#deal-product-grid { grid-template-columns: minmax(0, 1fr) auto auto auto !important; }'],
-    /* RE-POINTED AT THE ASSERTION THAT NOW CATCHES THIS FIRST. A2 fired on the
-       CONTAINMENT check rather than on A1's growth clause, which is correct
-       rather than a miss: post-split a panel-sized card overflows its panel
-       before its label-to-figure gap has grown past the allowance, so the
-       containment check is what a reader would hit first. The verdict was
-       FIRED-ELSEWHERE, which is the harness telling me the injection is real
-       and my expectation was pointed at the wrong line. */
-    expect: 'R-US4 every panel' },
+    /* ── RE-POINTED TWICE, AND THE SECOND MOVE IS THE ONE THAT IS RIGHT ────
+       SUPERSEDED, QUOTED NOT DELETED: "A2 fired on the CONTAINMENT check
+       rather than on A1's growth clause, which is correct rather than a miss:
+       post-split a panel-sized card overflows its panel before its
+       label-to-figure gap has grown past the allowance, so the containment
+       check is what a reader would hit first." Pointed here at
+       `R-US4 every panel`.
+
+       THE PREMISE OF THAT WAS FALSE AND NOBODY COULD SEE IT. A1 was not
+       catching this second, it was not catching it AT ALL: R-US1 had taken
+       `#deal-product-grid` out of A1's walk entirely, so the containment check
+       was the only guard left that could see a panel-sized card, and it looked
+       like a sensible ordering rather than a hole.
+
+       MEASURED after the parse was repaired, this injection falsifies A1's own
+       two clauses and R-US4 does not fire at all:
+
+           3 x FAIL A1 no row's gap GROWS with the panel by more than 100px
+           3 x FAIL A1 backstop: no gap exceeds 600px
+
+       Which is the guard that NAMES the claim. A2 is about a grid sized to its
+       container instead of its content, and "the gap grows with the panel" is
+       that sentence in assertion form. Verification 29: the premise failed, so
+       the decision is re-taken rather than re-weighed. */
+    expect: "A1 no row's gap GROWS with the panel" },
 
   /* A4: the label put back on one line with its value. */
   /* AND THIS ONE WAS TOO WEAK BY EXACTLY ONE PIXEL OF THRESHOLD. Turning the
@@ -176,8 +195,105 @@ const INJECTIONS = [
     find: ANCHOR,
     put: `${ANCHOR}\n.zz-phantom-nothing-renders-this { color: red; }`,
     expect: 'no NEW stylesheet selector' },
+
+  /* ── R-TC: THE SUM ROW FOOTS ITS COLUMNS. John's ruling 2026-09-27 ─────
+     Four injections, because the ruling makes four separable claims and a
+     single one would leave three of them unproved. Each is aimed at the
+     TEST NAME rather than at a message, per Verification 51: vitest aborts a
+     test at its first failing assertion, so a matcher taken from a later
+     line reports SILENT on an injection that fired. */
+
+  /* The defect itself, exactly as it shipped. A blank and a zero both read
+     as 0 through the suite's own `num`, so this is what proves the
+     not-blank assertion is doing work rather than decorating the footing. */
+  { id: 'R-TC the group cells BLANK again', kind: 'react', file: STMT,
+    find: '    hardware: neg(hwCost),',
+    put: "    hardware: '',",
+    expect: 'TOTAL COST foots each group column' },
+
+  /* A column that stops footing. The hardware column is two rows, cost and
+     warranty, so dropping the warranty is the subtle version: the cell still
+     holds a real figure from the real derivation and is wrong by 10,000. */
+  { id: 'R-TC a column that no longer FOOTS', kind: 'react', file: STMT,
+    find: '    hardware: neg(hwCost),',
+    put: '    hardware: neg(hwCostExWarranty),',
+    expect: 'TOTAL COST foots each group column' },
+
+  /* The reconciliation. Pointing the total column at the GROUPS-ONLY total
+     is the error the ruling's own equality guard would have enshrined, so
+     this injection is also the evidence for that departure. */
+  { id: 'R-TC the total that forgets the unattributed rows', kind: 'react', file: STMT,
+    find: '    total: neg(result.totalDealCostAll), negative: true,\n  }',
+    put: '    total: neg(result.totals.totalDealCost), negative: true,\n  }',
+    expect: 'TOTAL COST reconciles across' },
+
+  /* The hosting branch. A figure where the term is not recorded is a value
+     nobody entered, which is the recovery-period finding in a table cell. */
+  { id: 'R-TC a hosting figure the term does not support', kind: 'react', file: STMT,
+    find: '    hosting: dur.recorded ? neg(hoCost) : dur.value,',
+    put: '    hosting: neg(hoCost),',
+    expect: 'TOTAL COST says "not recorded" for hosting' },
+
+  /* ── R-A1P: THE ROSTER, BOTH DIRECTIONS ───────────────────────────────
+     The assertion exists because two containers left this walk silently in
+     one round, so the injection is a container LEAVING the walk.
+
+     IT HID `#deal-product-grid` FIRST, AND THAT INJECTION COULD NOT SCORE.
+     The probe's own setup reads that panel, so it THREW before walking a
+     single state: `states completed: 0 of 6`, and the only failure was an
+     unrelated ratchet. Verification 9's clause exactly - an injection can fire
+     without ever reaching the check it was written for, and a probe's setup
+     must not depend on the thing being removed. It read FIRED-ELSEWHERE,
+     which is the harness doing its job: anchored on the exit code it would
+     have scored a decorative red as proof.
+
+     It found two real defects on the way, both now fixed: this check was
+     gated on the run COMPLETING, so it skipped itself on the very fault it
+     was written for, and the R-US4 ratchet returned a shrink verdict from a
+     run that measured nothing.
+
+     So the injection removes a container the probe does not read: the yearly
+     stack's total line, rostered, minor, and nothing else depends on it.
+
+     AND IT IS ANCHORED ON TWO CLASSES, NOT ONE, WHICH TOOK A SECOND SILENT
+     RUN TO FIND. `.ys-line--total { display: none; }` changed nothing: the
+     injection lands at the anchor on line 1718 and `.ys-line { display: flex }`
+     sits at 6956 with the SAME specificity, so source order decided and the
+     element never hid. The run was a full 59s with 0 failing - an injection
+     that was never applied, reported as a clean silence. Verification 51's
+     caveat: confirm the injection FIRED before reading its silence as a
+     missing detector. `.ys-line.ys-line--total` is 0,2,0 and cannot lose to
+     source order wherever the harness puts it. */
+  { id: 'R-A1P a rostered container LEAVES the walk', kind: 'live', file: CSS,
+    find: ANCHOR,
+    put: `${ANCHOR}\n.ys-line.ys-line--total { display: none; }`,
+    expect: 'R-A1P every rostered container was FOUND' },
+
+  /* And the other direction, which is what stops the list rotting: a
+     container the estate ships that nobody registered. Injected by removing
+     the entry rather than by inventing a container, because the claim is
+     about the ROSTER being complete, and Verification 19's remedy is that a
+     list asserts its own completeness. */
+  { id: 'R-A1P a shipped container NOBODY rostered', kind: 'live', file: ROSTER,
+    find: "  { key: 'ys-line ys-line--total', when: 'every',\n    what: 'the yearly stack total', sample: 'Total (USD)' },\n",
+    put: '',
+    expect: 'R-A1P every container the walk found is ROSTERED' },
 ]
-const FILES = [...new Set(INJECTIONS.map((i) => i.file))]
+/* ── C_ONLY: RUN THE NEW CLAIMS, NOT THE WHOLE SWEEP ────────────────────
+   M1's family, applied to calibration: a phase extending a mechanism already
+   calibrated this round adds injections only for its NEW claims, because
+   re-proving a mechanism calibrated an hour earlier measures the harness
+   rather than the change. The filter is a SUBSTRING of the id, and it REFUSES
+   a pattern that matches nothing rather than reporting a clean sweep of zero
+   injections, which is the silent-skip-wearing-a-pass shape (Verification 14). */
+const ONLY = process.env.C_ONLY
+const SELECTED = ONLY ? INJECTIONS.filter((i) => i.id.includes(ONLY)) : INJECTIONS
+if (ONLY && !SELECTED.length) {
+  console.error(`REFUSING: C_ONLY=${ONLY} matches none of the ${INJECTIONS.length} injections`)
+  process.exit(2)
+}
+if (ONLY) console.log(`C_ONLY=${ONLY}: ${SELECTED.length} of ${INJECTIONS.length} injections\n`)
+const FILES = [...new Set(SELECTED.map((i) => i.file))]
 
 if (existsSync(MARKER)) { console.error(`REFUSING: ${MARKER} exists`); process.exit(2) }
 const original = {}
@@ -208,6 +324,16 @@ const run = (kind) => {
       text += String(execSync('node --env-file=.env scripts/adjacency/probe-gaps.mjs',
         { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] }))
     }
+    /* THE STATEMENT'S OWN EQUALITY SUITE. R-TC's guards are arithmetic, so
+       they are proved in the suite that owns the derivation rather than
+       through a browser: the footing is true or false before anything is
+       laid out. Vitest reads the TypeScript source, so these injections need
+       no bundle - the rebuild is skipped for them below. */
+    if (kind === 'react') {
+      text += String(execSync(
+        'npm --prefix frontend-react run test -- src/__tests__/deal-statement.test.ts',
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] }))
+    }
     writeFileSync(out, text)
     return { failed: false, text }
   } catch (e) {
@@ -218,7 +344,7 @@ const run = (kind) => {
 }
 const results = []
 try {
-  for (const inj of INJECTIONS) {
+  for (const inj of SELECTED) {
     /* ── AN INJECTION MAY NEED MORE THAN ONE EDIT, because a claim can be
        protected by more than one mechanism. A2 went SILENT once W1 wrapped the
        product grid in a `max-content` track: the grid is content-sized by its
@@ -243,7 +369,10 @@ try {
       console.error(`STOP: ${inj.id} did not change ${inj.file}`)
       restore('an edit that did not land'); rmSync(MARKER, { force: true }); process.exit(5)
     }
-    execSync('npm run build:react', { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] })
+    // The bundle only matters to a live injection; vitest reads the source.
+    if (inj.kind !== 'react') {
+      execSync('npm run build:react', { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] })
+    }
     const t0 = Date.now()
     const { failed, text } = run(inj.kind)
     const ms = Date.now() - t0

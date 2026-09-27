@@ -17,6 +17,7 @@ const puppeteer = await loadPuppeteer('adjacency/probe-gaps.mjs')
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { freshOpportunity, tearDown } from '../fixtures.mjs'
 import { api } from '../api-client.mjs'
+import { A1_ROSTER } from '../../src/lib/a1-roster.js'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const OUT = `${ROOT}/.verify/adjacency/`
@@ -69,6 +70,13 @@ const base = {
    not in scope there. The same mistake cost the sizing round a crashed run. */
 let states = 0, STATES = 0, threw = null
 const everOver = new Set()
+/* R-A1P: what the walk actually found, per state, scored after the `finally`
+   for the same reason `everOver` is - a `const` inside the `try` is not in
+   scope there. `rosterSeen` maps a container key to the states it was found
+   in, so the report can say WHERE a container went missing rather than only
+   that it did. */
+const rosterSeen = new Map()
+const statesWalked = []
 const b = await puppeteer.launch({ headless: 'new' })
 try {
   const p = await b.newPage()
@@ -348,6 +356,14 @@ try {
       await p.evaluate(() => new Promise((r) => setTimeout(r, 600)))
       console.log(`\n── ${width}  ${combo} ──`)
       const rows = await walk()
+      /* R-A1P: the population, recorded before anything is measured. A gap
+         assertion reads what the walk FOUND; this reads what it found
+         NOTHING of, which is the thing no amount of measuring can report. */
+      statesWalked.push(`${width} ${combo}`)
+      for (const r of rows) {
+        if (!rosterSeen.has(r.key)) rosterSeen.set(r.key, [])
+        rosterSeen.get(r.key).push(`${width} ${combo}`)
+      }
       if (process.env.C_TRACE) {
         const t = await p.evaluate((sel) => {
           const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
@@ -1096,7 +1112,65 @@ try {
   console.log(`\nTHE RUN THREW, so every count below is over the states it reached:`)
   console.log(String(e && e.stack ? e.stack : e))
 } finally { await b.close(); await tearDown(TAG) }
-{
+/* ── R-A1P: A1 ASSERTS ITS POPULATION ───────────────────────────────────
+   John's ruling 2026-09-27. A guard that reports what it FINDS cannot report
+   what it has stopped finding, and twice in one round a container left this
+   walk silently: `#deal-product-grid` when R-US1 made the cards `<section>`,
+   and `.stmt-row-line` when a baseline-aligned row stopped grouping. The
+   second was hiding a 703px gap on the statement's Total cost row the whole
+   time, behind a guard reading 142 of 142.
+
+   BOTH DIRECTIONS, which is Verification 19's remedy rather than a second
+   thought: a rostered container MISSING is a red, and a container found that
+   nobody rostered is a red too. A one-way list rots, because the estate grows
+   containers faster than anybody remembers to register them.
+
+   SCORED OVER THE STATES ACTUALLY WALKED, WHICH IS NOT THE SAME AS ONLY ON A
+   COMPLETE RUN. The first version of this gated on `states === STATES`, so any
+   run that threw skipped the check entirely - a silent skip wearing a pass
+   (Verification 14), and it hid this check from its own calibration: the
+   injection hid the product grid, the probe threw before walking one state,
+   and the assertion written for exactly that fault never ran.
+
+   The scope is already right without the gate. `statesWalked` lists only
+   states whose walk COMPLETED, and each rostered container is asked for in
+   those states alone, so a partial run reports real absences over what it did
+   measure rather than artefacts of stopping. */
+if (statesWalked.length) {
+  /* EACH ENTRY IS ASKED WHICH OF THE WALKED STATES SHOULD CARRY IT, and is
+     asserted found in ALL of them. An entry no walked state matches is not a
+     pass and not a failure: this run cannot speak to it, so it is NAMED in
+     the result rather than quietly counted as satisfied. */
+  const missing = []
+  const skipped = []
+  for (const r of A1_ROSTER) {
+    const owed = statesWalked.filter((s) => r.inState(s))
+    if (!owed.length) { skipped.push(`${r.key} (${r.when})`); continue }
+    const seen = rosterSeen.get(r.key) ?? []
+    const absent = owed.filter((s) => !seen.includes(s))
+    if (absent.length) {
+      missing.push(`${r.key} (${r.what}) absent from ${absent.length} of the ${owed.length} states it is rostered for: ${absent.join(', ')}`)
+    }
+  }
+  check(missing.length === 0, `R-A1P every rostered container was FOUND and MEASURED`
+    + (missing.length ? `:\n         ${missing.join('\n         ')}`
+      : ` (${A1_ROSTER.length - skipped.length} of ${A1_ROSTER.length} rostered, over ${statesWalked.length} states)`)
+    + (skipped.length ? `\n         not carried by any state this run walked, so untested here: ${skipped.join(', ')}` : ''))
+
+  const known = new Set(A1_ROSTER.map((r) => r.key))
+  const stranger = [...rosterSeen.keys()].filter((k) => !known.has(k))
+  check(stranger.length === 0, `R-A1P every container the walk found is ROSTERED`
+    + (stranger.length ? `, and these are not: ${stranger.join(', ')}`
+      : ` (${rosterSeen.size} found)`))
+}
+/* AND THE RATCHET IS ONLY MEANINGFUL IF SOMETHING WAS MEASURED. On the run
+   that threw before walking any state, `everOver` was empty, so this fired and
+   said both carried entries "never overflowed and must leave it" - a shrink
+   verdict from an instrument that measured nothing (Verification 13: a count
+   of zero from an instrument never shown reaching one is not a measurement).
+   The run already fails on `states !== STATES`, so skipping here removes a
+   false finding without weakening the ratchet on any run that walked. */
+if (states > 0) {
   const CARRIED = ['#deal-po-factoring', '.deal-payment-region']
   const dead = CARRIED.filter((c) => !everOver.has(c))
   check(dead.length === 0, `R-US4 the carried list only shrinks, judged over the whole run`

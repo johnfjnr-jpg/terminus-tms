@@ -410,9 +410,40 @@ export function buildDealStatement(
     },
   ]
 
+  /* ── THE SUM ROW FOOTS ITS COLUMNS. John's ruling 2026-09-27 ───────────
+     It shipped with `hardware: '', hosting: '', installation: ''` - three
+     EMPTY cells, and the only row in the statement with them. Every sibling
+     carries a dash. Measured, that left 703px between the words "Total cost"
+     and its figure at 1920 and 643px at 1240, against A1's 600px backstop:
+     the estate's most important cost figure with nothing to carry the eye to
+     it. A1 could not see it, because the container was failing to parse.
+
+     THE RULING: the group columns carry their REAL figures, not a dash and
+     not a blank. A dash would assert zero where these figures exist, which is
+     the unfold ruling's own logic turned on its author.
+
+     NO NEW ARITHMETIC, per this module's one rule. These are the same three
+     expressions the cost rows above already read, so each column FOOTS: the
+     hardware column's two rows sum to `hwCost`, and installation and hosting
+     have one row each. `deal-statement.test.ts` asserts that footing per
+     column, and asserts the row against `buildDealRows`.
+
+     AND THE ROW DOES NOT ADD UP ACROSS, WHICH IS CORRECT AND IS WORTH SAYING
+     HERE BECAUSE IT LOOKS LIKE AN ERROR. Factoring interest, Test Bed cost
+     and absorbed WHT are full-width rows: real costs belonging to no group,
+     so they appear in the total column and in no other. The three group
+     figures therefore sum to `totals.totalDealCost`, and the total column
+     carries `totalDealCostAll`, which is that plus those three. Every COLUMN
+     foots; the row is the foot of each column rather than a horizontal sum.
+
+     HOSTING FOLLOWS `dur.recorded` like every other hosting cell. A figure
+     there when the term is not recorded would be a zero nobody entered. */
   const totalCost: StatementLine = {
     key: 'total-cost', label: 'Total cost',
-    hardware: '', hosting: '', installation: '', total: neg(result.totalDealCostAll), negative: true,
+    hardware: neg(hwCost),
+    hosting: dur.recorded ? neg(hoCost) : dur.value,
+    installation: neg(inCost),
+    total: neg(result.totalDealCostAll), negative: true,
   }
   const profitValue = contractNet - result.totalDealCostAll
   // THE ACCENT IS `marginPresentation`'S, not a comparison made here. It
