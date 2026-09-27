@@ -72,15 +72,35 @@ import { stripComments, stripHtml } from '../lib/strip-comments.mjs'
 const ROOT = new URL('../../', import.meta.url).pathname
 const code = (p, kind) => stripComments(readFileSync(ROOT + p, 'utf8'), kind)
 
-test('the banner shows the six ruled figures', () => {
+/* ── P5 and P6: SIX FIGURES BECAME SEVEN, AND ONE WAS RENAMED ────────────
+   John's walk 2026-09-27. SUPERSEDED, QUOTED NOT DELETED: this read
+   'Proposal version' and asserted six figures.
+
+   P5 renames the field to "Approved version" and preserves its semantics
+   exactly, so the `issued_major` assertion below is unchanged and is the
+   thing that proves the rename stayed a rename (Architecture 6).
+
+   P6 adds "Working version" beside it. Asserted by NAME here and by GRAMMAR
+   in `version-label.test.mjs`, because this file can only see what the strip
+   renders and the sentences are a decision made elsewhere. */
+test('the banner shows the seven ruled figures', () => {
   const app = code('frontend/app.js', 'js')
   for (const label of ['Total contract value', 'Probability', 'Weighted amount',
-    'Est. close date', 'Age', 'Proposal version']) {
+    'Est. close date', 'Age', 'Approved version', 'Working version']) {
     assert.ok(app.includes(label), `the headline strip does not show "${label}"`)
   }
-  // RULED: "none", not blank, when nothing is issued.
+  // AND THE OLD NAME IS GONE. A rename is two claims, and this is the one
+  // that fails if the label was added beside the old one rather than replacing
+  // it (Verification 7).
+  assert.ok(!app.includes('Proposal version'),
+    'the strip still carries the old label, so the rename added rather than replaced')
+  // RULED: "none", not blank, when nothing is issued. UNCHANGED BY THE RENAME,
+  // which is what makes it a display rename.
   assert.match(app, /issued_major\) \? `V\$\{opp\.issued_major\}` : null, \{ absent: 'none' \}/,
     'an unissued proposal does not read "none"')
+  // P6 says "none" for the same reason its neighbour does.
+  assert.match(app, /'Working version', opp\.working_version \?\? null, \{ absent: 'none' \}/,
+    'a record with no version does not read "none"')
 })
 
 test('the table has the eight ruled columns, each sortable', () => {

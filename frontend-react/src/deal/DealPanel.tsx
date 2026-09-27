@@ -472,14 +472,23 @@ export function DealPanel({
     'deal-whtPct': 'Deducted by the customer from the invoice.',
     'deal-gstPct': 'Added to the invoice, passed through to the tax authority.',
   }
-  const renderField = (id: string, bare = false) => {
+  /* ── P3: A PER-CALL HELP STRING, FOR THE ONE NOTE THAT IS COMPUTED ──────
+     John's walk 2026-09-27. `HELP` is a map of CONSTANTS keyed by field id,
+     which is right for the eight structural terms and cannot carry the lump
+     sum note: that sentence names two figures and changes with the deal.
+
+     So the caller may pass its own, and the map remains the default. That
+     keeps the estate's rule that the deal form has ONE way of explaining a
+     field, which is what the note was violating by being prose in the panel
+     while every other explanation was a dot. */
+  const renderField = (id: string, bare = false, help?: string) => {
     const f = CENSUS.find((c) => c.id === id)
     if (!f) return null
     // The two currency fields are a FIXED LIST on the vanilla and were free
     // text here, which let a deal record a currency the shell does not know.
     const options = (id === 'deal-bidCurrency' || id === 'deal-proposalCurrency')
       ? CURRENCY_OPTIONS : undefined
-    return <CensusField key={f.id} field={f} rates={rates} help={HELP[f.id]} bare={bare}
+    return <CensusField key={f.id} field={f} rates={rates} help={help ?? HELP[f.id]} bare={bare}
       options={options}
       value={values[f.id] ?? ''} onChange={(v) => setValue(f.id, v)} />
   }

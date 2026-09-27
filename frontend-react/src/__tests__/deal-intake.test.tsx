@@ -200,11 +200,30 @@ describe('section 2: installation', () => {
     }
   })
 
-  test('I5: the lump-sum summary says cost, price and where it is carried', async () => {
+  /* ── P3: THE SAME SENTENCE, THROUGH THE ESTATE'S OWN AFFORDANCE ────────
+     RE-POINTED, AND THE SENTENCE IS THE PART THAT DID NOT CHANGE.
+     SUPERSEDED, QUOTED NOT DELETED: this read `must('deal-lump-summary')` and
+     asserted the `data-row-label` class on a `<p>` beneath the field.
+
+     John's walk 2026-09-27 moved the note onto the help-dot, the affordance
+     the factoring rate and term already use, so the deal form has ONE way of
+     explaining a field. The assertion follows it rather than being deleted:
+     the dot must be PRESENT, wear the estate's dress, and CARRY THE TEXT,
+     because a dot with no text is the affordance without the explanation. */
+  test('I5: the lump-sum note is on the help dot, with its text', async () => {
     await mount({ installResp: 'Terminus Contractor - Lump Sum' })
-    const p = must('deal-lump-summary')
-    expect(p.classList.contains('data-row-label')).toBe(true)
-    expect(p.textContent).toMatch(/^Lump sum cost \$250,000, priced at \$[\d,]+, carried into the Deal Summary, Deal sheet and Cash flow\.$/)
+    const group = must('deal-lumpCost-group')
+    const dot = group.querySelector('.help-dot') as HTMLElement
+    expect(dot, 'no help-dot beside Lump Sum Cost').toBeTruthy()
+    // SAME DRESS AS THE FACTORING PAIR: the class, the role and the glyph.
+    expect(dot.getAttribute('role')).toBe('note')
+    expect(dot.textContent).toBe('?')
+    const text = dot.getAttribute('title')
+    expect(dot.getAttribute('aria-label')).toBe(text)
+    expect(text).toMatch(/^Lump sum cost \$250,000, priced at \$[\d,]+, carried into the Deal Summary, Deal sheet and Cash flow\.$/)
+    // AND THE PROSE HAS LEFT THE PANEL. A move is two claims, and this is the
+    // one that fails if the note is duplicated rather than relocated.
+    expect(group.querySelector('#deal-lump-summary')).toBeNull()
   })
 })
 

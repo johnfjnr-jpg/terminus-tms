@@ -1761,9 +1761,32 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
      meet it. */
   --w1-head-h: calc(var(--field-label-size) * 1.5 + 17px);
 }
+/* ── P1: A MINIMUM, NOT A PIN. John's walk 2026-09-27 ────────────────────
+   SUPERSEDED, QUOTED NOT DELETED: `height: var(--w1-head-h)`.
+
+   THE PREMISE FOR THE PIN FAILED AND NOBODY RE-TOOK THE DECISION. Its own
+   comment reasons "Each half is its own grid, so neither can put its head in
+   the other's track", which was true when it was written. R-US1 then made both
+   cards `subgrid` on the parent's tracks with every head at `grid-row: 3`, so
+   the heads DO share a track now and the track already sizes itself to the
+   tallest. Measured at 1920: the shared track is 44.83px and the pin held every
+   head at 32.75px inside it.
+
+   WHAT THE PIN THEN COST. `--w1-head-h` is composed as "the field-label line
+   box, 8px of padding each side and the 1px rule" - ONE line box - and R-US4
+   afterwards accepted a two-line Rate heading. A head taller than its pinned
+   box overflows it, and the rule is painted at the BOX's edge, so the rule was
+   drawn through the wrapped words. Measured, three headings and not the one
+   reported: "Rate (USD, from Base Cost Data)" 21px past its rule, "Hosting
+   cost/mth" and "Margin %" 5px each.
+
+   `min-height` keeps everything the pin was for. The short heads still meet the
+   band's height, `align-self: end` still seats every rule on the track's bottom
+   edge, so the rules stay on ONE line across both cards - and a head that needs
+   two lines now takes them instead of being struck through. */
 .units-row .ig-head,
 .units-row .cm-grid-head {
-  height: var(--w1-head-h);
+  min-height: var(--w1-head-h);
   box-sizing: border-box;
 }
 /* The shorter head's text sits on its rule rather than floating in the space
@@ -2054,7 +2077,23 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
      already decides. The other three stay as the prototype set them, because
      nothing S1 sizes lives in them. The milestone grid at `.ms-grid-*` keeps
      the literal: its amount cell is not an S1 input. */
-  grid-template-columns: 44px 195px 44px max-content;
+  /* ── P2: THE LAST TWO TRACKS COME FROM THE CONTROLS. John 2026-09-27 ────
+     SUPERSEDED, QUOTED NOT DELETED: `44px 195px 44px max-content`.
+
+     `max-content` was R-US4's rule and it is right about WHAT sizes the
+     column; what it cannot do is make two SEPARATE grids agree, because each
+     resolves its own. Measured at 1920: the head's amount track came out 36px
+     (the word "Amount") against the row's 70px input, so the header covered
+     half its column; and the `%` header was right-aligned into a 44px literal
+     while its input was 30px, leaving the glyph 8px past the input's edge.
+
+     `--cm-pct-w` and `--cm-amt-w` are published by `useTrackWidths` from the
+     widths S1 applied to those controls, on the element that contains BOTH
+     grids, so the header and the field cannot disagree. The fallbacks are the
+     prototype's literals, so a run before the effect lands is the old layout
+     rather than a collapsed one. */
+  grid-template-columns:
+    44px 195px var(--cm-pct-w, 44px) var(--cm-amt-w, max-content);
   gap: 4px;
   align-items: center;
 }
@@ -2547,9 +2586,37 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 
    Stacked, the band is as wide as its widest field and the card is as wide as
    the milestone grid it holds, which is what R-US1 asks of a card. */
+/* ── P2: THE PAIR SITS ON ONE LINE. John's walk 2026-09-27 ───────────────
+   SUPERSEDED, QUOTED NOT DELETED: `grid-template-columns: minmax(0,
+   max-content)`, a single column, which stacked the lump sum field under the
+   responsibility select.
+
+   THE STACK WAS RIGHT WHEN IT WAS WRITTEN AND ITS PREMISE HAS GONE. The
+   comment above records the measurement that forced it: "the responsibility
+   select at 232px beside the lump sum note at 320px made the band 568px, so
+   the card was 602px and the pair overflowed the panel by 180px at 1240".
+   **The 320px was the NOTE**, and P3 has just moved that note onto the
+   help-dot. What remains beside the select is a 104px field, so the band is
+   the select, a 24px gutter and the field.
+
+   `grid-auto-flow: column` rather than a two-column template, because the
+   band holds FOUR groups and shows two: the responsibility select and
+   whichever of the lump cost, see-table or not-applicable groups the
+   responsibility calls for. The hidden ones are `display: none !important`
+   and take no track, so the flow lays out whatever is actually shown and no
+   template has to enumerate the combinations (Verification 19).
+
+   THE CARD STILL TAKES ITS WIDTH FROM ITS CONTENT. `.units-row > .panel-card`
+   is `width: max-content`, so widening the band widens the card by exactly
+   what the band needs and no more. Not full width, and not a literal. The
+   containment check is what says whether it fits, at every width. */
 #deal-intake-head {
-  grid-template-columns: minmax(0, max-content);
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  grid-template-columns: none;
   justify-content: start;
+  align-items: start;
+  column-gap: 24px;
 }
 #deal-installResp { width: 232px; }
 #deal-lumpCost { width: 104px; }
@@ -8497,12 +8564,57 @@ textarea.lead-field-input,
    restore the text colour.
    --------------------------------------------------------------------- */
 
-.lead-field-input:-webkit-autofill,
-.lead-field-input:-webkit-autofill:hover,
-.lead-field-input:-webkit-autofill:focus,
-.cd-note-input:-webkit-autofill,
-.lead-summary-input:-webkit-autofill,
-.acct-picker-input:-webkit-autofill {
+/* ── P4: ESTATE-WIDE, AND THE CLASS LIST IS WHY IT HAD TO BE. John's walk
+   2026-09-27 ─────────────────────────────────────────────────────────────
+
+   SUPERSEDED, QUOTED NOT DELETED: the six class selectors this rule carried -
+   `.lead-field-input`, `.cd-note-input`, `.lead-summary-input`,
+   `.acct-picker-input` and two of their states.
+
+   THE MECHANISM WAS RIGHT AND ITS REACH WAS NOT. R1 diagnosed this correctly
+   in 2026-09-13 and fixed it for the surfaces that existed then. The deal
+   panel was built afterwards, so John's screenshot shows the lump sum box and
+   the milestone percentages white, in Chrome's autofill blue-white, on a
+   dark screen - while leads and contacts were fine.
+
+   That is build discipline 6 for the fourth recorded time: a fix built for the
+   pages that existed at the time is not a fix for the pages built after it.
+   And Verification 19's remedy is the one that applies - an enumeration by
+   NAME fails on the unrecorded instance - so this enumerates by ELEMENT. Every
+   input, every textarea, every select, whatever it is called and whenever it
+   was built.
+
+   THREE DECLARATIONS, EACH DOING A DIFFERENT JOB, because Chrome paints an
+   autofilled control above the author background:
+     - the inset shadow is the only way to repaint the background;
+     - `-webkit-text-fill-color` is the only way to set the glyphs;
+     - `caret-color` keeps the caret visible against the repainted box.
+   The long `transition` on `background-color` is R1's and is kept: it delays
+   the UA's own fade so the repaint is not briefly visible.
+
+   BOTH SPELLINGS. `:-webkit-autofill` is what Chrome ships today and
+   `:autofill` is the standard that replaces it, so the rule survives the
+   prefix being retired rather than silently lapsing.
+
+   MEASURED, not assumed. `CSS.forcePseudoState` drives the real pseudo-class,
+   and an unstyled input in that state computes `rgb(232, 240, 254)` on black
+   text. The guard in `probe-gaps.mjs` forces it on a deal input and asserts
+   the estate's own tokens come back. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+input:autofill,
+input:autofill:hover,
+input:autofill:focus,
+textarea:autofill,
+select:autofill {
   -webkit-box-shadow: 0 0 0 1000px var(--black) inset;
   box-shadow: 0 0 0 1000px var(--black) inset;
   -webkit-text-fill-color: var(--white);

@@ -949,6 +949,158 @@ try {
       check(w2.hits.length === 0, `W2 no box on the schedule stack intersects another`
         + (w2.hits.length ? `\n         ${w2.hits.join('\n         ')}` : ' (radios, heading, schedule)'))
 
+      /* ── P1: AN ELEMENT'S INK INCLUDES ITS PAINTED BORDERS ──────────────
+         John's ruling 2026-09-27, and it closes a limit this guard recorded
+         about itself. `inkOf` above unions an element's BOX with its TEXT,
+         which is what a reader sees of a LABEL. It cannot see a RULE. A
+         painted border is ink too, and a rule drawn across a word is the
+         plainest overprint there is.
+
+         THE CLAIM IS STATED AS A RELATION, not as a CSS property (Verification
+         4's clause): for any element that paints a bottom rule and holds text,
+         the text must not continue BELOW that rule. `border-bottom-width` being
+         1px is how the rule is achieved; "nothing is struck through" is what
+         was claimed.
+
+         MEASURED BEFORE IT WAS WRITTEN, which is how the bound was chosen. The
+         Units head band pins every head to one line box
+         (`--w1-head-h`, composed as "the field-label line box, 8px of padding
+         each side and the 1px rule") and R-US4 then accepted a two-line Rate
+         heading. At 1920 the three one-line heads end 11px ABOVE their rule and
+         "Hosting cost/mth" ends 5px BELOW it. The tolerance is 1px, which is
+         under the healthy margin by an order of magnitude and over the
+         sub-pixel noise that rounding produces. */
+      const rules = await p.evaluate(() => {
+        const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+        const root = document.querySelector('#view-opportunity-detail') ?? document
+        const out = []
+        for (const e of [...root.querySelectorAll('*')].filter(vis)) {
+          const cs = getComputedStyle(e)
+          const bw = parseFloat(cs.borderBottomWidth) || 0
+          if (bw <= 0 || cs.borderBottomStyle === 'none') continue
+          // A transparent rule paints nothing, so it cannot strike anything.
+          if (/^rgba\(.*,\s*0\)$/.test(cs.borderBottomColor)) continue
+          const box = e.getBoundingClientRect()
+          if (box.width <= 0 || box.height <= 0) continue
+          // ITS OWN text only. A neighbour's text crossing this rule is a
+          // different claim with a different fix, and is not what was ruled.
+          const w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT)
+          let worst = null
+          for (let n = w.nextNode(); n; n = w.nextNode()) {
+            if (!n.nodeValue || !n.nodeValue.trim()) continue
+            const rg = document.createRange(); rg.selectNodeContents(n)
+            const t = rg.getBoundingClientRect()
+            if (t.width <= 0 || t.height <= 0) continue
+            const past = t.bottom - box.bottom
+            if (worst === null || past > worst.past) {
+              worst = { past, text: n.nodeValue.trim().slice(0, 22) }
+            }
+          }
+          if (worst && worst.past > 1) {
+            out.push(`${(e.id || e.className || e.tagName).toString().slice(0, 34)} `
+              + `"${worst.text}" runs ${Math.round(worst.past)}px past its own rule`)
+          }
+        }
+        return out
+      })
+      check(rules.length === 0, `P1 no painted rule is struck through its own text`
+        + (rules.length ? `:\n         ${rules.join('\n         ')}` : ' (every ruled element checked)'))
+
+      /* ── P4: AUTOFILL, PROVED AT THE MECHANISM ──────────────────────────
+         John's ruling 2026-09-27, and the ruling asked for honesty about what
+         a probe can and cannot simulate. This one CAN: Chrome's DevTools
+         protocol has `CSS.forcePseudoState`, which puts a real element into
+         the real `:-webkit-autofill` state, and the stylesheet then matches or
+         does not.
+
+         WHAT IT DOES NOT SIMULATE, stated because the difference matters: it
+         does not fill the control, so no value arrives and nothing is typed.
+         It drives the PSEUDO-CLASS, which is the only thing the rule keys on,
+         so it tests exactly the claim the rule makes and nothing about
+         Chrome's decision to offer a completion in the first place.
+
+         MEASURED UNSTYLED FIRST, which is what makes the green mean something:
+         an input with no rule computes `rgb(232, 240, 254)` on black in this
+         state. That is the white box in John's screenshot, and it is the value
+         this check would read if the rule stopped matching. */
+      /* THE EXPECTATION IS READ FROM AN ORDINARY INPUT, NOT FROM THE TOKEN.
+         The first version compared `getPropertyValue('--black')` against the
+         computed shadow and failed on a healthy estate: the token is `#15161C`
+         and the computed value is `rgb(21, 22, 28)`. Same colour, two
+         spellings, and a guard comparing them reports a defect that is not
+         there. Reading a real input's own computed background is also the
+         truer statement of the claim - an autofilled input should look like
+         the inputs beside it, whatever the tokens are called. */
+      const af = await p.evaluate(() => {
+        const ref = document.querySelector('#deal-targetMargin, input')
+        if (!ref) return null
+        const cs = getComputedStyle(ref)
+        return { black: cs.backgroundColor, white: cs.color }
+      })
+      const afHits = []
+      for (const sel of ['#deal-lumpCost', '#deal-cm-0-pct', '#deal-targetMargin']) {
+        const there = await p.evaluate((s) => !!document.querySelector(s), sel)
+        if (!there) continue
+        let got = null
+        try {
+          const cdp = await p.createCDPSession()
+          const doc = await cdp.send('DOM.getDocument')
+          const { nodeId } = await cdp.send('DOM.querySelector',
+            { nodeId: doc.root.nodeId, selector: sel })
+          await cdp.send('CSS.enable')
+          await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: ['autofill'] })
+          got = await p.evaluate((s) => {
+            const cs = getComputedStyle(document.querySelector(s))
+            return { bg: cs.backgroundColor, fill: cs.webkitTextFillColor, shadow: cs.boxShadow }
+          }, sel)
+          /* THE PHOTOGRAPH THE RULING ASKED FOR, taken WHILE the pseudo-class
+             is forced, because a capture after releasing it is a picture of an
+             ordinary input. Measurements above are already taken, so the
+             capture cannot perturb them (Verification 4's clause). */
+          /* ONLY WHERE THE BOX IS ACTUALLY ON SCREEN, AND THE FIRST VERSION
+             WAS NOT. `#deal-lumpCost` exists in every state and is inside a
+             `hidden` group unless the responsibility is Lump Sum, so the shot
+             fired in all fifteen and the LAST one won - a picture of the
+             statement with no lump sum box in it. Caught by opening the image,
+             which is Verification 4's own remedy and its clause: confirm the
+             element is inside the captured region before treating the picture
+             as evidence.
+
+             Now it is gated on the control being visible, and the combo is in
+             the filename so a state cannot overwrite another's evidence
+             (Verification 44's naming clause). */
+          if (process.env.C_SHOT && sel === '#deal-lumpCost') {
+            const seen = await p.evaluate((s) => {
+              const e = document.querySelector(s)
+              if (!e || !e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return null
+              e.scrollIntoView({ block: 'center' })
+              const r = e.getBoundingClientRect()
+              return { top: Math.round(r.top), h: Math.round(r.height) }
+            }, sel)
+            if (seen) {
+              await p.evaluate(() => new Promise((r) => setTimeout(r, 250)))
+              const name = `${OUT}autofilled-${width}-${combo.replace(/[^a-z0-9]+/gi, '-')}.png`
+              await p.screenshot({ path: name })
+              console.log(`  SHOT ${name}  (:autofill forced, box at ${seen.top} h${seen.h})`)
+            }
+          }
+          await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] })
+          await cdp.detach()
+        } catch (e) {
+          afHits.push(`${sel}: could not force the state (${String(e.message).slice(0, 50)})`)
+          continue
+        }
+        /* THE INSET SHADOW IS THE BACKGROUND, so that is what is asserted.
+           `backgroundColor` still reports the UA's own value in this state,
+           which is exactly why a rule setting `background-color` does not
+           work and this one does. */
+        const ok = !!af && got.shadow.includes(af.black) && got.fill === af.white
+        if (!ok) afHits.push(`${sel}: shadow "${got.shadow.slice(0, 44)}" fill ${got.fill}`)
+      }
+      check(afHits.length === 0, `P4 an autofilled input wears the estate's tokens`
+        + (afHits.length ? `:\n         ${afHits.join('\n         ')}`
+          : ` (forced :autofill, repainted to ${af.black} on ${af.white})`))
+
       /* ── W1: THE GRID AND THE MILESTONE TABLE SIT SIDE BY SIDE ─────────
          Only where the contractor group renders, which is Lump Sum. Asserted as
          a RELATIONSHIP between two elements rather than as the CSS that

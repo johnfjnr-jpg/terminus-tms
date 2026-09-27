@@ -21,6 +21,7 @@ const CSS = 'frontend/style.css'
 const ANCHOR = '.product-grid .ig-total { border-bottom: none; }'
 const STMT = 'frontend-react/src/deal/statement.ts'
 const ROSTER = 'src/lib/a1-roster.js'
+const HEADLINE = 'src/lib/opportunity-headline.js'
 
 const INJECTIONS = [
   /* A1: a GOOD row stretched. The result tier's cap is what brought the Profit
@@ -278,6 +279,55 @@ const INJECTIONS = [
     find: "  { key: 'ys-line ys-line--total', when: 'every',\n    what: 'the yearly stack total', sample: 'Total (USD)' },\n",
     put: '',
     expect: 'R-A1P every container the walk found is ROSTERED' },
+
+  /* ── P1: THE STRIKE-THROUGH REGROWN. John's walk 2026-09-27 ───────────
+     The defect was a head band pinned to ONE line box while R-US4 had
+     accepted a two-line heading, so putting the pin back is the fault
+     returning exactly as it was rather than an invented one. */
+  { id: 'P1 the strike-through REGROWN', kind: 'live', file: CSS,
+    find: `.units-row .ig-head,
+.units-row .cm-grid-head {
+  min-height: var(--w1-head-h);`,
+    put: `.units-row .ig-head,
+.units-row .cm-grid-head {
+  height: var(--w1-head-h);`,
+    expect: 'P1 no painted rule is struck through its own text' },
+
+  /* ── P4: THE AUTOFILL OVERRIDE REMOVED ────────────────────────────────
+     The estate-wide rule is what repaints the box, so removing its
+     background declaration puts Chrome's own paint back. The guard forces
+     the real pseudo-class, so this is the white box itself returning and not
+     a proxy for it. */
+  /* THE FIRST VERSION OF THIS INJECTION RE-POINTED THE SELECTOR AT A PHANTOM
+     CLASS AND COULD NOT SCORE. `.zz-autofill-disabled` appears in no markup,
+     so the DEAD SELECTOR guard caught it in 852ms - against a live run's
+     ~60s, which is Verification 48's signature that the run never happened.
+     It read FIRED-ELSEWHERE, which is the harness reporting honestly that
+     something fired and it was not the named assertion.
+
+     So the injection removes the REPAINT instead of the selector: the rule
+     still matches, and the box-shadow that stands in for a background Chrome
+     will not let an author set is gone. That is the defect exactly - the rule
+     present and doing nothing - and it leaves no phantom class behind. */
+  { id: 'P4 the autofill override REMOVED', kind: 'live', file: CSS,
+    find: `  -webkit-box-shadow: 0 0 0 1000px var(--black) inset;
+  box-shadow: 0 0 0 1000px var(--black) inset;
+  -webkit-text-fill-color: var(--white);
+  caret-color: var(--white);
+  transition: background-color 9999s ease-in-out 0s;`,
+    put: '  caret-color: var(--white);',
+    expect: "P4 an autofilled input wears the estate's tokens" },
+
+  /* ── P6: A FIFTH COPY OF THE VERSION LABEL ────────────────────────────
+     P6 asked for ONE source and Phase 0 found four copies. The test that
+     keeps it at one is only worth having if a new copy makes it red, so the
+     injection is a copy inlined back into a caller. */
+  { id: 'P6 a FIFTH copy of the label rule', kind: 'pure', file: HEADLINE,
+    find: '  if (!latest || !Number.isInteger(latest.major)) return null;',
+    put: '  if (!latest || !Number.isInteger(latest.major)) return null;\n'
+      + '  const inlined = latest.major === 0 ? `V0.${latest.minor}` : `V${latest.major}`;\n'
+      + '  if (inlined === null) return null;',
+    expect: 'the label rule is implemented ONCE' },
 ]
 /* ── C_ONLY: RUN THE NEW CLAIMS, NOT THE WHOLE SWEEP ────────────────────
    M1's family, applied to calibration: a phase extending a mechanism already
@@ -329,6 +379,13 @@ const run = (kind) => {
        through a browser: the footing is true or false before anything is
        laid out. Vitest reads the TypeScript source, so these injections need
        no bundle - the rebuild is skipped for them below. */
+    /* P6's claim is that the label rule lives in ONE module, which is a
+       source-level fact asserted by a pure test. It needs neither a browser
+       nor the bundle. */
+    if (kind === 'pure') {
+      text += String(execSync('node --test scripts/tests/version-label.test.mjs',
+        { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] }))
+    }
     if (kind === 'react') {
       text += String(execSync(
         'npm --prefix frontend-react run test -- src/__tests__/deal-statement.test.ts',
@@ -369,8 +426,9 @@ try {
       console.error(`STOP: ${inj.id} did not change ${inj.file}`)
       restore('an edit that did not land'); rmSync(MARKER, { force: true }); process.exit(5)
     }
-    // The bundle only matters to a live injection; vitest reads the source.
-    if (inj.kind !== 'react') {
+    // The bundle only matters to a live injection; vitest and node --test read
+    // the source.
+    if (inj.kind !== 'react' && inj.kind !== 'pure') {
       execSync('npm run build:react', { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] })
     }
     const t0 = Date.now()

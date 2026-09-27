@@ -44,11 +44,25 @@ export interface PendingApproval {
   decisions?: { track: string, decision: string }[]
 }
 
-/** W2's label. V0.n keeps its minor; a whole major drops it. */
-export function versionLabel(v: Pick<DealVersion, 'major' | 'minor'>): string {
-  if (v.major === 0) return `V0.${v.minor}`
-  return v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`
-}
+/* ── W2's label, AND IT IS NOW THE SHARED ONE. P6, John 2026-09-27 ────────
+   SUPERSEDED, QUOTED NOT DELETED: this file held its own copy of the rule,
+
+       if (v.major === 0) return `V0.${v.minor}`
+       return v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`
+
+   and three more copies lived in `approval-page.js` (twice) and
+   `version-approval.js`. All four agreed, which is Verification 20's benign
+   end and not a reason to keep four. P6 asked for labels "from the ONE
+   version-label source", so one was made and this re-export is how every
+   caller of `versionLabel` in the React tree reaches it without changing a
+   single call site. */
+/* IMPORTED AND RE-EXPORTED, NOT RE-EXPORTED ALONE. `export { x } from '...'`
+   forwards the name without binding it in this module's scope, and this file
+   CALLS `versionLabel` four times itself. The first version of this change
+   typechecked as four "Cannot find name" errors, which is the compiler making
+   the same point. */
+import { versionLabel } from '../../../src/lib/version-label.js'
+export { versionLabel }
 
 // ── R1 to R7: the range toggle and its note ──────────────────────────────
 export const RANGE_FLOOR = 5

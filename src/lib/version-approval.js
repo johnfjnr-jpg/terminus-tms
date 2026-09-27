@@ -1,4 +1,6 @@
 import { pricingChanged, namedChangedKeys } from './version-pricing.js';
+// P6: the ONE version-label source, in place of this file's own copy.
+import { versionLabel as sharedVersionLabel } from './version-label.js';
 
 /**
  * Is this version approved, and does that approval still describe the screen?
@@ -301,7 +303,8 @@ export function liveVersionApproval({ track, versions, approvals, latestRevision
   }
 
   const detail = versionApprovalState(version, approvals, latestRevision, track, currentPayload);
-  const label = version.major === 0 ? `V0.${version.minor}` : (version.minor === 0 ? `V${version.major}` : `V${version.major}.${version.minor}`);
+  // P6: the ONE version-label source, in place of a fourth copy of the rule.
+  const label = sharedVersionLabel(version);
 
   if (detail.state === 'approved') {
     return { live: true, state: 'approved', version, detail, reason: `${label} is approved and nothing has changed since.` };

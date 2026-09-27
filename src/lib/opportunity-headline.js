@@ -22,6 +22,8 @@
 import { calculateDeal } from './deal-calculator.js';
 import { buildDealInputs } from './deal-inputs.js';
 import { resolveRates } from './rate-resolution.js';
+import { pricingChanged } from './version-pricing.js';
+import { workingVersionLabel } from './version-label.js';
 
 /**
  * @param {object} payload    the record's current payload
@@ -80,6 +82,38 @@ export function weightedValue(tcv, probabilityPct) {
  * @param {Array<{status: string, major: number, minor: number}>} versions
  * @returns {number|null}
  */
+/**
+ * ── P6: THE WORKING VERSION. John's walk 2026-09-27 ──────────────────────
+ *
+ * The record's own pricing state, said in one line beside the approved one.
+ * Server side for the same reason every other headline figure is: the browser
+ * formats, it does not calculate (Verification 20).
+ *
+ * THE MOVEMENT IS THE EXISTING SUPERSESSION MACHINERY, not a second opinion.
+ * `pricingChanged` is what `version-approval.js` and `transition-requests.js`
+ * already ask whether a version has been overtaken, so the field cannot
+ * disagree with the gate about whether this record has moved.
+ *
+ * NOT COMPARABLE IS NOT MOVED. `pricingChanged` reports `comparable: false`
+ * when the version predates the keys it would compare, and an incomparable
+ * version is not evidence of an edit. Saying "Under Edit" on a record nobody
+ * has touched would be the wrong-green of Round 38 inverted: a wrong RED,
+ * which teaches somebody to ignore the field.
+ *
+ * @param {{ status?: string, major: number, minor: number, inputs?: object } | null} latest
+ * @param {object} payload the record's current payload
+ * @returns {string | null}
+ */
+export function workingVersionOf(latest, payload) {
+  if (!latest || !Number.isInteger(latest.major)) return null;
+  const moved = pricingChanged(latest.inputs, payload);
+  return workingVersionLabel({
+    version: latest,
+    draftSaved: latest.status !== 'issued',
+    editedSince: moved.comparable ? moved.changed : false,
+  });
+}
+
 export function issuedMajor(versions) {
   const issued = (versions ?? [])
     .filter((v) => v.status === 'issued' && Number.isInteger(v.major))

@@ -12016,3 +12016,72 @@ It is recorded here because it is the shape build discipline 3 warns about:
 **the reassuring verdict is the one that gets a proxy.** A1's pass can be
 supplied by a placeholder. QUEUED by John 2026-09-27 as a named detector
 weakness for a future round, not built.
+
+# BROWSER STATE IS DRESSED BY THE ESTATE, set by John 2026-09-27
+
+**P4, and it is a permanent rule rather than a fix to one screen:**
+
+> **The browser's own states are styled to the estate's tokens, on EVERY
+> control, by element and never by class.** Chrome's autofill is the instance;
+> the rule is about the class of thing.
+
+## The mechanism, because it is not the obvious one
+
+An autofilled control is painted by the user agent ABOVE the author
+background, so `background-color` does nothing. Three declarations, each doing
+a job no other can:
+
+```css
+input:-webkit-autofill, textarea:-webkit-autofill, select:-webkit-autofill,
+input:autofill, textarea:autofill, select:autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--black) inset;   /* the background */
+  -webkit-text-fill-color: var(--white);                 /* the glyphs */
+  caret-color: var(--white);                             /* the caret */
+  transition: background-color 9999s ease-in-out 0s;     /* the UA's fade */
+}
+```
+
+**Both spellings.** `:-webkit-autofill` is what Chrome ships and `:autofill`
+is the standard replacing it, so the rule does not lapse silently when the
+prefix retires.
+
+## BY ELEMENT, AND THE ESTATE HAS ALREADY PAID FOR LEARNING THIS
+
+R1 fixed exactly this defect on 2026-09-13, with exactly this technique, for
+six class selectors: `.lead-field-input`, `.lead-summary-input`,
+`.cd-note-input`, `.acct-picker-input` and two states. It was correct and it
+was scoped.
+
+**The deal panel was built afterwards.** Its lump sum box and milestone
+percentages went white, on a dark screen, and stayed that way until John saw
+them on a walk two weeks later. **Build discipline 6 for the fourth recorded
+time**: a fix built for the pages that existed at the time is not a fix for
+the pages built after it. Verification 19's remedy is the operative one, and
+it is why this rule enumerates `input`, `textarea` and `select` rather than a
+list of names that can only ever be complete about the past.
+
+`panel-conformance.test.mjs` now asserts the BARE element selectors are
+present, so re-scoping the rule to a class is red.
+
+## AND IT IS PROVABLE, WHICH THE ESTATE PREVIOUSLY RECORDED AS IMPOSSIBLE
+
+The R1 test's own comment said "headless Chrome cannot be made to autofill at
+all", and that is why the check was static. **Measured 2026-09-27 and it is
+false.** Chrome's DevTools protocol has `CSS.forcePseudoState`, which puts a
+real element into the real `:-webkit-autofill` state:
+
+```
+unstyled, forced      bg rgb(232, 240, 254)   black glyphs   <- the white box
+the estate, forced    inset rgb(21, 22, 28)   rgb(242, 242, 240)
+```
+
+**What it does not simulate, stated because the difference is the honest
+part:** it does not fill the control, so no value arrives and Chrome's own
+decision to offer a completion is never exercised. It drives the PSEUDO-CLASS,
+which is the only thing the rule keys on. So the claim it proves is exactly
+the claim the rule makes, and nothing wider.
+
+**The general lesson, which outlives autofill:** a state the estate cannot
+enter is not a state the estate cannot TEST. Before recording a visual as
+unprovable, ask whether the protocol underneath the browser can set it
+directly.
