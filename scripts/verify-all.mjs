@@ -82,6 +82,25 @@ const STAGES = [
     cmd: ['node', ['scripts/golden-deals/subkey-census.mjs']],
     needs: 'nothing. Pure, and it drives the engine rather than grepping it.',
   },
+  // ── THE FOUR GOLDEN DEALS. Deliverable 3 of the golden deals round ─────
+  //
+  // Re-prices all four reference deals through the live engine and compares
+  // EVERY figure against the committed expectations, exact match. This is the
+  // permanent guard on pricing: any change that moves a figure is red here and
+  // names the figure.
+  //
+  // IT SAYS PROVISIONAL ON EVERY RUN, INCLUDING A GREEN ONE, until John has
+  // reproduced the figures and confirmed them. A green means pricing has not
+  // moved since they were taken, not that they are right, and a suite implying
+  // a confirmation nobody gave would be worse than no suite.
+  //
+  // Calibrated by `scripts/golden-deals/calibrate.mjs`: five injections, five
+  // fired, every file byte-identical afterwards.
+  {
+    name: 'golden deals (PROVISIONAL)',
+    cmd: ['node', ['scripts/golden-deals-check']],
+    needs: 'nothing. Pure arithmetic against a fixture rate card.',
+  },
   {
     name: 'database suite',
     cmd: ['npm', ['run', 'test:db']],

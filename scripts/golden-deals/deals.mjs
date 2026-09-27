@@ -70,7 +70,15 @@ export const G1 = {
     whtPct: 0, gstPct: 0, grossUp: false,
     // The either-or, both ways: an absolute fee on SafeSight, a target margin
     // on AQ Sensor, and HEMIR left to price from the deal's own margins.
-    opexUnitFees: { ss: 425 },
+    //
+    // 650, NOT 425, AND THE FIRST RUN IS WHY. At 425 the allocation priced
+    // SafeSight at a 1.3% blended margin, because the fee barely covered the
+    // type's own cost over the term. That is the near-zero margin this fixture
+    // set exists to avoid: at 1.3% the division rule and a flat markup give
+    // almost the same answer, so the figure cannot check the rule. 650 lands
+    // the blend near 35%, clear of the deal's 32% and of AQ's 38%, so a line
+    // reading another line's rate is visible.
+    opexUnitFees: { ss: 650 },
     opexUnitMargins: { aq: 38 },
   },
 };

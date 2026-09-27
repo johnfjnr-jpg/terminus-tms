@@ -18,6 +18,8 @@
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build:react": "cd frontend-react && npm run build",
     "test:react": "npm --prefix frontend-react run test",
+    "goldens": "node scripts/golden-deals-check",
+    "goldens:compute": "node scripts/golden-deals/compute.mjs",
     "typecheck:react": "npm --prefix frontend-react run typecheck"
   },
   "dependencies": {
