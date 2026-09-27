@@ -123,7 +123,14 @@ try {
     /* A FIGURE IS A NUMBER OR A BOX THAT HOLDS ONE. Both count, because half
        these rows are read-only cells and half are inputs, and a rule that saw
        only one kind would pass the grid this guard was written for. */
-    const FIG = /^[$(\-]?\s*[\d,]+(\.\d+)?\s*%?\)?$/
+    /* ── A SIGN AND A CURRENCY SYMBOL TOGETHER ARE STILL A FIGURE ──────────
+       This allowed ONE leading symbol, so "- $564,000" matched nothing and was
+       taken for a LABEL. It surfaced when a calibration widened the statement:
+       A1 then paired a cost figure with the figure beside it, reported an 8px
+       gap over three rows, and the injection that should have blown the
+       backstop came back SILENT. A detector that mistakes a figure for a label
+       does not report a wrong gap, it reports the wrong ROW. */
+    const FIG = /^[-(]?\s*\$?\s*[\d,]+(\.\d+)?\s*%?\)?$/
     const isFigure = (e) => {
       const i = e.querySelector('input')
       if (i) return true
@@ -172,9 +179,32 @@ try {
       if (cs.display !== 'grid') return []
       const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length
       if (cols < 2) return []
-      const out = []
-      for (let i = 0; i + cols <= kids.length; i += cols) out.push(kids.slice(i, i + cols))
-      return out
+      /* ── GROUPED BY THE ROW THEY RENDER ON, NOT BY COUNTING CHILDREN ─────
+         This chunked `children` in runs of `cols`, which assumes every child is
+         one cell and that they arrive in row order. R-US1's cards break both:
+         a title and a note SPAN the row, the heads are placed on track 3 rather
+         than first, and the cells carry explicit `grid-row`. Chunked, the runs
+         straddled rows and no group looked like a label beside a figure.
+
+         SO THE PRODUCT GRID FELL OUT OF THIS WALK ENTIRELY - the estate's main
+         pricing surface, measured zero times, and nothing said so: A1 reports
+         what it FINDS, and a container it cannot parse is simply absent from a
+         list of containers. It was caught by an injection that stretched that
+         grid by 680px and came back SILENT.
+
+         Grouping by rendered top is what a row IS. A spanning title lands alone
+         and is skipped for having one cell, which is correct. */
+      const byTop = new Map()
+      for (const k of kids) {
+        const t = Math.round(k.getBoundingClientRect().top)
+        if (!byTop.has(t)) byTop.set(t, [])
+        byTop.get(t).push(k)
+      }
+      return [...byTop.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, row]) => row.sort((x, y) =>
+          x.getBoundingClientRect().left - y.getBoundingClientRect().left))
+        .filter((row) => row.length >= 2)
     }
     const seen = new Map()
     /* ── SCOPED TO THE VIEW UNDER TEST, NOT THE DOCUMENT ────────────────
@@ -183,7 +213,17 @@ try {
        several screens resident at once, so a document-wide walk answers for
        whatever is in the DOM (Verification 25's population clause). */
     const root = document.querySelector('#view-opportunity-detail') ?? document
-    const containers = [...root.querySelectorAll('table, div')].filter((e) => vis(e) && !dead(e))
+    /* ── `section` TOO, AND ITS ABSENCE COST THE MAIN SURFACE ──────────────
+       This read `table, div`. R-US1's cards are `<section>` elements, so the
+       product grid and the installation panel were not in the population at
+       all: the estate's main pricing surface, measured zero times, while A1
+       went on reporting nine healthy containers. A list of containers says
+       nothing about the one it never looked at.
+
+       Enumerating by TAG is the fault Verification 19 names, and it failed here
+       exactly as that rule says it does: on the unrecorded instance. */
+    const containers = [...root.querySelectorAll('table, div, section')]
+      .filter((e) => vis(e) && !dead(e))
     for (const c of containers) {
       let rows
       try { rows = rowsOf(c) } catch { continue }

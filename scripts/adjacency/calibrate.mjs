@@ -45,14 +45,40 @@ const INJECTIONS = [
      was still in force: the slack split eight ways and the gap grew 76px,
      inside the 100px allowance. The original defect needed the 1fr on the
      product column of the template ACTUALLY IN USE, which takes all of it. */
+  /* ── RE-POINTED BY R-US1, AND ITS OLD MECHANISM NO LONGER EXISTS ────────
+     This injected `minmax(0, 1fr)` into `.product-grid--full`, the eight-track
+     template of the MERGED grid. R-US1 retires that template with the merge, so
+     the anchor matched nothing and THE HARNESS REFUSED THE RUN rather than
+     scoring a sweep against a fault it never applied.
+
+     The claim is unchanged: a panel sized to its container instead of its
+     content. Post-split that is the CARD taking the panel's width, so the
+     injection unpins the card and lets the row track stretch. Two edits,
+     because the card's own `max-content` and the row's track are two locks on
+     the same claim - which is the lesson the previous version of this injection
+     recorded. */
   { id: 'A2 the panel-sized stretch REGROWN (both locks)', kind: 'live', file: CSS,
-    find: ['  grid-template-columns: auto auto auto auto;\n  width: max-content;\n  max-width: 100%;',
-      '.product-grid--full {\n  grid-template-columns: repeat(8, auto);\n}',
-      '  grid-template-columns: max-content max-content;\n  justify-content: start;'],
-    put: ['  grid-template-columns: minmax(0, 1fr) auto auto auto;\n  max-width: 100%;',
-      '.product-grid--full {\n  grid-template-columns: minmax(0, 1fr) repeat(7, auto);\n}',
-      '  grid-template-columns: minmax(0, 1fr) max-content;\n  justify-content: start;'],
-    expect: 'A1 no row' },
+    /* AND A THIRD LOCK, BECAUSE TWO WERE NOT ENOUGH AND THE SILENCE SAID SO.
+       Unpinning the card and its track let the CARD stretch and changed no gap:
+       R-US4 pins the COLUMNS from the registry, so the figures stayed where
+       they were and the slack sat empty to the right. The original A2 defect
+       needs the columns back on `auto` as well, which is the state where a
+       heading decides a column and the panel decides the heading. */
+    find: ['  padding: 14px 16px;\n  width: max-content;\n  align-content: start;',
+      '  grid-template-columns: max-content max-content;\n  grid-template-rows: auto auto auto repeat(4, auto) auto;',
+      '.product-grid .ig-total { border-bottom: none; }'],
+    put: ['  padding: 14px 16px;\n  width: auto;\n  align-content: start;',
+      '  grid-template-columns: minmax(0, 1fr) max-content;\n  grid-template-rows: auto auto auto repeat(4, auto) auto;',
+      '.product-grid .ig-total { border-bottom: none; }\n'
+        + '#deal-product-grid { grid-template-columns: minmax(0, 1fr) auto auto auto !important; }'],
+    /* RE-POINTED AT THE ASSERTION THAT NOW CATCHES THIS FIRST. A2 fired on the
+       CONTAINMENT check rather than on A1's growth clause, which is correct
+       rather than a miss: post-split a panel-sized card overflows its panel
+       before its label-to-figure gap has grown past the allowance, so the
+       containment check is what a reader would hit first. The verdict was
+       FIRED-ELSEWHERE, which is the harness telling me the injection is real
+       and my expectation was pointed at the wrong line. */
+    expect: 'R-US4 every panel' },
 
   /* A4: the label put back on one line with its value. */
   /* AND THIS ONE WAS TOO WEAK BY EXACTLY ONE PIXEL OF THRESHOLD. Turning the
@@ -109,6 +135,41 @@ const INJECTIONS = [
     find: '.units-row {\n  display: grid;\n  grid-template-columns: max-content max-content;',
     put: '.units-row {\n  display: block;\n  grid-template-columns: max-content max-content;',
     expect: 'W1 the milestone table sits RIGHT' },
+
+  /* ── R-US4: THE HEADING UN-CAPPED REGROWS THE WIDTH ────────────────────
+     `!important` because the width comes from an INLINE style the hook writes,
+     and only a stylesheet declaration marked important outranks one. This puts
+     the grid back on `auto` tracks, where a heading's max-content decides the
+     column, which is the 228px-for-a-70px-box state R-US4 ended. */
+  { id: 'R-US4 the heading un-capped regrows the column', kind: 'live', file: CSS,
+    find: '.product-grid .ig-total { border-bottom: none; }',
+    put: '.product-grid .ig-total { border-bottom: none; }\n'
+      + '#deal-product-grid, #deal-install-panel { grid-template-columns: auto auto auto auto !important; }',
+    expect: 'R-US4' },
+
+  /* ── THE CONTAINMENT CHECK ITSELF, on a container made too small ───────── */
+  { id: 'R-US4 a container overflowed by its own content', kind: 'live', file: CSS,
+    find: '.ur-contractor { grid-column: 1 / -1; grid-row: 3 / -1; width: max-content; }',
+    put: '.ur-contractor { grid-column: 1 / -1; grid-row: 3 / -1; width: 900px; }',
+    expect: 'R-US4 every panel' },
+
+  /* ── R-US3: A ROW UNPAIRED ACROSS THE TWO CARDS ────────────────────────
+     The pairing is structural now - the two halves share a subgrid track - so
+     this is the injection that proves the claim did not become a tautology
+     when it became a construction. */
+  { id: 'R-US3 a row UNPAIRED across the cards', kind: 'live', file: CSS,
+    find: '.units-row .ig-head { grid-row: 3; }',
+    put: '.units-row .ig-head { grid-row: 3; }\n'
+      + '[data-testid^="ig-rate-"] { position: relative; top: 9px; }',
+    expect: 'N2 every row PAIRS' },
+
+  /* ── R-ADJ1: THE ACCEPTED OVERFLOW TURNED THE WRONG WAY ────────────────
+     The ruling turned on WHICH WAY the card spills, so the guard is calibrated
+     on direction rather than only on size. */
+  { id: 'R-ADJ1 the overflow forced LEFTWARD', kind: 'live', file: CSS,
+    find: '#deal-factoring-fields .po-row > #deal-factoring-method-toggle { align-self: flex-end; }',
+    put: '#deal-factoring-fields .po-row > #deal-factoring-method-toggle { align-self: flex-end !important; }',
+    expect: 'R-ADJ1 the factoring card' },
 
   /* THE METHOD FIX ITSELF: a dead selector regrown. */
   { id: 'a DEAD SELECTOR regrown', kind: 'suite', file: CSS,
