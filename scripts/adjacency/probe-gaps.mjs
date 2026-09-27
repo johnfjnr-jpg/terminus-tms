@@ -194,16 +194,38 @@ try {
 
          Grouping by rendered top is what a row IS. A spanning title lands alone
          and is skipped for having one cell, which is correct. */
-      const byTop = new Map()
-      for (const k of kids) {
-        const t = Math.round(k.getBoundingClientRect().top)
-        if (!byTop.has(t)) byTop.set(t, [])
-        byTop.get(t).push(k)
+      /* ── A ROW IS CELLS THAT OVERLAP VERTICALLY, NOT CELLS THAT SHARE A TOP
+         Grouping on `Math.round(top)` looked exact and was wrong: these rows are
+         `align-items: baseline`, so a statement row's six cells sat at tops
+         3134, 3135 and 3136 and split into THREE groups. It survived while some
+         group still held two cells. Widen the statement and the spread grows
+         until none does, and THE WHOLE CONTAINER LEAVES THE WALK - which is how
+         the A1 injection came back silent on a row it should have blown apart.
+
+         Two cells are in one row when their vertical spans overlap by more than
+         half the shorter of them. That is what a reader means by a row, and it
+         is indifferent to baseline alignment, to differing cell heights and to
+         sub-pixel rounding. */
+      const boxes = kids.map((k) => ({ k, r: k.getBoundingClientRect() }))
+        .filter((x) => x.r.height > 0)
+        .sort((a, b) => a.r.top - b.r.top)
+      const grouped = []
+      for (const b of boxes) {
+        const row = grouped[grouped.length - 1]
+        if (row) {
+          const top = Math.max(row.top, b.r.top), bot = Math.min(row.bottom, b.r.bottom)
+          const shorter = Math.min(row.bottom - row.top, b.r.height)
+          if (bot - top > shorter / 2) {
+            row.cells.push(b)
+            row.top = Math.min(row.top, b.r.top)
+            row.bottom = Math.max(row.bottom, b.r.bottom)
+            continue
+          }
+        }
+        grouped.push({ top: b.r.top, bottom: b.r.bottom, cells: [b] })
       }
-      return [...byTop.entries()]
-        .sort((a, b) => a[0] - b[0])
-        .map(([, row]) => row.sort((x, y) =>
-          x.getBoundingClientRect().left - y.getBoundingClientRect().left))
+      return grouped
+        .map((g) => g.cells.sort((x, y) => x.r.left - y.r.left).map((x) => x.k))
         .filter((row) => row.length >= 2)
     }
     const seen = new Map()
@@ -326,6 +348,71 @@ try {
       await p.evaluate(() => new Promise((r) => setTimeout(r, 600)))
       console.log(`\n── ${width}  ${combo} ──`)
       const rows = await walk()
+      if (process.env.C_TRACE) {
+        const t = await p.evaluate((sel) => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const e = [...document.querySelectorAll(sel)].filter(vis)[0]
+          if (!e) return { why: 'no visible element for ' + sel }
+          const cs = getComputedStyle(e)
+          const kids = [...e.children].filter(vis)
+          const tops = kids.map((k) => Math.round(k.getBoundingClientRect().top))
+          return {
+            display: cs.display,
+            cols: cs.gridTemplateColumns,
+            colCount: cs.gridTemplateColumns.split(' ').filter(Boolean).length,
+            kids: kids.length,
+            distinctTops: [...new Set(tops)].length,
+            tops: tops.slice(0, 8),
+            texts: kids.slice(0, 6).map((k) => (k.textContent ?? '').trim().slice(0, 14)),
+          }
+        }, process.env.C_TRACE)
+        console.log(`  TRACE ${process.env.C_TRACE} ${JSON.stringify(t)}`)
+      }
+      if (process.env.C_STMT) {
+        const s = await p.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+          const FIG = /^[-(]?\s*\$?\s*[\d,]+(\.\d+)?\s*%?\)?$/
+          return [...document.querySelectorAll('.stmt-row-line')].filter(vis).map((r) => ({
+            cols: getComputedStyle(r).gridTemplateColumns,
+            box: Math.round(r.getBoundingClientRect().width),
+            cells: [...r.children].filter(vis).map((c) => {
+              const t = (c.textContent ?? '').trim()
+              const b = c.getBoundingClientRect()
+              const range = document.createRange()
+              range.selectNodeContents(c)
+              const ink = range.getBoundingClientRect()
+              return { t: t.slice(0, 18), fig: FIG.test(t),
+                l: Math.round(b.left), r: Math.round(b.right),
+                il: Math.round(ink.left), ir: Math.round(ink.right) }
+            }),
+          }))
+        })
+        for (const r of s) {
+          console.log(`  STMT ${r.box}px [${r.cols}]`)
+          for (const c of r.cells) {
+            console.log(`       ${c.fig ? 'FIG' : '   '} box ${c.l}..${c.r}  ink ${c.il}..${c.ir}  "${c.t}"`)
+          }
+        }
+      }
+      if (process.env.C_SHOT) {
+        /* PICTURES ONLY, IN A RUN OF THEIR OWN. A capture suppresses the
+           scrollbar and does not put it back (Verification 4), so a shot taken
+           mid-state perturbs every check after it. This block runs only when
+           asked, and a run that sets it is not offered as a verdict. */
+        await p.evaluate(() => {
+          document.querySelector('.stmt')?.scrollIntoView({ block: 'center' })
+        })
+        await p.evaluate(() => new Promise((r) => setTimeout(r, 250)))
+        const name = `.verify/adjacency/stmt-${width}-${combo.replace(/[^a-z0-9]+/gi, '-')}.png`
+        await p.screenshot({ path: name })
+        const seen = await p.evaluate(() => {
+          const e = document.querySelector('.stmt')
+          if (!e) return 'no .stmt'
+          const r = e.getBoundingClientRect()
+          return `.stmt ${Math.round(r.width)}x${Math.round(r.height)} at top ${Math.round(r.top)} of ${innerHeight}`
+        })
+        console.log(`  SHOT ${name}  ${seen}`)
+      }
       if (process.env.C_SPLIT === '1') {
         const sp = await p.evaluate(() => {
           const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
