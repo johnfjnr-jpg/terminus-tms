@@ -160,7 +160,13 @@ export function VersionCard({
 
   const askNow = () => {
     if (!ask.askFor) return
-    onAsk(ask.askFor.id, versionLabel(ask.askFor), {
+    // R-VL4 made the composer's null RETURN VISIBLE to the typechecker, and it
+    // caught this: `onAsk` wants a string and a version that is not a version
+    // has no label. Refused rather than sent as an empty string, because an
+    // approval request naming nothing is worse than one that does not happen.
+    const askLabel = versionLabel(ask.askFor)
+    if (!askLabel) return
+    onAsk(ask.askFor.id, askLabel, {
       onStart: () => { setAsking(true); setAskState('') },
       onResult: (message, ok) => {
         setAsking(false)

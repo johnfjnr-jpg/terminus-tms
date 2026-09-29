@@ -54,10 +54,25 @@ import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
  *
  * ── WHY THESE AND NOT OTHERS ────────────────────────────────────────────
  *
- * A price override is a FIGURE FOR A QUANTITY. Change the quantity and the
- * figure silently prices a different deal while its amber goes on claiming
- * somebody chose it. A MARGIN override is a RATIO, which survives the quantity
- * moving, so it is not in this list and does not clear.
+ * ── THE TEST, REWORDED BY JOHN'S RULING R-L3, 2026-09-29 ────────────────
+ *
+ *   AN INPUT THE DERIVATION PRICES FROM. Change it and an absolute override
+ *   silently prices a different deal.
+ *
+ * A MARGIN override is a RATIO, which survives the input moving, so it is not
+ * in this list and does not clear.
+ *
+ * WHAT THIS REPLACES, and why the rewording was the ruling rather than a
+ * tidy-up. The test read "a FIGURE FOR A QUANTITY", and by that test
+ * `lumpSumCost` was correctly excluded: a lump sum is an absolute that no
+ * quantity multiplies, which is exactly what the superseded note below says.
+ *
+ * THE TEST WAS TOO NARROW, NOT THE LIST TOO SHORT. An installation price
+ * override is a figure quoted against a lump sum cost. Change the cost and that
+ * figure prices a different job while its amber goes on claiming somebody chose
+ * it - the same harm, arriving without a quantity anywhere in it. So the test
+ * is about what the derivation PRICES FROM, and the quantity was only ever the
+ * commonest way an input does that.
  *
  *   the four counts          the quantity itself
  *   duration                 multiplies hosting months
@@ -65,15 +80,23 @@ import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
  *   inSsExisting, inSsNew,
  *   inAqm, inHemir           per-unit installation costs, multiplied by counts
  *
- * DELIBERATELY ABSENT, and reported rather than assumed: `lumpSumCost` is an
- * absolute the derivation does not multiply by anything, and `targetMargin`,
- * `whtPct`, `gstPct` and the currencies are ratios or are applied after the
- * quantity. Carried to John as the one judgement call in this list.
+ * SUPERSEDED, LEFT VISIBLE because the reasoning was sound under the old test
+ * and a reader needs to see which happened. It read: "DELIBERATELY ABSENT, and
+ * reported rather than assumed: `lumpSumCost` is an absolute the derivation
+ * does not multiply by anything... Carried to John as the one judgement call in
+ * this list." He took it, and ruled it IN. Verification 29's shape: a premise
+ * failed, so the decision is re-taken rather than re-weighed.
+ *
+ * STILL ABSENT, and still for the old reason, which the rewording does not
+ * touch: `targetMargin`, `whtPct`, `gstPct` and the currencies are ratios, or
+ * are applied after the derivation has priced anything.
  */
 export const FUNDAMENTAL_VALUE_IDS: readonly string[] = [
   'deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir',
   'deal-duration', 'deal-warrantyPct',
   'deal-inSsExisting', 'deal-inSsNew', 'deal-inAqm', 'deal-inHemir',
+  // R-L3, John 2026-09-29. The installation cost a Lump Sum deal prices from.
+  'deal-lumpCost',
 ]
 
 export const MARGIN_KEYS = [

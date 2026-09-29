@@ -117,6 +117,36 @@ describe('H3: a fundamental input change clears the ABSOLUTE overrides', () => {
     expect(overrideFlag('deal-margin-hwAqm')).toBe('true')
   })
 
+  /* ── R-L3, John 2026-09-29: THE LUMP SUM IS FUNDAMENTAL TOO ────────────
+     Phase 0 found `deal-lumpCost` absent from FUNDAMENTAL_VALUE_IDS, and the
+     absence was deliberate: the list's stated test was "a figure for a
+     QUANTITY", and a lump sum is an absolute no quantity multiplies.
+
+     John ruled (a): the lump sum goes in, and the TEST is reworded, because
+     the test was too narrow rather than the list being wrong. An installation
+     price override is a figure quoted against a lump sum cost; change the cost
+     and that figure silently prices a different job while its amber goes on
+     claiming somebody chose it. That is the same harm the list exists to
+     prevent, arriving without a quantity.
+
+     This deal is a Lump Sum deal, so `deal-lumpCost` is the live installation
+     cost and `deal-price-hwSs` is an absolute standing against the deal. */
+  test('R-L3: changing the LUMP SUM COST clears the absolute overrides', async () => {
+    await mount()
+    expect(boxValue('deal-price-hwSs'), 'the override must be live first').toBe('500000')
+    await setInput('deal-lumpCost', '260000')
+    expect(boxValue('deal-price-hwSs')).not.toBe('500000')
+    expect(boxValue('deal-hofee-hoSs')).not.toBe('99')
+    expect(overrideFlag('deal-price-hwSs')).toBe('false')
+  })
+
+  test('R-L3: and the MARGIN override still survives it', async () => {
+    await mount()
+    await setInput('deal-lumpCost', '260000')
+    expect(boxValue('deal-margin-hwAqm')).toBe('44')
+    expect(overrideFlag('deal-margin-hwAqm')).toBe('true')
+  })
+
   test('H3e: every one of the four counts is fundamental', async () => {
     for (const id of ['deal-ssExisting', 'deal-ssNew', 'deal-aqm', 'deal-hemir']) {
       await mount()

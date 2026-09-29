@@ -9,6 +9,11 @@ import { resolveRates, frozenRates, frozenRatesAgree } from '../lib/rate-resolut
 import { frozenTerms, readSystemDefaults } from '../lib/system-defaults.js';
 import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
+// R-VL4: the ONE composer. Every label on this route comes through it, so a
+// refusal, an audit row and the approval page cannot name one version three
+// ways. Phase 0 found this file carrying five compositions including a full
+// copy of the rule.
+import { versionLabel } from '../lib/version-label.js'
 
 // Deal Sheet versions. Round 37 Phase 3.
 //
@@ -546,7 +551,7 @@ export default async function dealSheetVersionsRoutes(app) {
     await db.from('audit_log').insert({
       record_id: request.params.id, record_type: 'opportunity',
       action: 'deal_sheet_version_saved', actor_id: request.user.id,
-      detail: { version_id: created.id, label: `V${created.major}.${created.minor}`, revision_number: created.revision_number },
+      detail: { version_id: created.id, label: versionLabel(created), revision_number: created.revision_number },
     })
 
     return reply.code(201).send(created)
@@ -647,10 +652,10 @@ export default async function dealSheetVersionsRoutes(app) {
       const stranded = version.major < highestIssued
       return reply.code(409).send({
         error: stranded
-          ? `V${version.major}.${version.minor} was drafted before V${highestIssued} was issued, so it is `
+          ? `${versionLabel(version)} was drafted before ${versionLabel({ major: highestIssued, minor: 0 })} was approved, so it is `
             + 'not the next version. Restore it if you want its pricing back, then save that as a new draft.'
           : drafts?.length
-            ? `V${drafts[0].major}.${drafts[0].minor} is the newest draft, so it is the one that can be issued.`
+            ? `${versionLabel(drafts[0])} is the newest draft, so it is the one that can be submitted for approval.`
             : 'There is no draft newer than the last issued version. Save the current pricing as a version first.',
       })
     }
@@ -718,7 +723,7 @@ export default async function dealSheetVersionsRoutes(app) {
       // The audit says what was actually written, not what the old rule would
       // have produced. It read `V${version.major + 1}`, which was the same wrong
       // derivation in a third place and would have recorded V1 for every issue.
-      detail: { version_id: version.id, from: `V${version.major}.${version.minor}`, to: `V${highestIssued + 1}` },
+      detail: { version_id: version.id, from: versionLabel(version), to: versionLabel({ major: highestIssued + 1, minor: 0 }) },
     })
 
     // ── THE ROW IS A VERSION, AND THE RECORD ALSO MOVED. T4 ───────────────
@@ -757,7 +762,7 @@ export default async function dealSheetVersionsRoutes(app) {
     return {
       version_id: version.id,
       record_id: version.record_id,
-      label: version.major === 0 ? `V0.${version.minor}` : (version.minor === 0 ? `V${version.major}` : `V${version.major}.${version.minor}`),
+      label: versionLabel(version),
       inputs: version.inputs,
     }
   })

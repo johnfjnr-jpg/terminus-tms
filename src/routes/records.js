@@ -3,6 +3,9 @@ import { sendWriteError } from '../lib/write-errors.js'
 import { computeBlocking, approvalSatisfiesRule, ruleScope, loadVersionApproval, GATE_RECORD_SELECT } from './transitions.js'
 import { usesWorkflow } from '../lib/transition-requests.js'
 import { VERSION_SCOPE } from '../lib/version-approval.js'
+// R-VL4: the ONE composer, in place of a copy of the rule split across three
+// lines that the previous name-list guard could not see.
+import { versionLabel } from '../lib/version-label.js'
 
 /**
  * Builds the stage-approvals panel's per-track state for one stage.
@@ -73,11 +76,7 @@ export function buildStageTracks(stageRules, approvals, stageName, currentRevisi
         scope: rule.requirement_detail?.scope ?? 'revision',
         // The version the sign-off is held against, for the running history.
         // Read off the evaluator the gate uses, never re-derived.
-        version_label: versionApproval?.version
-          ? (versionApproval.version.minor === 0
-            ? `V${versionApproval.version.major}`
-            : `V${versionApproval.version.major}.${versionApproval.version.minor}`)
-          : null,
+        version_label: versionLabel(versionApproval?.version),
         approved: !!decision,
         approver_id: (typeof decision === 'object' && decision?.approver_id) || null,
         decided_at: (typeof decision === 'object' && decision?.decided_at) || null,

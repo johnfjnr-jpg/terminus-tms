@@ -410,7 +410,11 @@ test('the panel says which VERSION a from-Proposal sign-off is held against', ()
   // The scope travels with the row, so the screen does not infer the model from
   // the stage name and state it in a second place.
   assert.match(r, /scope: rule\.requirement_detail\?\.scope \?\? 'revision'/)
-  assert.match(r, /version_label: versionApproval\?\.version/)
+  // R-VL4 re-point: this read `version_label: versionApproval?.version`, which
+  // was the head of a copy of the label rule split across three lines. The
+  // claim is unchanged - the panel names WHICH version, read off the evaluator
+  // the gate uses - and the label now comes from the one composer.
+  assert.match(r, /version_label: versionLabel\(versionApproval\?\.version\)/)
   assert.match(app, /Proposal\/Pricing approved for issue/, 'the ruled label is missing')
   assert.match(app, /const versionScoped = t\.scope === 'version'/)
   // A version-scoped track must not offer the pre-workflow approve control: it
@@ -989,8 +993,10 @@ test('V1/V2/V4: the next major comes from the record, not from the draft', () =>
   // a stranded draft is still the latest once every newer one has been issued.
   // The claim the sixth walk was protecting is unchanged and is asserted below
   // in its own test.
-  assert.match(route, /is the newest draft, so it is the one that can be issued/,
-    'an earlier draft can still be issued')
+  // R-L4 re-point: "issued" became "submitted for approval" in user-facing
+  // copy. The claim is unchanged: only the NEWEST draft may be promoted.
+  assert.match(route, /is the newest draft, so it is the one that can be submitted for approval/,
+    'an earlier draft can still be promoted')
 })
 
 test('V1: 23505 is mapped in ONE place, and both mappers know it', () => {
