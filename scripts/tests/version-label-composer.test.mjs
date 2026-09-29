@@ -37,6 +37,28 @@ const ROOT = new URL('../../', import.meta.url).pathname
 const COMPOSER = 'src/lib/version-label.js'
 
 /**
+ * ── EVERY TREE THAT RENDERS A LABEL. G1, John 2026-09-29 ────────────────
+ *
+ * This walked `src/` only, and the close-out named that as its honest limit:
+ * `frontend/app.js` and the React tree both render version labels and neither
+ * was guarded, so a new inline composition in either would have been invisible
+ * exactly the way the three route copies were invisible to the guard this one
+ * replaced.
+ *
+ * `frontend/app.js` is a classic script and cannot import, so it receives the
+ * composer through the module bridge in `index.html`. That makes it MORE
+ * exposed rather than less: the composer is a global there, and writing
+ * `` `V${x}` `` instead is one keystroke shorter than calling it.
+ *
+ * TESTS ARE EXCLUDED, and that is a real hole rather than a convenience: a test
+ * asserting `'V2.0'` is stating an expectation, not composing a label, and a
+ * guard that failed on those would be untenable. So a label composed inside a
+ * test file is not caught, which is named here rather than left to be assumed
+ * covered.
+ */
+const TREES = ['src', 'frontend', 'frontend-react/src']
+
+/**
  * The shapes a label can be built in.
  *
  * ASSEMBLED FROM PARTS so this file does not contain the literal patterns it
@@ -57,15 +79,23 @@ const walk = (dir, out = []) => {
     if (/node_modules|\/dist\//.test(p)) continue
     const s = statSync(ROOT + p)
     if (s.isDirectory()) walk(p, out)
-    else if (/\.(js|mjs)$/.test(entry)) out.push(p)
+    // `.ts` AND `.tsx` TOO. The first extension of this guard to the React
+    // tree found nothing, because the walk collected only .js and .mjs: it
+    // reached the directory and could not see a single file in it. The walk
+    // assertion below is what caught that, which is why it names each tree.
+    else if (/\.(js|mjs|ts|tsx)$/.test(entry)) out.push(p)
   }
   return out
 }
 
+const allFiles = () => TREES.flatMap((t) => walk(t))
+
 const offenders = () => {
   const found = []
-  for (const f of walk('src')) {
+  for (const f of allFiles()) {
     if (f === COMPOSER) continue
+    // A test asserts labels; it does not compose them.
+    if (/__tests__|\.test\./.test(f)) continue
     const src = stripComments(readFileSync(ROOT + f, 'utf8'), 'js')
     src.split('\n').forEach((line, i) => {
       for (const [what, re] of SHAPES) {
@@ -88,12 +118,16 @@ test('the guard WALKS src rather than reading a list, so a new file is covered',
   // The old guard's whole defect was a five-name list. This asserts the walk
   // reaches the directories the three escaped copies lived in, so the fix
   // cannot regress to naming files.
-  const files = walk('src')
+  const files = allFiles()
   assert.ok(files.length > 50, `the walk found only ${files.length} files, which is not a walk`)
-  for (const dir of ['src/routes/', 'src/lib/']) {
+  // EVERY TREE THAT RENDERS A LABEL, asserted by name so a tree cannot be
+  // dropped from TREES without a red test.
+  for (const dir of ['src/routes/', 'src/lib/', 'frontend/', 'frontend-react/src/']) {
     assert.ok(files.some((f) => f.startsWith(dir)),
-      `the walk does not reach ${dir}, where three copies hid from the previous guard`)
+      `the walk does not reach ${dir}, which renders version labels`)
   }
+  assert.ok(files.includes('frontend/app.js'),
+    'app.js receives the composer as a global, which makes an inline label one keystroke cheaper')
 })
 
 test('the composer itself DOES compose, so a silent guard would be visible', () => {
