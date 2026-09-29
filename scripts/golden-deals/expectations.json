@@ -1,6 +1,8 @@
 {
-  "note": "Written by scripts/golden-deals/compute.mjs. PROVISIONAL until John confirms. Never hand-edited: re-run the script.",
-  "status": "PROVISIONAL",
+  "note": "Figures written by scripts/golden-deals/compute.mjs and NEVER hand-edited: re-run the script. The confirmation block below is the exception, because it records a judgement only John can make, and re-running compute.mjs deliberately returns it to PROVISIONAL.",
+  "status": "CONFIRMED",
+  "confirmedBy": "John Fryatt",
+  "confirmedOn": "2026-09-28",
   "catalog": {
     "ssUnitCost": 8000,
     "aqUnitCost": 2000,

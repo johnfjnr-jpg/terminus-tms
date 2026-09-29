@@ -89,15 +89,21 @@ const STAGES = [
   // permanent guard on pricing: any change that moves a figure is red here and
   // names the figure.
   //
-  // IT SAYS PROVISIONAL ON EVERY RUN, INCLUDING A GREEN ONE, until John has
-  // reproduced the figures and confirmed them. A green means pricing has not
-  // moved since they were taken, not that they are right, and a suite implying
-  // a confirmation nobody gave would be worse than no suite.
+  // CONFIRMED 2026-09-28: John reproduced all four deals by hand in Excel and
+  // accepted the figures, so the stage has dropped its PROVISIONAL qualifier.
+  // The harness still prints WHICH kind of green this is on every run, because
+  // a checked baseline and an unchecked one are different facts and a suite that
+  // went quiet on confirmation would leave a reader unable to tell them apart.
+  //
+  // THIS IS NOW THE PRICING ACCEPTANCE BASELINE OF RECORD. A change that moves
+  // any of the 3651 figures is either a defect or an intentional change, and an
+  // intentional one updates the goldens and needs a fresh confirmation by name
+  // and date. The harness refuses a CONFIRMED status carrying neither.
   //
   // Calibrated by `scripts/golden-deals/calibrate.mjs`: five injections, five
   // fired, every file byte-identical afterwards.
   {
-    name: 'golden deals (PROVISIONAL)',
+    name: 'golden deals',
     cmd: ['node', ['scripts/golden-deals-check']],
     needs: 'nothing. Pure arithmetic against a fixture rate card.',
   },

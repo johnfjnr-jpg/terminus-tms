@@ -305,8 +305,19 @@ head.push('---', '')
 const body = priced.map((p) => dealSection(p)).join('\n---\n\n')
 writeFileSync('GOLDEN_DEALS.md', `${head.join('\n')}${body}`)
 
+// ── A RE-RUN RETURNS THE STATUS TO PROVISIONAL, AND THAT IS DELIBERATE ────
+//
+// The confirmation is the ONE hand-edited field in that file, because it
+// records a judgement only John can make. Everything else is generated.
+//
+// Re-running this script writes PROVISIONAL and drops the name and date, which
+// looks like losing a confirmation and is the safe reading: a re-run means
+// somebody recomputed, a recompute means the figures may have moved, and a
+// confirmation of figures that may have moved is not a confirmation. Preserving
+// it across a re-run would be the dangerous convenience, because the one case it
+// would help is the one case where it is wrong.
 const expectations = {
-  note: 'Written by scripts/golden-deals/compute.mjs. PROVISIONAL until John confirms. Never hand-edited: re-run the script.',
+  note: 'Figures written by scripts/golden-deals/compute.mjs and NEVER hand-edited: re-run the script. The confirmation block below is the exception, because it records a judgement only John can make, and re-running compute.mjs deliberately returns it to PROVISIONAL.',
   status: 'PROVISIONAL',
   catalog: GOLDEN_CATALOG,
   deals: Object.fromEntries(priced.map((p) => [p.deal.id, {
