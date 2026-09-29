@@ -91,6 +91,33 @@ gate was re-run rather than the result being assembled from parts.
 
 ---
 
+## CURRENT_STATE: THE LIVE COUNT WENT UP BY ONE, AND IT IS NOT THIS ROUND'S
+
+The state diff is count drift, with one line that is not: **132 live records to
+133.** A round does not close past that without naming it.
+
+**Identified: `test_bed TT-SGP-LOGIST-001`, created 2026-09-28T10:10:07, owner
+`terminus.walk65@gmail.com`, three revisions, last touched 10:21.**
+
+It is a **walk account** record, which is the residue class Verification 11
+names in terms: a browser session driven by an interactive test account signs in
+and calls the real API, so it leaves an ordinary record with an ordinary
+reference code, owned by an account that is neither a probe user nor the
+business. No `harness_*` row and no probe owner, so the two questions the
+teardown tooling asks would both answer clean.
+
+**It is not this round's and not the golden deals round's.** That round's
+CURRENT_STATE was generated at about 07:15 on 2026-09-28 reading 132; this
+record was created at 10:10, after it closed. No record was created today at
+all: the next most recent live record dates from 2026-09-18.
+
+**NOT DELETED, and deliberately.** It may be John's own from the Excel
+verification, and removing a record this session did not create, on an account
+belonging to a person, is not a call to make silently. Reported for a ruling:
+either it is wanted, or it is residue for a teardown pass.
+
+---
+
 ## WHAT THIS ROUND DOES NOT ESTABLISH
 
 - **It does not check the figures.** John did that, by hand, in Excel. This
