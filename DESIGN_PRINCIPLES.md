@@ -12290,11 +12290,29 @@ is not a second approval workflow**, and nothing about it exists yet.
 V&lt;major&gt;.0 for approval"*.
 
 **Reconciled by count**, which is what makes the sweep checkable rather than
-asserted: **58 user-facing lines before, 26 after, 32 converted.** The 26 that
-remain are DB comparisons, route paths, type names and log lines, each of which
-the ruling leaves alone. A separate 7 use "issue" in its other sense entirely -
+asserted: **58 user-facing lines before, 21 after, 37 converted.**
+
+| remaining | reason |
+|---|---|
+| 14 | a DB value comparison (`status === 'issued'`) |
+| 3 | a route path or an element id |
+| 2 | a log line, not user-facing |
+| 1 | an internal variable or handler name |
+| 1 | an internal type name |
+
+Every one is left alone by the ruling, and **the classification returned ZERO
+unexplained lines**. A separate 7 use "issue" in its other sense entirely -
 issuing an Account Number or a reference number - and are out of scope by
 meaning rather than by exemption.
+
+**AN EARLIER DRAFT OF THIS SECTION SAID 26 AND 32, AND THE CLASSIFICATION IS
+WHAT CORRECTED IT.** The count had been taken before the last batch of
+conversions, and re-running it to classify the remainder found both the stale
+figure AND a line I believed converted: `app.js:1410` still read "the issued
+version", because that edit had reported `anchor not found` on an indentation
+mismatch and I had not gone back to it. **A count restated from memory is a
+second reader** - the fault this estate has recorded against hand-typed numbers,
+arriving in the document about a sweep.
 
 ---
 

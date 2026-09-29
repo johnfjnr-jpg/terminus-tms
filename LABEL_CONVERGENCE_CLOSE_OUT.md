@@ -30,9 +30,9 @@ and green after.
 | H3 | the frozen basis, with the suite catching the fix's own first draft |
 
 **E5. Decisions doc carries L4**, with R-VL4, R-L4a, R-AV and R-L3 beside it.
-Census reconciled **by count: 58 user-facing lines before, 26 after, 32
-converted**; the 26 are DB comparisons, route paths, type names and log lines,
-each left alone by the ruling, and a separate 7 use "issue" in its other sense.
+Census reconciled **by count: 58 before, 21 after, 37 converted**, classified in
+G4 below with ZERO unexplained lines. A separate 7 use "issue" in its other
+sense entirely.
 
 **E6. Revert rehearsed, CURRENT_STATE regenerated.** Below. Gate pending, and it
 waits for NordVPN to be off.
@@ -72,6 +72,88 @@ down.
 
 ---
 
+## G1 TO G5, BEFORE THE GATE
+
+### G1. The composer guard walks every tree that renders a label
+
+It walked `src/` only, which the first close-out named as its honest limit.
+`frontend/app.js` and the React tree both render labels and neither was guarded.
+**Both measured CLEAN before the extension**, so no code changed.
+
+**app.js is the more exposed of the two**, not the less: it cannot import, so it
+receives the composer as a global, and writing `` `V${x}` `` is one keystroke
+shorter than calling it.
+
+**Calibrated by injecting one inline site in EACH newly-walked tree: 2 of 2
+fired, each naming its own file**, final reverted run green, byte-identical.
+
+**And the first extension found nothing in the React tree**, because the walk
+collected only `.js` and `.mjs`: it reached the directory and could not see a
+file in it. The assertion naming each tree by hand is what caught that, which is
+why it names them rather than counting files.
+
+**Tests are excluded**, and that is a hole rather than a convenience: a test
+asserting `'V2.0'` states an expectation, it does not compose a label.
+
+### G2. What sets `issued_major`, driven
+
+**PROMOTION, measured on a live record: 10 of 10.**
+
+```
+a draft alone                         issued_major = null
+promotion alone, no approval anywhere issued_major = 1      <- V1.0
+the Approved version field            null                  <- names nothing
+the Working version field             "V1.0"                <- still names it
+the promoted row in the DB            V1.0/issued           <- still there
+```
+
+**The field reads nothing for a promoted-but-unsigned major**, and the version
+is not hidden: it remains `issued` in the database and named by the Working
+Version field. R-L4a stops the HEADLINE claiming approval; it removes no fact.
+
+**The other direction, on the same fixture:** with all three tracks
+(Technical, Commercial, Legal) signed through the request that froze the
+version, the derivation names **V1.0** with its stored minor. With **2 of 3**
+signed it names nothing.
+
+### G3. The 14 empty-rate drafts against `e46aec6` (2026-09-25 10:03 +0800)
+
+```
+2026-08-29  V0.96     2026-09-02  V0.99 x8    2026-09-12  V0.98
+2026-09-21  V0.100    V0.101    V0.102    V0.103
+```
+
+**All 14 predate `e46aec6`. ZERO created after it**, the newest being
+2026-09-21, four days before the cut. **No queued defect.** All 14 are DRAFTS,
+so no submitted version is retrospectively refused by H2.
+
+### G4. The 21 unconverted issue/issued lines, classified
+
+| count | reason |
+|---|---|
+| 14 | a DB value comparison (`status === 'issued'`) |
+| 3 | a route path or an element id |
+| 2 | a log line, not user-facing |
+| 1 | an internal variable or handler name |
+| 1 | an internal type name |
+
+**Zero unexplained.** Every one is left alone by the ruling.
+
+**AND THE CLASSIFICATION CORRECTED ME TWICE**, which is why it was worth doing
+rather than asserting. It found the census figure stale - **58 to 21, 37
+converted**, not the 26 and 32 an earlier draft carried - and it found
+**`app.js:1410` still reading "the issued version"**, because that edit had
+reported `anchor not found` on an indentation mismatch and I had not gone back
+to it. Now converted.
+
+### G5. Screenshots
+
+Four images, both changed sites at both widths, copied to the OneDrive test log
+at `2026-09-30_label-convergence-screenshots` and **verified by byte count
+against the originals**, not by the copy command's exit status.
+
+---
+
 ## WHAT I GOT WRONG, AND WHAT CAUGHT IT
 
 Recorded because the round's own controls caught all of it, and because two of
@@ -95,6 +177,17 @@ these are the same fault twice.
 6. **A hand-derived expectation**, twice: that a refused draft would be V0.x,
    and that a fixture version carried a snapshot. Both were wrong about the
    fixture, not the product.
+7. **A restated count.** The census figure was quoted from memory after further
+   conversions had landed, and it took re-running the classification to find it.
+   A number describing a run is emitted by the run.
+8. **A failed edit I did not return to.** `app.js:1410` reported `anchor not
+   found` on an indentation mismatch and stayed unconverted through two
+   documents claiming the sweep was complete. **The tool said so at the time**;
+   what failed was me, not it.
+9. **I edited the working tree while a commit's suites were running**, so that
+   hook run saw files mid-edit. Verification 48's clause is about a gate and
+   applies to a commit's suites just as well. Re-verified on a settled tree:
+   pure 698, react 1438, typecheck clean.
 
 ---
 

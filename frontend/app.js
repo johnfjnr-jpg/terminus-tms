@@ -1407,7 +1407,7 @@ function renderOppRejectedBanner() {
   const when = req.closed_at ? formatDateTime(req.closed_at) : 'an unknown time'
   const reason = (req.close_reason ?? '').trim()
   const what = req.kind === 'review'
-    ? `the pricing approval for ${escHtml(req.version_label ?? 'the issued version')}`
+    ? `the pricing approval for ${escHtml(req.version_label ?? 'the submitted version')}`
     : `the move to ${escHtml(req.to_stage)}`
   el.classList.remove('hidden')
   el.innerHTML = `<div class="rejected-banner">`
