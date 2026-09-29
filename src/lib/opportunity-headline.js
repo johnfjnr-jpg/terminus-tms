@@ -24,6 +24,8 @@ import { buildDealInputs } from './deal-inputs.js';
 import { resolveRates } from './rate-resolution.js';
 import { pricingChanged } from './version-pricing.js';
 import { workingVersionLabel } from './version-label.js';
+// R-L4a: the evaluator the ENFORCEMENT calls, asked rather than re-derived.
+import { versionApprovalState, wasSigned } from './version-approval.js';
 
 /**
  * @param {object} payload    the record's current payload
@@ -119,4 +121,64 @@ export function issuedMajor(versions) {
     .filter((v) => v.status === 'issued' && Number.isInteger(v.major))
     .sort((a, b) => (b.major - a.major) || ((b.minor ?? 0) - (a.minor ?? 0)))[0];
   return issued ? issued.major : null;
+}
+
+/**
+ * ── R-L4a: THE APPROVED VERSION, WHICH IS NOT THE PROMOTED ONE ───────────
+ *
+ * Ruled by John 2026-09-29, after Phase 0 measured what actually set the field.
+ *
+ * `issuedMajor` above is the highest major whose STATUS is `issued`, and that
+ * status is written by PROMOTION - the control that turns the newest draft into
+ * a major. **No approval track enters it.** So the field labelled "Approved
+ * version" was naming a version that had been submitted and might be waiting on
+ * all three tracks, or refused on one.
+ *
+ * That is the wrong-green Round 38 recorded, on a headline figure: a green
+ * display is a POSITIVE CLAIM, and "Approved version V2.0" said a named person
+ * had accepted that price when nobody had.
+ *
+ * ── APPROVED MEANS EVERY REQUIRED TRACK, NOT ANY ─────────────────────────
+ *
+ * A version with Commercial signed and Legal outstanding is not approved. It is
+ * awaiting approval, and the Approvals panel is where that state belongs.
+ *
+ * ── IT ASKS THE EVALUATOR THE GATE ASKS ──────────────────────────────────
+ *
+ * `versionApprovalState` is the function the enforcement calls, so the headline
+ * and the gate cannot disagree about what approved means (Verification 43: name
+ * the function the enforcement calls, and confirm the panel calls it too). This
+ * does not re-derive it; it asks it once per track.
+ *
+ * ── R-AV: THE STORED MINOR IS CARRIED THROUGH ────────────────────────────
+ *
+ * It returns the VERSION, not a major, so the composer prints the minor the row
+ * actually holds. Deriving `.0` from "an approved version is always x.0" would
+ * be a second reader of the numbering rule, correct today and silently wrong the
+ * first time that rule moved.
+ *
+ * @param {object} a
+ * @param {Array} a.versions   every deal_sheet_versions row for the record
+ * @param {Array} a.approvals  approvals already linked to versions
+ * @param {number} a.latestRevision
+ * @param {string[]} a.tracks  the version-scoped tracks this record type needs
+ * @param {object} a.payload   the record's current payload
+ * @returns {{ major: number, minor: number } | null} null when none is approved
+ */
+export function approvedVersionOf({ versions, approvals, latestRevision, tracks, payload }) {
+  // NO TRACKS IS NOT "EVERYTHING IS APPROVED". An empty required set would make
+  // `every` vacuously true and report the newest version as approved by nobody,
+  // which is the exact claim this function exists to stop making.
+  if (!Array.isArray(tracks) || tracks.length === 0) return null;
+  const approved = (versions ?? [])
+    .filter((v) => v.status === 'issued' && Number.isInteger(v.major))
+    // ONE PREDICATE, shared with `lastApprovedVersion`, which had already ruled
+    // this question: a sign-off is a sign-off, and the deal moving afterwards is
+    // reported beside it rather than deleting it. Verification 23: search for an
+    // existing decision about the same behaviour before taking a new one.
+    .filter((v) => tracks.every((t) =>
+      wasSigned(versionApprovalState(v, approvals, latestRevision, t, payload).state)));
+  if (!approved.length) return null;
+  // Highest (major, minor), the same ordering `issuedMajor` uses.
+  return approved.sort((a, b) => (b.major - a.major) || ((b.minor ?? 0) - (a.minor ?? 0)))[0];
 }

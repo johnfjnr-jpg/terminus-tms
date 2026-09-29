@@ -6981,22 +6981,33 @@ function renderOppHeadline(opp) {
     // RULED: "none", not blank, when nothing has been issued. A blank here
     // would read as a figure that failed to load rather than as a deal with no
     // issued proposal.
-    /* ── P5: RENAMED, AND THE SEMANTICS ARE DELIBERATELY UNCHANGED ─────────
-       John's walk 2026-09-27. SUPERSEDED, QUOTED NOT DELETED: the label read
-       "Proposal version".
+    /* ── R-L4a: THE FIELD NOW NAMES AN APPROVED VERSION ────────────────────
+       John's ruling 2026-09-29, and it CLOSES a tension this site had been
+       carrying on the record since 2026-09-27.
 
-       A display rename stays a display rename (Architecture 6): the figure is
-       still `issued_major`, still the highest major among versions whose
-       status is `issued`, still "none" when nothing has been.
+       P5 renamed "Proposal version" to "Approved version" and deliberately kept
+       the figure - `issued_major`, the highest major whose status is `issued`.
+       The note left here said, in terms, that the field counted versions that
+       were ISSUED while its new name said APPROVED, that those are different
+       events, and that the difference was being recorded rather than resolved.
 
-       AND ONE THING WORTH A READER'S ATTENTION RATHER THAN A SILENT FIX: this
-       counts versions that were ISSUED, and the new name says APPROVED. Those
-       are different events in this estate. The ruling directed that the
-       semantics be preserved under the new name, so they are, and the
-       difference is recorded here rather than quietly resolved in either
-       direction. */
-    oppHeadlineFigure('Approved version',
-      Number.isInteger(opp.issued_major) ? `V${opp.issued_major}` : null, { absent: 'none' }),
+       MEASURED AT THIS ROUND'S PHASE 0, and the tension was real: `issued_major`
+       is written by PROMOTION and no approval track enters it. So the field
+       could say "Approved version V2.0" of a version waiting on all three
+       tracks, or refused on one. A green display is a positive claim, and that
+       one was false.
+
+       It now reads `approved_version`, computed server-side by
+       `approvedVersionOf` from the evaluator the GATE itself calls, so the
+       headline and the gate cannot disagree about what approved means. A
+       promoted-but-unsigned version is not named here at all; the Approvals
+       panel is where that state belongs.
+
+       R-AV: the SERVER sends the composed label, carrying the version's stored
+       minor. This site used to build `V${major}`, which had no minor to print
+       and would have had to derive ".0" - a second reader of the numbering
+       rule, right today and silently wrong the day that rule moved. */
+    oppHeadlineFigure('Approved version', opp.approved_version ?? null, { absent: 'None' }),
     /* ── P6: THE RECORD'S OWN PRICING STATE, BESIDE THE APPROVED ONE ───────
        Computed by `workingVersionOf` on the server, from the same
        `pricingChanged` the approval gate reads, so the banner cannot disagree

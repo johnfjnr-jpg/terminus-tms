@@ -234,10 +234,30 @@ export function versionApprovalState(version, approvals, latestRevision, track =
  * @param {number} latestRevision
  * @returns {object|null} the version, or null when nothing was ever approved
  */
+/**
+ * ── "AN APPROVER SIGNED THIS", AS ONE PREDICATE ──────────────────────────
+ *
+ * Extracted 2026-09-29 for R-L4a, which needed the same question asked per
+ * track. It was an inline three-way `||` in `lastApprovedVersion` and is now
+ * named, because a second reader of it would be Verification 20 arriving in the
+ * one place this file exists to prevent it.
+ *
+ * SUPERSEDED COUNTS, and that is the whole point: the deal moving after a
+ * sign-off does not unsign it. What the movement changes is what the screen
+ * must SAY alongside it, which is H1's line, not whether the approval happened.
+ *
+ * UNKNOWN COUNTS TOO, and it is the weakest member: it means the version
+ * carries no snapshot to compare against, so "has it moved" cannot be asked.
+ * Counting it keeps an old record naming the version somebody signed rather
+ * than going blank, and `pricingChanged` reports the incomparability separately.
+ */
+export const SIGNED_STATES = ['approved', 'superseded', 'unknown'];
+export const wasSigned = (state) => SIGNED_STATES.includes(state);
+
 export function lastApprovedVersion(versions, approvals, latestRevision, track = APPROVAL_TRACK, currentPayload) {
   const approvedOnes = (versions ?? [])
     .map((v) => ({ v, s: versionApprovalState(v, approvals, latestRevision, track, currentPayload) }))
-    .filter(({ s }) => s.state === 'approved' || s.state === 'superseded' || s.state === 'unknown')
+    .filter(({ s }) => wasSigned(s.state))
   if (!approvedOnes.length) return null
   return approvedOnes.sort((a, b) => b.v.revision_number - a.v.revision_number)[0].v
 }
