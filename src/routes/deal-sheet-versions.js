@@ -588,7 +588,43 @@ export default async function dealSheetVersionsRoutes(app) {
     if (owner && owner.owner_id !== request.user.id) return sendRefusal(reply)
 
     if (version.status !== 'draft') {
-      return reply.code(409).send({ error: 'This version has already been issued. An issued version cannot be changed.' })
+      return reply.code(409).send({ error: 'This version has already been submitted for approval and cannot be changed.' })
+    }
+
+    // ── H2: A VERSION WITH NO FROZEN RATES MAY NOT BE SUBMITTED ───────────
+    //
+    // Ruled by John 2026-09-29. A version's whole purpose is to be the price
+    // somebody approves, and a version with an empty rates column has no prices
+    // frozen into it: the approval page prices it at zero and says zero, which
+    // is honest and is not something anybody should be asked to sign.
+    //
+    // MEASURED AT PHASE 0, over every one of 5,515 versions with the walk
+    // asserted equal to the exact count: 14 carry an empty rates column and ALL
+    // FOURTEEN ARE DRAFTS. So no issued version is in this state today and none
+    // is being retrospectively refused.
+    //
+    // IT IS A LIVE GAP, NOT A HISTORICAL ONE, which is why it is worth a guard.
+    // Rates freeze at CREATE, not here, and until now this route asked only
+    // whether the row was a draft. Submitting any one of those fourteen would
+    // have produced exactly the state this refuses.
+    //
+    // FORWARD-ONLY. It gates the submission, so an immutable version already
+    // issued is untouched: nothing re-reads an old row and re-judges it.
+    //
+    // `rates.rates` IS THE SHAPE, not a flat map. `frozenRates()` nests it and
+    // that is the only shape in the estate, censused at 5,515 versions with
+    // zero flat. Reading the wrong one of those two cost me a wrong Phase 0
+    // figure before the walk corrected it.
+    const { data: rateRow, error: rateErr } = await db
+      .from('deal_sheet_versions').select('rates').eq('id', version.id).maybeSingle()
+    if (rateErr) return reply.code(500).send({ error: rateErr.message })
+    const frozen = rateRow?.rates?.rates ?? null
+    if (!frozen || Object.keys(frozen).length === 0) {
+      return reply.code(409).send({
+        error: 'This version has no frozen rates, so there is no price to approve. '
+          + 'It was saved when no cost catalog was in effect. Save the current pricing '
+          + 'as a new version and submit that one.',
+      })
     }
 
     // ── THE NEXT MAJOR COMES FROM WHAT HAS BEEN ISSUED. Round 41, V1/V2/V4 ─
