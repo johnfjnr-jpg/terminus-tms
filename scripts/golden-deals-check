@@ -169,7 +169,22 @@ console.log(`  ${compared} figures compared across ${GOLDEN_DEALS.length} deals\
 for (const c of checks) console.log(`  PASS  ${c}`)
 for (const f of fails) console.log(`  FAIL  ${f}`)
 console.log('')
-if (status !== 'CONFIRMED') {
+// ── THE MESSAGE SAYS WHICH KIND OF GREEN THIS IS ─────────────────────────
+//
+// Both branches are printed on a PASSING run, deliberately, because the whole
+// point of the status is that a green means two different things before and
+// after confirmation. A suite that went quiet once confirmed would leave a
+// reader unable to tell a checked baseline from an unchecked one.
+if (status === 'CONFIRMED') {
+  console.log(`CONFIRMED: ${expected.confirmedBy} reproduced these figures by hand on`)
+  console.log(`${expected.confirmedOn} and accepted them. They are the pricing acceptance`)
+  console.log('baseline of record.')
+  console.log('')
+  console.log('PRICING MAY NOT MOVE WITHOUT THIS SUITE GOING RED. A change that moves any')
+  console.log('figure here is either a defect or an intentional change; an intentional one')
+  console.log('updates the goldens and needs a fresh confirmation, by name and date.')
+  console.log('')
+} else {
   console.log('PROVISIONAL: these figures are what the engine DOES, not yet what John has')
   console.log('confirmed it SHOULD do. A green run here means pricing has not moved since')
   console.log('they were taken. It does not mean they are right.')

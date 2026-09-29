@@ -16,10 +16,18 @@ const ROOT = process.cwd()
 const SP = process.env.TMS_SCRATCH ?? mkdtempSync(join(tmpdir(), 'tms-golden-cal-'))
 const MARKER = `${SP}/GOLDENS-CALIBRATION-IN-FLIGHT`
 
+// EVERY FILE ANY CASE TOUCHES. `scripts/golden-deals-check` was added
+// 2026-09-29 with the case that injects into it, and the pair is the reason
+// `inject` now refuses an unsnapshotted file: adding the case without the file
+// made the harness CRASH mid-sweep, after four successful injections, with the
+// in-flight marker still set. It happened to be harmless because the throw came
+// before any write, and "happened to be" is not a property a fault-injection
+// harness may rely on.
 const FILES = [
   `${ROOT}/scripts/golden-deals/deals.mjs`,
   `${ROOT}/src/lib/deal-calculator.js`,
   `${ROOT}/scripts/golden-deals/expectations.json`,
+  `${ROOT}/scripts/golden-deals-check`,
 ]
 const snapPath = (f) => `${SP}/snap_${f.slice(1).replace(/\//g, '_')}`
 
@@ -56,6 +64,14 @@ const run = () => {
 
 /** Replace exactly once, or refuse: an anchor that moved is how five of six failed edits failed. */
 const inject = (file, anchor, replacement) => {
+  // REFUSE RATHER THAN CRASH. A case naming a file outside FILES has no
+  // snapshot, so nothing could restore it: the sweep stops, restores what it
+  // does hold, and says which file is missing.
+  if (!original.has(file)) {
+    restoreAll(); unlinkSync(MARKER)
+    console.error(`REFUSING: ${file} is injected into but is not in FILES, so it has no snapshot.`)
+    process.exit(3)
+  }
   const src = original.get(file).toString('utf8')
   const hits = src.split(anchor).length - 1
   if (hits !== 1) { restoreAll(); unlinkSync(MARKER); console.error(`anchor x${hits} in ${file}, need 1`); process.exit(3) }
@@ -100,14 +116,56 @@ const CASES = [
     expect: (o) => /FAIL {2}G2 staging moved NOTHING at all/.test(o)
       && /FAIL {2}G2 does not stage its contractor schedule/.test(o),
   },
+  // ── THE CONFIRMATION GUARD, RE-POINTED AND WIDENED. 2026-09-29 ─────────
+  //
+  // This was ONE case anchored on `"status": "PROVISIONAL",` and flipping it to
+  // CONFIRMED. That anchor no longer exists: John confirmed the figures on
+  // 2026-09-28 and the file now says CONFIRMED legitimately.
+  //
+  // Verification 9's clause exactly: A CALIBRATION ANCHORED ON THE STATE IT
+  // WATCHES STOPS BEING CALIBRATED THE DAY THAT STATE CHANGES. Left alone it
+  // would have failed on a missing anchor, which at least refuses loudly; the
+  // worse version is an anchor that still matches something and no longer means
+  // anything.
+  //
+  // AND THE ROUND THAT SATISFIES A GUARD IS THE ROUND MOST LIKELY TO DISABLE
+  // IT. The name-and-date requirement exists because a bare hand-flip once left
+  // the suite green with its warning gone. This round performs that flip
+  // legitimately, so the refusal is re-proved rather than assumed, on BOTH
+  // fields rather than the one that happened to be tested.
   {
-    name: 'TAMPERED EXPECTATIONS: a committed figure edited by hand',
+    name: 'CONFIRMED WITHOUT A NAME: confirmedBy removed',
     file: `${ROOT}/scripts/golden-deals/expectations.json`,
-    anchor: '  "status": "PROVISIONAL",',
-    put: '  "status": "CONFIRMED",',
-    // Not a figure but the STATUS, which is the more dangerous tamper: it would
-    // silence the provisional warning on every future run.
-    expect: (o) => /FAIL  the expectations say CONFIRMED and do not say by whom or when/.test(o),
+    anchor: '  "confirmedBy": "John Fryatt",\n',
+    put: '',
+    expect: (o) => /FAIL {2}the expectations say CONFIRMED and do not say by whom or when/.test(o),
+  },
+  {
+    name: 'CONFIRMED WITHOUT A DATE: confirmedOn removed',
+    file: `${ROOT}/scripts/golden-deals/expectations.json`,
+    anchor: '  "confirmedOn": "2026-09-28",\n',
+    put: '',
+    expect: (o) => /FAIL {2}the expectations say CONFIRMED and do not say by whom or when/.test(o),
+  },
+  {
+    // The third branch of the status check, which nothing had ever exercised:
+    // a status that is neither of the two words. Without this the branch is a
+    // claim rather than a control.
+    name: 'AN UNKNOWN STATUS',
+    file: `${ROOT}/scripts/golden-deals/expectations.json`,
+    anchor: '  "status": "CONFIRMED",',
+    put: '  "status": "SIGNED OFF",',
+    expect: (o) => /FAIL {2}the expectations carry an unknown status "SIGNED OFF"/.test(o),
+  },
+  {
+    // AND THE MESSAGE ITSELF IS A CLAIM. With the status confirmed, a green run
+    // must SAY so: a suite that went quiet on confirmation would leave a reader
+    // unable to tell a checked baseline from an unchecked one.
+    name: 'THE CONFIRMED MESSAGE: the green run must state it',
+    file: `${ROOT}/scripts/golden-deals-check`,
+    anchor: "  console.log('PRICING MAY NOT MOVE WITHOUT THIS SUITE GOING RED. A change that moves any')\n",
+    put: '',
+    expect: (o) => !/PRICING MAY NOT MOVE WITHOUT THIS SUITE GOING RED/.test(o),
   },
 ]
 

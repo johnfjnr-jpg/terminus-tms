@@ -12190,3 +12190,73 @@ converted. The fourth was twenty lines from one that was, in the same function,
 and the difference between them was a single `.map`. When a ruling says "every
 reader calls this", the deliverable is an enumeration of the readers, not the
 sentence.
+
+---
+
+# THE FOUR GOLDEN DEALS ARE THE PRICING ACCEPTANCE BASELINE OF RECORD
+
+**Confirmed by John Fryatt 2026-09-28**, after reproducing all four deals by
+hand in Excel. Recorded 2026-09-29.
+
+> **The four golden deals are the pricing acceptance baseline of record. Any
+> intentional pricing change updates the goldens and requires John's
+> re-confirmation by name and date.**
+
+## What that makes the suite
+
+`scripts/golden-deals-check` pins **3651 figures** across four deals and
+compares them exactly. Before the confirmation a green run meant only that
+pricing had not moved since the figures were taken. **It now means the engine
+still agrees with a baseline a person has checked**, which is a different and
+much stronger claim, and the suite prints which of the two it is on every run
+rather than going quiet.
+
+**So a red in that stage is not a test failure to be looked at later.** It is
+one of exactly two things:
+
+- a defect, in which case the engine is wrong and the goldens are right; or
+- an intentional change, in which case the goldens are re-computed and **the
+  confirmation starts again**.
+
+There is no third reading, and in particular there is no re-blessing: the
+harness has no update flag, so moving the expectations means running
+`scripts/golden-deals/compute.mjs` deliberately, in a commit somebody reads.
+
+## The confirmation is a fact about a person, so it names one
+
+`CONFIRMED` without `confirmedBy` and `confirmedOn` is **refused**. The rule
+exists because of a measurement rather than a principle: calibrating the
+harness showed that flipping the status by hand left the suite green with its
+provisional warning simply gone, so the one line telling a reader the figures
+were unchecked could be deleted without anything objecting. Same family as a
+control that deletes its own evidence of use.
+
+**And re-running `compute.mjs` returns the status to PROVISIONAL**, dropping
+the name and date. That looks like losing a confirmation and is the safe
+reading: a recompute means the figures may have moved, and a confirmation of
+figures that may have moved is not a confirmation. Preserving it across a
+re-run would be the dangerous convenience, because the single case it would
+help is the case where it is wrong.
+
+## The rate card is part of the baseline
+
+The goldens price against a catalog **declared in the fixture, not read from
+the database**. The live catalog is a batch with an effective date and it
+moves; a baseline pinned to it would go red the first time somebody published
+a price change, and that red would say nothing about the engine. The harness
+checks the rate card FIRST, so perturbing a rate names the rate rather than
+four hundred figures.
+
+## What the baseline does not cover
+
+Stated because a baseline is exactly the kind of artefact that gets read as
+covering more than it does.
+
+- **It is the ENGINE.** Approval routing, version issuing and stage gates read
+  these figures and are not pinned here.
+- **Four deals, not the space of deals.** They were chosen to exercise the
+  branches that matter - OPEX allocation, recovery periods, hybrid milestones,
+  factoring, gross-up, both kinds of override - and a shape none of them reaches
+  is a shape this suite cannot speak for.
+- **The catalog is a fixture.** Whether the live rate card is correct is a
+  different question with a different owner.
