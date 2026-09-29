@@ -2305,7 +2305,17 @@ function renderOppPricingApprovalBanner(recordId) {
   const mayDecide = new Set(req.may_decide ?? [])
   const rows = (req.required ?? []).map((t) => {
     const d = decided.get(t)
-    const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
+    // ── R-L4: THE THREE STATES, AND THIS PANEL HOLDS THE MIDDLE ONE ─────
+    //
+    // A submitted-but-unsigned major lives here. "Awaiting approval" rather
+    // than "Waiting", so the word matches the version card's badge and the
+    // headline's absence: one vocabulary for one fact across three surfaces.
+    //
+    // ONLY THIS BANNER. `renderOppFreezeBanner` carries the identical
+    // expression and keeps "Waiting", because it is about a STAGE MOVE and not
+    // about a version. The edit tool refused the first attempt as ambiguous
+    // across the two, which is the refusal doing its job.
+    const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Awaiting approval'
     // Same authorisation marker as the stage banner, for the same reason: an
     // approver is a non-owner, and the sweep must let through exactly what the
     // server authorised and nothing else in this banner.
@@ -2324,8 +2334,8 @@ function renderOppPricingApprovalBanner(recordId) {
         <button class="btn-text appr-refresh" type="button" onclick="refreshOppRequestState('${recordId}')"
           title="Re-read this request.">Refresh</button></p>
       <p style="font-size:14px;margin:0 0 10px">
-        <strong>${escHtml(req.version_label ?? 'The submitted version')}</strong> is waiting on
-        Proposal/Pricing approval for issue.
+        <strong>${escHtml(req.version_label ?? 'The submitted version')}</strong> is awaiting
+        Proposal/Pricing approval.
         <em>The record is not frozen: work continues while this is decided.</em></p>
       <!-- ── U5: WHEN IT WAS RAISED ──────────────────────────────────────
            2026-09-04. "Waiting" with no timestamp cannot answer the only

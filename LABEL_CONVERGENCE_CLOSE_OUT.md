@@ -146,6 +146,57 @@ converted**, not the 26 and 32 an earlier draft carried - and it found
 reported `anchor not found` on an indentation mismatch and I had not gone back
 to it. Now converted.
 
+### C1. The Approved Version empty state renders "None", not blank
+
+**No fix needed.** `oppHeadlineFigure('Approved version', opp.approved_version ?? null, { absent: 'None' })`
+renders the word through the estate's absent treatment, and it is read on screen
+at both widths: **`APPROVED VERSION  None`**, italic, in the dimmed absent style
+rather than an empty cell.
+
+That was the ruling's own point at P5's close: a blank there reads as a figure
+that failed to load, and "None" reads as a deal with nothing approved.
+
+### C2. A promoted, unsigned major reads "Awaiting approval" in the Approvals panel
+
+**DRIVEN, 12 of 12 at 1920 and 1240. The G2 run did NOT cover this**, so it was
+not cited: G2 proved the derivation and the headline field, and the Approvals
+panel is a different surface.
+
+A real pricing approval was raised against a promoted V1.0 with nothing decided:
+
+```
+PRICING APPROVAL REQUESTED
+V1.0 is awaiting Proposal/Pricing approval.
+  Commercial   Awaiting approval
+  Legal        Awaiting approval
+  Technical    Awaiting approval
+
+APPROVED VERSION   None          <- the same record, the same load
+WORKING VERSION    V1.0
+```
+
+**Both halves asserted in one load**, because "Awaiting approval appears
+somewhere" is satisfied by a panel that always says it.
+
+**AND C2 FOUND TWO THINGS THE SWEEP HAD MISSED.**
+
+1. **The banner still read "waiting on Proposal/Pricing approval FOR ISSUE".**
+   The census is LINE-BASED and that string is split across two lines, with
+   `for issue.` on a line that starts with no quote character. **A line-based
+   search cannot see a string wrapped across a line break** - Verification 17's
+   own clause, which this estate recorded after a retained sentence returned 0
+   the same way. It now reads "is awaiting Proposal/Pricing approval."
+2. **The track state word was "Waiting".** Correct English and the wrong
+   vocabulary: the version card says "awaiting approval" and the headline says
+   "None", so a third word for the same fact made three surfaces sound like
+   three states. Now "Awaiting approval" on all three.
+
+**AND ONLY THAT BANNER.** `renderOppFreezeBanner` carries the identical
+expression and KEEPS "Waiting", because it is about a stage move rather than a
+version. **The edit tool refused the first attempt as ambiguous across the two**,
+which is the refusal doing its job: an unqualified change would have reworded a
+banner R-L4 does not govern.
+
 ### G5. Screenshots
 
 Four images, both changed sites at both widths, copied to the OneDrive test log
