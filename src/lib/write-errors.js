@@ -61,7 +61,7 @@ export function isRefusal(error) {
  */
 const UNIQUE_MESSAGES = {
   deal_sheet_versions_record_id_major_minor_key:
-    'A version with that number has already been issued. Reload the record to see the current versions.',
+    'A version with that number already exists. Reload the record to see the current versions.',
 };
 
 export const DUPLICATE_STATUS = 409;

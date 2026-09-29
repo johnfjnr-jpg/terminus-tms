@@ -2310,6 +2310,15 @@ opened it. -->
   const { canEditRecord, createViewOwners } = await import('/lib/ownership.js')
   window.canEditRecord = canEditRecord
   window.createViewOwners = createViewOwners
+
+  // ── R-VL4: THE ONE VERSION-LABEL COMPOSER, published the same way ──────
+  //
+  // app.js is a classic script and cannot import, and R-VL4 requires every
+  // label on screen to come from one place. Published here rather than
+  // reimplemented there, which is what four separate copies of the rule came
+  // from in the first place.
+  const { versionLabel } = await import('/lib/version-label.js')
+  window.versionLabel = versionLabel
 </script>
 <!-- ── RETIRED, Round 6 Phase R ────────────────────────────────
      frontend/opportunity-deal.js is DELETED. The commented tag that used to

@@ -177,12 +177,25 @@ export function issueView(all: DealVersion[]): IssueView {
   return {
     target,
     disabled: !target,
-    label: target ? `Issue ${versionLabel(target)} as V${nextMajor}` : 'Save a new version to issue',
+    // ── R-L4: THREE STATES ON SCREEN, ONE DB WORD UNCHANGED ─────────────
+    //
+    // John's ruling 2026-09-29. "Issued" is reserved for the FUTURE logged
+    // customer-send event, so no user-facing string uses it for either current
+    // event. The promotion control's copy is his: "Submit V<draft> as
+    // V<major>.0 for approval".
+    //
+    // `V${nextMajor}` became the composer, because the promoted version is a
+    // real version and the reader must see the same format everywhere (R-VL4).
+    label: target
+      ? `Submit ${versionLabel(target)} as ${versionLabel({ major: nextMajor, minor: 0 })} for approval`
+      : 'Save a new version to submit',
     title: target
-      ? `Issues ${versionLabel(target)} as V${nextMajor}. Earlier drafts can be restored, not issued.`
+      ? `Submits ${versionLabel(target)} as ${versionLabel({ major: nextMajor, minor: 0 })} for approval. `
+        + 'Earlier drafts can be restored, not submitted.'
       : issued
-        ? `V${highestIssued} is issued and there is no newer draft. Save the current pricing as a version, `
-          + 'then issue it. Saving the record alone does not create a version.'
+        ? `${versionLabel({ major: highestIssued, minor: 0 })} is awaiting approval and there is no newer `
+          + 'draft. Save the current pricing as a version, then submit it. Saving the record alone does '
+          + 'not create a version.'
         : 'Save a version first. Saving the record alone does not create one.',
     nextMajor,
     highestIssued,
@@ -214,23 +227,24 @@ export function askView(
   }
   if (!issued) {
     return { ...base, disabled: true,
-      title: 'Issue a major version first: an approval is held against an issued version.',
-      state: 'Issue a version before requesting approval.' }
+      title: 'Submit a major version first: an approval is held against a submitted version.',
+      state: 'Submit a version before requesting approval.' }
   }
+  const majorLabel = versionLabel({ major: highestIssued, minor: 0 })
   if (issued.approval?.state === 'approved') {
     return { ...base, disabled: true,
-      title: `V${highestIssued} is already approved. Issue a new major version if the price has changed.`,
-      state: `V${highestIssued} is already approved.` }
+      title: `${majorLabel} is already approved. Submit a new major version if the price has changed.`,
+      state: `${majorLabel} is already approved.` }
   }
   if (draft) {
     return { ...base, disabled: true,
-      title: `${versionLabel(draft)} is a draft newer than V${highestIssued}. `
-        + 'Issue it, then ask for approval of the version people will be looking at.',
-      state: `${versionLabel(draft)} is a draft. Issue it before requesting approval, `
-        + `or the approval would be of V${highestIssued} and not of the price on screen.` }
+      title: `${versionLabel(draft)} is a draft newer than ${majorLabel}. `
+        + 'Submit it, then ask for approval of the version people will be looking at.',
+      state: `${versionLabel(draft)} is a draft. Submit it before requesting approval, `
+        + `or the approval would be of ${majorLabel} and not of the price on screen.` }
   }
   return { ...base, disabled: false, askFor: issued,
-    title: `Ask Commercial, Technical and Legal to approve V${highestIssued} for issue.`,
+    title: `Ask Commercial, Technical and Legal to approve ${majorLabel}.`,
     state: '' }
 }
 

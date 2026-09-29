@@ -116,7 +116,10 @@ describe('W: the row', () => {
     await mount({ versions: [aVersion({ major: 2, minor: 0, status: 'issued' }), aVersion({ major: 2, minor: 1 })] })
     expect(rows()).toHaveLength(2)
     expect(rows()[0].textContent).toContain('V2')
-    expect(rows()[0].textContent).toContain('issued')
+    // R-L4: the badge shows one of three states and never the DB word. This
+    // row is promoted with no approvals, so it is AWAITING approval.
+    expect(rows()[0].textContent).toContain('awaiting approval')
+    expect(rows()[0].textContent).not.toContain('issued')
     expect(rows()[1].textContent).toContain('V2.1')
     expect(rows()[1].textContent).toContain('draft')
   })
@@ -240,7 +243,7 @@ describe('I: the issue control', () => {
       aVersion({ major: 3, minor: 0, status: 'issued' }),
       aVersion({ major: 2, minor: 1, status: 'draft' })] })
     expect((must('btn-issue-version') as HTMLButtonElement).disabled).toBe(true)
-    expect(must('btn-issue-version').textContent).toBe('Save a new version to issue')
+    expect(must('btn-issue-version').textContent).toBe('Save a new version to submit')
   })
 
   test('I2/I3: a draft AT the issued major is the target, and the label names both', async () => {
@@ -249,7 +252,9 @@ describe('I: the issue control', () => {
       aVersion({ major: 3, minor: 0, status: 'issued' })] })
     const btn = must('btn-issue-version') as HTMLButtonElement
     expect(btn.disabled).toBe(false)
-    expect(btn.textContent).toBe('Issue V3.1 as V4')
+    // R-L4 copy and R-VL4 format together: John's ruled wording, and the
+    // promoted major printed with its minor like every other label.
+    expect(btn.textContent).toBe('Submit V3.1 as V4.0 for approval')
   })
 
   test('I4: the two empty titles say different things', async () => {
@@ -358,7 +363,7 @@ describe('P: the pricing-approval control, against the reporter interface', () =
   test('with nothing issued it says to issue first', async () => {
     await mount({ versions: [aVersion()] })
     expect((must('btn-request-pricing-approval') as HTMLButtonElement).disabled).toBe(true)
-    expect(must('pricing-approval-state').textContent).toBe('Issue a version before requesting approval.')
+    expect(must('pricing-approval-state').textContent).toBe('Submit a version before requesting approval.')
   })
 
   test('an issued version with a NEWER draft refuses, and says why it would be wrong', async () => {
@@ -372,7 +377,7 @@ describe('P: the pricing-approval control, against the reporter interface', () =
   test('an already-approved version says so and does not offer to ask again', async () => {
     await mount({ versions: [aVersion({ major: 2, minor: 0, status: 'issued', approval: 'approved' })] })
     expect((must('btn-request-pricing-approval') as HTMLButtonElement).disabled).toBe(true)
-    expect(must('pricing-approval-state').textContent).toBe('V2 is already approved.')
+    expect(must('pricing-approval-state').textContent).toBe('V2.0 is already approved.')
   })
 
   test('and an issued version with nothing in the way CAN be asked for', async () => {

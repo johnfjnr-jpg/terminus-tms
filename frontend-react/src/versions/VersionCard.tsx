@@ -208,8 +208,22 @@ export function VersionCard({
                 <div style={{ minWidth: 0 }}>
                   <div className="ds-label">{versionLabel(v)}
                     {' '}
+                    {/* ── R-L4: THREE STATES ON SCREEN, ONE DB WORD ────────
+                        John's ruling 2026-09-29. The DB still stores `issued`
+                        and nothing about that changes; what a person reads does.
+
+                        A promoted version is AWAITING APPROVAL until every
+                        track has signed, and APPROVED once they have. The word
+                        "issued" is reserved for the future logged
+                        customer-send event, so it appears nowhere on screen.
+
+                        The approval state comes from the row the server already
+                        sends, which `approvalLine` below reads for its own
+                        sentence, so the badge and the line cannot disagree. */}
                     <span className="pg-item-note" style={{ display: 'inline' }}>
-                      {v.status === 'issued' ? 'issued' : 'draft'}
+                      {v.status !== 'issued'
+                        ? 'draft'
+                        : v.approval?.state === 'approved' ? 'approved' : 'awaiting approval'}
                     </span>
                   </div>
                   <div className="pg-item-note">{v.reason}</div>
@@ -259,7 +273,7 @@ export function VersionCard({
               is about; one that stays and says why is not. */}
           <button type="button" id="btn-issue-version" className="btn-secondary"
             disabled={issue.disabled || issuing} title={issue.title}
-            onClick={() => { void doIssue() }}>{issuing ? 'Issuing...' : issue.label}</button>
+            onClick={() => { void doIssue() }}>{issuing ? 'Submitting...' : issue.label}</button>
           <button type="button" id="btn-request-pricing-approval"
             className={`btn-secondary${ask.hidden ? ' hidden' : ''}`}
             disabled={asking || ask.disabled} title={ask.title}

@@ -131,7 +131,10 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   const NON_PRICING = { duration: 60, targetMargin: 30, estCloseDate: '2026-12-01' }
 
   assert.equal(issuedProposal([], SAME).ok, false)
-  assert.match(issuedProposal([], SAME).reason, /No Deal Sheet version has been issued/)
+  // R-L4: "issued" is reserved for the future customer-send event, so no
+  // user-facing string uses it for either current event. The claim is
+  // unchanged: the gate refuses when no version has been put up for approval.
+  assert.match(issuedProposal([], SAME).reason, /No Deal Sheet version has been submitted for approval/)
 
   // A version with a NULL revision_number is not an issued proposal. That is the
   // exact row that made walk finding 3 unfixable on the record it sat on.
@@ -185,8 +188,11 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   assert.match(moved.reason, /Changes since last major version: Contract duration \(months\)\./,
     'the changed item is not named in BUSINESS terms')
   assert.ok(!/duration[,.]/.test(moved.reason), 'a raw key leaked into the sentence')
-  assert.match(moved.reason, /Issue major version for Proposal stage exit\./,
-    'W-K\'s property is lost: the sentence no longer says it must be ISSUED')
+  // R-L4 re-point. W-K's property is that the sentence says a MAJOR VERSION is
+  // required for the stage exit, and that is unchanged; only the verb moved,
+  // because "issue" is reserved for the customer-send event.
+  assert.match(moved.reason, /Submit a major version for approval for Proposal stage exit\./,
+    'W-K\'s property is lost: the sentence no longer says a major version is required')
   assert.equal(moved.notice, true, 'a precondition doing its job is not an error')
 
   // ── THE CALIBRATION THAT MAKES THE RULE A RULE ─────────────────────────
@@ -222,8 +228,8 @@ test('Proposal to Evaluation wants an ISSUED version and nothing since', () => {
   assert.equal(issuedProposal(withDraft, SAME).ok, false)
   // W-K rewrote this sentence too, and for the same reason: "unissued draft"
   // named a STATE where the person needed an ACT.
-  assert.match(issuedProposal(withDraft, SAME).reason, /draft version that has not been issued/)
-  assert.match(issuedProposal(withDraft, SAME).reason, /Issue it, or discard it/)
+  assert.match(issuedProposal(withDraft, SAME).reason, /draft version that has not been submitted/)
+  assert.match(issuedProposal(withDraft, SAME).reason, /Submit it, or discard it/)
 
   // ── A STRANDED DRAFT IS NOT A NEWER DRAFT ──────────────────────────────
   //
@@ -288,7 +294,8 @@ test('the raise route drops the approvals it COLLECTS, and keeps the ones it CHE
   // The two refusals are now a ternary, so the literals are asserted alone
   // rather than with the `error:` key they no longer sit beside.
   assert.match(ROUTES, /'This transition is not ready to be requested\.'/)
-  assert.match(ROUTES, /'The current pricing version is not approved for issue yet\.'/,
+  // R-L4 re-point: "approved for issue" became "approved".
+  assert.match(ROUTES, /'The current pricing version is not approved yet\.'/,
     'the version-gate refusal does not say what is wrong')
   assert.match(ROUTES, /blocking,/)
   // FILTERED ON THE BLOCKER'S OWN SCOPE, not on a stage list. A stage list here
@@ -415,7 +422,10 @@ test('the panel says which VERSION a from-Proposal sign-off is held against', ()
   // claim is unchanged - the panel names WHICH version, read off the evaluator
   // the gate uses - and the label now comes from the one composer.
   assert.match(r, /version_label: versionLabel\(versionApproval\?\.version\)/)
-  assert.match(app, /Proposal\/Pricing approved for issue/, 'the ruled label is missing')
+  // R-L4: the ruled label lost its "for issue" tail, because the word is
+  // reserved for the customer-send event. The claim - that the track row says
+  // WHICH gate it is about - is unchanged.
+  assert.match(app, /Proposal\/Pricing approved/, 'the ruled label is missing')
   assert.match(app, /const versionScoped = t\.scope === 'version'/)
   // A version-scoped track must not offer the pre-workflow approve control: it
   // would record against a model this track is not under.
@@ -1325,9 +1335,9 @@ test('the issue control targets a draft NEWER than the last issue, and says so w
     'the route still accepts a stranded draft')
   // THE EMPTY STATE IS A REAL STATE and names the act that fixes it, because a
   // SAVE does not create a draft and nothing else on the screen says so.
-  assert.match(app, /'Save a new version to issue'/, 'the empty control does not say what to do')
+  assert.match(app, /'Save a new version to submit'/, 'the empty control does not say what to do')
   assert.ok(!/'Issue latest draft'/.test(app), 'the old empty label survives')
-  assert.match(route, /There is no draft newer than the last issued version/,
+  assert.match(route, /There is no draft newer than the last submitted version/,
     'the route has no sentence for the empty case')
   // Two refusals, because a stranded draft and a superseded one need different acts.
   assert.match(route, /const stranded = version\.major < highestIssued/,

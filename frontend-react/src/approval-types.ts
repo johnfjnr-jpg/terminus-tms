@@ -48,6 +48,10 @@ export interface Ask {
   staleBasisWarning: string | null
   ageingBasisNote: string | null
   unpricedWarning: string | null
+  /* H1, John 2026-09-29, AND THIS ONE HAS A READER, unlike the three above:
+     `AskBlock` renders it in the --attention token when the deal has moved
+     since the version under approval, and null when it has not. */
+  movedSinceVersion: string | null
 }
 
 export interface BridgeChange { key: string; from: unknown; to: unknown }

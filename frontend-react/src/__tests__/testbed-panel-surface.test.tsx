@@ -126,7 +126,7 @@ describe('A: the shared track list, rendered', () => {
     const p = list({ stage: { ...ST, tracks: [
       { track: 'Commercial', approved: true, scope: 'version', version_label: 'v3.0', decided_at: '2026-02-02' }] } })
     expect(q('tracks-Commercial')?.textContent).toContain('v3.0')
-    expect(q('tracks-Commercial')?.textContent).toContain('Proposal/Pricing approved for issue')
+    expect(q('tracks-Commercial')?.textContent).toContain('Proposal/Pricing approved')
     await click('tracks-Commercial')
     expect(p.onApprove, 'a version-scoped row sent somebody to the wrong route')
       .not.toHaveBeenCalled()

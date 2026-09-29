@@ -692,7 +692,7 @@ export default async function dealSheetVersionsRoutes(app) {
             + 'not the next version. Restore it if you want its pricing back, then save that as a new draft.'
           : drafts?.length
             ? `${versionLabel(drafts[0])} is the newest draft, so it is the one that can be submitted for approval.`
-            : 'There is no draft newer than the last issued version. Save the current pricing as a version first.',
+            : 'There is no draft newer than the last submitted version. Save the current pricing as a version first.',
       })
     }
 
@@ -720,7 +720,7 @@ export default async function dealSheetVersionsRoutes(app) {
     // An update refused by RLS returns success with an empty set rather than an
     // error, which is the Verification 8 shape. The row count is the signal.
     if (!updated?.length) {
-      return reply.code(409).send({ error: 'This version could not be issued. It may already have been issued.' })
+      return reply.code(409).send({ error: 'This version could not be submitted. It may already have been submitted for approval.' })
     }
 
     // ── W-J: THE CRITERION IS SATISFIED HERE AND NOWHERE ELSE ─────────────

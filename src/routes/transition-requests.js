@@ -196,7 +196,7 @@ export default async function transitionRequestRoutes(app) {
     if (kind === 'review') {
       if (!bodyVersionId || typeof bodyVersionId !== 'string') {
         return reply.code(400).send({
-          error: 'version_id is required: a pricing approval is requested against a specific issued version.',
+          error: 'version_id is required: a pricing approval is requested against a specific submitted version.',
         })
       }
       const { data: ver, error: verErr } = await db
@@ -210,7 +210,7 @@ export default async function transitionRequestRoutes(app) {
       if (ver.status !== 'issued') {
         return reply.code(409).send({
           error: `${versionLabel(ver)} is a draft. Submit it for approval first: `
-            + 'an approval is held against an issued major version.',
+            + 'an approval is held against a submitted major version.',
         })
       }
       // One open pricing-approval request at a time, per version, or approvers
@@ -317,7 +317,7 @@ export default async function transitionRequestRoutes(app) {
         const unapproved = blocking.some((b) => b.requirement_type === 'approval_obtained')
         return reply.code(409).send({
           error: unapproved
-            ? 'The current pricing version is not approved for issue yet.'
+            ? 'The current pricing version is not approved yet.'
             : 'This transition is not ready to be requested.',
           blocking,
         })

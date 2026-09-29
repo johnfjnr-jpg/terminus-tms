@@ -1335,13 +1335,15 @@ function refreshOppNextStageButton() {
       // is a different act from something issued and not yet signed off.
       const nothingIssued = !Number.isInteger(oppIssuedMajor)
       btn.title = nothingIssued
-        ? 'Issue a major pricing version and get it approved before requesting this move'
-        : `V${oppIssuedMajor} is not approved yet on ${unapproved.map((t) => t.track).join(', ')}`
+        ? 'Submit a major pricing version for approval before requesting this move'
+        // R-VL4: the ONE composer, so the banner and the ladder name a version
+        // the same way. An approved major is always x.0.
+        : `${versionLabel({ major: oppIssuedMajor, minor: 0 })} is not approved yet on ${unapproved.map((t) => t.track).join(', ')}`
       const why = document.getElementById('opp-next-stage-why')
       if (why) {
         why.textContent = nothingIssued
-          ? 'Issue and get the pricing version approved first.'
-          : `V${oppIssuedMajor} is waiting on ${unapproved.map((t) => t.track).join(', ')}.`
+          ? 'Submit the pricing version for approval first.'
+          : `${versionLabel({ major: oppIssuedMajor, minor: 0 })} is waiting on ${unapproved.map((t) => t.track).join(', ')}.`
       }
       return
     }
@@ -1394,9 +1396,9 @@ function renderOppRejectedBanner() {
     el.innerHTML = `<div class="rejected-banner">`
       + `<p class="label" style="margin-bottom:6px">Rejected</p>`
       + `<p style="font-size:14px;margin:0 0 8px">`
-      + `<strong>${escHtml(versionRejection.label)}</strong> is the current issued version and it was `
+      + `<strong>${escHtml(versionRejection.label)}</strong> is the current submitted version and it was `
       + `rejected${versionRejection.decidedAt ? ' on ' + escHtml(formatDateTime(versionRejection.decidedAt)) : ''}.</p>`
-      + `<p class="sa-approval-meta" style="margin:0">Issue a new major version with the point `
+      + `<p class="sa-approval-meta" style="margin:0">Submit a new major version with the point `
       + `addressed, then ask for approval of that.</p></div>`
     return
   }
@@ -1417,7 +1419,7 @@ function renderOppRejectedBanner() {
     + `<p class="sa-approval-meta" style="margin:0">`
     + (req.kind === 'transition'
       ? 'The request is closed and the record is editable again. Raise a new one when the point is addressed.'
-      : 'The request is closed. Issue a new major version or raise a new approval when the point is addressed.')
+      : 'The request is closed. Submit a new major version for approval, or raise a new approval, when the point is addressed.')
     + `</p></div>`
 }
 
@@ -2322,7 +2324,7 @@ function renderOppPricingApprovalBanner(recordId) {
         <button class="btn-text appr-refresh" type="button" onclick="refreshOppRequestState('${recordId}')"
           title="Re-read this request.">Refresh</button></p>
       <p style="font-size:14px;margin:0 0 10px">
-        <strong>${escHtml(req.version_label ?? 'The issued version')}</strong> is waiting on
+        <strong>${escHtml(req.version_label ?? 'The submitted version')}</strong> is waiting on
         Proposal/Pricing approval for issue.
         <em>The record is not frozen: work continues while this is decided.</em></p>
       <!-- ── U5: WHEN IT WAS RAISED ──────────────────────────────────────
@@ -8047,14 +8049,14 @@ function buildStageTrackListHtml(recordId, st, recordType) {
     const meta = versionScoped
       ? (t.approved
         ? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${escHtml(st.stage_name)}`
-        : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved for issue yet`))
+        : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved yet`))
       : t.approved
         ? `Approved ${formatDate(t.decided_at)}`
         : superseded ? 'Decided on the transition request'
         : (st.state === 'current' ? 'Click to approve' : 'Not yet at this stage')
     // RULED LABEL from Proposal onward.
     const roleLabel = versionScoped
-      ? `${escHtml(t.track)} · Proposal/Pricing approved for issue`
+      ? `${escHtml(t.track)} · Proposal/Pricing approved`
       : escHtml(t.track)
     return `
     <div class="sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}" ${onclick}>

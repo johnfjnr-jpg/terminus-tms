@@ -904,3 +904,49 @@ test('as_of has a stated rule and it is on the page', () => {
   assert.match(page.costBasis.asOfRule, /nothing in the application sets it/)
   assert.equal(page.costBasis.asOf, CATALOG.asOf)
 })
+
+/* ── H1: THE DEAL HAS MOVED SINCE THE VERSION BEING APPROVED ─────────────
+   John's ruling 2026-09-29. One line, in the --attention token, naming the
+   version, and NO LINE when there is nothing to say.
+
+   Both directions are asserted here because a line that always shows is
+   satisfied by the same test as a line that shows correctly (Verification 9),
+   and because the silent direction is the one nobody calibrates. */
+test('H1: SILENT when the deal has not moved since the version', () => {
+  // VERSION.inputs IS `NOW`, so the snapshot and the record are the same deal.
+  const page = buildApprovalPage({
+    payload: NOW, testBedCost: 25000, version: VERSION, catalog: CATALOG,
+  })
+  assert.equal(page.ask.movedSinceVersion, null,
+    'a line appeared on a deal that has not moved, which would teach an approver to ignore it')
+})
+
+test('H1: FIRES when a pricing input has moved, and names the version', () => {
+  const moved = { ...NOW, targetMargin: Number(NOW.targetMargin ?? 30) + 7 }
+  const page = buildApprovalPage({
+    payload: moved, testBedCost: 25000, version: VERSION, catalog: CATALOG,
+  })
+  assert.ok(page.ask.movedSinceVersion, 'the deal moved and the line did not appear')
+  // IT NAMES THE VERSION, because "this deal has changed" invites the question
+  // the line exists to answer: changed since what.
+  assert.match(page.ask.movedSinceVersion, /V0\.3/,
+    'the line does not name the version being approved')
+  assert.match(page.ask.movedSinceVersion, /approving the version/i,
+    'the line does not say which of the two prices is being approved')
+})
+
+test('H1: SILENT when the two cannot be compared at all', () => {
+  // A version carrying no snapshot is a DIFFERENT statement, and the bridge's
+  // own caveat already makes it in more detail. Two voices on one fact is what
+  // this avoids.
+  const page = buildApprovalPage({
+    payload: NOW, testBedCost: 25000,
+    version: { ...VERSION, inputs: null }, catalog: CATALOG,
+  })
+  assert.equal(page.ask.movedSinceVersion, null)
+})
+
+test('H1: SILENT when there is no version to have moved from', () => {
+  const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: null, catalog: CATALOG })
+  assert.equal(page.ask.movedSinceVersion, null)
+})

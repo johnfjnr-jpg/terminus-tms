@@ -41,6 +41,8 @@ import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
 // P6: the ONE version-label source, in place of the two copies this file held.
 import { versionLabel as sharedVersionLabel } from './version-label.js';
+// H1: the same comparison the approval gate and the Working Version field use.
+import { pricingChanged } from './version-pricing.js';
 import { frozenTermsSentences } from './system-defaults.js';
 // The bands, the thresholds and the words all live in one place, because the
 // Commercials reference panel shows a salesperson the same thing earlier.
@@ -942,6 +944,35 @@ export function buildApprovalPage({
         + 'with no current Base Cost batch. Those units price at ZERO cost, so the margin above is '
         + 'higher than the deal will achieve. Enter the missing costs before approving.'
       : null,
+    // ── H1: THE DEAL HAS MOVED SINCE THE VERSION BEING APPROVED ─────────
+    //
+    // Ruled by John 2026-09-29. ONE LINE, and only when there is something to
+    // say: an approver is signing a SNAPSHOT, and if the deal on screen has
+    // moved since that snapshot was taken, the thing they approve is not the
+    // thing the salesperson is now working on.
+    //
+    // `pricingChanged` IS THE SEMANTICS, not a fresh comparison. It is what the
+    // approval gate reads to decide whether an approval is superseded and what
+    // the Working Version field reads to say "Under Edit", so all three agree
+    // by construction rather than by three people being careful.
+    //
+    // NULL WHEN EQUAL, and null when the two cannot be compared. An
+    // incomparable pair is a DIFFERENT statement - the version carries no
+    // snapshot - and the bridge's own caveat already makes it, in more detail
+    // and in the right place. Saying "it may have moved" here as well would be
+    // a second voice on one fact.
+    //
+    // IT NAMES THE VERSION, because "this deal has changed" invites the
+    // question this line exists to answer: changed since WHAT.
+    movedSinceVersion: (() => {
+      if (!version) return null;
+      const moved = pricingChanged(version.inputs, payload);
+      if (!moved.comparable || !moved.changed) return null;
+      const n = moved.keys?.length ?? 0;
+      return `The deal has changed since ${versionLabel} was taken`
+        + (n ? ` (${n} pricing input${n === 1 ? '' : 's'} moved)` : '')
+        + '. You are approving the version, not the pricing now on the Commercials tab.';
+    })(),
   };
 
   // ── 2. WHAT MOVED IT ──────────────────────────────────────────────────
