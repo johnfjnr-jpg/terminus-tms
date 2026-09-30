@@ -20,7 +20,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useShell } from '../ShellContext'
 import { Modal, ModalClose } from '../ui/Modal'
 // R7: the one formatter, replacing a raw ISO render.
-import { formatTimestamp } from '../../../src/lib/format-dates.js'
+import { formatDate } from '../../../src/lib/format-dates.js'
 
 export interface KcVocabItem { id: string, name: string }
 
@@ -304,7 +304,11 @@ export function KeyContacts({ oppId, accountId, links, onChanged }: {
                   onClick={() => { void record(l.id) }}>Save</button>
                </div>
               </td>
-              <td>{formatTimestamp(l.linked_at) || '--'}</td>
+              {/* W-TL2: the DATE, with no time. `formatTimestamp` returns
+                  dd/mm/yyyy HH:MM:SS, and the second a contact was linked is
+                  not a fact anybody reads in a table of who is on the deal.
+                  `formatTimestamp` stays for the callers that do want a time. */}
+              <td>{formatDate(l.linked_at) || '--'}</td>
               <td>
                 {/* K3: THE x ASKS FIRST. It used to remove on a single click.
                     Measured before it was changed, per Verification 52: one
