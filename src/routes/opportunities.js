@@ -769,6 +769,36 @@ export default async function opportunitiesRoutes(app) {
         }
       }
     }
+    // ── R-TL2, SERVER SIDE: ONE ROW MAY NOT STORE BOTH ────────────────────
+    //
+    // John's ruling 2026-09-30. The client clears the loser on entry; this is
+    // what stops the pair ever being written, by any caller, and what cleans the
+    // one record that already carries it.
+    //
+    // THE MARGIN IS DROPPED, NOT THE FEE, and not refused. The fee already wins
+    // pricing under R-O7, so the margin beside it is INERT: dropping it changes
+    // no figure, and refusing the save would reject a payload that prices
+    // exactly as the record already does. The margin is the value that says
+    // something untrue, so the margin is the one that goes.
+    //
+    // DROPPED RATHER THAN 400, deliberately. A refusal here would make an
+    // existing record unsaveable until somebody cleared a cell they cannot see
+    // the significance of - `TT-SGP-MANUFI-004` is exactly that record.
+    if (payload.opexUnitFees && typeof payload.opexUnitFees === 'object'
+      && payload.opexUnitMargins && typeof payload.opexUnitMargins === 'object') {
+      const live = (v) => v !== null && v !== undefined && v !== ''
+      const dropped = []
+      for (const key of Object.keys(payload.opexUnitMargins)) {
+        if (live(payload.opexUnitFees[key]) && live(payload.opexUnitMargins[key])) dropped.push(key)
+      }
+      if (dropped.length) {
+        payload.opexUnitMargins = { ...payload.opexUnitMargins }
+        for (const key of dropped) delete payload.opexUnitMargins[key]
+        request.log.info({ record: request.params.id, dropped },
+          'R-TL2: dropped an inert OPEX margin from a row that also stores a fee')
+      }
+    }
+
     // milestones/contractorMilestones: month is a real count (integer),
     // ── R-N1: A MILESTONE IS A MONTH AND A PERCENTAGE ─────────────────────
     //
