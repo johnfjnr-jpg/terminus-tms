@@ -43,10 +43,25 @@ const fee = (n: number | null) => (n === null || !Number.isFinite(n)
 const pct = (n: number | null) => (n === null || !Number.isFinite(n)
   ? '' : String(Math.round(n * 10) / 10))
 
-export function OpexTable({ rows, values, onValue }: {
+/**
+ * ── R-RS2: IS THERE ANYTHING TO RESET? ──────────────────────────────────
+ *
+ * At least one row storing a fee or a margin. Exported so the test and the
+ * panel ask the same question rather than two that agree today.
+ */
+export function hasOpexOverrides(values: Record<string, string | undefined>): boolean {
+  return OPEX_FEE_KEYS.some((k) =>
+    (values[`deal-opexfee-${k}`] ?? '') !== '' || (values[`deal-opexmargin-${k}`] ?? '') !== '')
+}
+
+export function OpexTable({ rows, values, onValue, onReset, targetMargin }: {
   rows: OpexRow[]
   values: Record<string, string | undefined>
   onValue(id: string, v: string): void
+  /** R-RS3: clears both OPEX keys on every row, in one form update. */
+  onReset?(): void
+  /** R-RS1: the deal's own target margin, for the label. */
+  targetMargin?: string
 }): ReactNode {
   const cell = (id: string, shown: string, stored: string) => {
     // THE SIGNAL IS THE ONE THE ESTATE ALREADY USES, and it needs something to
@@ -61,7 +76,8 @@ export function OpexTable({ rows, values, onValue }: {
     )
   }
   return (
-    <table className="opex-table" id="deal-opex-table" data-testid="deal-opex-table">
+    <>
+      <table className="opex-table" id="deal-opex-table" data-testid="deal-opex-table">
       <thead>
         <tr>
           <th></th><th># of Units</th><th>Monthly Fee</th><th>Margin %</th><th>Contract Total</th>
@@ -107,6 +123,33 @@ export function OpexTable({ rows, values, onValue }: {
           )
         })}
       </tbody>
-    </table>
+      </table>
+      {/* ── R-RS1 and R-RS2: THE RESET, EXACTLY AS THE MOCKUP DRAWS IT ────
+          John's rulings 2026-09-30, built to `prototypes/opex-reset/`.
+
+          BELOW THE TABLE'S CLOSING RULE, RIGHT-ALIGNED. Both are read off the
+          approved picture rather than chosen here.
+
+          ABSENT, NOT DISABLED, when there is nothing to reset. The no-overrides
+          mockup shows the rule and then the card ending, so there is no
+          placeholder, no reserved row and no greyed twin - which also keeps it
+          out of the door's way, since a control that is not there cannot be
+          mistakenly left enabled on somebody else's record.
+
+          `.btn-sm` IS THE ESTATE'S OUTLINE DRESS, the class the Key Customer
+          Contacts Add button wears, and it is what upper-cases the label. The
+          markup carries sentence case so the shouting is the stylesheet's
+          decision and not a string nobody can change. */}
+      {onReset && hasOpexOverrides(values) ? (
+        <div className="opex-reset-row">
+          <button type="button" className="btn-sm" data-testid="deal-opex-reset"
+            id="deal-opex-reset" onClick={onReset}>
+            <span data-testid="deal-opex-reset-icon" className="opex-reset-icon"
+              aria-hidden="true">&#8635;</span>
+            {` Reset to target margin (${targetMargin ?? ''}%)`}
+          </button>
+        </div>
+      ) : null}
+    </>
   )
 }

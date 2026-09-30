@@ -31,6 +31,8 @@ import { CURRENCY_OPTIONS } from './currencies'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
 import { PaymentTermsSection } from './section5'
 import { OpexTable } from './OpexTable'
+// R-RS3: the three OPEX rows, from the module that defines them.
+import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
 import { opexRows } from '../../../src/lib/opex.js'
 import { IntakeSection } from './intake'
 import { StructuralTermsSection, CashFlowSection } from './section36'
@@ -632,7 +634,28 @@ export function DealPanel({
             // and the sheet cannot disagree about what this deal charges.
             opex={<OpexTable
               rows={result ? opexRows(result, payload, resolvedRates) : []}
-              values={values} onValue={setValue} />}
+              values={values} onValue={setValue}
+              targetMargin={values['deal-targetMargin'] ?? ''}
+              // ── R-RS3: ONE FORM UPDATE, NOT SIX ───────────────────────
+              //
+              // Clearing through `setValue` per key would work and would be
+              // six renders, each recomputing the whole deal, and each an
+              // intermediate state where some rows had reset and others had
+              // not. `setValues` puts the form in the reset state in one step.
+              //
+              // UNIT COUNTS ARE UNTOUCHED, which is the ruling and is also why
+              // this spreads the existing values rather than building a new
+              // map: everything not named here survives by construction.
+              //
+              // NO DIALOG. The sticky Save/Discard bar already governs, and
+              // Discard restores the overrides because the form goes dirty
+              // rather than the record being written.
+              onReset={() => setValues({
+                ...values,
+                ...Object.fromEntries(OPEX_FEE_KEYS.flatMap((k) => [
+                  [`deal-opexfee-${k}`, ''], [`deal-opexmargin-${k}`, ''],
+                ])),
+              })} />}
             renderField={renderField}
             milestoneGrid={
               <MilestoneGrid rows={MILESTONE_INPUTS} values={values}

@@ -7301,6 +7301,21 @@ textarea::placeholder { color: var(--muted); }
    THE HORIZONTAL PADDING IS THE ESTATE'S 12px ON BOTH SIDES. Measured after
    the change rather than reasoned: the table is sized to its content and the
    probe asserts it does not overflow its panel at 1440 or 1240. */
+/* ── R-RS1: THE OPEX RESET SITS BELOW THE TABLE, RIGHT-ALIGNED ───────────
+   John's approved mockup, `prototypes/opex-reset/overrides-present.png`. The
+   control is the estate's `.btn-sm` outline button, so nothing here dresses it:
+   what this rule does is PLACE it, which is the only thing the picture settles
+   that the button class does not already carry. */
+.opex-reset-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 0 2px;
+}
+/* The circular arrow, sized to sit on the label's baseline rather than to lead
+   it. A larger glyph read as an icon BUTTON with a caption, which is a
+   different control from the one drawn. */
+.opex-reset-icon { font-size: 12px; margin-right: 2px; }
+
 .kc-add { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
 .kc-feedback { font-size: 12px; color: var(--muted); margin-top: 4px; }
 

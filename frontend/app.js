@@ -7028,7 +7028,10 @@ function renderOppHeadline(opp) {
 
        "none" for the same reason its neighbour says it: a record with no
        version at all is a fact, and a blank would read as a failure to load. */
-    oppHeadlineFigure('Working version', opp.working_version ?? null, { absent: 'none' }),
+    // W-LC1, John's walk 2026-09-30: "None", matching the Approved Version
+    // field beside it. The two read the same kind of absence and were saying it
+    // two ways, which reads as two different states rather than one.
+    oppHeadlineFigure('Working version', opp.working_version ?? null, { absent: 'None' }),
   ].join('')
 }
 
