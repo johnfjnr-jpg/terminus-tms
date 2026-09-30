@@ -195,4 +195,56 @@ export const G4 = {
   },
 };
 
-export const GOLDEN_DEALS = [G1, G2, G3, G4];
+/**
+ * G5: OPEX, LUMP SUM installation, a stored SafeSight fee, and a margin
+ * override on a DIFFERENT row.
+ *
+ * ── THE SHAPE W-TL1 BROKE, AND THE ONE G1 TO G4 COULD NOT SEE ───────────
+ *
+ * Ruled by John 2026-09-30. Phase 0.4 measured that the four confirmed goldens
+ * do not cover this at all: G1 is OPEX with a stored fee but PER-UNIT
+ * installation, G2 is Lump Sum but CAPEX, and no deal was both. **So the
+ * acceptance baseline could not have caught W-TL1 and would not have moved when
+ * it was fixed.**
+ *
+ * On John's own record this shape ran **$423,798 above** `units x fee x term` at
+ * every fee, because the fee allocation and the OPEX table disagreed about what
+ * a type's installation price is.
+ *
+ * ── THE MARGIN OVERRIDE IS ON A DIFFERENT ROW, DELIBERATELY ─────────────
+ *
+ * R-TL2 makes a fee and a margin mutually exclusive ON ONE ROW, so a fixture
+ * carrying both on the same row would encode a state the product now refuses.
+ * AQ Sensor carries the margin; SafeSight carries the fee. That exercises the
+ * either-or across the table while staying a state the system can produce.
+ *
+ * AND IT PROVES THE GATE ON R-TL1a: the SafeSight row must land on
+ * `units x fee x term` EXACTLY, while the AQ row keeps price-first derivation
+ * and is not forced to any target.
+ */
+export const G5 = {
+  id: 'G5',
+  title: 'OPEX with LUMP SUM installation: the all-in fee absorbs the install share',
+  payload: {
+    paymentMode: 'opex',
+    // A saved OPEX record holds 'single', per the Phase 0 correction on G1.
+    structure: 'single',
+    ssExisting: 11, ssNew: 10, aqm: 9, hemir: 3,
+    duration: 60,
+    targetMargin: 33,
+    warrantyPct: 4,
+    // THE SHAPE ITSELF. Per-unit install lines do not exist on this deal, which
+    // is exactly why the allocation used to price a row without installation.
+    installResp: 'Terminus Contractor - Lump Sum',
+    lumpSumCost: 300000,
+    invoicing: 'monthly',
+    whtPct: 0, gstPct: 0, grossUp: false,
+    // The fee, on SafeSight. 21 units x 60 months, so the row total must be
+    // exactly 21 x 700 x 60 = 882,000.
+    opexUnitFees: { ss: 700 },
+    // The margin, on a DIFFERENT row, per R-TL2.
+    opexUnitMargins: { aq: 41 },
+  },
+};
+
+export const GOLDEN_DEALS = [G1, G2, G3, G4, G5];

@@ -73,6 +73,35 @@ export function useDealForm(
       // pricing that was deliberately entered.
       if (v[id] === next) return v
       const out: Values = { ...v, [id]: next }
+
+      // ── R-TL2: THE OPEX EITHER-OR, ENFORCED ON ENTRY ──────────────────
+      //
+      // John's ruling 2026-09-30. A row may carry an all-in FEE or a target
+      // MARGIN, never both, so entering one clears the other on that row.
+      //
+      // R-O7 already made this an either-or in PRICING: the absolute wins and
+      // the margin is not read. What it never did was clear the loser, so
+      // `TT-SGP-MANUFI-004` stores a fee of 500 AND a margin of 0 on one row,
+      // and the margin cell renders an amber 0 - asserting a decision beside a
+      // fee that overrode it. Measured: that 0 prices nothing at any fee.
+      //
+      // ONLY ON ENTRY OF A VALUE. Emptying a box is not choosing the other
+      // thing: somebody deleting a fee to go back to margin pricing must not
+      // lose the margin in the same motion.
+      //
+      // PER ROW, by the key in the id. Clearing every row would make one type's
+      // decision delete another's.
+      //
+      // HERE AND NOT IN THE TABLE, because `setValue` already owns "typing this
+      // clears that" for the fundamental inputs below, and a rule that lives in
+      // the store holds for any surface that writes a value.
+      if (next !== '') {
+        const fee = /^deal-opexfee-(.+)$/.exec(id)
+        const margin = /^deal-opexmargin-(.+)$/.exec(id)
+        if (fee) out[`deal-opexmargin-${fee[1]}`] = ''
+        if (margin) out[`deal-opexfee-${margin[1]}`] = ''
+      }
+
       if (!FUNDAMENTAL_VALUE_IDS.includes(id)) return out
       // The ABSOLUTES return to the derivation. Cleared to the empty string,
       // which is this panel's own deletion contract: an empty box drops the

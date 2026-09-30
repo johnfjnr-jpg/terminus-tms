@@ -49,6 +49,80 @@ const INSTALL_RATES = {
   hemir: [['inHemir', 'hemir']],
 };
 
+/**
+ * ── R-TL1: THE ONE READER OF A TYPE'S INSTALLATION PRICE ────────────────
+ *
+ * Ruled by John 2026-09-30. Exported because `buildDealInputs` calls it too,
+ * and the whole point is that there is one of these.
+ *
+ * ── WHAT IT REPLACES, AND WHAT IT COST ───────────────────────────────────
+ *
+ * There were TWO readers, and W-TL1 is what they did. `deal-inputs.js` asked
+ * `OPEX_LINES[type].in` - the per-unit keys - which on a LUMP SUM deal name
+ * lines that do not exist, so the fee allocation priced a row with NO
+ * installation in it. This file then added the type's share of `inLump` to the
+ * row the allocation had just priced without it.
+ *
+ * On John's own record, 21 SafeSight over 60 months, the row ran **$423,798
+ * above** `units x fee x term` at every fee - a constant, because it was a
+ * whole term of installation that the fee had never been asked to cover.
+ *
+ * Verification 20, exactly: two readers of one value, each correct alone.
+ *
+ * ── THE SHARE IS A FIXED COMPONENT, NOT A SCALABLE ONE ──────────────────
+ *
+ * A lump sum is ONE line shared by every type, so a type's share cannot be
+ * scaled to meet that type's fee without moving every other type's share. It
+ * therefore enters the allocation the way the warranty already does: as a
+ * FIXED part of the target that the scalable lines are fitted around.
+ *
+ * @param {Array} installRows  the priced installation group's rows
+ * @param {object} payload     the deal's own payload, for the counts
+ * @param {object} rates       resolved rates, for the per-unit install rates
+ * @param {object} units       { ss, aq, hemir } unit counts
+ * @returns {object|null} per-type { price, cost }, or null when not a lump sum
+ */
+export function installShares(installRows, payload, rates, units) {
+  const lumpRow = (installRows ?? []).find((r) => r.key === 'inLump');
+  if (!lumpRow) return null;
+  const p = payload ?? {};
+  const weightOf = (k) => INSTALL_RATES[k].reduce(
+    (a, [rateKey, countKey]) => a + num(rates?.[rateKey]) * num(p[countKey]), 0);
+  let weights = Object.fromEntries(OPEX_FEE_KEYS.map((k) => [k, weightOf(k)]));
+  let whole = Object.values(weights).reduce((a, b) => a + b, 0);
+  // FALLBACK, and it is reachable: a deal whose catalog carries no per-unit
+  // install rates has nothing to weigh by, so it falls to unit count.
+  if (!(whole > 0)) {
+    weights = Object.fromEntries(OPEX_FEE_KEYS.map((k) => [k, num(units?.[k])]));
+    whole = Object.values(weights).reduce((a, b) => a + b, 0);
+  }
+  // ── WHOLE DOLLARS, AND THEY SUM TO THE LUMP EXACTLY ────────────────────
+  //
+  // R-TL1a needs the residue on ONE line to be a whole number, and a fractional
+  // share is the only term that would stop it being one. Every other price in
+  // this engine is whole dollars, so a share that is not is the odd one out.
+  //
+  // THE LAST FUNDED TYPE ABSORBS THE REMAINDER, so the three shares sum to the
+  // lump line exactly. Rounding each independently would leave the row totals
+  // short of contract net by up to a dollar per type - a footing error
+  // introduced by the fix for a footing error.
+  if (!(whole > 0)) return Object.fromEntries(OPEX_FEE_KEYS.map((k) => [k, { price: 0, cost: 0 }]));
+  const exact = (field) => OPEX_FEE_KEYS.map((k) => num(lumpRow[field]) * (weights[k] / whole));
+  const apportion = (field) => {
+    const raw = exact(field);
+    const out = raw.map((v) => Math.round(v));
+    const funded = OPEX_FEE_KEYS.map((k, i) => (weights[k] > 0 ? i : -1)).filter((i) => i >= 0);
+    if (funded.length) {
+      const last = funded[funded.length - 1];
+      out[last] += Math.round(num(lumpRow[field])) - out.reduce((a, b) => a + b, 0);
+    }
+    return out;
+  };
+  const prices = apportion('rawPrice');
+  const costs = apportion('rawCost');
+  return Object.fromEntries(OPEX_FEE_KEYS.map((k, i) => [k, { price: prices[i], cost: costs[i] }]));
+}
+
 const num = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -81,24 +155,7 @@ export function opexRows(result, payload, rates = {}) {
     hemir: num(p.hemir),
   };
 
-  // ── THE LUMP-SUM ALLOCATION, computed once ────────────────────────────
-  const lumpRow = (g.installGroup?.rows ?? []).find((r) => r.key === 'inLump');
-  let lumpShare = null;
-  if (lumpRow) {
-    const weightOf = (k) => INSTALL_RATES[k].reduce(
-      (a, [rateKey, countKey]) => a + num(rates?.[rateKey]) * num(p[countKey]), 0);
-    let weights = Object.fromEntries(OPEX_FEE_KEYS.map((k) => [k, weightOf(k)]));
-    let whole = Object.values(weights).reduce((a, b) => a + b, 0);
-    // FALLBACK, and it is reachable: a deal whose catalog carries no per-unit
-    // install rates has nothing to weigh by, so it falls to unit count.
-    if (!(whole > 0)) {
-      weights = Object.fromEntries(OPEX_FEE_KEYS.map((k) => [k, units[k]]));
-      whole = Object.values(weights).reduce((a, b) => a + b, 0);
-    }
-    lumpShare = Object.fromEntries(OPEX_FEE_KEYS.map((k) => [k,
-      whole > 0 ? { price: num(lumpRow.rawPrice) * (weights[k] / whole),
-        cost: num(lumpRow.rawCost) * (weights[k] / whole) } : { price: 0, cost: 0 }]));
-  }
+  const lumpShare = installShares(g.installGroup?.rows, p, rates, units);
 
   return OPEX_FEE_KEYS.map((key) => {
     const n = units[key];

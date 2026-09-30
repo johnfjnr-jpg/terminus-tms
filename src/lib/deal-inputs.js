@@ -34,7 +34,7 @@
 
 import { numericOrDefault, toNumberOrNull } from './numeric-payload.js';
 import { priceOverrideFor, priceFromCost, calculateHardwareAndWarranty } from './deal-calculator.js';
-import { OPEX_FEE_KEYS } from './opex.js';
+import { OPEX_FEE_KEYS, installShares } from './opex.js';
 
 /**
  * @param {object} payload - a record payload, with catalog rates merged in
@@ -534,16 +534,40 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
         price: li.priceOverride !== undefined ? li.priceOverride : priceFromCost(li.cost, li.marginPct),
       };
     };
+    // ── R-TL1: THE TYPE'S LUMP-SUM INSTALLATION SHARE, FROM THE ONE READER ─
+    //
+    // John's ruling 2026-09-30. `OPEX_LINES[type].in` names the PER-UNIT keys,
+    // and on a Lump Sum deal those line items do not exist - `lineBase` returns
+    // {cost: 0, price: 0} for each - so this allocation used to price a row with
+    // NO installation in it while `opexRows` added the type's share of `inLump`
+    // to the same row. W-TL1: $423,798 above the fee on John's own record.
+    //
+    // `installShares` is now the ONE function that answers "what is this type's
+    // installation price", and it is asked here in exactly the shape it is asked
+    // in the table. Restating the weighting here would be the second reader
+    // arriving inside the fix for the second reader.
+    const lumpBase = lineBase('inLump');
+    const lumpShares = installShares(
+      [{ key: 'inLump', rawPrice: lumpBase.price, rawCost: lumpBase.cost }],
+      payload, rates, opexUnits);
     for (const type of OPEX_FEE_KEYS) {
       const units = opexUnits[type];
       if (!(units > 0)) continue;
       const L = OPEX_LINES[type];
       const oneOff = [...L.hw, ...L.in].map(lineBase);
       const monthly = L.ho.map(lineBase);
+      // THE SHARE IS PART OF THE BASE AND PART OF THE FIXED COMPONENT, both.
+      // A lump sum is ONE line shared by every type, so a type's share cannot be
+      // scaled to meet that type's fee without moving every other type's share.
+      // It therefore enters exactly as the warranty does: inside the target, and
+      // not among the lines the scale is applied to.
+      const share = lumpShares?.[type] ?? { price: 0, cost: 0 };
       const basePrice = oneOff.reduce((a, x) => a + x.price, 0)
-        + monthly.reduce((a, x) => a + x.price, 0) * opexTermMonths;
+        + monthly.reduce((a, x) => a + x.price, 0) * opexTermMonths
+        + share.price;
       const baseCost = oneOff.reduce((a, x) => a + x.cost, 0)
-        + monthly.reduce((a, x) => a + x.cost, 0) * opexTermMonths;
+        + monthly.reduce((a, x) => a + x.cost, 0) * opexTermMonths
+        + share.cost;
       // THE ABSOLUTE WINS over the ratio when a save has left both: it is the
       // more specific statement, and the table renders whichever is stored.
       const fee = toNumberOrNull(opexFees[type]);
@@ -565,7 +589,8 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
       // It is therefore a FIXED component of the target, and the scale applies
       // to everything else. That keeps the rule intact and makes the arithmetic
       // land, which is the same thing said twice.
-      const fixed = L.hw.includes('hwWarranty') ? lineBase('hwWarranty').price : 0;
+      const fixed = (L.hw.includes('hwWarranty') ? lineBase('hwWarranty').price : 0)
+        + share.price;
       const scalableKeys = [...L.hw, ...L.in, ...L.ho].filter((k) => k !== 'hwWarranty');
       const scalableBase = basePrice - fixed;
       if (!(scalableBase > 0)) continue;
@@ -577,6 +602,63 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
         if (hwCost[key] !== undefined) { priceOverrides[key] = scaled; continue; }
         const li = [...installLineItems, ...hostingLineItems].find((x) => x.key === key);
         if (li) li.priceOverride = scaled;
+      }
+
+      // ── R-TL1a: THE ROW FOOTS TO THE FEE EXACTLY. THE RESIDUE GOES TO ───
+      // ── THE TYPE'S HARDWARE LINE, AND HERE IS WHY THAT LINE ────────────
+      //
+      // John's ruling 2026-09-30, reversing a tolerance this round had declared.
+      // The LINES cannot express an arbitrary fee in whole dollars; the TOTAL
+      // need not be re-summed from them, and the fee a person typed is the one
+      // commitment on this screen that must come back unchanged.
+      //
+      // Every line price is rounded to whole dollars by `buildCostGroup`, and
+      // the hosting line is rounded PER MONTH and then multiplied by the term,
+      // so the error is dominated by it: up to half a dollar times the term.
+      // Measured before this landed: -29.00 on a 60-month per-unit deal.
+      //
+      // THE HARDWARE LINE, for three reasons and not by preference:
+      //
+      //   it is the only line GUARANTEED to exist whenever the allocation runs,
+      //     because the loop already requires `units > 0` for the type;
+      //   it is a ONE-OFF, so the residue is added once rather than multiplied
+      //     by the term the way a hosting adjustment would be;
+      //   it is the largest line, so tens of dollars against hundreds of
+      //     thousands does not distort the figure a reader checks.
+      //
+      // WHAT IT MAY NOT BE. Not the warranty, which reaches the customer AT
+      // COST by John's rule and would stop doing so. Not hosting, per month
+      // above. Not the lump-sum installation, which is one line shared by every
+      // type: moving it to settle SafeSight's fee would move AQ Sensor's.
+      //
+      // ROUNDED THE WAY THE CALCULATOR WILL ROUND, so this predicts the same
+      // figure rather than a different one. Any disagreement here would be a
+      // second reader of the rounding rule.
+      // ── ONLY WHERE A FEE IS STORED ──────────────────────────────────────
+      //
+      // R-TL1a is about the figure a person TYPED coming back unchanged, and a
+      // margin-driven row has no typed figure to preserve: John's own words are
+      // that margin-driven rows "keep price-first derivation". Their total is
+      // whatever the priced lines give, and forcing it to an exact target would
+      // be inventing a commitment nobody made.
+      //
+      // MEASURED BEFORE THIS GATE WENT IN, which is why it is here: without it
+      // golden G1's AQ Sensor row moved by -11, and AQ carries a stored MARGIN
+      // rather than a fee. That movement was outside the ruling.
+      const hwKey = L.hw.find((k) => k !== 'hwWarranty');
+      if (fee !== null && fee >= 0 && hwKey !== undefined && priceOverrides[hwKey] !== undefined) {
+        const roundedOf = (key) => {
+          if (key === hwKey) return 0;
+          if (key === 'hwWarranty') return Math.round(lineBase('hwWarranty').price);
+          const o = priceOverrides[key];
+          if (o !== undefined) return Math.round(o);
+          const li = [...installLineItems, ...hostingLineItems].find((x) => x.key === key);
+          if (li?.priceOverride !== undefined) return Math.round(li.priceOverride);
+          return Math.round(lineBase(key).price);
+        };
+        const oneOffOthers = [...L.hw, ...L.in].reduce((a, k) => a + roundedOf(k), 0) + share.price;
+        const monthlyAll = L.ho.reduce((a, k) => a + roundedOf(k), 0);
+        priceOverrides[hwKey] = target - oneOffOthers - monthlyAll * opexTermMonths;
       }
     }
   }

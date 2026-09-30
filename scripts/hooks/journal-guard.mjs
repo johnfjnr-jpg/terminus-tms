@@ -42,6 +42,17 @@ const GENERATED = [
   'CURRENT_STATE.md',
   'package-lock.json',
   '.edit-journal.json',
+  // Written by `scripts/golden-deals/compute.mjs` from one pricing run, never
+  // by hand: a figure that looks wrong is fixed by fixing the engine or the
+  // fixture and re-running, which is the whole argument of that round.
+  //
+  // ADDED 2026-09-30, AND THE GUARD IS WHY IT IS DECLARED NOW RATHER THAN
+  // ASSUMED EARLIER. The file was CREATED last round, and a creation is exempt
+  // because it has no anchor to miss. This round MODIFIED it for the first
+  // time, the guard refused the commit, and the gap became visible at exactly
+  // the moment it first mattered. Its sibling `expectations.json` was already
+  // covered, by the `scripts/**.json` pattern rather than by anybody deciding.
+  'GOLDEN_DEALS.md',
 ]
 const GENERATED_DIRS = [
   'frontend-react/dist/',

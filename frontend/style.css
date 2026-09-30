@@ -7276,7 +7276,15 @@ textarea::placeholder { color: var(--muted); }
    No `display` is given to any child, so the Record button's `hidden`
    attribute still hides it. */
 .kc-stance select { flex: 0 0 auto; width: 118px; }
-.kc-stance input[type="text"] { flex: 0 0 auto; width: 150px; }
+/* W-TL2: DOUBLE, John's walk 2026-09-30. A stance note is a sentence about a
+   person's position on the deal, and 150px holds about twenty characters
+   before it starts scrolling under the cursor.
+
+   MEASURED BEFORE AND AFTER, because Phase 0 found this does not obviously
+   fit: the table is content-sized and does not stretch, and at 1240 there were
+   only 137px of unused panel against the 150px this adds. The probe reads the
+   table against its panel at both widths rather than trusting that it fits. */
+.kc-stance input[type="text"] { flex: 0 0 auto; width: 300px; }
 .kc-stance button { flex: 0 0 auto; }
 /* ── WALK 11 D1: THE HEADER AND CELL TREATMENT COME FROM `doc-table` ─────
    These two rules were a bespoke copy of the estate's data grid, five
