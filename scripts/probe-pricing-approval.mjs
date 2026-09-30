@@ -12,6 +12,8 @@ import { readFileSync } from 'fs'
 import { api, ApiError } from './api-client.mjs'
 import { catalogToRates } from '../src/lib/base-costs.js'
 import { resolveRates, frozenRates } from '../src/lib/rate-resolution.js'
+// R-VL4: the ONE composer, so an expectation cannot restate the rule.
+import { versionLabel } from '../src/lib/version-label.js'
 
 const session = JSON.parse(readFileSync('session-ref.json', 'utf8'))
 const results = []
@@ -46,7 +48,9 @@ const NEXT = 'Solution Alignment'
 
 const onDraft = await attempt(() => api('POST', `/records/${oppId}/transition-requests`,
   { to_stage: NEXT, kind: 'review', version_id: draft.id }))
-record('a DRAFT cannot be sent for approval', onDraft.status === 409 && /Issue it before/.test(onDraft.data?.error ?? ''),
+// R-L4 re-point: "Issue it before requesting approval" became "Submit it for
+// approval first". The claim is unchanged: a draft is refused.
+record('a DRAFT cannot be sent for approval', onDraft.status === 409 && /Submit it for approval first/.test(onDraft.data?.error ?? ''),
   `-> ${onDraft.status} "${String(onDraft.data?.error ?? '').slice(0, 56)}"`)
 
 const noVersion = await attempt(() => api('POST', `/records/${oppId}/transition-requests`,
@@ -91,7 +95,10 @@ record('the record stays EDITABLE while approval is pending', editable)
 const listed = ((await api('GET', `/records/${oppId}/transition-requests`)).data ?? [])
   .find((r) => r.kind === 'review' && r.status === 'open')
 record('the pending request names its VERSION and its tracks',
-  listed?.version_label === `V${issued.major}` && (listed?.required ?? []).length === 3,
+  // R-VL4 re-point: the label carries its minor now, and this probe composed
+  // the expected one inline. It asks the COMPOSER instead, so the expectation
+  // cannot drift from the rule a second time.
+  listed?.version_label === versionLabel(issued) && (listed?.required ?? []).length === 3,
   `${listed?.version_label} required=${JSON.stringify(listed?.required)}`)
 
 const second = await attempt(() => api('POST', `/records/${oppId}/transition-requests`,

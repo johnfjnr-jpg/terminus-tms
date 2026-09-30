@@ -67,7 +67,8 @@ record('the record reaches Proposal', await stage() === 'Proposal', `at ${await 
 // ── FROM PROPOSAL: the check refuses an unapproved price ─────────────────
 const blocked = await tryPost(`/records/${oppId}/transition-requests`, { to_stage: 'Evaluation', kind: 'transition' })
 record('an UNAPPROVED pricing version REFUSES the transition',
-  blocked.status === 409 && /not approved for issue/i.test(blocked.data?.error ?? ''),
+  // R-L4 re-point: "not approved for issue yet" became "not approved yet".
+  blocked.status === 409 && /not approved yet/i.test(blocked.data?.error ?? ''),
   `-> ${blocked.status} "${String(blocked.data?.error ?? '').slice(0, 62)}"`)
 record('and the record has NOT moved', await stage() === 'Proposal', `still ${await stage()}`)
 record('and it is NOT frozen by the refusal',
@@ -112,7 +113,7 @@ for (const track of ['Commercial', 'Legal', 'Technical']) {
   const { error } = await admin().from('approvals').insert({
     record_id: oppId, request_id: pricingReq?.id, revision_number: issued.revision_number,
     stage: 'Proposal', track, approver_id: uid, decision: 'approved',
-    comment: 'Proposal/Pricing approved for issue', decided_at: new Date().toISOString() })
+    comment: 'Proposal/Pricing approved', decided_at: new Date().toISOString() })
   if (error) record(`the ${track} sign-off records`, false, error.message)
 }
 await admin().from('transition_requests').update({
