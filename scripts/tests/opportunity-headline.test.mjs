@@ -114,7 +114,8 @@ test('the banner shows the seven ruled figures', () => {
   assert.ok(!/`V\$\{opp\.issued_major\}`/.test(app),
     'the strip still builds a label from the promoted major')
   // P6 says "none" for the same reason its neighbour does.
-  assert.match(app, /'Working version', opp\.working_version \?\? null, \{ absent: 'none' \}/,
+  // W-LC1: "None", converged with the Approved Version field beside it.
+  assert.match(app, /'Working version', opp\.working_version \?\? null, \{ absent: 'None' \}/,
     'a record with no version does not read "none"')
 })
 

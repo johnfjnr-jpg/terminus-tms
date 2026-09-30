@@ -7301,6 +7301,40 @@ textarea::placeholder { color: var(--muted); }
    THE HORIZONTAL PADDING IS THE ESTATE'S 12px ON BOTH SIDES. Measured after
    the change rather than reasoned: the table is sized to its content and the
    probe asserts it does not overflow its panel at 1440 or 1240. */
+/* ── R-RS1: THE OPEX RESET SITS BELOW THE TABLE, RIGHT-ALIGNED ───────────
+   John's approved mockup, `prototypes/opex-reset/overrides-present.png`. The
+   control is the estate's `.btn-sm` outline button, so nothing here dresses it:
+   what this rule does is PLACE it, which is the only thing the picture settles
+   that the button class does not already carry. */
+/* ── AND THE PLACEMENT IS THE WRAPPER'S, NOT THIS RULE'S ─────────────────
+   P-RS1. `.opex-fee-block` holds the table and this row and takes the grid
+   placement, so the control follows the table's last row. This rule only
+   pushes the button to the right within that box.
+
+   THE HISTORY IS KEPT BECAUSE IT COST A BUILD. `.opex-tables` places every
+   child by hand, so the first version of this control - a bare sibling of the
+   table with no placement - was auto-placed into the first free cell, row 1
+   column 1, and rendered ABOVE the table between "60 months" and the header
+   row. EVERY PROGRAMMATIC CHECK PASSED ON IT: present, labelled, wearing
+   `.btn-sm`, carrying its icon, inside the captured region. All five are
+   properties OF THE CONTROL, and the claim is where it sits RELATIVE TO THE
+   TABLE. Found by opening the screenshot.
+
+   The second version placed it at row 4, which is below the table and 125px
+   adrift of it, because the invoicing column sets the card's height. John
+   ruled candidate B after both were photographed and measured. */
+
+
+.opex-reset-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 0 2px;
+}
+/* The circular arrow, sized to sit on the label's baseline rather than to lead
+   it. A larger glyph read as an icon BUTTON with a caption, which is a
+   different control from the one drawn. */
+.opex-reset-icon { font-size: 12px; margin-right: 2px; }
+
 .kc-add { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
 .kc-feedback { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
@@ -9169,7 +9203,12 @@ select:autofill {
   align-items: start;
 }
 .opex-tables > * { min-width: 0; }
-.opex-tables > #deal-opex-table { grid-column: 1; grid-row: 2 / span 2; }
+/* P-RS1, John's ruling 2026-09-30: the placement moved from the TABLE to the
+   BOX that holds the table and its reset control, so the control follows the
+   table's last row rather than the card's foot. The table itself is no longer
+   a direct child of this grid, which is why the two rules that selected it
+   that way are re-pointed rather than left to stop matching silently. */
+.opex-tables > .opex-fee-block { grid-column: 1; grid-row: 2 / span 2; align-self: start; }
 /* ── W2: THE HEADING MOVES TO ROW 2, AND THIS IS THE OVERPRINT ───────────
    John's finding 2026-09-26. A5 added a row above the head track for the
    radios and moved the fee table and the year slot down to suit, AND LEFT THE
@@ -9210,8 +9249,14 @@ select:autofill {
 /* L3's "stagger removed" is exact: the OPEX table carries `margin: 4px 0 14px`
    from the round that built it, so inside this row its top margin put it 4px
    below the yearly table. Measured at 679 against 675 and zeroed here rather
-   than by loosening the assertion. */
-.opex-tables > #deal-opex-table { margin-top: 0; }
+   than by loosening the assertion.
+
+   P-RS1 RE-POINTED THIS, and it is the rule that would have moved the rows.
+   The table is now inside `.opex-fee-block`, so the direct-child selector
+   stopped matching, the table's own `margin: 4px 0 14px` came back, and the
+   4px stagger this rule exists to remove returned with it. Measured against
+   main rather than reasoned about: levels [0, -2, -4] at both widths. */
+.opex-fee-block > #deal-opex-table { margin-top: 0; }
 #deal-opex-table th,
 #deal-opex-table td { padding-right: 6px; }
 #deal-opex-table th:first-child,

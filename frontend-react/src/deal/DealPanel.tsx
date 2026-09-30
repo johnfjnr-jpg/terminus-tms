@@ -31,6 +31,8 @@ import { CURRENCY_OPTIONS } from './currencies'
 import { VANILLA_SECTIONS, censusBySection, dirtyVanillaSections } from './sections'
 import { PaymentTermsSection } from './section5'
 import { OpexTable } from './OpexTable'
+// R-RS3: the three OPEX rows, from the module that defines them.
+import { OPEX_FEE_KEYS } from '../../../src/lib/opex.js'
 import { opexRows } from '../../../src/lib/opex.js'
 import { IntakeSection } from './intake'
 import { StructuralTermsSection, CashFlowSection } from './section36'
@@ -632,7 +634,36 @@ export function DealPanel({
             // and the sheet cannot disagree about what this deal charges.
             opex={<OpexTable
               rows={result ? opexRows(result, payload, resolvedRates) : []}
-              values={values} onValue={setValue} />}
+              values={values} onValue={setValue}
+              targetMargin={values['deal-targetMargin'] ?? ''}
+              // ── R-RS3: ONE FORM UPDATE, NOT SIX ───────────────────────
+              //
+              // Clearing through `setValue` per key would work and would be
+              // six renders, each recomputing the whole deal, and each an
+              // intermediate state where some rows had reset and others had
+              // not. `setValues` puts the form in the reset state in one step.
+              //
+              // UNIT COUNTS ARE UNTOUCHED, which is the ruling and is also why
+              // this spreads the existing values rather than building a new
+              // map: everything not named here survives by construction.
+              //
+              // NO DIALOG, and R-RS3 AS AMENDED BY JOHN 2026-09-30 says why.
+              //
+              // The ruling first read "the sticky Save/Discard bar governs;
+              // Discard restores the overrides". MEASURED: the Commercials
+              // surface has NO Discard control, and `navigate()`'s discard
+              // guard covers assessment drafts only. That clause is struck.
+              //
+              // What makes the reset safe is that it writes NOTHING: the form
+              // goes dirty and the record is untouched until a save, so
+              // reopening the record brings the overrides back from the
+              // server. Proved over HTTP rather than asserted here.
+              onReset={() => setValues({
+                ...values,
+                ...Object.fromEntries(OPEX_FEE_KEYS.flatMap((k) => [
+                  [`deal-opexfee-${k}`, ''], [`deal-opexmargin-${k}`, ''],
+                ])),
+              })} />}
             renderField={renderField}
             milestoneGrid={
               <MilestoneGrid rows={MILESTONE_INPUTS} values={values}
