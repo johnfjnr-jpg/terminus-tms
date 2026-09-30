@@ -117,6 +117,26 @@ describe('R-RS1: the control as the mockup draws it', () => {
     expect(reset()?.textContent).not.toContain('30')
   })
 
+  test('it FOLLOWS the table in document order', async () => {
+    // The markup half of "beneath the table". jsdom has no layout, so this
+    // cannot see WHERE the control renders - and the first build proved that
+    // gap expensive: the JSX order was correct and the control rendered ABOVE
+    // the table, because `.opex-tables` is a grid that auto-placed an unplaced
+    // child into row 1. Every property assertion passed on it.
+    //
+    // So this asserts what a DOM test honestly can (the order), and the live
+    // probe asserts the geometry as a RELATION to the table. Neither alone is
+    // the claim.
+    await mount(WITH_FEE)
+    const table = host.querySelector('[data-testid="deal-opex-table"]')!
+    const btn = reset()!
+    expect(table, 'no table to order against').not.toBeNull()
+    expect(
+      table.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the control does not follow the table in the DOM',
+    ).toBeTruthy()
+  })
+
   test('it wears the estate s outline dress and carries the icon', async () => {
     await mount(WITH_FEE)
     // `.btn-sm` is the Key Customer Contacts Add button's class, and it is what

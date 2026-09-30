@@ -7306,6 +7306,21 @@ textarea::placeholder { color: var(--muted); }
    control is the estate's `.btn-sm` outline button, so nothing here dresses it:
    what this rule does is PLACE it, which is the only thing the picture settles
    that the button class does not already carry. */
+/* ── AND THE PLACEMENT IS EXPLICIT, BECAUSE THE PARENT IS A GRID ─────────
+   `.opex-tables` places every child by hand: the table at row 2 spanning two,
+   the invoicing group at row 1 column 2, the year head at row 2 column 2. A
+   child with NO placement is auto-placed into the first free cell, which is
+   row 1 column 1 - so the first build of this control rendered ABOVE the
+   table, between "60 months" and the header row.
+
+   EVERY PROGRAMMATIC CHECK PASSED ON THAT BUILD: present, labelled, wearing
+   `.btn-sm`, carrying its icon, and inside the captured region. All five are
+   properties OF THE CONTROL. The claim is where the control sits RELATIVE TO
+   THE TABLE, and no property of one element can carry it. Found by opening
+   the screenshot; the probe now asserts the relationship.
+
+   Row 4 is implicit, which is what puts it below the table's spanned rows. */
+.opex-tables > .opex-reset-row { grid-column: 1; grid-row: 4; }
 .opex-reset-row {
   display: flex;
   justify-content: flex-end;
