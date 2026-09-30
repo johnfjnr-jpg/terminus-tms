@@ -16,6 +16,30 @@ R-TL3 Golden deal G5: OPEX, Lump Sum installation, a stored SafeSight fee, a mar
 W-TL2 Cosmetic tier: Key Customer Contacts stance note at double its current visible width; Linked
       column shows dd/mm/yyyy, no time. Screenshots at 1240 and 1920.
 
+TOLERANCE POSITION REVERSED (John, 2026-09-30). Appended at the phase it launches.
+R-TL1a With a stored fee, row Contract Total = units x fee x term EXACTLY, computed directly, never
+       re-summed from rounded components. The breakdown keeps whole-dollar lines; the rounding
+       residue is assigned to ONE declared line so the lines foot to the exact total. Name the line
+       and the reason.
+E1 amended: G2 to G4 exact and unmoved. G1 (OPEX, stored fee) may move by the residue only; list
+       every moved G1 figure old -> new, and G1 returns to PROVISIONAL alongside G5 for John's
+       Excel check. Any G1 movement beyond the rounding residue = STOP.
+E2 amended: the exact tie asserted in BOTH installation modes, per-unit and lump sum.
+The queued exact-tie item is dropped; it is in scope.
+
+SUPERSEDED, quoted not deleted: Phase 0 declared a rounding tolerance of +/- 0.50 x term plus
++/- 0.50 per one-off line, and asserted R-TL1's equality within that band. The reasoning was that
+whole-dollar line prices cannot express an arbitrary fee. That is true of the LINES and was taken
+to be true of the TOTAL, which does not follow: the total need not be re-summed from them.
+
+QUEUED, NOT IN THIS ROUND (John, 2026-09-30). Recorded here at the moment it was given, because a
+deferred item that exists only in a chat message is retrieved by accident or not at all.
+  "Reset to target margin" on the OPEX table. Clears every row's stored fee AND margin overrides;
+  rows re-derive from cost + the deal's target margin. MOCKUP GATE APPLIES (Commercials surface):
+  a static mockup for John's approval before any build. Carried to the close-out queue.
+  R-TL1a is unchanged by it: total = units x fee x term exactly when a fee is stored, and
+  margin-driven rows keep price-first derivation.
+
 PHASE 0 (short; STOP only if a premise fails)
 0.A Report every reader of a type's installation price under OPEX; name the one R-TL1 converges on.
 0.B W-TL2: measure table width vs panel, current note width, Linked column format source.
