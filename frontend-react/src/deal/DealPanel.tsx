@@ -647,9 +647,17 @@ export function DealPanel({
               // this spreads the existing values rather than building a new
               // map: everything not named here survives by construction.
               //
-              // NO DIALOG. The sticky Save/Discard bar already governs, and
-              // Discard restores the overrides because the form goes dirty
-              // rather than the record being written.
+              // NO DIALOG, and R-RS3 AS AMENDED BY JOHN 2026-09-30 says why.
+              //
+              // The ruling first read "the sticky Save/Discard bar governs;
+              // Discard restores the overrides". MEASURED: the Commercials
+              // surface has NO Discard control, and `navigate()`'s discard
+              // guard covers assessment drafts only. That clause is struck.
+              //
+              // What makes the reset safe is that it writes NOTHING: the form
+              // goes dirty and the record is untouched until a save, so
+              // reopening the record brings the overrides back from the
+              // server. Proved over HTTP rather than asserted here.
               onReset={() => setValues({
                 ...values,
                 ...Object.fromEntries(OPEX_FEE_KEYS.flatMap((k) => [

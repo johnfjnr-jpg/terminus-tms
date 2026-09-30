@@ -1,0 +1,326 @@
+{
+ "overrides-present@1920": {
+  "gridWidth": 713,
+  "table": {
+   "top": 42,
+   "left": 0,
+   "right": 367,
+   "height": 121
+  },
+  "feeRows": [
+   {
+    "label": "SafeSight",
+    "top": 64,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "AQ Sensor",
+    "top": 97,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "HEMIR",
+    "top": 130,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   }
+  ],
+  "yearRows": [
+   {
+    "label": "Year 1",
+    "top": 64,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 2",
+    "top": 99,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 3",
+    "top": 134,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 4",
+    "top": 169,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 5",
+    "top": 204,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Total (USD)",
+    "top": 243,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   }
+  ],
+  "levels": [
+   0,
+   -2,
+   -4
+  ]
+ },
+ "overrides-present@1240": {
+  "gridWidth": 603,
+  "table": {
+   "top": 94,
+   "left": 0,
+   "right": 367,
+   "height": 121
+  },
+  "feeRows": [
+   {
+    "label": "SafeSight",
+    "top": 116,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "AQ Sensor",
+    "top": 149,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "HEMIR",
+    "top": 182,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   }
+  ],
+  "yearRows": [
+   {
+    "label": "Year 1",
+    "top": 116,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 2",
+    "top": 151,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 3",
+    "top": 186,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 4",
+    "top": 221,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 5",
+    "top": 256,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Total (USD)",
+    "top": 295,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   }
+  ],
+  "levels": [
+   0,
+   -2,
+   -4
+  ]
+ },
+ "no-overrides@1920": {
+  "gridWidth": 713,
+  "table": {
+   "top": 42,
+   "left": 0,
+   "right": 367,
+   "height": 121
+  },
+  "feeRows": [
+   {
+    "label": "SafeSight",
+    "top": 64,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "AQ Sensor",
+    "top": 97,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "HEMIR",
+    "top": 130,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   }
+  ],
+  "yearRows": [
+   {
+    "label": "Year 1",
+    "top": 64,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 2",
+    "top": 99,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 3",
+    "top": 134,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 4",
+    "top": 169,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Year 5",
+    "top": 204,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   },
+   {
+    "label": "Total (USD)",
+    "top": 243,
+    "left": 391,
+    "right": 691,
+    "height": 33
+   }
+  ],
+  "levels": [
+   0,
+   -2,
+   -4
+  ]
+ },
+ "no-overrides@1240": {
+  "gridWidth": 603,
+  "table": {
+   "top": 94,
+   "left": 0,
+   "right": 367,
+   "height": 121
+  },
+  "feeRows": [
+   {
+    "label": "SafeSight",
+    "top": 116,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "AQ Sensor",
+    "top": 149,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   },
+   {
+    "label": "HEMIR",
+    "top": 182,
+    "left": 0,
+    "right": 367,
+    "height": 33
+   }
+  ],
+  "yearRows": [
+   {
+    "label": "Year 1",
+    "top": 116,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 2",
+    "top": 151,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 3",
+    "top": 186,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 4",
+    "top": 221,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Year 5",
+    "top": 256,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   },
+   {
+    "label": "Total (USD)",
+    "top": 295,
+    "left": 314,
+    "right": 603,
+    "height": 33
+   }
+  ],
+  "levels": [
+   0,
+   -2,
+   -4
+  ]
+ }
+}

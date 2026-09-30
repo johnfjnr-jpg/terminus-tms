@@ -8,7 +8,10 @@
 //   R-RS2  shown ONLY when at least one row stores a fee or margin. Otherwise
 //          ABSENT from the DOM, nothing in its place. Never under CAPEX.
 //   R-RS3  click clears both keys for every row in the FORM state. Unit counts
-//          untouched. No dialog: the sticky bar governs and Discard restores.
+//          untouched. No dialog: nothing is written until a save, so reopening
+//          the record restores the overrides from the server. (R-RS3's
+//          original "Discard restores" clause was STRUCK by John 2026-09-30:
+//          the Commercials surface has no Discard control.)
 //   R-RS4  no new route.
 //
 // ── WHY "ABSENT" AND NOT "DISABLED" IS ASSERTED ─────────────────────────
@@ -182,8 +185,10 @@ describe('R-RS3: what the click does', () => {
   test('NO confirmation dialog stands between the click and the clear', async () => {
     await mount(WITH_FEE)
     await click(reset()!)
-    // The sticky Save/Discard bar governs, so a modal here would be a second
-    // gate on a reversible change.
+    // The change is reversible without one: nothing is written until a save,
+    // so a modal here would be a second gate on a change the record has not
+    // yet seen. (Not "the sticky bar governs" - there is no Discard on this
+    // surface; R-RS3 amended 2026-09-30.)
     expect(host.querySelector('[role="dialog"]')).toBeNull()
     expect(overrideFlag('deal-opexfee-ss')).not.toBe('true')
   })

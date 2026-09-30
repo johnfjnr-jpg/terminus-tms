@@ -75,8 +75,18 @@ export function OpexTable({ rows, values, onValue, onReset, targetMargin }: {
         onChange={(e) => onValue(id, e.target.value)} />
     )
   }
+  // ── P-RS1: ONE BOX HOLDS THE TABLE AND ITS CONTROL ───────────────────
+  //
+  // John's ruling 2026-09-30, candidate B. The wrapper takes the table's own
+  // grid placement in `.opex-tables`, so the control follows the table's last
+  // row instead of the card's foot: 125px of gap became 26px and the card
+  // shortened by 160px at both widths.
+  //
+  // The fragment this replaces is why the first build went wrong. `.opex-tables`
+  // places every child by hand, so the reset was auto-placed into row 1 and
+  // rendered ABOVE the table while five property assertions passed on it.
   return (
-    <>
+    <div className="opex-fee-block">
       <table className="opex-table" id="deal-opex-table" data-testid="deal-opex-table">
       <thead>
         <tr>
@@ -150,6 +160,6 @@ export function OpexTable({ rows, values, onValue, onReset, targetMargin }: {
           </button>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }

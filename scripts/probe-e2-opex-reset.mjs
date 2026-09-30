@@ -180,15 +180,30 @@ try {
   check(before.icon === true, 'and carries the circular-arrow icon')
 
   // ── THE PLACEMENT THE MOCKUP SETTLES, AS A RELATION ──────────────────
+  // P-RS1 (2) and (3), John's ruling 2026-09-30. Candidate B: the table and
+  // the control share `.opex-fee-block`, which takes the grid placement, so
+  // the control follows the table's last row rather than the card's foot.
   const g = before.geometry
-  check(g !== null && g.belowBy >= 0,
-    'the control sits BELOW the table, as the mockup draws it',
+  check(g !== null && g.belowBy >= 0 && g.belowBy <= 40,
+    'the control sits WITHIN 40px BELOW the table, as candidate B draws it',
     g ? `${g.belowBy}px below the table s bottom edge` : 'no geometry')
   check(g !== null && g.sameColumn,
     'and inside the table s own column rather than beside it',
     g ? `left edge ${g.sameColumn ? 'at or right of' : 'LEFT OF'} the table s` : 'no geometry')
+
+  // ── THE RIGHT EDGE, AT 1920 ONLY, AND THE SCOPE IS THE RULING'S ──────
+  //
+  // Measured at 1920 because that is the viewport this block runs at. IT IS
+  // NOT ASSERTED AT 1240, and the reason is a finding rather than a
+  // convenience: at 1240 the invoicing column collides with the fee table
+  // (queued item Q1), so the table's measured right edge runs under it and
+  // reads 77px wide of the control - IDENTICALLY IN BOTH PLACEMENT
+  // CANDIDATES, which is how it was established to be the overprint and not
+  // this control. John ruled the 1240 right-edge check out of scope while
+  // that overprint stands. When Q1 lands, this assertion extends to 1240 and
+  // the exclusion goes.
   check(g !== null && Math.abs(g.rightEdgeGap) <= 4,
-    'right-aligned with the table s right edge',
+    'right-aligned with the table s right edge AT 1920 (1240 out of scope, see Q1)',
     g ? `${g.rightEdgeGap}px inside it` : 'no geometry')
 
   // ── E4: THE APPROVED PICTURE, BOTH STATES, BOTH WIDTHS ───────────────
