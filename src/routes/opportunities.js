@@ -12,7 +12,10 @@ import { PRICE_OVERRIDE_KEYS } from '../lib/deal-calculator.js'
 import { OPEX_FEE_KEYS } from '../lib/opex.js'
 import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
-import { totalContractValue, weightedValue, issuedMajor, workingVersionOf } from '../lib/opportunity-headline.js'
+import { totalContractValue, weightedValue, issuedMajor, workingVersionOf, approvedVersionOf } from '../lib/opportunity-headline.js'
+// R-L4a: the link and the scope word, imported rather than restated.
+import { linkApprovalsToVersions, VERSION_SCOPE } from '../lib/version-approval.js'
+import { versionLabel } from '../lib/version-label.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 
 // The catalog, resolved the way deal-sheet-versions.js and deals.js resolve it,
@@ -341,8 +344,23 @@ export default async function opportunitiesRoutes(app) {
     // The proposal version is the highest ISSUED major, ordered by (major,
     // minor) inside issuedMajor rather than by revision_number. Null here is
     // rendered as "none" by the screen, never as a blank.
-    const [{ data: verRows, error: verErr }, catalogResult, latestVer] = await Promise.all([
-      db.from('deal_sheet_versions').select('status, major, minor').eq('record_id', request.params.id),
+    // ── R-L4a: THE APPROVED VERSION NEEDS THE APPROVAL STATE ────────────
+    //
+    // `issued_major` is set by PROMOTION and says nothing about approval, so
+    // the field named "Approved version" was naming a version that might be
+    // waiting on every track. Answering the question properly needs the
+    // approvals, the requests that link them to versions, and the version-scoped
+    // tracks this record type requires.
+    //
+    // FOUR EXTRA READS ON THIS ROUTE, AND THE COST IS STATED RATHER THAN HIDDEN.
+    // They run inside the same Promise.all, so they cost one round trip's
+    // latency rather than four, and `id` and `revision_number` join the version
+    // row because the evaluator matches on them.
+    const [{ data: verRows, error: verErr }, catalogResult, latestVer,
+      approvalsRes, requestsRes, vRulesRes] = await Promise.all([
+      db.from('deal_sheet_versions')
+        .select('id, status, major, minor, revision_number, inputs')
+        .eq('record_id', request.params.id),
       currentRates(db).catch(() => null),
       /* P6: the LATEST version only, and its inputs. The row above stays light
          because `issuedMajor` needs three columns across every version; this
@@ -355,6 +373,16 @@ export default async function opportunitiesRoutes(app) {
         .order('major', { ascending: false })
         .order('minor', { ascending: false })
         .limit(1),
+      db.from('approvals')
+        .select('track, decision, revision_number, approver_id, decided_at, request_id')
+        .eq('record_id', request.params.id),
+      db.from('transition_requests').select('id, frozen_version_id').eq('record_id', request.params.id),
+      // The version-scoped tracks for this record TYPE, not for one transition:
+      // the question here is "has this version been signed off", which is not
+      // about any particular stage move.
+      db.from('stage_gate_rules').select('requirement_detail')
+        .eq('record_type', 'opportunity')
+        .eq('requirement_type', 'approval_obtained'),
     ])
     if (verErr) {
       request.log.error({ err: verErr }, 'failed to read versions for the headline')
@@ -374,7 +402,23 @@ export default async function opportunitiesRoutes(app) {
       freshness_at: freshRow?.freshness_at ?? null,
       total_contract_value: tcv,
       weighted_value: weightedValue(tcv, prob),
+      // KEPT, and no longer what the Approved Version field reads. Other
+      // callers read `issued_major` for "the highest PROMOTED major", which is
+      // a true and useful fact; what changed is that the field claiming
+      // approval no longer answers with it.
       issued_major: issuedMajor(verRows ?? []),
+      // R-L4a: the highest version every required track has signed, or null.
+      // The composer prints its stored minor (R-AV), so no ".0" is derived.
+      approved_version: versionLabel(approvedVersionOf({
+        versions: verRows ?? [],
+        approvals: linkApprovalsToVersions(approvalsRes?.data ?? [], requestsRes?.data ?? []),
+        latestRevision: revResult.data?.revision_number ?? 1,
+        tracks: [...new Set((vRulesRes?.data ?? [])
+          .filter((r) => (r.requirement_detail?.scope ?? '') === VERSION_SCOPE)
+          .map((r) => r.requirement_detail?.track)
+          .filter((t) => typeof t === 'string' && t.length))],
+        payload: headlinePayload,
+      })),
       working_version: workingVersionOf((latestVer?.data ?? [])[0] ?? null, headlinePayload),
       account,
       key_contacts

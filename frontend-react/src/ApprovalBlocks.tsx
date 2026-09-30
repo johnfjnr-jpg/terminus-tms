@@ -13,6 +13,17 @@ export function AskBlock({ ask }: { ask: Ask }) {
   return (
     <>
       <p style={{ fontSize: '1.05rem', marginBottom: 14 }}>{ask.sentence}</p>
+      {/* H1: one line, in the --attention token, only when the deal has moved
+          since the version under approval. The server decides whether there is
+          anything to say, from the same `pricingChanged` the gate reads, so this
+          renders a sentence rather than taking a second view of the question. */}
+      {ask.movedSinceVersion ? (
+        <p
+          id="appr-moved-since"
+          data-testid="appr-moved-since"
+          style={{ color: 'var(--attention)', marginBottom: 14, maxWidth: '70ch' }}
+        >{ask.movedSinceVersion}</p>
+      ) : null}
       {v ? (
         <Row
           left="Version"

@@ -9,6 +9,11 @@ import { resolveRates, frozenRates, frozenRatesAgree } from '../lib/rate-resolut
 import { frozenTerms, readSystemDefaults } from '../lib/system-defaults.js';
 import { toNumberOrNull } from '../lib/numeric-payload.js'
 import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
+// R-VL4: the ONE composer. Every label on this route comes through it, so a
+// refusal, an audit row and the approval page cannot name one version three
+// ways. Phase 0 found this file carrying five compositions including a full
+// copy of the rule.
+import { versionLabel } from '../lib/version-label.js'
 
 // Deal Sheet versions. Round 37 Phase 3.
 //
@@ -546,7 +551,7 @@ export default async function dealSheetVersionsRoutes(app) {
     await db.from('audit_log').insert({
       record_id: request.params.id, record_type: 'opportunity',
       action: 'deal_sheet_version_saved', actor_id: request.user.id,
-      detail: { version_id: created.id, label: `V${created.major}.${created.minor}`, revision_number: created.revision_number },
+      detail: { version_id: created.id, label: versionLabel(created), revision_number: created.revision_number },
     })
 
     return reply.code(201).send(created)
@@ -583,7 +588,43 @@ export default async function dealSheetVersionsRoutes(app) {
     if (owner && owner.owner_id !== request.user.id) return sendRefusal(reply)
 
     if (version.status !== 'draft') {
-      return reply.code(409).send({ error: 'This version has already been issued. An issued version cannot be changed.' })
+      return reply.code(409).send({ error: 'This version has already been submitted for approval and cannot be changed.' })
+    }
+
+    // ── H2: A VERSION WITH NO FROZEN RATES MAY NOT BE SUBMITTED ───────────
+    //
+    // Ruled by John 2026-09-29. A version's whole purpose is to be the price
+    // somebody approves, and a version with an empty rates column has no prices
+    // frozen into it: the approval page prices it at zero and says zero, which
+    // is honest and is not something anybody should be asked to sign.
+    //
+    // MEASURED AT PHASE 0, over every one of 5,515 versions with the walk
+    // asserted equal to the exact count: 14 carry an empty rates column and ALL
+    // FOURTEEN ARE DRAFTS. So no issued version is in this state today and none
+    // is being retrospectively refused.
+    //
+    // IT IS A LIVE GAP, NOT A HISTORICAL ONE, which is why it is worth a guard.
+    // Rates freeze at CREATE, not here, and until now this route asked only
+    // whether the row was a draft. Submitting any one of those fourteen would
+    // have produced exactly the state this refuses.
+    //
+    // FORWARD-ONLY. It gates the submission, so an immutable version already
+    // issued is untouched: nothing re-reads an old row and re-judges it.
+    //
+    // `rates.rates` IS THE SHAPE, not a flat map. `frozenRates()` nests it and
+    // that is the only shape in the estate, censused at 5,515 versions with
+    // zero flat. Reading the wrong one of those two cost me a wrong Phase 0
+    // figure before the walk corrected it.
+    const { data: rateRow, error: rateErr } = await db
+      .from('deal_sheet_versions').select('rates').eq('id', version.id).maybeSingle()
+    if (rateErr) return reply.code(500).send({ error: rateErr.message })
+    const frozen = rateRow?.rates?.rates ?? null
+    if (!frozen || Object.keys(frozen).length === 0) {
+      return reply.code(409).send({
+        error: 'This version has no frozen rates, so there is no price to approve. '
+          + 'It was saved when no cost catalog was in effect. Save the current pricing '
+          + 'as a new version and submit that one.',
+      })
     }
 
     // ── THE NEXT MAJOR COMES FROM WHAT HAS BEEN ISSUED. Round 41, V1/V2/V4 ─
@@ -647,11 +688,11 @@ export default async function dealSheetVersionsRoutes(app) {
       const stranded = version.major < highestIssued
       return reply.code(409).send({
         error: stranded
-          ? `V${version.major}.${version.minor} was drafted before V${highestIssued} was issued, so it is `
+          ? `${versionLabel(version)} was drafted before ${versionLabel({ major: highestIssued, minor: 0 })} was approved, so it is `
             + 'not the next version. Restore it if you want its pricing back, then save that as a new draft.'
           : drafts?.length
-            ? `V${drafts[0].major}.${drafts[0].minor} is the newest draft, so it is the one that can be issued.`
-            : 'There is no draft newer than the last issued version. Save the current pricing as a version first.',
+            ? `${versionLabel(drafts[0])} is the newest draft, so it is the one that can be submitted for approval.`
+            : 'There is no draft newer than the last submitted version. Save the current pricing as a version first.',
       })
     }
 
@@ -679,7 +720,7 @@ export default async function dealSheetVersionsRoutes(app) {
     // An update refused by RLS returns success with an empty set rather than an
     // error, which is the Verification 8 shape. The row count is the signal.
     if (!updated?.length) {
-      return reply.code(409).send({ error: 'This version could not be issued. It may already have been issued.' })
+      return reply.code(409).send({ error: 'This version could not be submitted. It may already have been submitted for approval.' })
     }
 
     // ── W-J: THE CRITERION IS SATISFIED HERE AND NOWHERE ELSE ─────────────
@@ -718,7 +759,7 @@ export default async function dealSheetVersionsRoutes(app) {
       // The audit says what was actually written, not what the old rule would
       // have produced. It read `V${version.major + 1}`, which was the same wrong
       // derivation in a third place and would have recorded V1 for every issue.
-      detail: { version_id: version.id, from: `V${version.major}.${version.minor}`, to: `V${highestIssued + 1}` },
+      detail: { version_id: version.id, from: versionLabel(version), to: versionLabel({ major: highestIssued + 1, minor: 0 }) },
     })
 
     // ── THE ROW IS A VERSION, AND THE RECORD ALSO MOVED. T4 ───────────────
@@ -757,7 +798,7 @@ export default async function dealSheetVersionsRoutes(app) {
     return {
       version_id: version.id,
       record_id: version.record_id,
-      label: version.major === 0 ? `V0.${version.minor}` : (version.minor === 0 ? `V${version.major}` : `V${version.major}.${version.minor}`),
+      label: versionLabel(version),
       inputs: version.inputs,
     }
   })

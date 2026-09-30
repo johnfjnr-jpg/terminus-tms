@@ -12,6 +12,8 @@ import { isRefusal, sendRefusal } from '../lib/write-errors.js'
 // From the one file that owns it, not re-declared here: a second 'version'
 // literal is a second reader of the same decision (Verification 20).
 import { linkApprovalsToVersions, versionApprovalState, VERSION_SCOPE } from '../lib/version-approval.js'
+// R-VL4: the ONE composer, in place of a third copy of the rule.
+import { versionLabel } from '../lib/version-label.js'
 import {
   usesWorkflow, requiredTracks, requestState, mayDecide,
   issuedProposal, needsIssuedVersion,
@@ -194,7 +196,7 @@ export default async function transitionRequestRoutes(app) {
     if (kind === 'review') {
       if (!bodyVersionId || typeof bodyVersionId !== 'string') {
         return reply.code(400).send({
-          error: 'version_id is required: a pricing approval is requested against a specific issued version.',
+          error: 'version_id is required: a pricing approval is requested against a specific submitted version.',
         })
       }
       const { data: ver, error: verErr } = await db
@@ -207,8 +209,8 @@ export default async function transitionRequestRoutes(app) {
       }
       if (ver.status !== 'issued') {
         return reply.code(409).send({
-          error: `V${ver.major}.${ver.minor} is a draft. Issue it before requesting approval: `
-            + 'an approval is held against an issued major version.',
+          error: `${versionLabel(ver)} is a draft. Submit it for approval first: `
+            + 'an approval is held against a submitted major version.',
         })
       }
       // One open pricing-approval request at a time, per version, or approvers
@@ -294,8 +296,8 @@ export default async function transitionRequestRoutes(app) {
         thisVersion, linkedApprovals, rev.revision_number, t, rev.payload).state === 'approved')
       if (wantTracks.length && signed.length === wantTracks.length) {
         return reply.code(409).send({
-          error: `V${ver.major} is already approved on ${signed.join(', ')}. `
-            + 'Issue a new major version if the price has changed, and ask about that one.',
+          error: `${versionLabel(ver)} is already approved on ${signed.join(', ')}. `
+            + 'Submit a new major version for approval if the price has changed, and ask about that one.',
         })
       }
 
@@ -315,7 +317,7 @@ export default async function transitionRequestRoutes(app) {
         const unapproved = blocking.some((b) => b.requirement_type === 'approval_obtained')
         return reply.code(409).send({
           error: unapproved
-            ? 'The current pricing version is not approved for issue yet.'
+            ? 'The current pricing version is not approved yet.'
             : 'This transition is not ready to be requested.',
           blocking,
         })
@@ -655,11 +657,13 @@ export default async function transitionRequestRoutes(app) {
         : { criteria: 'not applicable', criteria_blockers: [], criteria_note: null }
       // The version this approval is held against, named so the banner and the
       // history can say WHICH version was approved rather than "a version".
-      let versionLabel = null
+      // NAMED `...Text` because `versionLabel` is now the imported composer.
+      // A local of that name shadowed it and would have called null.
+      let versionLabelText = null
       if (req.frozen_version_id) {
         const { data: v } = await db.from('deal_sheet_versions')
           .select('major, minor').eq('id', req.frozen_version_id).maybeSingle()
-        if (v) versionLabel = v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`
+        if (v) versionLabelText = versionLabel(v)
       }
       // ── WHO MAY DECIDE, ANSWERED HERE. Round 41 walk item B ──────────────
       //
@@ -680,7 +684,7 @@ export default async function transitionRequestRoutes(app) {
         .select('track, user_id, record_id').eq('record_type', req.record_type)
       const mayDecideTracks = required.filter((t) =>
         mayDecide(req, request.user.id, approvers ?? [], t, req.record_id).allowed)
-      out.push({ ...req, required, version_label: versionLabel,
+      out.push({ ...req, required, version_label: versionLabelText,
         decisions: decisions ?? [], may_decide: mayDecideTracks,
         // Which of the two reasons a track is undecidable, so the screen can say
         // it without re-deriving anything.

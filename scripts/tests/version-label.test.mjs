@@ -11,22 +11,33 @@ import { stripComments } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../', import.meta.url).pathname
 
-test('W2s label: V0.n keeps its minor, a whole major drops it', () => {
+/* R-VL4, John 2026-09-29: ONE FORMAT, ALWAYS. This test used to be called
+   "V0.n keeps its minor, a whole major drops it" and asserted `V2` for a
+   version stored as 2.0. The data was always 2.0; only the printing dropped
+   the minor, so one row had two names depending on which surface you read. */
+test('R-VL4: a label always carries its minor', () => {
   assert.equal(versionLabel({ major: 0, minor: 3 }), 'V0.3')
-  assert.equal(versionLabel({ major: 2, minor: 0 }), 'V2')
+  assert.equal(versionLabel({ major: 2, minor: 0 }), 'V2.0')
   assert.equal(versionLabel({ major: 2, minor: 1 }), 'V2.1')
+  assert.equal(versionLabel({ major: 1, minor: 0 }), 'V1.0')
+  // Two-digit parts must not be mangled into one number.
+  assert.equal(versionLabel({ major: 12, minor: 34 }), 'V12.34')
   // A version that is not one reads as nothing rather than as "Vundefined".
   assert.equal(versionLabel(null), null)
   assert.equal(versionLabel({ minor: 1 }), null)
 })
 
+/* R-VL4 converged John's three sentences onto the one format:
+     "V1.1"  |  "V1.1 - Under Edit"  |  "V1.0 - Under Edit - Not saved"
+   The grammar is unchanged; what changed is that the label inside it now
+   always carries its minor. */
 test('P6: the three states John ruled, in his words', () => {
   const issued = { major: 2, minor: 0 }
   const draft = { major: 0, minor: 3 }
 
   assert.equal(
     workingVersionLabel({ version: issued, draftSaved: false, editedSince: true }),
-    'V2 - Under Edit - Not saved',
+    'V2.0 - Under Edit - Not saved',
     'latest version issued, record edited since, no draft saved')
 
   assert.equal(
@@ -53,7 +64,7 @@ test('P6: the three states John ruled, in his words', () => {
 test('P6: the unstated fourth state reads as the bare label', () => {
   assert.equal(
     workingVersionLabel({ version: { major: 2, minor: 0 }, draftSaved: false, editedSince: false }),
-    'V2')
+    'V2.0')
 })
 
 test('P6: no version at all is nothing, not a label about nothing', () => {
@@ -62,31 +73,22 @@ test('P6: no version at all is nothing, not a label about nothing', () => {
     null)
 })
 
-/* ── THE ONE SOURCE IS ACTUALLY ONE. P6's own words ──────────────────────
-   The ruling asked for labels "from the ONE version-label source". Phase 0
-   found four copies of the rule, all agreeing, which is Verification 20's
-   benign end and not a reason to keep four.
+/* ── RETIRED 2026-09-29, AND REPLACED BY A GUARD THAT WALKS ──────────────
 
-   This is the assertion that keeps it at one: the ternary that expresses the
-   rule may appear in the shared module and nowhere else. It fails the day
-   somebody inlines a fifth copy, which is exactly how the first four arrived. */
-test('the label rule is implemented ONCE across the estate', () => {
-  const files = [
-    'src/lib/approval-page.js',
-    'src/lib/version-approval.js',
-    'src/lib/opportunity-headline.js',
-    'frontend-react/src/versions/model.ts',
-    'frontend/app.js',
-  ]
-  // The shape of the rule, not a formatting of it: a V0 branch keyed on the
-  // major being zero.
-  const RULE = /major === 0[^\n]*V0\./
-  for (const f of files) {
-    const src = stripComments(readFileSync(ROOT + f, 'utf8'), f.endsWith('.ts') ? 'js' : 'js')
-    assert.ok(!RULE.test(src),
-      `${f} carries its own copy of the version-label rule. `
-      + 'P6 requires one source: import it from src/lib/version-label.js.')
-  }
-  const one = stripComments(readFileSync(ROOT + 'src/lib/version-label.js', 'utf8'), 'js')
-  assert.match(one, RULE, 'the shared module does not carry the rule it exists to hold')
-})
+   This file used to hold a test called "the label rule is implemented ONCE
+   across the estate". It checked A HARDCODED LIST OF FIVE FILES for the V0
+   ternary, and it had been GREEN while THREE full copies of the rule sat in
+   `src/routes/` - deal-sheet-versions.js, transition-requests.js and
+   records.js - because none of those five names was a route.
+
+   Verification 19: an enumeration by NAME fails on the unrecorded instance,
+   and the reassuring verdict is the one nobody calibrates.
+
+   Its replacement is `scripts/tests/version-label-composer.test.mjs`, which
+   WALKS every file under src/ with no list at all, matches the shapes a label
+   can be built in rather than one spelling of the rule, and was calibrated RED
+   against those three copies before they were removed: 11 sites in 3 files.
+
+   Retired rather than left beside its replacement, because a guard that cannot
+   fail is worse than no guard: somebody reading this file would have found a
+   green test named "implemented ONCE" and stopped looking. */

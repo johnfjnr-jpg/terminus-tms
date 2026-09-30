@@ -1335,13 +1335,15 @@ function refreshOppNextStageButton() {
       // is a different act from something issued and not yet signed off.
       const nothingIssued = !Number.isInteger(oppIssuedMajor)
       btn.title = nothingIssued
-        ? 'Issue a major pricing version and get it approved before requesting this move'
-        : `V${oppIssuedMajor} is not approved yet on ${unapproved.map((t) => t.track).join(', ')}`
+        ? 'Submit a major pricing version for approval before requesting this move'
+        // R-VL4: the ONE composer, so the banner and the ladder name a version
+        // the same way. An approved major is always x.0.
+        : `${versionLabel({ major: oppIssuedMajor, minor: 0 })} is not approved yet on ${unapproved.map((t) => t.track).join(', ')}`
       const why = document.getElementById('opp-next-stage-why')
       if (why) {
         why.textContent = nothingIssued
-          ? 'Issue and get the pricing version approved first.'
-          : `V${oppIssuedMajor} is waiting on ${unapproved.map((t) => t.track).join(', ')}.`
+          ? 'Submit the pricing version for approval first.'
+          : `${versionLabel({ major: oppIssuedMajor, minor: 0 })} is waiting on ${unapproved.map((t) => t.track).join(', ')}.`
       }
       return
     }
@@ -1394,9 +1396,9 @@ function renderOppRejectedBanner() {
     el.innerHTML = `<div class="rejected-banner">`
       + `<p class="label" style="margin-bottom:6px">Rejected</p>`
       + `<p style="font-size:14px;margin:0 0 8px">`
-      + `<strong>${escHtml(versionRejection.label)}</strong> is the current issued version and it was `
+      + `<strong>${escHtml(versionRejection.label)}</strong> is the current submitted version and it was `
       + `rejected${versionRejection.decidedAt ? ' on ' + escHtml(formatDateTime(versionRejection.decidedAt)) : ''}.</p>`
-      + `<p class="sa-approval-meta" style="margin:0">Issue a new major version with the point `
+      + `<p class="sa-approval-meta" style="margin:0">Submit a new major version with the point `
       + `addressed, then ask for approval of that.</p></div>`
     return
   }
@@ -1405,7 +1407,7 @@ function renderOppRejectedBanner() {
   const when = req.closed_at ? formatDateTime(req.closed_at) : 'an unknown time'
   const reason = (req.close_reason ?? '').trim()
   const what = req.kind === 'review'
-    ? `the pricing approval for ${escHtml(req.version_label ?? 'the issued version')}`
+    ? `the pricing approval for ${escHtml(req.version_label ?? 'the submitted version')}`
     : `the move to ${escHtml(req.to_stage)}`
   el.classList.remove('hidden')
   el.innerHTML = `<div class="rejected-banner">`
@@ -1417,7 +1419,7 @@ function renderOppRejectedBanner() {
     + `<p class="sa-approval-meta" style="margin:0">`
     + (req.kind === 'transition'
       ? 'The request is closed and the record is editable again. Raise a new one when the point is addressed.'
-      : 'The request is closed. Issue a new major version or raise a new approval when the point is addressed.')
+      : 'The request is closed. Submit a new major version for approval, or raise a new approval, when the point is addressed.')
     + `</p></div>`
 }
 
@@ -2303,7 +2305,17 @@ function renderOppPricingApprovalBanner(recordId) {
   const mayDecide = new Set(req.may_decide ?? [])
   const rows = (req.required ?? []).map((t) => {
     const d = decided.get(t)
-    const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Waiting'
+    // ── R-L4: THE THREE STATES, AND THIS PANEL HOLDS THE MIDDLE ONE ─────
+    //
+    // A submitted-but-unsigned major lives here. "Awaiting approval" rather
+    // than "Waiting", so the word matches the version card's badge and the
+    // headline's absence: one vocabulary for one fact across three surfaces.
+    //
+    // ONLY THIS BANNER. `renderOppFreezeBanner` carries the identical
+    // expression and keeps "Waiting", because it is about a STAGE MOVE and not
+    // about a version. The edit tool refused the first attempt as ambiguous
+    // across the two, which is the refusal doing its job.
+    const state = d ? (d.decision === 'approved' ? 'Approved' : 'Rejected') : 'Awaiting approval'
     // Same authorisation marker as the stage banner, for the same reason: an
     // approver is a non-owner, and the sweep must let through exactly what the
     // server authorised and nothing else in this banner.
@@ -2322,8 +2334,8 @@ function renderOppPricingApprovalBanner(recordId) {
         <button class="btn-text appr-refresh" type="button" onclick="refreshOppRequestState('${recordId}')"
           title="Re-read this request.">Refresh</button></p>
       <p style="font-size:14px;margin:0 0 10px">
-        <strong>${escHtml(req.version_label ?? 'The issued version')}</strong> is waiting on
-        Proposal/Pricing approval for issue.
+        <strong>${escHtml(req.version_label ?? 'The submitted version')}</strong> is awaiting
+        Proposal/Pricing approval.
         <em>The record is not frozen: work continues while this is decided.</em></p>
       <!-- ── U5: WHEN IT WAS RAISED ──────────────────────────────────────
            2026-09-04. "Waiting" with no timestamp cannot answer the only
@@ -6981,22 +6993,33 @@ function renderOppHeadline(opp) {
     // RULED: "none", not blank, when nothing has been issued. A blank here
     // would read as a figure that failed to load rather than as a deal with no
     // issued proposal.
-    /* ── P5: RENAMED, AND THE SEMANTICS ARE DELIBERATELY UNCHANGED ─────────
-       John's walk 2026-09-27. SUPERSEDED, QUOTED NOT DELETED: the label read
-       "Proposal version".
+    /* ── R-L4a: THE FIELD NOW NAMES AN APPROVED VERSION ────────────────────
+       John's ruling 2026-09-29, and it CLOSES a tension this site had been
+       carrying on the record since 2026-09-27.
 
-       A display rename stays a display rename (Architecture 6): the figure is
-       still `issued_major`, still the highest major among versions whose
-       status is `issued`, still "none" when nothing has been.
+       P5 renamed "Proposal version" to "Approved version" and deliberately kept
+       the figure - `issued_major`, the highest major whose status is `issued`.
+       The note left here said, in terms, that the field counted versions that
+       were ISSUED while its new name said APPROVED, that those are different
+       events, and that the difference was being recorded rather than resolved.
 
-       AND ONE THING WORTH A READER'S ATTENTION RATHER THAN A SILENT FIX: this
-       counts versions that were ISSUED, and the new name says APPROVED. Those
-       are different events in this estate. The ruling directed that the
-       semantics be preserved under the new name, so they are, and the
-       difference is recorded here rather than quietly resolved in either
-       direction. */
-    oppHeadlineFigure('Approved version',
-      Number.isInteger(opp.issued_major) ? `V${opp.issued_major}` : null, { absent: 'none' }),
+       MEASURED AT THIS ROUND'S PHASE 0, and the tension was real: `issued_major`
+       is written by PROMOTION and no approval track enters it. So the field
+       could say "Approved version V2.0" of a version waiting on all three
+       tracks, or refused on one. A green display is a positive claim, and that
+       one was false.
+
+       It now reads `approved_version`, computed server-side by
+       `approvedVersionOf` from the evaluator the GATE itself calls, so the
+       headline and the gate cannot disagree about what approved means. A
+       promoted-but-unsigned version is not named here at all; the Approvals
+       panel is where that state belongs.
+
+       R-AV: the SERVER sends the composed label, carrying the version's stored
+       minor. This site used to build `V${major}`, which had no minor to print
+       and would have had to derive ".0" - a second reader of the numbering
+       rule, right today and silently wrong the day that rule moved. */
+    oppHeadlineFigure('Approved version', opp.approved_version ?? null, { absent: 'None' }),
     /* ── P6: THE RECORD'S OWN PRICING STATE, BESIDE THE APPROVED ONE ───────
        Computed by `workingVersionOf` on the server, from the same
        `pricingChanged` the approval gate reads, so the banner cannot disagree
@@ -8036,14 +8059,14 @@ function buildStageTrackListHtml(recordId, st, recordType) {
     const meta = versionScoped
       ? (t.approved
         ? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${escHtml(st.stage_name)}`
-        : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved for issue yet`))
+        : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved yet`))
       : t.approved
         ? `Approved ${formatDate(t.decided_at)}`
         : superseded ? 'Decided on the transition request'
         : (st.state === 'current' ? 'Click to approve' : 'Not yet at this stage')
     // RULED LABEL from Proposal onward.
     const roleLabel = versionScoped
-      ? `${escHtml(t.track)} · Proposal/Pricing approved for issue`
+      ? `${escHtml(t.track)} · Proposal/Pricing approved`
       : escHtml(t.track)
     return `
     <div class="sa-approval-row${t.approved ? ' approved' : ''}${clickable ? ' clickable' : ''}" ${onclick}>

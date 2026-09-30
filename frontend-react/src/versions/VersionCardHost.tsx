@@ -153,7 +153,7 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
     const r = await api('POST', `/api/deal-sheet-versions/${draft.id}/issue`)
     if (!r.ok) {
       const said = (r.data as { error?: string } | undefined)?.error
-      throw new Error(said || 'The version could not be issued.')
+      throw new Error(said || 'The version could not be submitted for approval.')
     }
     await load()
   }

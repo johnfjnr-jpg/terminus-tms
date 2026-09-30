@@ -48,7 +48,7 @@ export function trackRow(t: Track, st: StageEntry, superseded: boolean): TrackRo
       // A6: "approved" without naming what was approved is the claim this
       // model exists to make precise.
       ? `${t.version_label ?? 'Version'} · approved ${formatDate(t.decided_at)} · at ${st.stage_name}`
-      : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved for issue yet`))
+      : (t.reason ?? `${t.version_label ?? 'The current version'} is not approved yet`))
     : t.approved
       ? `Approved ${formatDate(t.decided_at)}`
       : superseded ? 'Decided on the transition request'
@@ -58,7 +58,7 @@ export function trackRow(t: Track, st: StageEntry, superseded: boolean): TrackRo
     track: t.track,
     approved: !!t.approved,
     clickable,
-    role: versionScoped ? `${t.track} · Proposal/Pricing approved for issue` : t.track,
+    role: versionScoped ? `${t.track} · Proposal/Pricing approved` : t.track,
     meta,
   }
 }

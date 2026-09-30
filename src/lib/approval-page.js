@@ -41,6 +41,8 @@ import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
 // P6: the ONE version-label source, in place of the two copies this file held.
 import { versionLabel as sharedVersionLabel } from './version-label.js';
+// H1: the same comparison the approval gate and the Working Version field use.
+import { pricingChanged } from './version-pricing.js';
 import { frozenTermsSentences } from './system-defaults.js';
 // The bands, the thresholds and the words all live in one place, because the
 // Commercials reference panel shows a salesperson the same thing earlier.
@@ -845,7 +847,37 @@ export function buildApprovalPage({
   const pricedRates = version ? (version.rates?.rates ?? {}) : (catalog.rates ?? {});
   const resolution = resolveRates(priced, pricedRates);
   const result = calculateDeal(buildDealInputs(priced, { testBedCost, rates: resolution.rates }));
-  const costBasis = buildCostBasis(catalog.batches, catalog.missing, catalog.asOf, payload);
+  // ── H3: THE COST BASIS IS THE VERSION'S, NOT TODAY'S ──────────────────
+  //
+  // Ruled by John 2026-09-29. This read `catalog.batches, catalog.missing,
+  // catalog.asOf` - THE CURRENT CATALOG - on a page whose whole job is to show
+  // what somebody is being asked to approve.
+  //
+  // So an approver opening a version taken in August saw August's PRICES, which
+  // the line above already gets right, beside SEPTEMBER's effective dates. The
+  // figures and the dates they claimed to come from were from different days,
+  // and nothing said so.
+  //
+  // The version freezes them: `deal-sheet-versions.js` writes `batches`,
+  // `missing` and `as_of` into the same `rates` column the prices come from.
+  // This is the identical preference `pricedRates` makes two lines above,
+  // applied to the dates that describe those prices - so the pair cannot
+  // disagree about which day they are from.
+  //
+  // WITH NO VERSION, the current catalog is correct and is what a live deal
+  // sheet is priced at.
+  // ALL THREE FROM ONE SOURCE, OR NONE. A first draft took each key with its
+  // own `??` and mixed them: a version that froze `batches` but not `missing`
+  // got the version's batches beside the catalog's missing list, which is two
+  // days' worth of basis in one block and is the fault this fix exists to
+  // remove, reintroduced by the fix for it. The suite caught it at once.
+  //
+  // The test is whether the version froze a basis at all, and `batches` is the
+  // key that decides it, because it is the one the block is built from.
+  const frozenBasis = Array.isArray(version?.rates?.batches) ? version.rates : null;
+  const costBasis = frozenBasis
+    ? buildCostBasis(frozenBasis.batches, frozenBasis.missing ?? [], frozenBasis.as_of ?? null, payload)
+    : buildCostBasis(catalog.batches, catalog.missing, catalog.asOf, payload);
   // THE SAME PRICED THING, or the headline and the against-target line are two
   // readers of one deal (Verification 20).
   const target = buildTarget(priced, result, {
@@ -912,6 +944,35 @@ export function buildApprovalPage({
         + 'with no current Base Cost batch. Those units price at ZERO cost, so the margin above is '
         + 'higher than the deal will achieve. Enter the missing costs before approving.'
       : null,
+    // ── H1: THE DEAL HAS MOVED SINCE THE VERSION BEING APPROVED ─────────
+    //
+    // Ruled by John 2026-09-29. ONE LINE, and only when there is something to
+    // say: an approver is signing a SNAPSHOT, and if the deal on screen has
+    // moved since that snapshot was taken, the thing they approve is not the
+    // thing the salesperson is now working on.
+    //
+    // `pricingChanged` IS THE SEMANTICS, not a fresh comparison. It is what the
+    // approval gate reads to decide whether an approval is superseded and what
+    // the Working Version field reads to say "Under Edit", so all three agree
+    // by construction rather than by three people being careful.
+    //
+    // NULL WHEN EQUAL, and null when the two cannot be compared. An
+    // incomparable pair is a DIFFERENT statement - the version carries no
+    // snapshot - and the bridge's own caveat already makes it, in more detail
+    // and in the right place. Saying "it may have moved" here as well would be
+    // a second voice on one fact.
+    //
+    // IT NAMES THE VERSION, because "this deal has changed" invites the
+    // question this line exists to answer: changed since WHAT.
+    movedSinceVersion: (() => {
+      if (!version) return null;
+      const moved = pricingChanged(version.inputs, payload);
+      if (!moved.comparable || !moved.changed) return null;
+      const n = moved.keys?.length ?? 0;
+      return `The deal has changed since ${versionLabel} was taken`
+        + (n ? ` (${n} pricing input${n === 1 ? '' : 's'} moved)` : '')
+        + '. You are approving the version, not the pricing now on the Commercials tab.';
+    })(),
   };
 
   // ── 2. WHAT MOVED IT ──────────────────────────────────────────────────

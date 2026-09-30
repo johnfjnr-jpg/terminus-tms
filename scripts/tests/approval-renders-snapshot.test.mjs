@@ -172,7 +172,8 @@ test('R10: and the version it names is the one it priced', () => {
   // A page that priced one version while labelling another would satisfy every
   // figure assertion above.
   const p = page()
-  assert.equal(p.ask.version.label, 'V1')
+  // R-VL4: one format, always. This expected 'V1' for a version stored as 1.0.
+  assert.equal(p.ask.version.label, 'V1.0')
   assert.equal(p.ask.version.revisionNumber, 22)
   assert.equal(p.ask.version.reason, 'test reason 2')
 })

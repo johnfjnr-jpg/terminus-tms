@@ -120,7 +120,7 @@ describe('A: the shared stage track list', () => {
     }, ST, false)
     expect(r.meta).toContain('v3.0')
     expect(r.meta).toContain('Qualification')
-    expect(r.role).toContain('Proposal/Pricing approved for issue')
+    expect(r.role).toContain('Proposal/Pricing approved')
   })
 
   test('A6 an unapproved version-scoped track carries the RULE\'s own reason', () => {

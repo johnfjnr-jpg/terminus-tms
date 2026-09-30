@@ -94,10 +94,25 @@ test('the banner shows the seven ruled figures', () => {
   // it (Verification 7).
   assert.ok(!app.includes('Proposal version'),
     'the strip still carries the old label, so the rename added rather than replaced')
-  // RULED: "none", not blank, when nothing is issued. UNCHANGED BY THE RENAME,
-  // which is what makes it a display rename.
-  assert.match(app, /issued_major\) \? `V\$\{opp\.issued_major\}` : null, \{ absent: 'none' \}/,
-    'an unissued proposal does not read "none"')
+  /* R-L4a, John 2026-09-29. SUPERSEDED, QUOTED NOT DELETED: this asserted
+     /issued_major) ? `V${opp.issued_major}` : null, { absent: 'none' }/ and
+     its comment said the figure was "UNCHANGED BY THE RENAME, which is what
+     makes it a display rename".
+
+     That was true and it was the finding. `issued_major` is written by
+     PROMOTION, so the field could say "Approved version V2.0" of a version
+     waiting on all three tracks. The rename was honest about staying a rename;
+     what it left behind was a name that outran its figure.
+
+     The claim here is now the one that matters: the field reads the SERVER's
+     computed approved version, and it still says something rather than going
+     blank when there is none. */
+  assert.match(app, /'Approved version', opp\.approved_version \?\? null, \{ absent: 'None' \}/,
+    'the field does not read the server-computed approved version')
+  // AND IT MUST NOT COMPOSE A LABEL ITSELF (R-AV): the server sends the label
+  // carrying the stored minor, so no site here derives a ".0".
+  assert.ok(!/`V\$\{opp\.issued_major\}`/.test(app),
+    'the strip still builds a label from the promoted major')
   // P6 says "none" for the same reason its neighbour does.
   assert.match(app, /'Working version', opp\.working_version \?\? null, \{ absent: 'none' \}/,
     'a record with no version does not read "none"')

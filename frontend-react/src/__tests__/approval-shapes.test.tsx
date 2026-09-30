@@ -57,7 +57,10 @@ describe('shape 1: bridge present, and comparable', () => {
   test('the baseline is named with the revision it was approved at', () => {
     // R7: the shape is DD/MM/YY. The claim is that the baseline is NAMED with
     // its revision and date, which is unchanged; only the rendering moved.
-    expect(moved(p)).toMatch(/Against V1, approved at revision 3 on 01\/08\/2026\./)
+    // R-VL4: one format, always. This read /Against V1,/ for a version stored
+    // as 1.0. The claim is unchanged - the baseline is NAMED with its revision
+    // and date - and only the label's rendering moved.
+    expect(moved(p)).toMatch(/Against V1\.0, approved at revision 3 on 01\/08\/2026\./)
   })
 
   test('point 1: every figure comes from the server, so the rendered opening equals it', () => {
@@ -367,5 +370,41 @@ describe('point 1: nothing is computed client-side', () => {
   test('the ask renders the server margin, not one recomputed from net and cost', () => {
     const a = build({ payload: payload({ ...RATES }), version: version(), baseline: null })
     expect(ask(a)).toContain(`${a.ask.achievedMargin.toFixed(2)}%`)
+  })
+})
+
+/* ── H1: THE MOVED-SINCE LINE, RENDERED ──────────────────────────────────
+   John's ruling 2026-09-29. The server decides whether there is anything to
+   say; this is the half that proves a person SEES it, and that they do not see
+   it when there is nothing to say.
+
+   Verification 4's clause: presence is not the claim. The line must carry the
+   --attention token, because a warning rendered in body text is a sentence
+   nobody reads. */
+describe('H1: the deal has moved since the version being approved', () => {
+  // THE VERSION NEEDS A SNAPSHOT TO HAVE MOVED FROM. `version()` carries no
+  // `inputs`, which is the NOT-COMPARABLE shape and correctly reports nothing:
+  // my first draft of these tests used it and proved only that an incomparable
+  // pair is silent, which is a different claim and is asserted below.
+  const snapshot = () => version({ inputs: payload() })
+
+  test('it RENDERS, in the attention token, naming the version', () => {
+    const p = build({
+      payload: payload({ targetMargin: 41 }),
+      version: snapshot(), baseline: null,
+    })
+    expect(p.ask.movedSinceVersion, 'the fixture did not move, so this proves nothing').toBeTruthy()
+    const html = renderToStaticMarkup(<AskBlock ask={p.ask} />)
+    expect(html).toContain('var(--attention)')
+    expect(asText(html)).toContain('The deal has changed since')
+    expect(asText(html)).toMatch(/V\d+\.\d+/)
+  })
+
+  test('and it is ABSENT when the deal has not moved', () => {
+    const p = build({ payload: payload(), version: snapshot(), baseline: null })
+    expect(p.ask.movedSinceVersion, 'the fixture moved, so the silent case is untested').toBeNull()
+    const html = renderToStaticMarkup(<AskBlock ask={p.ask} />)
+    expect(html).not.toContain('appr-moved-since')
+    expect(asText(html)).not.toContain('The deal has changed since')
   })
 })

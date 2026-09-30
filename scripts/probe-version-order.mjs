@@ -118,7 +118,8 @@ record('a draft saved after the issue shares the issued major',
 
 const blocked = issuedProposal(afterFresh, revRow[0].payload)
 record('a genuinely newer draft STILL blocks the transition',
-  blocked.ok === false && /draft version that has not been issued/.test(blocked.reason ?? ''),
+  // R-L4 re-point: "has not been issued" became "has not been submitted".
+  blocked.ok === false && /draft version that has not been submitted/.test(blocked.reason ?? ''),
   blocked.ok ? 'it passed, so the check no longer fires at all' : 'refused, as it must')
 
 // And the instruction it gives is one the system will accept.

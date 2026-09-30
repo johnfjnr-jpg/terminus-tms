@@ -152,7 +152,7 @@ export function issuedProposal(versions, currentPayload, fromStage) {
     return {
       ok: false, version: null,
       notice: true,
-      reason: 'No Deal Sheet version has been issued. Take a version on Commercials and issue it '
+      reason: 'No Deal Sheet version has been submitted for approval. Take a version on Commercials and submit it '
         + 'before requesting this transition.',
     };
   }
@@ -200,8 +200,8 @@ export function issuedProposal(versions, currentPayload, fromStage) {
     return {
       ok: false, notice: true, version: issued,
       reason: 'This deal sheet version records no pricing, so there is no way to tell whether the '
-        + 'price on screen is the one that was issued. Take a fresh version from current pricing '
-        + 'and issue it before requesting this transition.',
+        + 'price on screen is the one that was submitted. Take a fresh version from current pricing '
+        + 'and submit it before requesting this transition.',
     };
   }
   if (moved.changed) {
@@ -213,7 +213,7 @@ export function issuedProposal(versions, currentPayload, fromStage) {
     return {
       ok: false, notice: true, version: issued,
       reason: `Pricing at minor (draft) version. Changes since last major version: `
-        + `${namedChangedKeys(moved.keys)}. Issue major version for ${fromStage} stage exit.`,
+        + `${namedChangedKeys(moved.keys)}. Submit a major version for approval for ${fromStage} stage exit.`,
     };
   }
   // ── A DRAFT IS NEWER THAN THE ISSUE IFF IT SHARES ITS MAJOR ─────────────
@@ -232,7 +232,7 @@ export function issuedProposal(versions, currentPayload, fromStage) {
   if (laterDraft) {
     return {
       ok: false, notice: true, version: issued,
-      reason: 'There is a draft version that has not been issued. Issue it, or discard it, before '
+      reason: 'There is a draft version that has not been submitted. Submit it, or discard it, before '
         + 'requesting this transition. A draft is not what a request freezes.',
     };
   }

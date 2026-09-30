@@ -12260,3 +12260,138 @@ covering more than it does.
   is a shape this suite cannot speak for.
 - **The catalog is a fixture.** Whether the live rate card is correct is a
   different question with a different owner.
+
+---
+
+# THREE STATES ON SCREEN, ONE DB WORD UNCHANGED
+
+**Ruled by John 2026-09-29 (R-L4).** It replaces the Approved/Issued line taken
+on 2026-09-27, which lived at `frontend/app.js`'s headline field rather than
+here. **That is itself the finding**: a decision recorded only at the site it
+affected, where the next round had to rediscover it. It is here now.
+
+> | on screen | what it means | what the DB holds |
+> |---|---|---|
+> | **Draft** | `x.y`, not yet put up | `status = 'draft'` |
+> | **Awaiting approval** | `x.0`, submitted, tracks incomplete | `status = 'issued'` |
+> | **Approved** | `x.0`, every required track signed | `status = 'issued'` |
+
+**"ISSUED" IS RESERVED FOR A FUTURE EVENT** and appears in no user-facing
+string: sending the deal to the customer, which will be a LOGGED event carrying
+who, when and which rendered document, tied to the print and export work. **It
+is not a second approval workflow**, and nothing about it exists yet.
+
+**ROUTES, DB VALUES AND INTERNAL NAMES ARE UNCHANGED.** `status = 'issued'`,
+`POST /deal-sheet-versions/:vid/issue`, `issued_major`, `IssueView` and
+`issueView` all stay. This is a change to what a person reads, and Architecture
+6 is the reason it stops there.
+
+**The promotion control's copy is John's own:** *"Submit V&lt;draft&gt; as
+V&lt;major&gt;.0 for approval"*.
+
+**Reconciled by count**, which is what makes the sweep checkable rather than
+asserted: **58 user-facing lines before, 21 after, 37 converted.**
+
+| remaining | reason |
+|---|---|
+| 14 | a DB value comparison (`status === 'issued'`) |
+| 3 | a route path or an element id |
+| 2 | a log line, not user-facing |
+| 1 | an internal variable or handler name |
+| 1 | an internal type name |
+
+Every one is left alone by the ruling, and **the classification returned ZERO
+unexplained lines**. A separate 7 use "issue" in its other sense entirely -
+issuing an Account Number or a reference number - and are out of scope by
+meaning rather than by exemption.
+
+**AN EARLIER DRAFT OF THIS SECTION SAID 26 AND 32, AND THE CLASSIFICATION IS
+WHAT CORRECTED IT.** The count had been taken before the last batch of
+conversions, and re-running it to classify the remainder found both the stale
+figure AND a line I believed converted: `app.js:1410` still read "the issued
+version", because that edit had reported `anchor not found` on an indentation
+mismatch and I had not gone back to it. **A count restated from memory is a
+second reader** - the fault this estate has recorded against hand-typed numbers,
+arriving in the document about a sweep.
+
+---
+
+# R-VL4: ONE VERSION LABEL FORMAT, ALWAYS
+
+**Ruled by John 2026-09-29.** `V1.0`, never `V1`.
+
+**The data was always right.** Phase 0 drove the flow and the rows read V0.1,
+V0.2, V1.0, V1.1, V2.0. Only the printing dropped the minor, so one row had two
+names depending on which surface you read it from, and `V1` beside `V1.1` looked
+like a major and its revision when they are two majors apart.
+
+**ONE COMPOSER, AND A GUARD THAT WALKS.** `src/lib/version-label.js` is the only
+place a label may be built. The guard that was supposed to enforce that checked
+**a hardcoded list of five files, none of them a route**, and had been green
+while THREE full copies of the rule sat in `src/routes/`.
+
+> **AN ENUMERATION BY NAME FAILS ON THE UNRECORDED INSTANCE, AND THE
+> REASSURING VERDICT IS THE ONE NOBODY CALIBRATES.**
+
+Its replacement walks every file under `src/` with no list at all, and matches
+the SHAPES a label can be built in rather than one spelling of the rule -
+because most of what Phase 0 actually found was `` `V${v.major}` ``, which the
+old pattern would have missed even inside its five files. Calibrated RED against
+the three copies before they were removed: 11 sites, 3 files.
+
+---
+
+# R-L4a: THE APPROVED VERSION FIELD NAMES AN APPROVED VERSION
+
+**Ruled by John 2026-09-29**, after Phase 0 measured what set the field.
+
+`issued_major` is the highest major whose status is `issued`, and **that status
+is written by PROMOTION: no approval track enters it.** So a field labelled
+"Approved version" could name a version waiting on all three tracks, or refused
+on one. A green display is a positive claim, and that one was false.
+
+**It now asks `versionApprovalState`, the evaluator the GATE calls**, once per
+required track, so the headline and the gate cannot disagree about what approved
+means. A promoted-but-unsigned version is not named here at all; the Approvals
+panel is where that state belongs.
+
+**SUPERSEDED STILL COUNTS**, and that was not a new decision:
+`lastApprovedVersion` had already ruled it, in a comment saying *"the last thing
+an approver signed"*. The three-way test was an inline `||` and is now the named
+`SIGNED_STATES`, read by both. A sign-off is not unsigned by the deal moving
+afterwards; what the movement changes is what the screen must say beside it,
+which is H1's line.
+
+**R-AV: the stored MINOR is carried through.** The field renders a label the
+server composed from the version row, so nothing derives `.0` from "an approved
+version is always x.0" - which would be a second reader of the numbering rule,
+right today and silently wrong the day that rule moves.
+
+**It costs four extra reads on the opportunity detail route.** They sit inside
+the existing `Promise.all`, so it is one round trip rather than four, and the
+cost is stated at the site.
+
+---
+
+# R-L3: THE CLEAR LIST IS ABOUT WHAT THE DERIVATION PRICES FROM
+
+**Ruled by John 2026-09-29.** `deal-lumpCost` joins `FUNDAMENTAL_VALUE_IDS`.
+
+**The list's stated test was rewritten, because it was the thing that was
+wrong.** It read *"a figure for a QUANTITY"*, and by that test `lumpSumCost` was
+correctly excluded - a lump sum is an absolute no quantity multiplies, which is
+exactly what the code's own note said while carrying the question to John.
+
+> **AN INPUT THE DERIVATION PRICES FROM. Change it and an absolute override
+> silently prices a different deal.**
+
+An installation price override is a figure quoted against a lump sum cost.
+Change the cost and that figure prices a different job while its amber goes on
+claiming somebody chose it: the same harm, with no quantity anywhere in it. The
+quantity was only ever the commonest way an input reaches the derivation.
+
+**Margin overrides still persist**, unchanged, because a ratio survives the
+input moving.
+
+**Verification 29's shape: a premise failed, so the decision was re-taken rather
+than re-weighed**, and the superseded reasoning is left visible at the site.

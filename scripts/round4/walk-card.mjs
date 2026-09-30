@@ -233,7 +233,10 @@ try {
     line: document.getElementById('pricing-approval-state')?.textContent,
   }))
   check('A NEWER DRAFT DISABLES THE ASK, and the card says why rather than going quiet',
-    reAsk.disabled === true && /is a draft\. Issue it before requesting approval/.test(reAsk.line ?? ''),
+    // R-L4 re-point. Found by sweeping EVERY probe after three gate stages
+    // failed on the same class of staleness; this one is unwired, so nothing
+    // would have caught it until somebody ran the walk.
+    reAsk.disabled === true && /is a draft\. Submit it before requesting approval/.test(reAsk.line ?? ''),
     `disabled=${reAsk.disabled} state="${reAsk.line}"`)
 
   // ── AND THE FORM ITSELF STILL SAVES. Phase 3 item 2 ────────────────────

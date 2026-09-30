@@ -19,15 +19,29 @@
 // module serves every caller rather than one per runtime.
 
 /**
- * W2's label. V0.n keeps its minor; a whole major drops it.
+ * ── R-VL4: A VERSION LABEL ALWAYS CARRIES ITS MINOR ──────────────────────
+ *
+ * Ruled by John 2026-09-29. `V1.0`, never `V1`.
+ *
+ * WHAT THIS REPLACES, left visible because the reasoning was sound and the
+ * outcome was not. The rule read "V0.n keeps its minor; a whole major drops
+ * it", so a version stored as 1.0 printed as `V1`. The DATA was always right -
+ * Phase 0 drove the flow and the rows read V0.1, V0.2, V1.0, V1.1, V2.0 - and
+ * only the printing dropped the minor.
+ *
+ * THE COST OF DROPPING IT IS THAT ONE VERSION HAD TWO NAMES. `V1` on the
+ * headline and `V1.0` in the ladder are the same row, and a person reading both
+ * has to know that to know it. Worse, `V1` and `V1.1` look like a major and its
+ * revision when they are two different majors' worth of apart.
+ *
+ * ONE FORMAT, ALWAYS, so there is nothing to know.
  *
  * @param {{ major: number, minor: number }} v
- * @returns {string}
+ * @returns {string|null} null when there is no version to name at all
  */
 export function versionLabel(v) {
   if (!v || !Number.isInteger(v.major)) return null;
-  if (v.major === 0) return `V0.${v.minor}`;
-  return v.minor === 0 ? `V${v.major}` : `V${v.major}.${v.minor}`;
+  return `V${v.major}.${v.minor}`;
 }
 
 /**
