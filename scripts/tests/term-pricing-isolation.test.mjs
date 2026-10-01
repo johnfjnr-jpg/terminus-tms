@@ -28,6 +28,8 @@ const ENGINE_NAME = ['term', 'pricing'].join('-')
 // diff somebody reads.
 export const ALLOWED_IMPORTERS = [
   'scripts/tests/term-pricing.test.mjs',
+  // Phase 2: generates the static mockup's figures from the engine.
+  'prototypes/term-pricing/build-mockup.mjs',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']
