@@ -104,3 +104,12 @@ Q5 Settings card collapsed by default; admin expands it. The page opens on the l
 
 Regenerate the mockup with Q1, Q2, Q4 and Q5, re-measure at 1240 and 1920, and STOP again with the
 six screenshots for John.
+
+---
+
+RULINGS AFTER THE PHASE 2 RE-REVIEW (John, 2026-10-01), appended verbatim:
+
+Rulings (John, 2026-10-01): Settings stays expandable read-only in the salesperson view (no change).
+Under CAPEX, relabel the product-lines table "Pricing basis (OPEX fees)". Regenerate the mockup,
+re-measure at 1240 and 1920, replace the affected screenshots, and STOP. Phase 3 waits for John's
+approval of the mockup.

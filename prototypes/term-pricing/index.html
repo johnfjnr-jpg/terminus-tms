@@ -154,7 +154,7 @@
           </div>
           <div class="split" style="margin-top:16px">
             <div>
-              <div class="eyebrow" style="margin-bottom:6px">Product lines (bands count per line)</div>
+              <div class="eyebrow" style="margin-bottom:6px" id="lines-label">Product lines (bands count per line)</div>
               <table class="lines"><thead><tr><th>Line</th><th>Units</th><th>Fee / unit / mo</th><th>Monthly</th></tr></thead><tbody id="q-lines"></tbody></table>
             </div>
             <div>
@@ -257,6 +257,9 @@ function render() {
   // Q4: shown only when WHT is borne; the engine returns null otherwise.
   text($('q-after-wht'), q.afterWht ? 'Margin on price after WHT: ' + q.afterWht + '%' : '');
   $('q-flag').innerHTML = q.flag ? '<span class="chip flag">Below the ' + q.floor + '% floor</span>' : '<span class="chip">Above the ' + q.floor + '% floor</span>';
+  // Ruled 2026-10-01: under CAPEX these OPEX fees are what TCV is priced from,
+  // not what the client is invoiced, so the table says so.
+  text($('lines-label'), state.s === 'capex' ? 'Pricing basis (OPEX fees)' : 'Product lines (bands count per line)');
   const lines = $('q-lines'); lines.innerHTML = '';
   for (const l of q.lines) {
     lines.insertAdjacentHTML('beforeend', '<tr><td>' + l.product + '</td><td>' + l.units + '</td><td></td><td>' + l.monthly + '</td></tr>');
