@@ -1,8 +1,9 @@
-# Terminus Term Pricing: Specification v1.2.1
+# Terminus Term Pricing: Specification v1.2.2
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
 **Amended (v1.2.1, John, 1 Oct 2026):** TERMS as a parameter; anchor and short-term margins per product; tax rounding and WHT base; test cases T20 and T21. Every figure in sections 10 and 11 is unchanged.
+**Amended (v1.2.2, John, 1 Oct 2026):** with an escalator, the CAPEX monthly service fee escalates like the OPEX fee and TCV stays identical to the OPEX TCV (section 6); test case T22. Every earlier figure is unchanged.
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
@@ -122,6 +123,14 @@ upfront          = TCV − monthly_service × T          (carries any rounding r
 
 Upfront + monthly service × term = TCV exactly. Terminus recovers its hardware cash on day one; the monthly service fee carries the remaining margin.
 
+**CAPEX with an escalator (section 7):** the monthly service fee escalates like the OPEX fee, and TCV stays identical to the OPEX TCV.
+
+```
+s                = (TCV − hardware_upfront) / (12 × Σ_{k=1..years} (1 + escalator)^(k−1))
+service_year(k)  = round_half_up( s × (1 + escalator)^(k−1), 2 )
+upfront          = TCV − Σ_k ( 12 × service_year(k) )          (carries any rounding residue)
+```
+
 The TMS prototype maps `capex` onto its existing two-phase and hybrid payment structures. PO factoring stays in the cash flow (section 9).
 
 ## 7. Optional annual escalator
@@ -218,6 +227,7 @@ SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, no
 | T19 | T6 with `MARGIN_FLOOR` 90% | flag shown, quote still prices | Floor flags, never refuses |
 | T20 | T6, WHT 10%, gross-up ON | monthly invoice 322,020.86; WHT 32,202.09; Terminus receives 289,818.77 (= T6 monthly total) | Gross-up |
 | T21 | T6, WHT 10%, gross-up OFF | monthly invoice 289,818.77; WHT 28,981.88 borne; Terminus receives 260,836.89 | WHT borne |
+| T22 | T6 as `capex` with escalator 3% | TCV 18,464,248.32; upfront 1,200,000.00; service fees by year 270,983.34 / 279,112.84 / 287,486.23 / 296,110.81 / 304,994.14; upfront + Σ = TCV | CAPEX service fee escalates |
 
 Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFIT_STEP` to 1,000.00) flows through with no code change.
 
