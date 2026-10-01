@@ -65,9 +65,13 @@ const label = (k) => PRODUCTS.find((p) => p.key === k)?.label ?? k
 // ── Precompute every state the page can show ─────────────────────────────
 
 const ladders = {}
-for (const [ek, esc] of Object.entries(ESCALATORS)) {
-  ladders[ek] = termLadder({ units: UNITS, paymentStructure: 'opex', escalatorPct: esc }, PARAMS).map((r) => ({
+// A1: one ladder per structure. Under CAPEX each row carries the upfront and
+// the year-1 service fee from the CAPEX quote at that term.
+for (const s of ['opex', 'capex']) for (const [ek, esc] of Object.entries(ESCALATORS)) {
+  ladders[`${s}|${ek}`] = termLadder({ units: UNITS, paymentStructure: s, escalatorPct: esc }, PARAMS).map((r) => ({
     term: r.termMonths, anchor: r.isAnchor, monthly: m(r.monthlyTotalCents), vs: vs(r.savingVsAnchor, r.isAnchor),
+    upfront: r.upfrontCents === null ? null : m(r.upfrontCents),
+    service: r.monthlyServiceCents === null ? null : m(r.monthlyServiceCents),
     vsKind: r.isAnchor ? 'list' : (r.savingVsAnchor.n < 0n ? 'premium' : 'saving'),
     tcv: m(r.tcvNetCents), margin: pc(r.grossMargin), flag: r.belowMarginFloor,
   }))
@@ -238,7 +242,7 @@ const html = `<!doctype html>
           <div class="row2">
             <div><label class="f">GST</label><input class="num" value="${GST}%" disabled></div>
             <div><label class="f">WHT</label>
-              <div class="seg" id="wht"><button data-w="none">0%</button><button data-w="up">10%, gross-up</button><button data-w="borne">10%, borne</button></div>
+              <div class="seg" id="wht"><button data-w="none">0%</button><button data-w="up">10% gross-up</button><button data-w="borne">10% borne</button></div>
             </div>
           </div>
           </div>
@@ -251,7 +255,7 @@ const html = `<!doctype html>
         <section class="card">
           <h2>Term ladder <span class="hint">the same units at every term; select a row to quote it</span></h2>
           <table>
-            <thead><tr><th>Term</th><th>Monthly fee (year 1)</th><th>vs 36 months, this deal</th><th>TCV (net)</th><th>Margin on price</th></tr></thead>
+            <thead id="ladder-head"></thead>
             <tbody id="ladder"></tbody>
           </table>
         </section>
@@ -295,7 +299,7 @@ const html = `<!doctype html>
           <h2>States <span class="hint">how the screen marks them</span></h2>
           <div class="small">Below the margin floor: <span class="chip flag">Below the 25.0% floor</span> <span class="muted">The quote still prices; the flag never refuses.</span></div>
           <div class="small" style="margin-top:10px">Above it: <span class="chip">Above the 25.0% floor</span></div>
-          <div class="small" style="margin-top:10px">A term that is not offered, or no units: the quote area shows the reason in place of figures, for example <span class="muted">"A 18-month term is not offered. Choose one of: 12, 24, 36, 48, 60, 72, 84, 96, 120 months."</span></div>
+          <div class="small" style="margin-top:10px">A term that is not offered, or no units: the quote area shows the reason in place of figures, for example <span class="muted">"An 18-month term is not offered. Choose one of: 12, 24, 36, 48, 60, 72, 84, 96, 120 months."</span></div>
         </section>
       </div>
     </div>
@@ -355,10 +359,12 @@ function seg(id, attr, key) {
 function render() {
   seg('terms', 'term', 'term'); seg('structure', 's', 's'); seg('escalator', 'e', 'e'); seg('wht', 'w', 'w'); seg('viewas', 'v', 'v');
   const lad = $('ladder'); lad.innerHTML = '';
-  for (const r of LADDERS[state.e]) {
+  const capexLadder = state.s === 'capex';
+  $('ladder-head').innerHTML = '<tr><th>Term</th>' + (capexLadder ? '<th>Upfront</th><th>Monthly service fee (year 1)</th>' : '<th>Monthly fee (year 1)</th>') + '<th>vs 36 months, this deal</th><th>TCV (net)</th><th>Margin on price</th></tr>';
+  for (const r of LADDERS[state.s + '|' + state.e]) {
     const tr = document.createElement('tr');
     tr.className = 'ladder' + (r.term === state.term ? ' on' : '');
-    tr.innerHTML = '<td>' + r.term + ' months</td><td>' + r.monthly + '</td><td class="' + r.vsKind + '">' + r.vs + '</td><td>' + r.tcv + '</td><td>' + r.margin + '%</td>';
+    tr.innerHTML = '<td>' + r.term + ' months</td>' + (capexLadder ? '<td>' + r.upfront + '</td><td>' + r.service + '</td>' : '<td>' + r.monthly + '</td>') + '<td class="' + r.vsKind + '">' + r.vs + '</td><td>' + r.tcv + '</td><td>' + r.margin + '%</td>';
     tr.onclick = () => { state.term = r.term; render(); };
     lad.appendChild(tr);
   }
