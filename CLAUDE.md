@@ -968,6 +968,14 @@ not resolve it quietly.
     accept, and this is the client side of the same idea: **the server must not
     trust the caller's claim, and the caller must not trust its own screen.**
 
+14. **THE TERM PRICING CALCULATOR FOLLOWS `docs/pricing-spec.md` EXACTLY.**
+    Set by John 2026-10-01, when Specification v1.2 was added to the
+    repository.
+
+    > The term pricing calculator follows docs/pricing-spec.md exactly:
+    > no hard-coded parameters, no floats for money. This rule does not
+    > govern the deal-sheet engine.
+
 ---
 
 ## Verification
