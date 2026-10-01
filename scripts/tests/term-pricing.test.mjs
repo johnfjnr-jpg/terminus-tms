@@ -249,6 +249,31 @@ test('T21 T6, WHT 10%, gross-up OFF', () => {
   assert.equal(money(m.receivedCents), '260,836.89', 'Terminus receives')
 })
 
+test('T22 T6 as capex with escalator 3%: the service fee escalates and TCV is the OPEX TCV', () => {
+  const q = quote({ safesight: 120 }, 60, { paymentStructure: 'capex', escalatorPct: '3' })
+  assert.equal(money(q.tcvNetCents), '18,464,248.32')
+  assert.equal(money(q.capex.upfrontCents), '1,200,000.00')
+  assert.deepEqual(q.capex.serviceByYear.map(money),
+    ['270,983.34', '279,112.84', '287,486.23', '296,110.81', '304,994.14'])
+  assert.equal(q.capex.upfrontCents + q.capex.serviceByYear.reduce((t, c) => t + 12n * c, 0n), q.tcvNetCents,
+    'upfront + sum = TCV')
+  const opex = quote({ safesight: 120 }, 60, { escalatorPct: '3' })
+  assert.equal(q.tcvNetCents, opex.tcvNetCents, 'TCV identical to the OPEX TCV')
+  assert.deepEqual(q.schedule.map((r) => [r.kind, r.fromMonth, r.toMonth]),
+    [['upfront', 0, 0], ['monthly', 1, 12], ['monthly', 13, 24], ['monthly', 25, 36], ['monthly', 37, 48], ['monthly', 49, 60]])
+})
+
+test('POSITION (Q4, not a spec figure): margin on price after WHT, only when WHT is borne', () => {
+  // T21 basis: profit 17,389,126.20 - 120 x 20,000.00 = 14,989,126.20; WHT borne
+  // 28,981.88 x 60 = 1,738,912.80; after WHT 13,250,213.40 / 17,389,126.20 = 76.197..%.
+  const borne = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: false })
+  assert.equal(money(borne.tax.whtBorneCents), '1,738,912.80')
+  assert.equal(pct(borne.marginAfterWht), '76.2')
+  assert.equal(pct(borne.grossMargin), '86.2', 'the section 4.3 margin is unchanged')
+  assert.equal(quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true }).marginAfterWht, null, 'gross-up: nothing borne')
+  assert.equal(quote({ safesight: 120 }, 60).marginAfterWht, null, 'no WHT')
+})
+
 // ── Section 8, the parts T20 and T21 do not reach ────────────────────────
 
 test('GST is added on top, outside TCV net, and WHT is on the fee before GST', () => {

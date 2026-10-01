@@ -320,23 +320,40 @@ export function priceQuote(input, params) {
 
   // Section 6: the payment schedule, net of tax. Rows are runs of identical
   // invoices: month 0 is the CAPEX upfront invoice.
+  //
+  // Both structures bill one fee per contract year. Consecutive years with the
+  // same fee (no escalator) merge into one run, so a flat deal reads as one row.
+  const yearRows = (feeByYear) => {
+    const rows = []
+    for (let k = 1; k <= years; k++) {
+      const from = 12 * (k - 1) + 1
+      const to = 12 * (k - 1) + monthsInYear(k)
+      const last = rows[rows.length - 1]
+      if (last && last.netCents === feeByYear[k - 1]) last.toMonth = to
+      else rows.push({ kind: 'monthly', fromMonth: from, toMonth: to, netCents: feeByYear[k - 1] })
+    }
+    return rows
+  }
   let schedule
   let capex = null
   if (structure === 'opex') {
-    schedule = []
-    for (let k = 1; k <= years; k++) {
-      schedule.push({ kind: 'monthly', fromMonth: 12 * (k - 1) + 1, toMonth: 12 * (k - 1) + monthsInYear(k), netCents: monthlyTotalByYear[k - 1] })
-    }
+    schedule = yearRows(monthlyTotalByYear)
   } else {
+    // v1.2.2 section 6: the service fee escalates like the OPEX fee and TCV is
+    // the OPEX TCV. The weight is 12 x sum of the year factors in the spec; it
+    // is written as months-in-year x factor, which is identical for every term
+    // that is a whole number of years and stays consistent with section 7's
+    // own year split if a TERMS entry ever is not.
     const hardwareUpfront = lines.reduce(
       (s, l) => add(s, div(mul(fromInt(l.units), l.hwCostPerUnit), sub(ONE, p.hwUpfrontMargin))), ZERO)
-    const monthlyServiceCents = roundHalfUp(div(sub(fromCents(tcvNetCents), hardwareUpfront), fromInt(T)), 2)
-    const upfrontCents = tcvNetCents - monthlyServiceCents * BigInt(T)
-    capex = { hardwareUpfront, upfrontCents, monthlyServiceCents }
-    schedule = [
-      { kind: 'upfront', fromMonth: 0, toMonth: 0, netCents: upfrontCents },
-      { kind: 'monthly', fromMonth: 1, toMonth: T, netCents: monthlyServiceCents },
-    ]
+    let weight = ZERO
+    for (let k = 1; k <= years; k++) weight = add(weight, mul(fromInt(monthsInYear(k)), factor(k)))
+    const s = div(sub(fromCents(tcvNetCents), hardwareUpfront), weight)
+    const serviceByYear = []
+    for (let k = 1; k <= years; k++) serviceByYear.push(roundHalfUp(mul(s, factor(k)), 2))
+    const upfrontCents = tcvNetCents - serviceByYear.reduce((t, c, i) => t + c * BigInt(monthsInYear(i + 1)), 0n)
+    capex = { hardwareUpfront, upfrontCents, monthlyServiceCents: serviceByYear[0], serviceByYear }
+    schedule = [{ kind: 'upfront', fromMonth: 0, toMonth: 0, netCents: upfrontCents }, ...yearRows(serviceByYear)]
   }
 
   // Section 8: tax per invoice line, half-up to cents. WHT applies to the fee
@@ -379,6 +396,11 @@ export function priceQuote(input, params) {
     grossMargin,
     marginFloor: p.marginFloor,
     belowMarginFloor: cmp(grossMargin, p.marginFloor) < 0,
+    // Q4 (John, 2026-10-01): shown whenever WHT is borne. Gross profit less the
+    // WHT Terminus bears, over TCV net. Null when nothing is borne, so a screen
+    // cannot show it by accident beside a gross-up or a zero rate.
+    marginAfterWht: totals.whtBorneCents > 0n
+      ? frac(grossProfitCents - totals.whtBorneCents, tcvNetCents) : null,
     capex,
     schedule,
     tax: {

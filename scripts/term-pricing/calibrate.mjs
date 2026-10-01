@@ -86,6 +86,16 @@ const INJECTIONS = [
     find: 'splitIntoBands(p, units).filter',
     put: 'splitIntoBands(p, units + (product === \'TEST-B\' ? 120 : 0)).filter',
     expect: 'T14 T6 + T13 on one deal' },
+  // ── Phase 2 rulings (M4: injections only for the new claims) ──
+  { id: 'J15', file: ENGINE, why: 'CAPEX service fee flat under an escalator (Q1)',
+    find: 'serviceByYear.push(roundHalfUp(mul(s, factor(k)), 2))', put: 'serviceByYear.push(roundHalfUp(s, 2))',
+    expect: 'T22 T6 as capex with escalator 3%' },
+  { id: 'J16', file: ENGINE, why: 'margin after WHT ignores the WHT borne (Q4)',
+    find: 'frac(grossProfitCents - totals.whtBorneCents, tcvNetCents)', put: 'grossMargin',
+    expect: 'POSITION (Q4' },
+  { id: 'J17', file: ENGINE, why: 'identical years no longer merge into one run',
+    find: 'if (last && last.netCents === feeByYear[k - 1]) last.toMonth = to', put: 'if (false) last.toMonth = to',
+    expect: 'T15 T6 as capex' },
   // ── R-TP1, one import each way, as the brief requires ──
   { id: 'K1', file: ENGINE, why: 'the engine imports the deal-sheet engine',
     prepend: IMPORT('calculateTax', './deal-calculator.js'), expect: 'R-TP1 (1)' },
