@@ -96,6 +96,16 @@ const INJECTIONS = [
   { id: 'J17', file: ENGINE, why: 'identical years no longer merge into one run',
     find: 'if (last && last.netCents === feeByYear[k - 1]) last.toMonth = to', put: 'if (false) last.toMonth = to',
     expect: 'T15 T6 as capex' },
+  // ── Mockup approval A1 and A3 (M4: injections only for the new claims) ──
+  { id: 'J18', file: ENGINE, why: 'the refusal hard-codes "A" (A3)',
+    find: '`${a[0].toUpperCase()}${a.slice(1)} ${T}-month term', put: '`A ${T}-month term',
+    expect: 'T17 1 unit, 18 months' },
+  { id: 'J19', file: ENGINE, why: 'the article ignores eleven and eighteen (A3)',
+    find: " || lead === 11 || lead === 18 ? 'an' : 'a'", put: " ? 'an' : 'a'",
+    expect: 'A3: the article' },
+  { id: 'J20', file: ENGINE, why: 'the CAPEX ladder compares the OPEX fee (A1)',
+    find: 'const feeOf = (q) => (q.capex ? q.capex.monthlyServiceCents : q.monthlyTotalCents)',
+    put: 'const feeOf = (q) => q.monthlyTotalCents', expect: 'A1: under CAPEX' },
   // ── R-TP1, one import each way, as the brief requires ──
   { id: 'K1', file: ENGINE, why: 'the engine imports the deal-sheet engine',
     prepend: IMPORT('calculateTax', './deal-calculator.js'), expect: 'R-TP1 (1)' },

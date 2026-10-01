@@ -177,10 +177,22 @@ export function normaliseParams(params) {
 const isNormalised = (p) => p && Array.isArray(p.terms) && Array.isArray(p.bands)
 const norm = (p) => (isNormalised(p) ? p : normaliseParams(p))
 
+/**
+ * "a" or "an" before a number as it is SAID (A3, John 2026-10-01): "an 18",
+ * "an 8", "an 11", "an 80", "a 12". The sound is set by the leading group of
+ * three digits: eight..., eleven and eighteen take "an"; everything else "a".
+ */
+export function articleFor(n) {
+  const digits = String(n)
+  const lead = Number(digits.slice(0, ((digits.length - 1) % 3) + 1))
+  return digits.startsWith('8') || lead === 11 || lead === 18 ? 'an' : 'a'
+}
+
 function requireTerm(p, T) {
   if (!p.terms.includes(T)) {
+    const a = articleFor(T)
     throw new TermPricingError('TERM_NOT_OFFERED',
-      `A ${T}-month term is not offered. Choose one of: ${p.terms.join(', ')} months.`)
+      `${a[0].toUpperCase()}${a.slice(1)} ${T}-month term is not offered. Choose one of: ${p.terms.join(', ')} months.`)
   }
 }
 
@@ -411,20 +423,28 @@ export function priceQuote(input, params) {
 }
 
 /**
- * The term ladder: the same units priced at every offered term. The saving or
- * premium compares year-1 monthly totals with the anchor term's (section 7:
- * the client-facing saving always quotes year-1 fees).
+ * The term ladder: the same inputs priced at every offered term, each row a
+ * full quote, so a row's figures are the quote card's figures at that term.
+ *
+ * The saving or premium compares year-1 fees with the anchor term's (section
+ * 7: the client-facing saving always quotes year-1 fees). Under OPEX that is
+ * the monthly total; under CAPEX it is the monthly service fee, and the row
+ * carries the upfront beside it (A1, John 2026-10-01).
  */
 export function termLadder(input, params) {
   const p = norm(params)
+  const feeOf = (q) => (q.capex ? q.capex.monthlyServiceCents : q.monthlyTotalCents)
   const anchor = priceQuote({ ...input, termMonths: p.anchorTerm }, p)
   return p.terms.map((T) => {
     const q = priceQuote({ ...input, termMonths: T }, p)
     return {
       termMonths: T,
       isAnchor: T === p.anchorTerm,
+      paymentStructure: q.paymentStructure,
       monthlyTotalCents: q.monthlyTotalCents,
-      savingVsAnchor: sub(ONE, frac(q.monthlyTotalCents, anchor.monthlyTotalCents)),
+      upfrontCents: q.capex ? q.capex.upfrontCents : null,
+      monthlyServiceCents: q.capex ? q.capex.monthlyServiceCents : null,
+      savingVsAnchor: sub(ONE, frac(feeOf(q), feeOf(anchor))),
       tcvNetCents: q.tcvNetCents,
       grossMargin: q.grossMargin,
       belowMarginFloor: q.belowMarginFloor,

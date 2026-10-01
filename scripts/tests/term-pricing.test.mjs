@@ -13,7 +13,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   priceQuote, unitEconomics, termLadder, normaliseParams,
-  formatMoney, formatPct, TermPricingError,
+  formatMoney, formatPct, TermPricingError, articleFor,
 } from '../../src/lib/term-pricing.js'
 
 // Spec section 3, as written. Costs: SafeSight at the reference figures of
@@ -214,7 +214,17 @@ test('T16 1 unit, 60, escalator 3%: year fees, TCV 166,494.36, margin 88.0%', ()
 
 test('T17 1 unit, 18 months: error, term not offered', () => {
   assert.throws(() => quote({ safesight: 1 }, 18),
-    (e) => e instanceof TermPricingError && e.code === 'TERM_NOT_OFFERED')
+    (e) => e instanceof TermPricingError && e.code === 'TERM_NOT_OFFERED'
+      // A3 (John, 2026-10-01): the copy, with the article chosen by the number.
+      && e.message === 'An 18-month term is not offered. Choose one of: 12, 24, 36, 48, 60, 72, 84, 96, 120 months.')
+})
+
+test('A3: the article is chosen by how the number is said, not hard-coded', () => {
+  // "an" for eight..., eleven and eighteen; "a" otherwise.
+  for (const n of [8, 11, 18, 80, 86, 800, 8000, 11000, 18000]) assert.equal(articleFor(n), 'an', String(n))
+  for (const n of [1, 12, 13, 24, 36, 110, 180, 1000, 12000]) assert.equal(articleFor(n), 'a', String(n))
+  // And the refusal uses it both ways: "A 30-month", not "An".
+  assert.throws(() => quote({ safesight: 1 }, 30), (e) => e.message.startsWith('A 30-month term is not offered.'))
 })
 
 test('T18 all units 0: error, no units', () => {
@@ -369,6 +379,30 @@ test('flow: catalog costs are inputs, not constants', () => {
   // HW 9,000: cost(36) 16,200; price 162,000; / 36 = 4,500.00 exactly.
   const p = withParams({ costs: { ...SPEC_PARAMS.costs, safesight: { hwCost: '9000.00', hostingMonthly: '200.00' } } })
   assert.equal(money(quote({ safesight: 1 }, 36, {}, p).monthlyTotalCents), '4,500.00')
+})
+
+test('A1: under CAPEX each ladder row IS the CAPEX quote at that term, and vs 36 compares the service fee', () => {
+  const input = { units: { safesight: 120 }, paymentStructure: 'capex', escalatorPct: '3' }
+  const ladder = termLadder(input, SPEC_PARAMS)
+  for (const r of ladder) {
+    const q = priceQuote({ ...input, termMonths: r.termMonths }, SPEC_PARAMS)
+    assert.equal(r.upfrontCents, q.capex.upfrontCents, `${r.termMonths}: upfront`)
+    assert.equal(r.monthlyServiceCents, q.capex.monthlyServiceCents, `${r.termMonths}: service fee`)
+    assert.equal(r.tcvNetCents, q.tcvNetCents, `${r.termMonths}: TCV`)
+    assert.equal(pct(r.grossMargin), pct(q.grossMargin), `${r.termMonths}: margin`)
+  }
+  // The 60-month row reads T22.
+  const r60 = ladder.find((r) => r.termMonths === 60)
+  assert.equal(money(r60.upfrontCents), '1,200,000.00')
+  assert.equal(money(r60.monthlyServiceCents), '270,983.34')
+  // vs 36 is the service fee against the 36-month service fee, not the OPEX fee.
+  const r36 = ladder.find((r) => r.isAnchor)
+  const expected = { n: r36.monthlyServiceCents - r60.monthlyServiceCents, d: r36.monthlyServiceCents }
+  assert.equal(pct(r60.savingVsAnchor), pct(expected))
+  const opexSaving = termLadder({ ...input, paymentStructure: 'opex' }, SPEC_PARAMS).find((r) => r.termMonths === 60).savingVsAnchor
+  assert.notEqual(pct(r60.savingVsAnchor), pct(opexSaving), 'the CAPEX comparison is not the OPEX one')
+  // Under OPEX the CAPEX columns are absent.
+  assert.equal(termLadder({ ...input, paymentStructure: 'opex' }, SPEC_PARAMS)[0].upfrontCents, null)
 })
 
 // ── R-TP2: no float reaches the engine ───────────────────────────────────
