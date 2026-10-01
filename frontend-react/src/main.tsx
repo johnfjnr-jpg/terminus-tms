@@ -16,6 +16,7 @@ import { DealPanel } from './deal/DealPanel'
 import { valuesFromPayload, uiFromPayload } from './deal/payload'
 import { saveDeal } from './deal/seam'
 import { VersionCardHost } from './versions/VersionCardHost'
+import { TermPricingView } from './term-pricing/TermPricingView'
 import type { VersionSeam } from './versions/VersionCardHost'
 import type { DealFormSeam } from './deal/seam'
 import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../src/lib/format-dates.js'
@@ -89,6 +90,8 @@ declare global {
      */
     tmsContacts?: (opts?: { force?: boolean }) => Promise<{ ok: boolean, data: unknown[] | null }>
     loadApprovalPage?: (oppId: string) => void
+    /** TERM_PRICING Phase 3: the quote calculator, called by app.js's router. */
+    loadTermPricing?: () => void
     loadAccountDetail?: (accountId: string) => void
     loadContactDetail?: (contactId: string) => void
     loadTestBedDetail?: (testBedId: string) => void
@@ -210,6 +213,13 @@ window.tmsContacts = async (opts) => {
     return { ok: false, data: null }
   }
 }
+
+// TERM_PRICING Phase 3. A whole-view mount like the detail views, with no
+// record id: the container is empty in index.html, so createRoot clears
+// nothing of the shell's.
+const loadTermPricingView = register('term-pricing',
+  (_id, navToken) => <TermPricingView navToken={navToken} />)
+window.loadTermPricing = () => loadTermPricingView('')
 
 window.loadApprovalPage = register(APPROVAL_VIEW,
   (id, navToken) => <ApprovalView oppId={id} navToken={navToken} />)

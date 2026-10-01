@@ -196,6 +196,16 @@ const AMBER_FAMILY = [
   // same meaning beside it, because the ruling is explicit that colour must
   // not be the only signal.
   '.stmt-edit-override',
+  // ── TERM_PRICING Phase 3, 2026-10-01: the quote calculator ─────────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT, again: 27 bindings against 24. Two
+  // sites, both the estate's one meaning. The margin-floor flag is a state
+  // that is not an error but needs the eye ("flags, never refuses", spec
+  // section 4.4); the input refusal says why there is no quote yet, which is
+  // the same kind of thing. The flag's border follows its colour, so each
+  // site binds the token once.
+  '.tp-error',
+  '.tp-chip.tp-flag',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

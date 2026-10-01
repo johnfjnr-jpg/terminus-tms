@@ -127,7 +127,7 @@ describe('the bundle registers exactly the loaders it declares', () => {
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
-      'loadContactDetail', 'loadTestBedDetail', 'mountLeadsList',
+      'loadContactDetail', 'loadTermPricing', 'loadTestBedDetail', 'mountLeadsList',
       'mountNewLeadGrid', 'tmsContacts', 'tmsFormatDate', 'tmsFormatTimestamp'])
   })
 })

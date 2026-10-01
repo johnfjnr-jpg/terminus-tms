@@ -17,7 +17,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, statSync, existsSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, dirname } from 'node:path'
 import { readCode } from '../lib/strip-comments.mjs'
 
 const ROOT = new URL('../../', import.meta.url).pathname
@@ -30,6 +30,15 @@ export const ALLOWED_IMPORTERS = [
   'scripts/tests/term-pricing.test.mjs',
   // Phase 2: generates the static mockup's figures from the engine.
   'prototypes/term-pricing/build-mockup.mjs',
+  // Phase 3: settings rows to engine parameters, and validation of an admin's
+  // change through the engine's own normaliseParams. The route imports this,
+  // not the engine.
+  'src/lib/term-pricing-settings.js',
+  // Type declarations for the screen; they import types, not code.
+  'src/lib/term-pricing-settings.d.ts',
+  'scripts/tests/term-pricing-settings.test.mjs',
+  // Phase 3: the screen, which prices in the browser.
+  'frontend-react/src/term-pricing/TermPricingView.tsx',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']
@@ -65,6 +74,23 @@ export function importSpecifiers(code) {
 
 const files = SCAN_DIRS.flatMap((d) => walk(join(ROOT, d))).map((p) => relative(ROOT, p))
 
+// Does an import in `fromFile` RESOLVE to the engine? Phase 3 found the first
+// version of this guard matching on the name alone, so the route
+// (`./routes/term-pricing.js`), the settings module's import and the screen's
+// folder all read as importers of the engine when none of them is. A guard
+// about one module asks about that module's path, not about a word.
+// Relative paths resolve against the importer; `/lib/...` is the path the
+// server serves src/lib under; a bare name is a package and never the engine.
+const ENGINE_ABS = join(ROOT, ENGINE)
+export function resolvesToEngine(fromFile, spec) {
+  let target
+  if (spec.startsWith('/lib/')) target = join(ROOT, 'src', spec)
+  else if (spec.startsWith('.')) target = join(ROOT, dirname(fromFile), spec)
+  else return false
+  return target === ENGINE_ABS || `${target}.js` === ENGINE_ABS
+}
+const importsEngine = (f) => importSpecifiers(readCode(join(ROOT, f))).some((s) => resolvesToEngine(f, s))
+
 test('the scanner can see an import it knows is there (calibration, Verification 12)', () => {
   // deal-inputs.js imports deal-calculator.js; if this reads zero, every
   // "nothing imports X" below is a search that did not run.
@@ -80,12 +106,27 @@ test('R-TP1 (1): the term pricing engine imports nothing', () => {
 })
 
 test('R-TP1 (2): nothing outside the allowlist imports the engine', () => {
-  const importers = files.filter((f) => f !== ENGINE &&
-    importSpecifiers(readCode(join(ROOT, f))).some((s) => s.includes(ENGINE_NAME)))
+  const importers = files.filter((f) => f !== ENGINE && importsEngine(f))
   const unrecorded = importers.filter((f) => !ALLOWED_IMPORTERS.includes(f))
   assert.deepEqual(unrecorded, [], `unrecorded importers of the engine: ${unrecorded.join(', ')}`)
   // And the allowlist is not stale: every entry exists and really imports it.
   for (const f of ALLOWED_IMPORTERS) assert.ok(importers.includes(f), `${f} is allowlisted but does not import the engine`)
+})
+
+test('R-TP1 (2a): a path that merely CONTAINS the name is not an import of the engine', () => {
+  // The three files the name-matching version wrongly flagged, pinned so the
+  // over-reach cannot return. Each really does import something named
+  // term-pricing; none of them imports the engine.
+  for (const f of ['src/server.js', 'src/routes/term-pricing.js', 'frontend-react/src/main.tsx']) {
+    const specs = importSpecifiers(readCode(join(ROOT, f)))
+    assert.ok(specs.some((s) => s.includes(ENGINE_NAME)), `${f} should name something term-pricing`)
+    assert.equal(importsEngine(f), false, `${f} does not import the engine`)
+  }
+  // And the resolver does see the real forms.
+  assert.equal(resolvesToEngine('src/lib/x.js', './term-pricing.js'), true)
+  assert.equal(resolvesToEngine('frontend-react/src/a/B.tsx', '../../../src/lib/term-pricing.js'), true)
+  assert.equal(resolvesToEngine('frontend/x.html', '/lib/term-pricing.js'), true)
+  assert.equal(resolvesToEngine('src/lib/x.d.ts', './term-pricing'), true)
 })
 
 test('R-TP1 (3): the engine is pure, and does no float arithmetic on money', () => {

@@ -61,6 +61,7 @@
       <button class="nav-link" data-view="accounts">Accounts</button>
       <button class="nav-link" data-view="test-beds">Test Beds</button>
       <button class="nav-link" data-view="opportunities">Opportunities</button>
+      <button class="nav-link" data-view="term-pricing">Term Pricing</button>
       <button class="nav-link" data-view="approvals">Approvals</button>
       <button class="nav-link-disabled" disabled>Product Management</button>
       <button class="nav-link-disabled" disabled>Asset Management</button>
@@ -1412,6 +1413,11 @@
        record, and one implementation is the point: a second set here would be
        two readers of one request, and the approver would be deciding without
        the record in front of them. -->
+  <!-- TERM_PRICING Phase 3: the quote calculator. React owns this container
+       whole (frontend-react/src/term-pricing), so it carries no static markup
+       for createRoot to clear. -->
+  <div id="view-term-pricing" class="hidden"></div>
+
   <div id="view-approvals" class="wrap hidden">
     <div class="page-head">
       <h1>Approvals</h1>
