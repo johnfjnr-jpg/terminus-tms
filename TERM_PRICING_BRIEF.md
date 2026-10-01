@@ -80,3 +80,27 @@ the same screen.
 
 Proceed: spec commit, then Phase 1 (engine and goldens, including T20 and T21), then Phase 2 mockup
 and STOP.
+
+---
+
+RULINGS AFTER PHASE 2 (John, 2026-10-01), appended verbatim at the phase they launch:
+
+Phase 1 accepted. Phase 2 questions ruled (John, 2026-10-01). Mockup approval to follow
+separately after John reviews the screens; do not start Phase 3.
+
+Q1 CAPEX + escalator: the monthly service fee ESCALATES like the OPEX fee; TCV stays identical to
+   the OPEX TCV. SPEC FIRST (v1.2.2, own commit, header updated): section 6 CAPEX with an escalator:
+     s = (TCV − hardware_upfront) / (12 × Σ_{k=1..years} (1 + escalator)^(k−1))
+     service_year(k) = round_half_up( s × (1 + escalator)^(k−1), 2 )
+     upfront = TCV − Σ_k (12 × service_year(k))        (carries any rounding residue)
+   Add to section 11:
+     T22 T6 as capex with escalator 3%: TCV 18,464,248.32; upfront 1,200,000.00; service fees by
+         year 270,983.34 / 279,112.84 / 287,486.23 / 296,110.81 / 304,994.14; upfront + Σ = TCV.
+   Then the engine change and T22 pinned as a golden.
+Q2 Accept; label the ladder column "vs 36 months, this deal".
+Q3 Accept GST on the grossed-up invoice (keep it as the pinned POSITION test).
+Q4 Accept; ALSO show "Margin on price after WHT" whenever WHT is borne (> 0).
+Q5 Settings card collapsed by default; admin expands it. The page opens on the ladder and quote.
+
+Regenerate the mockup with Q1, Q2, Q4 and Q5, re-measure at 1240 and 1920, and STOP again with the
+six screenshots for John.
