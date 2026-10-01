@@ -49,3 +49,34 @@ or imported as a pure helper per R-TP1.
 CLOSE (after Phase 3, and again after Phase 4 if run separately)
 Full gate (NordVPN quit, resolver clean); merge --no-ff; merged gate; ls-remote re-check;
 stop at "ready for John's push". Never git push.
+
+---
+
+RULINGS AFTER PHASE 0 (John, 2026-10-01), appended verbatim at the phase they launch (CLAUDE.md
+build discipline 7):
+
+TERM_PRICING Phase 0 accepted. RULINGS (John, 2026-10-01):
+
+R-TP6 ADMIN (option A): build system_roles exactly as DESIGN_PRINCIPLES line 166 designs it, role
+      checked to ('admin'), seeded with John's user id only. Writes to term_pricing_settings: the
+      route answers 403 for non-admins AND RLS insert/update policies require the admin row.
+      system_roles is select-only, own row only; no route writes it. Migrations applied by John by
+      hand: list them in the report with exact apply steps. Blocks Phase 3 only.
+R-TP7 SPEC FIRST (v1.2.1): before any engine code, commit these amendments to docs/pricing-spec.md,
+      header "Specification v1.2.1", in its own commit:
+      (a) Section 3: add TERMS (12, 24, 36, 48, 60, 72, 84, 96, 120); section 2 refers to it.
+      (b) Section 3: ANCHOR_MARGIN[product] and SHORT_TERM_MARGIN[product], each default 90%.
+          Section 4.1 uses the product's own values.
+      (c) Section 8: tax amounts round half-up per invoice line; WHT applies to the fee before GST.
+      (d) Section 11: add
+          T20 T6, WHT 10%, gross-up ON: monthly invoice 322,020.86; WHT 32,202.09;
+              Terminus receives 289,818.77 (= T6 monthly total).
+          T21 T6, WHT 10%, gross-up OFF: monthly invoice 289,818.77; WHT 28,981.88 borne;
+              Terminus receives 260,836.89.
+      All existing figures in sections 10 and 11 are unchanged (every product still defaults to 90%).
+Accepted as proposed: BigInt fractions; text casts; TERMS as a setting; empty R-TP1 exception list;
+the isolation guard design; sidebar "Term Pricing" after Opportunities with the settings panel on
+the same screen.
+
+Proceed: spec commit, then Phase 1 (engine and goldens, including T20 and T21), then Phase 2 mockup
+and STOP.
