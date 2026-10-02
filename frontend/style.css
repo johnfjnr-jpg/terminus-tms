@@ -9196,13 +9196,23 @@ select:autofill {
 .opex-tables {
   --opex-head-h: calc(var(--field-label-size) * 1.5 + 6px);
   display: grid;
-  grid-template-columns: auto minmax(0, auto);
+  /* ── Q1 (OPEX_RESET, fixed in TERM_PRICING_2): NO TRACK BELOW ITS CONTENT ─
+     SUPERSEDED, QUOTED NOT DELETED: `grid-template-columns: auto minmax(0,
+     auto)` with `.opex-tables > * { min-width: 0 }`. Both let a column shrink
+     below what it holds. Measured: the fee block needs 367px and was given 290
+     to 350px at every width from 1240 to 1440, so "Contract Total" and its
+     figures printed into the invoicing column, 17 to 47px of ink.
+
+     The fee table's column is its content. The schedule column may narrow to
+     ITS content's minimum (the radios wrap before anything overlaps): 367 +
+     24 + 142 = 533px, against a card of at least 603px across the sweep, so
+     the pair shares the row at every width from 1240 to 1920. */
+  grid-template-columns: max-content minmax(min-content, max-content);
   grid-template-rows: auto var(--opex-head-h) 1fr;
   justify-content: start;
   column-gap: 24px;
   align-items: start;
 }
-.opex-tables > * { min-width: 0; }
 /* P-RS1, John's ruling 2026-09-30: the placement moved from the TABLE to the
    BOX that holds the table and its reset control, so the control follows the
    table's last row rather than the card's foot. The table itself is no longer
@@ -9273,8 +9283,31 @@ select:autofill {
 .tp-hint { font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--muted); }
 .tp-label { display: block; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .tp-mt { margin-top: 14px; }
-.tp-inputs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; }
-.tp-units { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* ── TERM_PRICING_2: THE INPUTS CARD WRAPS, IT DOES NOT SQUEEZE ──────────
+   SUPERSEDED, QUOTED NOT DELETED: `display: grid; grid-template-columns:
+   repeat(4, minmax(0, 1fr))`, and `.tp-units` as `repeat(3, minmax(0, 1fr))`.
+   A quarter of the card is about 190px at 1240, and B2's row of five term
+   buttons needs more, so a `minmax(0, ...)` track would print it into the
+   next group: A1's defect, one card up. The groups now wrap at their own
+   content widths (a flex item's floor is its min-content), and the units
+   inputs take a declared width rather than a share of a shrinking track. */
+.tp-inputs, .tp-half { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 28px; }
+/* L3: within a half the groups sit together from the left; where the halves
+   share a row the space falls between them, not inside them. */
+.tp-half { flex: 0 1 auto; justify-content: flex-start; }
+.tp-units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
+/* B2: term buttons in rows of five, in term order. */
+.tp-seg.tp-terms { display: grid; grid-template-columns: repeat(5, max-content); }
+.tp-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 14px; }
+.tp-pair > .tp-label { margin-bottom: 0; }
+/* Stacked, so the tax group is as wide as its widest label rather than its
+   controls side by side: measured 279px (359px split) against about 230. */
+.tp-pair.tp-stack { flex-direction: column; align-items: flex-start; gap: 10px; }
+.tp-switches { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.tp-select { text-align: left; }
+/* L2: disabled, the select keeps a dimmed border so it still reads as a field
+   under its label (`.tp-num:disabled` drops the border for read-only values). */
+.tp-num.tp-select:disabled { border-color: var(--hairline); background: transparent; color: var(--muted); }
 .tp-unit { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .tp-num { background: var(--dark); border: 1px solid var(--hairline-strong); color: var(--white); border-radius: 4px; padding: 7px 8px; font-family: var(--mono); font-size: 13px; width: 100%; text-align: right; }
 .tp-num:disabled { border-color: transparent; background: transparent; }
@@ -9311,14 +9344,27 @@ select:autofill {
 .tp-lines .tp-band td:first-child { padding-left: 22px; font-size: 12.5px; }
 .tp-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--hairline-strong); border-radius: 3px; padding: 2px 6px; }
 .tp-toggle { margin-left: auto; }
-.tp-settings-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 10px; }
+/* ── A1 (TERM_PRICING_2): TWO COLUMNS ONLY WHERE BOTH FIT ────────────────
+   SUPERSEDED, QUOTED NOT DELETED: `display: grid; grid-template-columns:
+   minmax(0, 1fr) minmax(0, 1fr)`, switched to one column by a VIEWPORT query
+   at 1599px. `minmax(0, ...)` let each track shrink below its content, and the
+   parameter table (a 330px TERMS input) needs 829px, so from 1600 the margin
+   and band block printed over its value inputs. John's screenshot, 2026-10-02.
+
+   A wrapping flex row decides from the CONTAINER'S measured width, which is
+   the ruling: each block's basis is its natural width and its floor is its
+   min-content (a flex item's automatic minimum), so the two share a row only
+   when both fit at their natural widths and never shrink below content.
+   Measured: 829px and 648px natural against a container of at most 1071px, so
+   today it is one column at every width, which is the ruled outcome. */
+.tp-settings-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; margin-top: 10px; }
+.tp-settings-grid > * { flex: 1 1 auto; }
 .tp-code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .tp-set { width: 120px; }
 .tp-set-wide { width: 330px; }
 .tp-set-narrow { width: 72px; }
 .tp-save-row { margin-top: 14px; text-align: right; }
 @media (max-width: 1599px) {
-  .tp-settings-grid { grid-template-columns: minmax(0, 1fr); }
   .tp-figures > div { padding: 12px 10px; }
   .tp-v { font-size: 14px; }
   .tp-lead { font-size: 16px; }

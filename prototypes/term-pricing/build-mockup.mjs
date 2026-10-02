@@ -16,6 +16,12 @@
 // section 3 defaults. They are fixed in the mockup; the screen (Phase 3) reads
 // both live.
 //
+// TERM_PRICING_2 (John, 2026-10-02): regenerated from the APPROVED screen, with
+// spec v1.3's ten-term TERMS, the typed WHT with Gross up and Split WHT, the
+// escalator start year, and L1 to L3. A static page cannot price a typed
+// value, so its controls take the screen's shape and a mock-only state strip
+// chooses between precomputed engine states.
+//
 // UNWIRED: a build script for a prototype page, run by hand.
 
 import { writeFileSync } from 'node:fs'
@@ -28,7 +34,7 @@ const PRODUCTS = [
 ]
 
 const PARAMS = {
-  TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 120],
+  TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120],
   ANCHOR_TERM: 36,
   ANCHOR_MARGIN: { safesight: '90', air_quality: '90', hemir: '90' },
   SHORT_TERM_MARGIN: { safesight: '90', air_quality: '90', hemir: '90' },
@@ -50,8 +56,18 @@ const CATALOG = { batch: 'Initial catalog', from: '2026-08-27' }
 
 const UNITS = { safesight: 120, air_quality: 40, hemir: 2 }
 const GST = '9'
-const ESCALATORS = { none: null, three: '3' }
-const WHT = { none: { whtPct: null, whtGrossUp: false }, up: { whtPct: '10', whtGrossUp: true }, borne: { whtPct: '10', whtGrossUp: false } }
+// The states the strip offers. The screen takes any rate and any start year.
+const ESCALATORS = {
+  none: { escalatorPct: null, escalatorStartYear: 2, rate: '', start: 2 },
+  y2: { escalatorPct: '3', escalatorStartYear: 2, rate: '3', start: 2 },
+  y3: { escalatorPct: '3', escalatorStartYear: 3, rate: '3', start: 3 },
+}
+const WHT = {
+  none: { whtPct: null },
+  ten: { whtPct: '10' },
+  split: { whtSplit: true, whtHwPct: '5', whtSaasPct: '10' },
+}
+const GROSS = { off: false, on: true }
 
 const m = formatMoney
 const pc = (r) => formatPct(r, 1)
@@ -67,8 +83,8 @@ const label = (k) => PRODUCTS.find((p) => p.key === k)?.label ?? k
 const ladders = {}
 // A1: one ladder per structure. Under CAPEX each row carries the upfront and
 // the year-1 service fee from the CAPEX quote at that term.
-for (const s of ['opex', 'capex']) for (const [ek, esc] of Object.entries(ESCALATORS)) {
-  ladders[`${s}|${ek}`] = termLadder({ units: UNITS, paymentStructure: s, escalatorPct: esc }, PARAMS).map((r) => ({
+for (const s of ['opex', 'capex']) for (const [ek, e] of Object.entries(ESCALATORS)) {
+  ladders[`${s}|${ek}`] = termLadder({ units: UNITS, paymentStructure: s, escalatorPct: e.escalatorPct, escalatorStartYear: e.escalatorStartYear }, PARAMS).map((r) => ({
     term: r.termMonths, anchor: r.isAnchor, monthly: m(r.monthlyTotalCents), vs: vs(r.savingVsAnchor, r.isAnchor),
     upfront: r.upfrontCents === null ? null : m(r.upfrontCents),
     service: r.monthlyServiceCents === null ? null : m(r.monthlyServiceCents),
@@ -78,11 +94,12 @@ for (const s of ['opex', 'capex']) for (const [ek, esc] of Object.entries(ESCALA
 }
 
 const quotes = {}
-for (const T of PARAMS.TERMS) for (const s of ['opex', 'capex']) for (const [ek, esc] of Object.entries(ESCALATORS)) for (const [wk, w] of Object.entries(WHT)) {
-  const q = priceQuote({ units: UNITS, termMonths: T, paymentStructure: s, escalatorPct: esc, gstPct: GST, ...w }, PARAMS)
-  quotes[`${T}|${s}|${ek}|${wk}`] = {
+for (const T of PARAMS.TERMS) for (const s of ['opex', 'capex']) for (const [ek, e] of Object.entries(ESCALATORS)) for (const [wk, w] of Object.entries(WHT)) for (const [gk, g] of Object.entries(GROSS)) {
+  const q = priceQuote({ units: UNITS, termMonths: T, paymentStructure: s, escalatorPct: e.escalatorPct, escalatorStartYear: e.escalatorStartYear,
+    gstPct: GST, whtGrossUp: g, ...w }, PARAMS)
+  quotes[`${T}|${s}|${ek}|${wk}|${gk}`] = {
     monthly: m(q.monthlyTotalCents),
-    tcvNet: m(q.tcvNetCents), gst: m(q.tax.gstCents), tcvIncl: m(q.tax.tcvInclGstCents),
+    tcvNet: m(q.tcvNetCents), grossUp: m(q.tax.grossUpCents), gst: m(q.tax.gstCents), tcvIncl: m(q.tax.tcvInclGstCents),
     invoiced: m(q.tax.invoicedCents), wht: m(q.tax.whtCents), whtBorne: m(q.tax.whtBorneCents), received: m(q.tax.receivedCents),
     cost: m(q.totalCostCents), profit: m(q.grossProfitCents), margin: pc(q.grossMargin),
     afterWht: q.marginAfterWht ? pc(q.marginAfterWht) : null,
@@ -92,6 +109,11 @@ for (const T of PARAMS.TERMS) for (const s of ['opex', 'capex']) for (const [ek,
       when: r.kind === 'upfront' ? 'Upfront (hardware)' : `Months ${r.fromMonth} to ${r.toMonth}`,
       count: r.count, net: m(r.netCents), gst: m(r.gstCents), invoiceIncl: m(r.invoiceInclGstCents),
       invoice: m(r.invoiceCents), wht: m(r.whtCents), borne: r.whtBorne, received: m(r.receivedCents),
+      lines: (r.lines ?? []).map((l) => ({
+        when: l.kind === 'hardware' ? 'Hardware line' : 'Software as a service line',
+        net: m(l.netCents), invoice: m(l.invoiceCents), gst: m(l.gstCents), invoiceIncl: m(l.invoiceInclGstCents),
+        wht: m(l.whtCents), received: m(l.receivedCents),
+      })),
     })),
     lines: q.lines.map((l) => ({
       product: label(l.product), units: l.units, monthly: m(l.monthlyByYear[0]),
@@ -107,7 +129,7 @@ for (const T of PARAMS.TERMS) for (const s of ['opex', 'capex']) for (const [ek,
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 const paramRows = [
-  ['TERMS', 'Terms offered', PARAMS.TERMS.join(', ') + ' months'],
+  ['TERMS', 'Terms offered (months, comma separated)', PARAMS.TERMS.join(', ')],
   ['ANCHOR_TERM', 'List-price term', `${PARAMS.ANCHOR_TERM} months`],
   ['PROFIT_STEP', 'Extra profit per term step above the anchor, per unit', `${PARAMS.CURRENCY} ${PARAMS.PROFIT_STEP}`],
   ['HW_UPFRONT_MARGIN', 'Margin on the hardware price, CAPEX upfront', `${PARAMS.HW_UPFRONT_MARGIN}%`],
@@ -136,6 +158,9 @@ const html = `<!doctype html>
     --mono: "JetBrains Mono", monospace;
   }
   * { box-sizing: border-box; }
+  /* A class's display would override the hidden attribute (CLAUDE.md
+     Verification 4), and .pair and .figures > div both carry one. */
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--dark); color: var(--white); font-family: var(--body); font-size: 14px; }
   .shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 100vh; }
   .sidebar { background: var(--black); border-right: 1px solid var(--hairline); padding: 20px 12px; }
@@ -150,18 +175,31 @@ const html = `<!doctype html>
   h1 { font-family: var(--heading); font-weight: 500; font-size: 24px; margin: 4px 0 4px; }
   .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
   .mock-note { border: 1px dashed var(--hairline-strong); color: var(--muted); font-size: 12px; padding: 8px 12px; border-radius: 4px; margin-bottom: 20px; }
-  .grid { display: grid; grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
-  .inputs-body { display: grid; grid-template-columns: 1fr; gap: 0 28px; }
-  @media (max-width: 1599px) {
-    .grid { grid-template-columns: minmax(0, 1fr); }
-    .inputs-body { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  }
+  /* TERM_PRICING_2: one column, as the approved screen. The Inputs groups wrap
+     at their content widths in two halves (L3: packed from the left). */
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
+  .inputs-body, .half { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 28px; }
+  .half { flex: 0 1 auto; justify-content: flex-start; }
+  .seg.terms { display: grid; grid-template-columns: repeat(5, max-content); }
+  .pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 14px; }
+  .pair.stack { flex-direction: column; align-items: flex-start; gap: 0; }
+  .switches { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 14px; }
+  input.pct, select.pct { display: block; width: 110px; }
+  select.pct { background: var(--dark); border: 1px solid var(--hairline-strong); color: var(--white); border-radius: 4px; padding: 7px 8px; font-family: var(--mono); font-size: 13px; }
+  select.pct:disabled { border-color: var(--hairline); background: transparent; color: var(--muted); }
+  .toggle { position: relative; display: inline-flex; align-items: center; white-space: nowrap; background: transparent; border: 1px solid var(--hairline-strong); color: var(--muted); border-radius: 4px; padding: 6px 12px 6px 48px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+  .toggle::before { content: ""; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 26px; height: 14px; border-radius: 7px; border: 1px solid var(--hairline-strong); background: rgba(242,242,240,0.06); }
+  .toggle::after { content: ""; position: absolute; left: 14px; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); transform: translateY(-50%); }
+  .toggle.on { border-color: var(--green); color: var(--green); }
+  .toggle.on::before { background: rgba(102,204,153,0.25); border-color: var(--green); }
+  .toggle.on::after { background: var(--green); transform: translate(12px, -50%); }
+  .mock-states { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
   .card { background: var(--black); border: 1px solid var(--hairline); border-radius: 6px; padding: 16px 18px; }
   .card + .card { margin-top: 20px; }
   .card h2 { font-family: var(--heading); font-weight: 500; font-size: 15px; margin: 0 0 12px; }
   .card h2 .hint { font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--muted); margin-left: 8px; }
   label.f { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
-  .units { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
   .units div { display: flex; flex-direction: column; gap: 4px; }
   .units span { font-size: 12px; color: var(--muted); }
   input.num { background: var(--dark); border: 1px solid var(--hairline-strong); color: var(--white); border-radius: 4px; padding: 7px 8px; font-family: var(--mono); font-size: 13px; width: 100%; text-align: right; }
@@ -173,12 +211,14 @@ const html = `<!doctype html>
   .muted { color: var(--muted); }
   .small { font-size: 12px; }
   table { border-collapse: collapse; width: 100%; }
-  th { font-family: var(--mono); font-weight: 400; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--hairline-strong); white-space: nowrap; }
+  /* Headers may wrap, as the screen's: nowrap pushed the schedule past its card at 1240. */
+  th { font-family: var(--mono); font-weight: 400; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-align: right; vertical-align: bottom; padding: 6px 10px; border-bottom: 1px solid var(--hairline-strong); }
   th:first-child, td:first-child { text-align: left; }
   td:first-child { font-family: var(--body); font-size: 13.5px; }
   td.code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-  @media (max-width: 1599px) { .settings-grid { grid-template-columns: minmax(0, 1fr); } }
+  /* A1: two columns only where both fit at natural width. */
+  .settings-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; }
+  .settings-grid > * { flex: 1 1 auto; }
   td { font-family: var(--mono); font-size: 13px; text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
   tr.ladder { cursor: pointer; }
   tr.ladder:hover td { background: rgba(242,242,240,0.03); }
@@ -186,11 +226,20 @@ const html = `<!doctype html>
   tr.ladder.on td:first-child { box-shadow: inset 2px 0 0 var(--green); }
   .saving { color: var(--green); }
   .premium { color: var(--muted); }
-  .figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border: 1px solid var(--hairline); border-radius: 6px; }
+  .figures { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; border: 1px solid var(--hairline); border-radius: 6px; }
+  .figures > div[hidden] { display: none; }
   .figures > div { padding: 12px 14px; border-right: 1px solid var(--hairline); min-width: 0; }
   .figures > div:last-child { border-right: 0; }
-  .figures .v { font-family: var(--mono); font-size: 18px; margin-top: 6px; overflow-wrap: anywhere; }
+  /* As the screen (TERM_PRICING Phase 3): a figure never breaks mid-number,
+     and steps down a size below 1600. The old overflow-wrap broke "366,976.85"
+     over two lines at 1240, seen in the regenerated capture. */
+  .figures .v { font-family: var(--mono); font-size: 18px; margin-top: 6px; white-space: nowrap; }
   .figures .v.lead { font-size: 22px; }
+  @media (max-width: 1599px) {
+    .figures > div { padding: 12px 10px; }
+    .figures .v { font-size: 14px; }
+    .figures .v.lead { font-size: 16px; }
+  }
   .chip { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--muted); margin-top: 8px; }
   .chip.flag { border-color: var(--attention); color: var(--attention); }
   .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -218,13 +267,19 @@ const html = `<!doctype html>
     <div class="eyebrow">Quote calculator</div>
     <h1>Term Pricing</h1>
     <div class="sub">Longer contracts give the client a lower monthly fee; Terminus earns the 36-month profit on every term from 36 up. Margin is margin on price throughout.</div>
-    <div class="mock-note">MOCKUP for approval (TERM_PRICING Phase 2). Units are fixed at 120 SafeSight, 40 AQ and 2 HEMIR; term, payment structure, escalator, WHT and the ladder rows are live and switch between figures the engine computed. Not connected to any record.</div>
+    <div class="mock-note">MOCKUP of the approved screen (TERM_PRICING_2, John 2026-10-02). Units are fixed at 120 SafeSight, 40 AQ and 2 HEMIR. Term, payment structure, the ladder rows, Gross up and Split WHT are live; the typed escalator and WHT rates are set by the mockup-only strip below, because a static page cannot price a typed value. Every figure is the engine's. Not connected to any record.
+      <div class="mock-states">
+        <span>Escalator <span class="seg" id="m-esc"><button data-e="none">0</button><button data-e="y2">3% from year 2</button><button data-e="y3">3% from year 3</button></span></span>
+        <span>WHT rate <span class="seg" id="m-wht"><button data-w="none">0</button><button data-w="ten">10</button></span></span>
+      </div>
+    </div>
 
     <div class="grid">
       <div>
         <section class="card">
           <h2>Inputs</h2>
           <div class="inputs-body">
+          <div class="half">
           <div>
           <label class="f">Units per product</label>
           <div class="units">
@@ -232,22 +287,34 @@ const html = `<!doctype html>
           </div>
           </div><div>
           <label class="f">Term (months)</label>
-          <div class="seg" id="terms">${PARAMS.TERMS.map((t) => `<button data-term="${t}">${t}</button>`).join('')}</div>
-          </div><div>
+          <div class="seg terms" id="terms">${PARAMS.TERMS.map((t) => `<button data-term="${t}">${t}</button>`).join('')}</div>
+          </div>
+          </div>
+          <div class="half">
+          <div>
           <label class="f">Payment structure</label>
           <div class="seg" id="structure"><button data-s="opex">OPEX monthly</button><button data-s="capex">CAPEX hardware upfront</button></div>
-          <label class="f">Annual escalator</label>
-          <div class="seg" id="escalator"><button data-e="none">None</button><button data-e="three">3%</button></div>
+          <div class="pair">
+            <div><label class="f">Annual escalator %</label><input class="num pct" id="esc-rate" placeholder="0" readonly></div>
+            <div id="esc-start-wrap"><label class="f">Starts in year</label><select class="pct" id="esc-start"></select></div>
+          </div>
+          <div class="small muted" id="esc-none" style="margin-top:8px"></div>
           </div><div>
-          <div class="row2">
-            <div><label class="f">GST</label><input class="num" value="${GST}%" disabled></div>
-            <div><label class="f">WHT</label>
-              <div class="seg" id="wht"><button data-w="none">0%</button><button data-w="up">10% gross-up</button><button data-w="borne">10% borne</button></div>
-            </div>
+          <label class="f">GST %</label><input class="num pct" value="${GST}" disabled>
+          <div id="wht-single"><label class="f">WHT %</label><input class="num pct" id="wht-rate" placeholder="0" readonly></div>
+          <div class="pair stack" id="wht-pair">
+            <div><label class="f">WHT on hardware %</label><input class="num pct" value="5" readonly></div>
+            <div><label class="f">WHT on software as a service %</label><input class="num pct" value="10" readonly></div>
+          </div>
+          <div class="switches">
+            <button type="button" class="toggle" role="switch" id="sw-gross">Gross up</button>
+            <button type="button" class="toggle" role="switch" id="sw-split">Split WHT</button>
+          </div>
           </div>
           </div>
           </div>
         </section>
+
 
       </div>
 
@@ -265,6 +332,7 @@ const html = `<!doctype html>
           <div class="figures">
             <div><div class="eyebrow" id="q-monthly-label">Monthly total (year 1)</div><div class="v lead" id="q-monthly"></div></div>
             <div><div class="eyebrow">TCV (net)</div><div class="v" id="q-tcv"></div></div>
+            <div id="q-grossup-tile"><div class="eyebrow">WHT gross-up</div><div class="v" id="q-grossup"></div></div>
             <div><div class="eyebrow">GST</div><div class="v" id="q-gst"></div></div>
             <div><div class="eyebrow">TCV incl. GST</div><div class="v" id="q-tcvincl"></div></div>
             <div><div class="eyebrow">Margin on price</div><div class="v" id="q-margin"></div><div id="q-flag"></div><div class="small" id="q-after-wht" style="margin-top:8px"></div></div>
@@ -288,7 +356,7 @@ const html = `<!doctype html>
 
         <section class="card">
           <h2>Payment schedule <span class="hint" id="sched-hint"></span></h2>
-          <table>
+          <table class="lines">
             <thead><tr><th>When</th><th>Invoices</th><th>Net fee</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th><th id="th-wht">WHT</th><th>Terminus receives</th></tr></thead>
             <tbody id="schedule"></tbody>
           </table>
@@ -299,7 +367,7 @@ const html = `<!doctype html>
           <h2>States <span class="hint">how the screen marks them</span></h2>
           <div class="small">Below the margin floor: <span class="chip flag">Below the 25.0% floor</span> <span class="muted">The quote still prices; the flag never refuses.</span></div>
           <div class="small" style="margin-top:10px">Above it: <span class="chip">Above the 25.0% floor</span></div>
-          <div class="small" style="margin-top:10px">A term that is not offered, or no units: the quote area shows the reason in place of figures, for example <span class="muted">"An 18-month term is not offered. Choose one of: 12, 24, 36, 48, 60, 72, 84, 96, 120 months."</span></div>
+          <div class="small" style="margin-top:10px">A term that is not offered, or no units: the quote area shows the reason in place of figures, for example <span class="muted">"An 18-month term is not offered. Choose one of: ${PARAMS.TERMS.join(', ')} months."</span></div>
         </section>
       </div>
     </div>
@@ -341,23 +409,44 @@ const html = `<!doctype html>
           <div style="margin-top:14px; text-align:right"><button class="btn" id="save-settings" disabled>Save settings</button></div>
           </div>
     </section>
-    <p class="small muted" style="margin-top:28px">Figures generated by src/lib/term-pricing.js (docs/pricing-spec.md v1.2.2) from prototypes/term-pricing/build-mockup.mjs.</p>
+    <p class="small muted" style="margin-top:28px">Figures generated by src/lib/term-pricing.js (docs/pricing-spec.md v1.3) from prototypes/term-pricing/build-mockup.mjs.</p>
   </main>
 </div>
 <script>
 const LADDERS = ${JSON.stringify(ladders)};
 const QUOTES = ${JSON.stringify(quotes)};
-const state = { term: 60, s: 'opex', e: 'none', w: 'none', v: 'admin', open: false };
+const state = { term: 60, s: 'opex', e: 'none', w: 'none', g: 'off', split: false, v: 'admin', open: false };
+const lastYear = (t) => Math.ceil(t / 12);
 const $ = (id) => document.getElementById(id);
 const text = (el, s) => { el.textContent = s; };
 function seg(id, attr, key) {
   for (const b of $(id).querySelectorAll('button')) {
     b.classList.toggle('on', String(state[key]) === b.dataset[attr]);
-    b.onclick = () => { state[key] = key === 'term' ? Number(b.dataset[attr]) : b.dataset[attr]; render(); };
+    b.onclick = () => {
+      state[key] = key === 'term' ? Number(b.dataset[attr]) : b.dataset[attr];
+      // As the screen: a shorter term pulls the start year back inside it.
+      if (state.e === 'y3' && lastYear(state.term) < 3) state.e = 'y2';
+      render();
+    };
   }
 }
 function render() {
-  seg('terms', 'term', 'term'); seg('structure', 's', 's'); seg('escalator', 'e', 'e'); seg('wht', 'w', 'w'); seg('viewas', 'v', 'v');
+  seg('terms', 'term', 'term'); seg('structure', 's', 's'); seg('m-esc', 'e', 'e'); seg('m-wht', 'w', 'w'); seg('viewas', 'v', 'v');
+  // The escalator controls, as the screen draws them.
+  const ly = lastYear(state.term), rateOn = state.e !== 'none';
+  $('esc-rate').value = rateOn ? '3' : '';
+  $('esc-start-wrap').hidden = ly < 2;
+  $('esc-start').innerHTML = [2, 3].filter((y) => y <= ly).map((y) => '<option value="' + y + '">' + y + '</option>').join('');
+  $('esc-start').value = state.e === 'y3' ? '3' : '2';
+  $('esc-start').disabled = !rateOn;
+  $('esc-start').onchange = () => { state.e = $('esc-start').value === '3' ? 'y3' : 'y2'; render(); };
+  text($('esc-none'), ly < 2 && rateOn ? 'A ' + state.term + '-month term has no year 2, so the escalator has no effect.' : '');
+  // WHT: the typed rate, or the split pair; one Gross up switch for both.
+  $('wht-rate').value = state.w === 'ten' ? '10' : '';
+  $('wht-single').hidden = state.split; $('wht-pair').hidden = !state.split;
+  for (const [id, on, flip] of [['sw-gross', state.g === 'on', () => { state.g = state.g === 'on' ? 'off' : 'on' }], ['sw-split', state.split, () => { state.split = !state.split }]]) {
+    $(id).classList.toggle('on', on); $(id).setAttribute('aria-checked', String(on)); $(id).onclick = () => { flip(); render(); };
+  }
   const lad = $('ladder'); lad.innerHTML = '';
   const capexLadder = state.s === 'capex';
   $('ladder-head').innerHTML = '<tr><th>Term</th>' + (capexLadder ? '<th>Upfront</th><th>Monthly service fee (year 1)</th>' : '<th>Monthly fee (year 1)</th>') + '<th>vs 36 months, this deal</th><th>TCV (net)</th><th>Margin on price</th></tr>';
@@ -368,8 +457,11 @@ function render() {
     tr.onclick = () => { state.term = r.term; render(); };
     lad.appendChild(tr);
   }
-  const q = QUOTES[[state.term, state.s, state.e, state.w].join('|')];
-  text($('quote-hint'), state.term + ' months, ' + (state.s === 'opex' ? 'OPEX' : 'CAPEX') + (state.e === 'three' ? ', 3% annual escalator' : ''));
+  const q = QUOTES[[state.term, state.s, state.e, state.split ? 'split' : state.w, state.g].join('|')];
+  text($('quote-hint'), state.term + ' months, ' + (state.s === 'opex' ? 'OPEX' : 'CAPEX')
+    + (rateOn && ly > 1 ? ', 3% annual escalator from year ' + (state.e === 'y3' ? 3 : 2) : '') + (state.split ? ', split WHT' : ''));
+  // L1: with Gross up on, TCV (net) + WHT gross-up + GST = TCV incl. GST.
+  $('q-grossup-tile').hidden = state.g !== 'on'; text($('q-grossup'), q.grossUp);
   text($('q-monthly-label'), state.s === 'capex' ? 'Monthly service fee (year 1)' : 'Monthly total (year 1)');
   text($('q-monthly'), state.s === 'capex' ? q.capex.service : q.monthly); text($('q-tcv'), q.tcvNet); text($('q-gst'), q.gst); text($('q-tcvincl'), q.tcvIncl);
   text($('q-margin'), q.margin + '%');
@@ -390,11 +482,13 @@ function render() {
   text($('th-wht'), q.whtBorne !== '0.00' ? 'WHT borne' : (q.wht !== '0.00' ? 'WHT (grossed up)' : 'WHT'));
   const sch = $('schedule'); sch.innerHTML = '';
   for (const r of q.schedule) {
-    sch.insertAdjacentHTML('beforeend', '<tr><td>' + r.when + '</td><td>' + r.count + '</td><td>' + r.net + '</td><td>' + r.invoice + '</td><td>' + r.gst + '</td><td>' + r.invoiceIncl + '</td><td>' + r.wht + '</td><td>' + r.received + '</td></tr>');
+    const when = r.when + (state.s === 'capex' && state.split && r.when !== 'Upfront (hardware)' ? ' (service)' : '');
+    sch.insertAdjacentHTML('beforeend', '<tr><td>' + when + '</td><td>' + r.count + '</td><td>' + r.net + '</td><td>' + r.invoice + '</td><td>' + r.gst + '</td><td>' + r.invoiceIncl + '</td><td>' + r.wht + '</td><td>' + r.received + '</td></tr>');
+    for (const l of r.lines) sch.insertAdjacentHTML('beforeend', '<tr><td class="band">' + l.when + '</td><td class="band"></td><td class="band">' + l.net + '</td><td class="band">' + l.invoice + '</td><td class="band">' + l.gst + '</td><td class="band">' + l.invoiceIncl + '</td><td class="band">' + l.wht + '</td><td class="band">' + l.received + '</td></tr>');
   }
-  text($('sched-hint'), state.s === 'opex' ? 'one invoice a month for the term' : 'hardware upfront, then a monthly service fee');
+  text($('sched-hint'), state.s === 'opex' ? (state.split ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term') : 'hardware upfront, then a monthly service fee');
   text($('sched-note'), state.s === 'capex'
-    ? 'Upfront ' + q.capex.upfront + ' plus the monthly service fees ties to TCV ' + q.tcvNet + ' exactly, the same TCV as OPEX; the upfront carries any rounding residue.' + (state.e === 'three' ? ' The service fee escalates each contract year like the OPEX fee.' : '')
+    ? 'Upfront ' + q.capex.upfront + ' plus the monthly service fees ties to TCV ' + q.tcvNet + ' exactly, the same TCV as OPEX; the upfront carries any rounding residue.' + (rateOn ? ' The service fee escalates like the OPEX fee.' : '')
     : 'Net fees times months equal TCV ' + q.tcvNet + ' exactly. GST is added on top of each invoice; WHT applies to the fee before GST.');
   $('settings-body').hidden = !state.open;
   text($('settings-toggle'), state.open ? 'Collapse' : 'Expand');

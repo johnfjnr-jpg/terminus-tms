@@ -1,6 +1,6 @@
 // ── THE TERM PRICING ENGINE ──────────────────────────────────────────────
 //
-// Implements docs/pricing-spec.md (Specification v1.2.1) exactly. CLAUDE.md
+// Implements docs/pricing-spec.md (Specification v1.3) exactly. CLAUDE.md
 // Architecture rule 14: no hard-coded parameters, no floats for money. That
 // rule does not govern the deal-sheet engine, and this file is not part of it.
 //
@@ -269,7 +269,10 @@ export function unitEconomics(product, termMonths, params) {
  *   termMonths: 60,                     one of TERMS
  *   paymentStructure: 'opex' | 'capex',
  *   escalatorPct: '3' | null,           blank or 0 means none
+ *   escalatorStartYear: 2,              v1.3 (B6): the year it first applies, >= 2, default 2
  *   gstPct: '9', whtPct: '10', whtGrossUp: true,
+ *   whtSplit: false,                    v1.3 (B4): on, whtHwPct and whtSaasPct replace whtPct
+ *   whtHwPct: '5', whtSaasPct: '10',
  * }
  */
 export function priceQuote(input, params) {
@@ -294,7 +297,15 @@ export function priceQuote(input, params) {
   const escalator = input.escalatorPct == null || input.escalatorPct === ''
     ? ZERO : pctToRatio(input.escalatorPct, 'escalator_pct')
   const years = Math.ceil(T / 12)
-  const factor = (k) => pow(add(ONE, escalator), k - 1)
+  // v1.3 section 7 (B6): factor(k) = 1 before the start year S, then
+  // (1 + e)^(k - S + 1). S = 2 is the v1.2 formula, (1 + e)^(k - 1). An S past
+  // the term's last year is not refused: the ladder prices every term from the
+  // same inputs, and for a shorter term the formula already gives no increase.
+  const startYear = input.escalatorStartYear ?? 2
+  if (typeof startYear !== 'number' || !Number.isSafeInteger(startYear) || startYear < 2) {
+    throw new TermPricingError('BAD_ESCALATOR', 'The escalator start year must be a whole number, year 2 or later.')
+  }
+  const factor = (k) => (k < startYear ? ONE : pow(add(ONE, escalator), k - startYear + 1))
   const monthsInYear = (k) => Math.min(12, T - 12 * (k - 1))
 
   // Per line, per band: the year-1 fee, then each contract year's fee from it
@@ -346,6 +357,10 @@ export function priceQuote(input, params) {
     }
     return rows
   }
+  // Section 6's hardware amount, at HW_UPFRONT_MARGIN. CAPEX invoices it
+  // upfront; v1.3 section 8.1 also uses it for the OPEX hardware line.
+  const hardwareUpfront = lines.reduce(
+    (s, l) => add(s, div(mul(fromInt(l.units), l.hwCostPerUnit), sub(ONE, p.hwUpfrontMargin))), ZERO)
   let schedule
   let capex = null
   if (structure === 'opex') {
@@ -356,8 +371,6 @@ export function priceQuote(input, params) {
     // is written as months-in-year x factor, which is identical for every term
     // that is a whole number of years and stays consistent with section 7's
     // own year split if a TERMS entry ever is not.
-    const hardwareUpfront = lines.reduce(
-      (s, l) => add(s, div(mul(fromInt(l.units), l.hwCostPerUnit), sub(ONE, p.hwUpfrontMargin))), ZERO)
     let weight = ZERO
     for (let k = 1; k <= years; k++) weight = add(weight, mul(fromInt(monthsInYear(k)), factor(k)))
     const s = div(sub(fromCents(tcvNetCents), hardwareUpfront), weight)
@@ -369,25 +382,57 @@ export function priceQuote(input, params) {
   }
 
   // Section 8: tax per invoice line, half-up to cents. WHT applies to the fee
-  // before GST. With gross-up the fee rises so Terminus receives the net fee.
+  // before GST. With gross-up the line rises so Terminus receives its net.
+  //
+  // v1.3 section 8.1 (B3, B4): every WHT rate is typed, 0 up to but not
+  // including 100, blank 0. With the split OFF one rate applies to every line
+  // and an OPEX month is ONE line, which is what keeps T20 and T21 exact (two
+  // lines round twice). With it ON, hardware takes whtHwPct and software as a
+  // service whtSaasPct: under CAPEX the upfront and the monthly invoices, under
+  // OPEX two lines on each monthly invoice.
   const gst = input.gstPct == null || input.gstPct === '' ? ZERO : pctToRatio(input.gstPct, 'gst_pct')
-  const wht = input.whtPct == null || input.whtPct === '' ? ZERO : pctToRatio(input.whtPct, 'wht_pct')
-  if (cmp(wht, ONE) >= 0) throw new TermPricingError('BAD_TAX', 'WHT must be below 100%')
+  const whtRate = (v, what) => {
+    const r = v == null || v === '' ? ZERO : pctToRatio(v, what)
+    if (cmp(r, ZERO) < 0 || cmp(r, ONE) >= 0) throw new TermPricingError('BAD_TAX', `${what} must be at least 0% and below 100%`)
+    return r
+  }
+  const split = !!input.whtSplit
+  const wht = whtRate(input.whtPct, 'WHT')
+  const whtHw = split ? whtRate(input.whtHwPct, 'WHT on hardware') : wht
+  const whtSaas = split ? whtRate(input.whtSaasPct, 'WHT on software as a service') : wht
   const grossUp = !!input.whtGrossUp
-  const totals = { invoicedCents: 0n, gstCents: 0n, whtCents: 0n, whtBorneCents: 0n, receivedCents: 0n }
+  const taxLine = (netCents, r) => {
+    const invoiceCents = grossUp && cmp(r, ZERO) > 0 ? roundHalfUp(div(fromCents(netCents), sub(ONE, r)), 2) : netCents
+    const whtCents = roundHalfUp(mul(fromCents(invoiceCents), r), 2)
+    const gstCents = roundHalfUp(mul(fromCents(invoiceCents), gst), 2)
+    return { netCents, invoiceCents, gstCents, whtCents, receivedCents: invoiceCents - whtCents }
+  }
+  // Flat for the term (B4): an escalator raises the service line only.
+  const hardwareLineCents = structure === 'opex' && split ? roundHalfUp(div(hardwareUpfront, fromInt(T)), 2) : null
+  const totals = { invoicedCents: 0n, netCents: 0n, gstCents: 0n, whtCents: 0n, whtBorneCents: 0n, receivedCents: 0n }
   schedule = schedule.map((row) => {
     const count = BigInt(row.toMonth - row.fromMonth + 1)
-    const invoiceCents = grossUp && cmp(wht, ZERO) > 0
-      ? roundHalfUp(div(fromCents(row.netCents), sub(ONE, wht)), 2)
-      : row.netCents
-    const whtCents = roundHalfUp(mul(fromCents(invoiceCents), wht), 2)
-    const gstCents = roundHalfUp(mul(fromCents(invoiceCents), gst), 2)
+    let parts
+    if (hardwareLineCents !== null) {
+      const serviceCents = row.netCents - hardwareLineCents
+      if (serviceCents < 0n) {
+        throw new TermPricingError('NEGATIVE_SERVICE_LINE',
+          `The hardware line (${formatMoney(hardwareLineCents)} a month) is more than the month's fee (${formatMoney(row.netCents)}), so the service line would be negative. Turn Split WHT off, or review the hardware margin.`)
+      }
+      parts = [{ kind: 'hardware', ...taxLine(hardwareLineCents, whtHw) }, { kind: 'service', ...taxLine(serviceCents, whtSaas) }]
+    } else {
+      parts = [taxLine(row.netCents, row.kind === 'upfront' ? whtHw : whtSaas)]
+    }
+    const sum = (k) => parts.reduce((t, x) => t + x[k], 0n)
+    const invoiceCents = sum('invoiceCents'), gstCents = sum('gstCents'), whtCents = sum('whtCents')
     const out = {
       ...row, count: Number(count),
       invoiceCents, gstCents, invoiceInclGstCents: invoiceCents + gstCents,
       whtCents, whtBorne: !grossUp, receivedCents: invoiceCents - whtCents,
+      ...(parts.length > 1 ? { lines: parts.map((x) => ({ ...x, invoiceInclGstCents: x.invoiceCents + x.gstCents })) } : {}),
     }
     totals.invoicedCents += invoiceCents * count
+    totals.netCents += row.netCents * count
     totals.gstCents += gstCents * count
     totals.whtCents += whtCents * count
     if (!grossUp) totals.whtBorneCents += whtCents * count
@@ -398,6 +443,8 @@ export function priceQuote(input, params) {
   return {
     termMonths: T,
     paymentStructure: structure,
+    escalatorStartYear: startYear,
+    whtSplit: split,
     currency: p.currency,
     lines,
     monthlyTotalCents: monthlyTotalByYear[0],
@@ -415,8 +462,12 @@ export function priceQuote(input, params) {
       ? frac(grossProfitCents - totals.whtBorneCents, tcvNetCents) : null,
     capex,
     schedule,
+    // L1 (John, layout approval): the WHT gross-up is what the invoices carry
+    // above their nets, so TCV (net) + grossUpCents + GST = TCV incl. GST
+    // exactly. Zero whenever gross-up is off.
     tax: {
       ...totals,
+      grossUpCents: totals.invoicedCents - totals.netCents,
       tcvInclGstCents: totals.invoicedCents + totals.gstCents,
     },
   }
