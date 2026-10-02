@@ -147,3 +147,13 @@ E3 admin path, option (a): a temporary system_roles admin row for john+test2, in
 proof only. At the end of E3, DELETE it and prove the removal (select returns 0 rows for that
 user). State the insert, the removal and its proof in the report. No other system_roles change.
 Then continue: verify tables, E2, E3, screenshots (OPEX and CAPEX, 1240 and 1920), close.
+
+---
+
+RULING AFTER THE MIGRATIONS (John, 2026-10-02), appended verbatim:
+
+Migrations applied by John and schema reloaded (system_roles returns one row: John, admin).
+Continue from verify tables. Add to E3: after the admin PUT, prove updated_at advanced and
+updated_by is the admin's id; if the route does not set updated_at, set it to now() on every
+write (one change, tested). QUEUED, not built: a term_pricing_settings history (who changed what,
+from what, when) before real quotes rely on the settings.
