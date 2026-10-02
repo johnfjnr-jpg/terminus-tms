@@ -9284,7 +9284,7 @@ select:autofill {
 .tp-seg button.on { color: var(--dark); background: var(--green); border-color: var(--green); }
 .tp-error { color: var(--attention); font-size: 13px; margin: 0; }
 .tp-table { border-collapse: collapse; width: 100%; }
-.tp-table th { font-family: var(--mono); font-weight: 400; font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--hairline-strong); white-space: nowrap; }
+.tp-table th { font-family: var(--mono); font-weight: 400; font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); text-align: right; vertical-align: bottom; padding: 6px 10px; border-bottom: 1px solid var(--hairline-strong); }
 .tp-table td { font-family: var(--mono); font-size: var(--numeric-cell-size); text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
 .tp-table th:first-child, .tp-table td:first-child { text-align: left; }
 .tp-table td:first-child { font-family: var(--body); font-size: 13.5px; }
@@ -9297,7 +9297,10 @@ select:autofill {
 .tp-figures { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--hairline); border-radius: 6px; }
 .tp-figures > div { padding: 12px 14px; border-right: 1px solid var(--hairline); min-width: 0; }
 .tp-figures > div:last-child { border-right: 0; }
-.tp-v { font-family: var(--mono); font-size: 18px; margin-top: 2px; overflow-wrap: anywhere; }
+/* A figure never breaks inside itself: "1,200,000." over "00" is a different
+   number to the eye. Measured at 1240 under CAPEX, where a sixth figure made
+   overflow-wrap split them; below 1600 the figures step down a size instead. */
+.tp-v { font-family: var(--mono); font-size: 18px; margin-top: 2px; white-space: nowrap; }
 .tp-lead { font-size: 22px; }
 .tp-chip { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--muted); margin-top: 8px; }
 .tp-chip.tp-flag { border-color: currentColor; color: var(--attention); }
@@ -9316,6 +9319,9 @@ select:autofill {
 .tp-save-row { margin-top: 14px; text-align: right; }
 @media (max-width: 1599px) {
   .tp-settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .tp-figures > div { padding: 12px 10px; }
+  .tp-v { font-size: 14px; }
+  .tp-lead { font-size: 16px; }
 }
 
 
