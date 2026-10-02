@@ -29,6 +29,11 @@ const puppeteer = await loadPuppeteer('probe-screen.mjs')
 const ROOT = new URL('../../', import.meta.url).pathname
 const BASE = process.env.TMS_BASE ?? 'http://localhost:3000'
 const FLOW = process.argv.includes('--flow')
+// TERM_PRICING_2 (--tp2): T24 to T28 from the click. The live TERMS setting is
+// John's to change after the push, so the 108-month case runs with spec v1.3's
+// TERMS passed IN TEST: written into the browser's copy of the real GET
+// response and nowhere else. Every other byte is the route's.
+const TP2 = process.argv.includes('--tp2')
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : `${ROOT}prototypes/term-pricing/screens`
 const RUN = process.env.TP_RUN ?? 'p3'
 const session = JSON.parse(readFileSync(`${ROOT}session-ref.json`, 'utf8'))
@@ -43,6 +48,18 @@ const check = (ok, claim, detail = '') => {
 const browser = await puppeteer.launch({ headless: 'new' })
 const page = await browser.newPage()
 await page.setViewport({ width: 1240, height: 1100 })
+if (TP2) {
+  await page.evaluateOnNewDocument(() => {
+    const real = window.fetch
+    window.fetch = async (...a) => {
+      const res = await real(...a)
+      if (!/\/api\/term-pricing(\?|$)/.test(String(a[0]?.url ?? a[0])) || !res.ok) return res
+      const body = await res.clone().json()
+      return new Response(JSON.stringify({ ...body, settings: { ...body.settings, TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120] } }),
+        { status: res.status, headers: res.headers })
+    }
+  })
+}
 await page.goto(BASE, { waitUntil: 'domcontentloaded' })
 await page.evaluate((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(session))
 await page.reload({ waitUntil: 'networkidle0' })
@@ -119,6 +136,75 @@ if (FLOW) {
   check(v[0] === '80' && v[1] === true, "the non-admin's settings show 80 and are read-only", JSON.stringify(v))
   check(!(await page.$(tid('tp-settings-save'))), 'and the non-admin has no Save')
   await capture('flow-80', 1240)
+} else if (TP2) {
+  const sw = async (id, on) => {
+    if ((await page.$eval(tid(id), (e) => e.getAttribute('aria-checked'))) !== String(on)) await page.click(tid(id))
+    await page.waitForFunction((s, v) => document.querySelector(s)?.getAttribute('aria-checked') === String(v), {}, tid(id), on)
+  }
+  const sched = () => scheduleRows()
+  const foot = async (what) => {
+    const c = async (t) => { const s = await text(t); return s == null ? 0n : BigInt(s.replace(/[,.]/g, '')) }
+    const [tcv, up, gst, incl] = [await c('tp-q-tcv'), await c('tp-q-grossup'), await c('tp-q-gst'), await c('tp-q-tcvincl')]
+    check(tcv > 0n && incl > 0n && tcv + up + gst === incl, `L1 ${what}: TCV (net) + WHT gross-up + GST = TCV incl. GST`, `${tcv} + ${up} + ${gst} vs ${incl}`)
+  }
+
+  // T26: 1 unit, 108 months (TERMS passed in test).
+  await page.click(tid('tp-term-108'))
+  await expectText('tp-q-tcv', '166,399.92', 'T26 TCV at 108 months')
+  await expectText('tp-q-margin', '82.2%', 'T26 margin')
+  const row108 = await page.$eval(tid('tp-ladder-108'), (r) => [...r.cells].map((c) => c.textContent.trim()))
+  check(row108[1] === '1,540.74' && row108[2] === '−63.5%', 'the ladder carries 108: fee 1,540.74, vs 36 −63.5% (table 10.1)', JSON.stringify(row108))
+
+  // T27: 1 unit, 60, escalator 3% from year 3, through the start-year select.
+  await page.click(tid('tp-term-60'))
+  await type('tp-escalator', '3')
+  await page.waitForFunction((s) => document.querySelector(s) && !document.querySelector(s).disabled, {}, tid('tp-escalator-start'))
+  await page.select(tid('tp-escalator-start'), '3')
+  await expectText('tp-q-tcv', '162,558.36', 'T27 TCV')
+  await expectText('tp-q-margin', '87.7%', 'T27 margin')
+  const s27 = (await sched()).map((r) => [r[0], r[2]])
+  check(JSON.stringify(s27) === JSON.stringify([['Months 1 to 24', '2,613.33'], ['Months 25 to 36', '2,691.73'], ['Months 37 to 48', '2,772.48'], ['Months 49 to 60', '2,855.66']]),
+    'T27 year fees 2,613.33 / 2,613.33 / 2,691.73 / 2,772.48 / 2,855.66 (years 1 and 2 one run)', JSON.stringify(s27))
+
+  // T28: T6 as capex, escalator 3% from year 3.
+  await type('tp-units-safesight', '120')
+  await page.click(tid('tp-capex'))
+  await expectText('tp-q-tcv', '18,027,745.92', 'T28 TCV')
+  await expectText('tp-q-upfront', '1,200,000.00', 'T28 upfront')
+  const s28 = (await sched()).map((r) => r[2])
+  check(JSON.stringify(s28) === JSON.stringify(['1,200,000.00', '270,527.21', '278,643.03', '287,002.32', '295,612.39']),
+    'T28 service fees by year 270,527.21 / 270,527.21 / 278,643.03 / 287,002.32 / 295,612.39', JSON.stringify(s28))
+
+  // T24: T6 as capex, split WHT hardware 5% / service 10%, gross-up OFF.
+  await type('tp-escalator', '')
+  await sw('tp-wht-split', true)
+  await sw('tp-wht-grossup', false)
+  await type('tp-wht-hw', '5')
+  await type('tp-wht-saas', '10')
+  check(!(await page.$(tid('tp-wht'))), 'B4: with Split WHT on, the single WHT input is hidden')
+  await page.waitForFunction((s) => [...document.querySelectorAll(s)].some((r) => r.cells[6]?.textContent.trim() === '60,000.00'), { timeout: 6000 }, `${V} [data-testid="tp-schedule"] tbody tr`).catch(() => {})
+  const s24 = await sched()
+  check(s24[0][0] === 'Upfront (hardware)' && s24[0][6] === '60,000.00' && s24[0][7] === '1,140,000.00', 'T24 WHT on upfront 60,000.00, Terminus receives 1,140,000.00', JSON.stringify(s24[0]))
+  check(s24[1][0] === 'Months 1 to 60 (service)' && s24[1][6] === '26,981.88' && s24[1][7] === '242,836.89', 'T24 WHT per service invoice 26,981.88, Terminus receives 242,836.89', JSON.stringify(s24[1]))
+  const prof24 = await page.$$eval(`${V} .tp-split > div:last-child tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+  check(prof24.some((r) => r[0] === 'WHT borne by Terminus' && r[1] === '1,678,912.80'), 'T24 total WHT borne 1,678,912.80', JSON.stringify(prof24))
+  check(!(await page.$(tid('tp-q-grossup'))), 'L1: with Gross up off there is no WHT gross-up tile')
+  await foot('T24')
+
+  // T25: T6 as opex, split WHT 5% / 10%, gross-up ON, GST 0.
+  await page.click(tid('tp-opex'))
+  await sw('tp-wht-grossup', true)
+  await type('tp-gst', '0')
+  await page.waitForFunction((s) => document.querySelector(s)?.textContent.trim() === '320,851.26', { timeout: 6000 }, `${V} [data-testid="tp-sched-monthly-1"] td:nth-child(4)`).catch(() => {})
+  const s25 = await sched()
+  check(s25[0][0] === 'Months 1 to 60' && s25[0][3] === '320,851.26', 'T25 invoice total 320,851.26', JSON.stringify(s25[0]))
+  check(JSON.stringify([s25[1][0], s25[1][2], s25[1][3], s25[1][6], s25[1][7]]) === JSON.stringify(['Hardware line', '20,000.00', '21,052.63', '1,052.63', '20,000.00']),
+    'T25 hardware line 20,000.00 -> invoice 21,052.63, WHT 1,052.63, receives 20,000.00', JSON.stringify(s25[1]))
+  check(JSON.stringify([s25[2][0], s25[2][2], s25[2][3], s25[2][6], s25[2][7]]) === JSON.stringify(['Software as a service line', '269,818.77', '299,798.63', '29,979.86', '269,818.77']),
+    'T25 service line 269,818.77 -> invoice 299,798.63, WHT 29,979.86, receives 269,818.77', JSON.stringify(s25[2]))
+  check(!!(await page.$(tid('tp-q-grossup'))), 'L1: with Gross up on the WHT gross-up tile is shown')
+  await foot('T25')
+  await capture('tp2-T25', 1240)
 } else {
   // T1 is the screen's opening state.
   await expectText('tp-q-tcv', '151,999.92', 'T1 TCV')
