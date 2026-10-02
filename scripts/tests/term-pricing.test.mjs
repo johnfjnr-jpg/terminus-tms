@@ -273,6 +273,23 @@ test('T22 T6 as capex with escalator 3%: the service fee escalates and TCV is th
     [['upfront', 0, 0], ['monthly', 1, 12], ['monthly', 13, 24], ['monthly', 25, 36], ['monthly', 37, 48], ['monthly', 49, 60]])
 })
 
+test('T23 SafeSight 120 + AQ 30, 60 months, on the catalog AQ costs', () => {
+  // AQ at the catalog figures the spec's T23 row states. SafeSight's line is
+  // T6; the AQ line and the deal figures are copied from the spec.
+  const p = withParams({
+    ANCHOR_MARGIN: { ...SPEC_PARAMS.ANCHOR_MARGIN, air_quality: '90' },
+    SHORT_TERM_MARGIN: { ...SPEC_PARAMS.SHORT_TERM_MARGIN, air_quality: '90' },
+    costs: { ...SPEC_PARAMS.costs, air_quality: { hwCost: '2000.00', hostingMonthly: '100.00' } },
+  })
+  const q = quote({ safesight: 120, air_quality: 30 }, 60, {}, p)
+  const aq = q.lines.find((l) => l.product === 'air_quality')
+  assert.deepEqual(aq.bands.map((b) => [b.from, b.units, money(b.feeByYear[0])]), [[1, 9, '973.33'], [10, 21, '924.67']])
+  assert.equal(money(aq.monthlyByYear[0] * 60n), '1,690,682.40', 'AQ line')
+  assert.equal(money(q.tcvNetCents), '19,079,808.60')
+  assert.equal(money(q.totalCostCents), '2,640,000.00')
+  assert.equal(pct(q.grossMargin), '86.2')
+})
+
 test('POSITION (Q4, not a spec figure): margin on price after WHT, only when WHT is borne', () => {
   // T21 basis: profit 17,389,126.20 - 120 x 20,000.00 = 14,989,126.20; WHT borne
   // 28,981.88 x 60 = 1,738,912.80; after WHT 13,250,213.40 / 17,389,126.20 = 76.197..%.
