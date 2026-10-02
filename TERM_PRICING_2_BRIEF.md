@@ -54,3 +54,31 @@ overlap zero across the sweep; guard calibrated red on the defect, green after; 
 from the click for split WHT (T24, T25) and a 108-month quote (with TERMS passed in test, since
 the live setting is John's to change); full gate (NordVPN quit, resolver clean); merge --no-ff;
 merged gate; ls-remote re-check; stop at "ready for John's push". Never git push.
+
+---
+
+A3 RULINGS (John, 2026-10-02):
+R1 accepted: land the structural detector as a shared module; cover Term Pricing in every A2 state
+and the deal form's OPEX card; calibrate red on each defect before its fix and green after. Queue
+"every routed screen" as its own round (11 views named). FIX the OPEX-card overprint (Q1) in this
+round, cosmetic tier, screenshot before and after at 1240. Restart the API server before any probe
+of a src/ change (finding 6.1). The duplicate build-discipline-10 paragraph rides CLAUDE_MD_SPLIT.
+
+NEW RULING B6 (John, 2026-10-02): ESCALATOR START YEAR. Goes into spec v1.3 with B1 to B5.
+- The escalator rate becomes a typed percent input (blank = 0 = no escalator), replacing the
+  None/3% buttons, plus a "Starts in year" select offering 2 to the term's last year, default 2.
+  Hidden or disabled when the rate is 0. For a 12-month term there is no year 2: the start-year
+  select is not offered and the escalator has no effect.
+- Spec section 7: factor(k) = 1 for k < S; (1 + e)^(k - S + 1) for k >= S, where S is the start
+  year. fee_year(k) = round_half_up(fee_year(1) x factor(k), 2), per band. Section 6 CAPEX uses the
+  same factor(k) in place of (1 + e)^(k - 1). S = 2 reproduces every existing figure (T16, T22).
+- Spec section 11 gains (COPY, never compute):
+  T27 1 SafeSight, 60 months, escalator 3% from year 3: year fees 2,613.33 / 2,613.33 / 2,691.73 /
+      2,772.48 / 2,855.66; TCV 162,558.36; margin 87.7%.
+  T28 T6 as capex, escalator 3% from year 3: TCV 18,027,745.92; upfront 1,200,000.00; service fees
+      by year 270,527.21 / 270,527.21 / 278,643.03 / 287,002.32 / 295,612.39; upfront + sum = TCV.
+- With split WHT on OPEX, the hardware line stays flat; the service line carries the increase.
+- The LAYOUT STOP screenshots include the escalator controls (rate 0, and rate set with start year).
+
+Proceed: Part A per R1, then spec v1.3 (B1 to B6) in its own commit, then Part B, then the LAYOUT
+STOP with screenshots for John.
