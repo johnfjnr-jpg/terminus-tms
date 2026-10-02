@@ -409,7 +409,7 @@ export function priceQuote(input, params) {
   }
   // Flat for the term (B4): an escalator raises the service line only.
   const hardwareLineCents = structure === 'opex' && split ? roundHalfUp(div(hardwareUpfront, fromInt(T)), 2) : null
-  const totals = { invoicedCents: 0n, gstCents: 0n, whtCents: 0n, whtBorneCents: 0n, receivedCents: 0n }
+  const totals = { invoicedCents: 0n, netCents: 0n, gstCents: 0n, whtCents: 0n, whtBorneCents: 0n, receivedCents: 0n }
   schedule = schedule.map((row) => {
     const count = BigInt(row.toMonth - row.fromMonth + 1)
     let parts
@@ -432,6 +432,7 @@ export function priceQuote(input, params) {
       ...(parts.length > 1 ? { lines: parts.map((x) => ({ ...x, invoiceInclGstCents: x.invoiceCents + x.gstCents })) } : {}),
     }
     totals.invoicedCents += invoiceCents * count
+    totals.netCents += row.netCents * count
     totals.gstCents += gstCents * count
     totals.whtCents += whtCents * count
     if (!grossUp) totals.whtBorneCents += whtCents * count
@@ -461,8 +462,12 @@ export function priceQuote(input, params) {
       ? frac(grossProfitCents - totals.whtBorneCents, tcvNetCents) : null,
     capex,
     schedule,
+    // L1 (John, layout approval): the WHT gross-up is what the invoices carry
+    // above their nets, so TCV (net) + grossUpCents + GST = TCV incl. GST
+    // exactly. Zero whenever gross-up is off.
     tax: {
       ...totals,
+      grossUpCents: totals.invoicedCents - totals.netCents,
       tcvInclGstCents: totals.invoicedCents + totals.gstCents,
     },
   }

@@ -9292,7 +9292,9 @@ select:autofill {
    content widths (a flex item's floor is its min-content), and the units
    inputs take a declared width rather than a share of a shrinking track. */
 .tp-inputs, .tp-half { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 28px; }
-.tp-half { flex: 1 1 auto; }
+/* L3: within a half the groups sit together from the left; where the halves
+   share a row the space falls between them, not inside them. */
+.tp-half { flex: 0 1 auto; justify-content: flex-start; }
 .tp-units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
 /* B2: term buttons in rows of five, in term order. */
 .tp-seg.tp-terms { display: grid; grid-template-columns: repeat(5, max-content); }
@@ -9303,6 +9305,9 @@ select:autofill {
 .tp-pair.tp-stack { flex-direction: column; align-items: flex-start; gap: 10px; }
 .tp-switches { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .tp-select { text-align: left; }
+/* L2: disabled, the select keeps a dimmed border so it still reads as a field
+   under its label (`.tp-num:disabled` drops the border for read-only values). */
+.tp-num.tp-select:disabled { border-color: var(--hairline); background: transparent; color: var(--muted); }
 .tp-unit { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .tp-num { background: var(--dark); border: 1px solid var(--hairline-strong); color: var(--white); border-radius: 4px; padding: 7px 8px; font-family: var(--mono); font-size: 13px; width: 100%; text-align: right; }
 .tp-num:disabled { border-color: transparent; background: transparent; }

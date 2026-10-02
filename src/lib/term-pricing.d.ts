@@ -77,7 +77,7 @@ export interface Quote {
   marginAfterWht: Fraction | null
   capex: { hardwareUpfront: Fraction; upfrontCents: bigint; monthlyServiceCents: bigint; serviceByYear: bigint[] } | null
   schedule: ScheduleRow[]
-  tax: { invoicedCents: bigint; gstCents: bigint; whtCents: bigint; whtBorneCents: bigint; receivedCents: bigint; tcvInclGstCents: bigint }
+  tax: { invoicedCents: bigint; netCents: bigint; grossUpCents: bigint; gstCents: bigint; whtCents: bigint; whtBorneCents: bigint; receivedCents: bigint; tcvInclGstCents: bigint }
 }
 export interface LadderRow {
   termMonths: number; isAnchor: boolean; paymentStructure: 'opex' | 'capex'

@@ -276,6 +276,9 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                 <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(capex ? q.capex!.monthlyServiceCents : q.monthlyTotalCents)}</div></div>
               {capex && <div><div className="tp-label">Upfront</div><div className="tp-v" data-testid="tp-q-upfront">{money(q.capex!.upfrontCents)}</div></div>}
               <div><div className="tp-label">TCV (net)</div><div className="tp-v" data-testid="tp-q-tcv">{money(q.tcvNetCents)}</div></div>
+              {/* L1: with Gross up on, the tiles foot: TCV (net) + WHT gross-up +
+                  GST = TCV incl. GST. The figure is the engine's, not a sum here. */}
+              {grossUp && <div><div className="tp-label">WHT gross-up</div><div className="tp-v" data-testid="tp-q-grossup">{money(q.tax.grossUpCents)}</div></div>}
               <div><div className="tp-label">GST</div><div className="tp-v" data-testid="tp-q-gst">{money(q.tax.gstCents)}</div></div>
               <div><div className="tp-label">TCV incl. GST</div><div className="tp-v" data-testid="tp-q-tcvincl">{money(q.tax.tcvInclGstCents)}</div></div>
               <div><div className="tp-label">Margin on price</div><div className="tp-v" data-testid="tp-q-margin">{pct(q.grossMargin)}</div>

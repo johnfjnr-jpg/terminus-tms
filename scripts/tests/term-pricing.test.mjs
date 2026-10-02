@@ -587,3 +587,30 @@ test('B3: every WHT rate is 0 up to but not including 100', () => {
   assert.equal(money(quote({ safesight: 1 }, 36, { whtPct: '' }).tax.whtCents), '0.00', 'blank is 0')
   assert.equal(money(quote({ safesight: 1 }, 36, SPLIT('', '', false)).tax.whtCents), '0.00', 'blank split rates are 0')
 })
+
+// ── L1 (John, layout approval): the quote tiles foot ─────────────────────
+
+test('L1 the split-on capture: 162,558.36 + 17,477.04 + 16,203.36 = 196,238.76', () => {
+  // Copied from the ruling: 1 unit, 60 months, escalator 3% from year 3,
+  // split WHT 5% / 10%, gross-up ON, GST 9%.
+  const q = quote({ safesight: 1 }, 60, { escalatorPct: '3', escalatorStartYear: 3, gstPct: '9', ...SPLIT('5', '10', true) })
+  assert.equal(money(q.tcvNetCents), '162,558.36')
+  assert.equal(money(q.tax.grossUpCents), '17,477.04')
+  assert.equal(money(q.tax.gstCents), '16,203.36')
+  assert.equal(money(q.tax.tcvInclGstCents), '196,238.76')
+})
+
+test('L1 TCV (net) + WHT gross-up + GST = TCV incl. GST in every structure and WHT state', () => {
+  const cases = [
+    {}, { whtPct: '10', whtGrossUp: true }, { whtPct: '10', whtGrossUp: false },
+    SPLIT('5', '10', true), SPLIT('5', '10', false), { whtPct: '0', whtGrossUp: true },
+  ]
+  for (const structure of ['opex', 'capex']) for (const c of cases) for (const esc of [{}, { escalatorPct: '3', escalatorStartYear: 3 }]) {
+    const q = quote({ safesight: 120 }, 60, { paymentStructure: structure, gstPct: '9', ...c, ...esc })
+    const what = JSON.stringify({ structure, ...c, ...esc })
+    assert.equal(q.tcvNetCents + q.tax.grossUpCents + q.tax.gstCents, q.tax.tcvInclGstCents, `foots: ${what}`)
+    if (!c.whtGrossUp) assert.equal(q.tax.grossUpCents, 0n, `no gross-up without the switch: ${what}`)
+  }
+  // T20 basis: (322,020.86 - 289,818.77) x 60 = 32,202.09 x 60 = 1,932,125.40.
+  assert.equal(money(quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true }).tax.grossUpCents), '1,932,125.40')
+})

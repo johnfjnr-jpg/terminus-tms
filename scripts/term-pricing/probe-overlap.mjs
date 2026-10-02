@@ -29,6 +29,8 @@
 //   shrink        a Term Pricing input row is forced narrower than its content
 //   lost-root     the Term Pricing root selector is wrong (population check)
 //   six-a-row     the term buttons lay out six to a row (B2)
+//   l2-borderless the disabled start-year select loses its border (L2)
+//   l3-push       the second group in a half is pushed to the right edge (L3)
 //
 // UNWIRED: needs a browser, a live server and a session.
 
@@ -63,6 +65,9 @@ const INJECTIONS = {
   shrink: '.tp-units > * { width: 20px !important; min-width: 0 !important; flex: none !important; }',
   // B2: six to a row is the shape the screen had before this round.
   'six-a-row': '.tp-seg.tp-terms { grid-template-columns: repeat(6, max-content) !important; }',
+  // L2 and L3: the two shapes John's approval ruled out.
+  'l2-borderless': '.tp-num.tp-select:disabled { border-color: transparent !important; }',
+  'l3-push': '.tp-half { flex: 1 1 auto !important; justify-content: space-between !important; }',
 }
 
 async function signedIn(browser, { admin = false } = {}) {
@@ -208,6 +213,33 @@ try {
             }, async (p, where) => {
               const b2 = await rowsOfFive(p)
               check(b2.n >= 10 && b2.problems.length === 0, `${where}: B2 term buttons in rows of five, in term order (${b2.terms})`, b2.problems.slice(0, 6).join('; '))
+              const m = await p.evaluate(() => {
+                const cents = (id) => { const t = document.querySelector(`[data-testid="${id}"]`)?.textContent.trim(); return t == null ? null : String(BigInt(t.replace(/[,.]/g, ''))) }
+                const sel = document.querySelector('[data-testid="tp-escalator-start"]')
+                const lab = sel?.closest('label')
+                const halves = [...document.querySelectorAll('#view-term-pricing .tp-half')].map((h) => {
+                  const r = [...h.children].map((c) => c.getBoundingClientRect())
+                  return r.length === 2 && Math.abs(r[0].top - r[1].top) < 2 ? Math.round(r[1].left - r[0].right) : null
+                })
+                return {
+                  tcv: cents('tp-q-tcv'), up: cents('tp-q-grossup'), gst: cents('tp-q-gst'), incl: cents('tp-q-tcvincl'),
+                  grossUpOn: document.querySelector('[data-testid="tp-wht-grossup"]')?.getAttribute('aria-checked') === 'true',
+                  selBorder: sel && getComputedStyle(sel).borderTopColor, selLeft: sel && Math.round(sel.getBoundingClientRect().left),
+                  labLeft: lab && Math.round(lab.getBoundingClientRect().left), selDisabled: sel?.disabled, halves,
+                }
+              })
+              // L1: present exactly when Gross up is on, and the tiles foot either way.
+              const sum = [m.tcv, m.up ?? '0', m.gst].reduce((a, x) => a + BigInt(x), 0n)
+              check(!!m.tcv && !!m.gst && !!m.incl && (m.up !== null) === m.grossUpOn && sum === BigInt(m.incl),
+                `${where}: L1 TCV (net)${m.grossUpOn ? ' + WHT gross-up' : ''} + GST = TCV incl. GST`, JSON.stringify(m))
+              // L2: a disabled select still has a visible border and sits under its label.
+              if (m.selDisabled) {
+                check(!/rgba\(.*,\s*0\)$|transparent/.test(m.selBorder) && m.selLeft === m.labLeft,
+                  `${where}: L2 the disabled start-year select has a border, under its label`, JSON.stringify({ border: m.selBorder, sel: m.selLeft, label: m.labLeft }))
+              }
+              // L3: two groups sharing a row inside a half are packed from the left (the 28px gap).
+              check(m.halves.length === 2 && m.halves.every((g) => g === null || g === 28),
+                `${where}: L3 the groups in each half sit together from the left`, JSON.stringify(m.halves))
             })
           }
         }

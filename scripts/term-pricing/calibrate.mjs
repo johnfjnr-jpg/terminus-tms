@@ -136,6 +136,13 @@ const INJECTIONS = [
   { id: 'J31', file: ENGINE, why: 'the split rates are not validated (B3)',
     find: "split ? whtRate(input.whtHwPct, 'WHT on hardware') : wht", put: "split ? pctToRatio(input.whtHwPct || '0', 'hw') : wht",
     expect: 'B3: every WHT rate' },
+  // ── L1, layout approval (M4) ──
+  { id: 'J32', file: ENGINE, why: 'the gross-up tile reads the WHT, which is not zero when WHT is borne (L1)',
+    find: 'grossUpCents: totals.invoicedCents - totals.netCents,', put: 'grossUpCents: totals.whtCents,',
+    expect: 'L1 TCV (net) + WHT gross-up + GST' },
+  { id: 'J33', file: ENGINE, why: 'the gross-up is never computed (L1)',
+    find: 'grossUpCents: totals.invoicedCents - totals.netCents,', put: 'grossUpCents: 0n,',
+    expect: 'L1 the split-on capture' },
   // ── R-TP1, one import each way, as the brief requires ──
   { id: 'K1', file: ENGINE, why: 'the engine imports the deal-sheet engine',
     prepend: IMPORT('calculateTax', './deal-calculator.js'), expect: 'R-TP1 (1)' },
