@@ -1,0 +1,180 @@
+#!/usr/bin/env node
+// ── TERM_PRICING_2 A1, A2, A3 and Q1: NO OVERPRINT, NO TRACK BELOW ITS CONTENT ──
+//
+//   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
+//     node --env-file=.env scripts/term-pricing/probe-overlap.mjs [--only=tp|opex] [--inject=<name>]
+//
+// Runs the shared STRUCTURAL detector (scripts/lib/ink-overlap.mjs) at every
+// width from 1240 to 1920 in steps of 40 (A2), in every state:
+//
+//   Term Pricing: OPEX and CAPEX, Settings collapsed and expanded, as a
+//   non-admin and as an admin.
+//   The deal form's OPEX card (OPEX_RESET Q1), on a fixture built through the
+//   API the way the screen builds a deal.
+//
+// THE ADMIN STATE IS BUILT DIRECTLY, AND SAID SO (Verification 47's clause).
+// The probe account is not an admin, and making one is a live write to
+// `system_roles` that this round has no ruling for. The screen reads one field,
+// `isAdmin`, from GET /api/term-pricing and nothing about how it got there, so
+// that one field is flipped in the browser's copy of the real response. Every
+// other byte is the route's own. It proves the admin LAYOUT only; the admin
+// WRITE path is proven over HTTP elsewhere (probe-live.mjs, E3).
+//
+// EVERY VERDICT NEEDS A POPULATION (Verification 14): a state that never
+// rendered has no atoms and no overlaps, which reads exactly like a pass. Each
+// state therefore asserts it was REACHED before its zero is counted.
+//
+// --inject=<name> applies an in-page fault for calibration. No file is touched:
+//   label-input   the GST input is pulled up over its own label text
+//   shrink        a Term Pricing input row is forced narrower than its content
+//   lost-root     the Term Pricing root selector is wrong (population check)
+//
+// UNWIRED: needs a browser, a live server and a session.
+
+import { readFileSync, mkdirSync } from 'node:fs'
+import { loadPuppeteer } from '../lib/puppeteer.mjs'
+import { inkOverlaps, shrunkBelowContent } from '../lib/ink-overlap.mjs'
+const puppeteer = await loadPuppeteer('probe-overlap.mjs')
+
+const ROOT = new URL('../../', import.meta.url).pathname
+const BASE = process.env.TMS_BASE ?? 'http://127.0.0.1:3000'
+const arg = (k) => process.argv.find((a) => a.startsWith(`--${k}=`))?.split('=')[1]
+const ONLY = arg('only')
+const INJECT = arg('inject')
+const SHOTS = arg('shots')
+const WIDTHS = []
+for (let w = 1240; w <= 1920; w += 40) WIDTHS.push(w)
+const session = JSON.parse(readFileSync(`${ROOT}session-ref.json`, 'utf8'))
+const ref = new URL(process.env.SUPABASE_URL).hostname.split('.')[0]
+
+let failures = 0, passes = 0
+const check = (ok, claim, detail = '') => {
+  if (ok) passes++; else failures++
+  if (!ok || process.env.VERBOSE) console.log(`${ok ? 'PASS' : 'FAIL'}  ${claim}${detail ? `\n        ${detail}` : ''}`)
+}
+const settle = (p) => p.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))))
+
+const INJECTIONS = {
+  // Pulled UP into its own label's text. The first version pulled it LEFT, and
+  // came back SILENT: measured, the label text sits ABOVE the input (text
+  // bottom 191, input top 199), so a sideways move overlapped nothing.
+  'label-input': '[data-testid="tp-gst"] { margin-top: -16px !important; }',
+  shrink: '.tp-units > * { width: 20px !important; min-width: 0 !important; flex: none !important; }',
+}
+
+async function signedIn(browser, { admin = false } = {}) {
+  const page = await browser.newPage()
+  await page.setViewport({ width: 1240, height: 1100 })
+  if (admin) {
+    await page.evaluateOnNewDocument(() => {
+      const real = window.fetch
+      window.fetch = async (...a) => {
+        const res = await real(...a)
+        const url = String(a[0]?.url ?? a[0])
+        if (!/\/api\/term-pricing(\?|$)/.test(url) || !res.ok) return res
+        const body = await res.clone().json()
+        return new Response(JSON.stringify({ ...body, isAdmin: true }), { status: res.status, headers: res.headers })
+      }
+    })
+  }
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+  await page.evaluate((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(session))
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => typeof window.navigate === 'function' && !document.getElementById('app-shell').classList.contains('hidden'))
+  if (INJECT && INJECTIONS[INJECT]) await page.addStyleTag({ content: INJECTIONS[INJECT] })
+  return page
+}
+
+async function sweep(page, rootSel, label, reached) {
+  for (const width of WIDTHS) {
+    await page.setViewport({ width, height: 1100 })
+    await settle(page)
+    const where = `${label} at ${width}`
+    const r = await reached(page)
+    check(r.ok, `${where}: the state was reached`, r.detail)
+    if (!r.ok) continue
+    const ink = await page.evaluate(inkOverlaps, rootSel)
+    check(!ink.missing && ink.atoms >= r.minAtoms, `${where}: the detector has a population`, `${ink.atoms} atoms, need ${r.minAtoms}${ink.missing ? ', ROOT MISSING' : ''}`)
+    check(ink.hits.length === 0, `${where}: nothing overprints anything (${ink.atoms} atoms)`, ink.hits.slice(0, 8).join('\n        '))
+    const sh = await page.evaluate(shrunkBelowContent, rootSel)
+    check(sh.items > 0 && sh.hits.length === 0, `${where}: no grid or flex item narrower than its content (${sh.items} items)`, sh.hits.slice(0, 8).join('\n        '))
+    if (SHOTS && SHOTS.split(',').map(Number).includes(width)) {
+      const h = await page.evaluate(() => document.querySelector('.app-content-scroll')?.scrollHeight ?? 1100)
+      await page.setViewport({ width, height: Math.max(1100, h + 40) })
+      await settle(page)
+      mkdirSync(`${ROOT}prototypes/term-pricing/screens`, { recursive: true })
+      const file = `${ROOT}prototypes/term-pricing/screens/${process.env.TP_RUN ?? 'tp2'}-${width}-${label.replace(/[^a-z0-9]+/gi, '-')}.png`
+      // Where the root sits IN the capture, so a reader can crop to it without guessing.
+      const box = await page.evaluate((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && [Math.round(r.top), Math.round(r.bottom)] }, rootSel)
+      await page.screenshot({ path: file })
+      console.log(`SHOT  ${file.slice(ROOT.length)}  root y ${box?.join('..')}`)
+      await page.setViewport({ width, height: 1100 })
+    }
+  }
+}
+
+const browser = await puppeteer.launch({ headless: 'new' })
+try {
+  if (ONLY !== 'opex') {
+    const TP = INJECT === 'lost-root' ? '#view-term-pricing-gone' : '#view-term-pricing'
+    for (const admin of [false, true]) {
+      const page = await signedIn(browser, { admin })
+      await page.evaluate(() => window.navigate('term-pricing'))
+      await page.waitForFunction(() => document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'), { timeout: 15000 })
+      for (const mode of ['opex', 'capex']) {
+        await page.click(`[data-testid="tp-${mode}"]`)
+        for (const open of [false, true]) {
+          const isOpen = await page.$eval('[data-testid="tp-settings-toggle"]', (e) => e.getAttribute('aria-expanded') === 'true')
+          if (isOpen !== open) await page.click('[data-testid="tp-settings-toggle"]')
+          const label = `tp ${admin ? 'admin' : 'non-admin'} ${mode} settings-${open ? 'open' : 'closed'}`
+          await sweep(page, TP, label, async (p) => {
+            const s = await p.evaluate((m) => ({
+              mode: document.querySelector(`[data-testid="tp-${m}"]`)?.getAttribute('aria-pressed') === 'true',
+              open: !!document.querySelector('[data-testid="tp-settings-body"]'),
+              adminSave: !!document.querySelector('[data-testid="tp-settings-save"]'),
+              ladder: !!document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'),
+            }), mode)
+            // An admin with Settings open has a Save; a non-admin never does.
+            const ok = s.mode && s.ladder && s.open === open && (open ? s.adminSave === admin : true)
+            return { ok, detail: JSON.stringify(s), minAtoms: open ? 200 : 120 }
+          })
+        }
+      }
+      await page.close()
+    }
+  }
+
+  if (ONLY !== 'tp') {
+    const { freshOpportunity, tearDown } = await import('../fixtures.mjs')
+    const { api } = await import('../api-client.mjs')
+    const TAG = 'tp2ovA'
+    try {
+      const { oppId } = await freshOpportunity(TAG)
+      const rev = (await api('GET', `/opportunities/${oppId}`)).data?.latest_revision_number
+      // The OPEX_RESET probe's deal B shape: the one Q1 was measured on.
+      await api('PATCH', `/opportunities/${oppId}`, { expected_revision: rev, payload: {
+        paymentMode: 'opex', structure: 'single', ssExisting: 11, ssNew: 10, aqm: 9, hemir: 0,
+        duration: 60, warrantyPct: 0, installResp: 'Terminus Contractor - Lump Sum', lumpSumCost: 300000,
+        invoicing: 'monthly', targetMargin: 30 } })
+      const page = await signedIn(browser)
+      await page.evaluate((id) => window.navigate('opportunity-detail', id), oppId)
+      await page.waitForFunction(() => { const v = document.getElementById('view-opportunity-detail'); return v && !v.classList.contains('hidden') && !v.classList.contains('is-loading') }, { timeout: 25000 })
+      await page.evaluate(() => document.querySelector('[data-opp-tab="commercial"]')?.click())
+      await page.waitForFunction(() => !!document.querySelector('[data-testid="deal-opex-table"]'), { timeout: 25000 })
+      await sweep(page, '#deal-opex-tables', 'deal OPEX card', async (p) => {
+        const s = await p.evaluate(() => ({
+          table: document.querySelectorAll('[data-testid="deal-opex-table"] tbody tr').length,
+          years: !!document.querySelector('#deal-opex-year-slot')?.textContent.match(/Year 1/),
+        }))
+        return { ok: s.table > 0 && s.years, detail: JSON.stringify(s), minAtoms: 40 }
+      })
+      await page.close()
+    } finally {
+      await tearDown(TAG)
+    }
+  }
+} finally {
+  await browser.close()
+}
+console.log(`\n${failures === 0 ? 'ALL PASS' : 'FAILURES'}: ${passes} pass, ${failures} fail${INJECT ? ` (injection: ${INJECT})` : ''}`)
+process.exit(failures === 0 ? 0 : 1)
