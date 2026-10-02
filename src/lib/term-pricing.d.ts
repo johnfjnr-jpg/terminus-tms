@@ -34,9 +34,13 @@ export interface QuoteInput {
   termMonths: number
   paymentStructure?: 'opex' | 'capex'
   escalatorPct?: string | null
+  escalatorStartYear?: number
   gstPct?: string | null
   whtPct?: string | null
   whtGrossUp?: boolean
+  whtSplit?: boolean
+  whtHwPct?: string | null
+  whtSaasPct?: string | null
 }
 
 export interface QuoteBand { from: number; to: number | null; discountPct: string; units: number; feeByYear: bigint[] }
@@ -48,10 +52,18 @@ export interface ScheduleRow {
   kind: 'upfront' | 'monthly'; fromMonth: number; toMonth: number; count: number
   netCents: bigint; invoiceCents: bigint; gstCents: bigint; invoiceInclGstCents: bigint
   whtCents: bigint; whtBorne: boolean; receivedCents: bigint
+  lines?: ScheduleLine[]
+}
+export interface ScheduleLine {
+  kind: 'hardware' | 'service'
+  netCents: bigint; invoiceCents: bigint; gstCents: bigint; invoiceInclGstCents: bigint
+  whtCents: bigint; receivedCents: bigint
 }
 export interface Quote {
   termMonths: number
   paymentStructure: 'opex' | 'capex'
+  escalatorStartYear: number
+  whtSplit: boolean
   currency: string
   lines: QuoteLine[]
   monthlyTotalCents: bigint

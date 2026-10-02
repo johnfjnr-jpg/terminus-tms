@@ -28,13 +28,21 @@ const PRODUCTS = [
   { key: 'hemir', label: 'HEMIR' },
 ] as const
 
-// A4: the WHT choices as approved. The rate is the per-deal input the spec's
-// section 2 names; the approved screen offers 0% and 10% two ways.
-const WHT_OPTIONS = [
-  { id: 'none', label: '0%', whtPct: null, whtGrossUp: false },
-  { id: 'up', label: '10% gross-up', whtPct: '10', whtGrossUp: true },
-  { id: 'borne', label: '10% borne', whtPct: '10', whtGrossUp: false },
-] as const
+// ── SUPERSEDED, QUOTED NOT DELETED (B3, TERM_PRICING_2) ──────────────────
+// A4's WHT presets, "0%", "10% gross-up" and "10% borne", are replaced by a
+// typed rate and a separate Gross up switch, and (B4) an optional split
+// between the hardware and the software-as-a-service lines.
+
+// The estate's own switch treatment (`.deal-toggle`, as panelParts' SwitchButton).
+function Switch({ id, on, label, onToggle }: { id: string; on: boolean; label: string; onToggle(): void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} data-testid={id}
+      className={`btn-ghost deal-toggle${on ? ' is-on' : ''}`} onClick={onToggle}>{label}</button>
+  )
+}
+
+const lastYearOf = (t: number) => Math.ceil(t / 12)
+
 
 type Settings = Record<string, unknown>
 interface Costs { [product: string]: { hwCost: string; hostingMonthly: string; batchLabel: string; effectiveFrom: string } }
@@ -68,9 +76,22 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const [term, setTerm] = useState<number>(36)
   const [structure, setStructure] = useState<'opex' | 'capex'>('opex')
   const [escalator, setEscalator] = useState('')
+  // B6: the contract year the escalator first applies. The select offers 2 to
+  // the term's last year, so a shorter term pulls the choice back inside it
+  // (chooseTerm). One value feeds both the select and the engine.
+  const [startYear, setStartYear] = useState(2)
   const [gst, setGst] = useState('9')
-  const [wht, setWht] = useState<(typeof WHT_OPTIONS)[number]['id']>('none')
+  // B3, B4: blank is 0 (the blank-zero rule).
+  const [whtPct, setWhtPct] = useState('')
+  const [grossUp, setGrossUp] = useState(false)
+  const [whtSplit, setWhtSplit] = useState(false)
+  const [whtHw, setWhtHw] = useState('')
+  const [whtSaas, setWhtSaas] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const chooseTerm = (t: number) => {
+    setTerm(t)
+    setStartYear((s) => Math.max(2, Math.min(s, lastYearOf(t))))
+  }
 
   const params = useMemo(() => {
     if (!data) return null
@@ -84,15 +105,24 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     if (bad) return { error: `Units of ${bad.label} must be a whole number, 0 or more.` }
     if (escalator.trim() !== '' && !isDecimal(escalator)) return { error: 'The escalator must be a percentage, for example 3.' }
     if (gst.trim() !== '' && !isDecimal(gst)) return { error: 'GST must be a percentage, for example 9.' }
-    const w = WHT_OPTIONS.find((o) => o.id === wht)!
+    const whtFields: Array<[string, string]> = whtSplit
+      ? [[whtHw, 'WHT on hardware'], [whtSaas, 'WHT on software as a service']]
+      : [[whtPct, 'WHT']]
+    const badWht = whtFields.find(([v]) => v.trim() !== '' && !isDecimal(v))
+    if (badWht) return { error: `${badWht[1]} must be a percentage, for example 10.` }
+    const blankNull = (v: string) => (v.trim() === '' ? null : v.trim())
     const input = {
       units: Object.fromEntries(PRODUCTS.map((p) => [p.key, units[p.key].trim() === '' ? 0 : Number(units[p.key])])),
       termMonths: term,
       paymentStructure: structure,
-      escalatorPct: escalator.trim() === '' ? null : escalator.trim(),
-      gstPct: gst.trim() === '' ? null : gst.trim(),
-      whtPct: w.whtPct,
-      whtGrossUp: w.whtGrossUp,
+      escalatorPct: blankNull(escalator),
+      escalatorStartYear: startYear,
+      gstPct: blankNull(gst),
+      whtPct: whtSplit ? null : blankNull(whtPct),
+      whtGrossUp: grossUp,
+      whtSplit,
+      whtHwPct: whtSplit ? blankNull(whtHw) : null,
+      whtSaasPct: whtSplit ? blankNull(whtSaas) : null,
     }
     try {
       return { quote: priceQuote(input, params.p), ladder: termLadder(input, params.p) }
@@ -100,7 +130,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       // The engine's refusals are written for a person (T17, T18 and A3).
       return { error: (e as Error).message }
     }
-  }, [params, units, term, structure, escalator, gst, wht])
+  }, [params, units, term, structure, escalator, startYear, gst, whtPct, grossUp, whtSplit, whtHw, whtSaas])
 
   if (isError) return <div className="wrap tp-view"><p className="tp-error" role="alert">{(error as Error).message}</p></div>
   if (!data || !params) return <div className="wrap tp-view"><p className="field-note">Loading term pricing...</p></div>
@@ -119,7 +149,10 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
       <section className="tp-card" aria-label="Inputs">
         <h2 className="tp-h2">Inputs</h2>
+        {/* Two halves, so where four groups cannot share a row the card falls
+            to two by two rather than three and one. */}
         <div className="tp-inputs">
+          <div className="tp-half">
           <div>
             <div className="tp-label">Units per product</div>
             <div className="tp-units">
@@ -134,34 +167,68 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           </div>
           <div>
             <div className="tp-label">Term (months)</div>
-            <div className="tp-seg" role="group" aria-label="Term">
+            {/* B2: rows of five, in term order (12 to 60, then 72 to 120). */}
+            <div className="tp-seg tp-terms" role="group" aria-label="Term">
               {terms.map((t) => (
                 <button key={t} type="button" className={t === term ? 'on' : ''} aria-pressed={t === term}
-                  data-testid={`tp-term-${t}`} onClick={() => setTerm(t)}>{t}</button>
+                  data-testid={`tp-term-${t}`} onClick={() => chooseTerm(t)}>{t}</button>
               ))}
             </div>
           </div>
+          </div>
+          <div className="tp-half">
           <div>
             <div className="tp-label">Payment structure</div>
             <div className="tp-seg" role="group" aria-label="Payment structure">
               <button type="button" className={!capex ? 'on' : ''} aria-pressed={!capex} data-testid="tp-opex" onClick={() => setStructure('opex')}>OPEX monthly</button>
               <button type="button" className={capex ? 'on' : ''} aria-pressed={capex} data-testid="tp-capex" onClick={() => setStructure('capex')}>CAPEX hardware upfront</button>
             </div>
-            <label className="tp-label tp-mt">Annual escalator %
-              <input className="tp-num tp-pct" placeholder="none" data-testid="tp-escalator" value={escalator} onChange={(e) => setEscalator(e.target.value)} />
-            </label>
+            {/* B6: a typed rate (blank is 0, no escalator) and the year it starts.
+                The placeholder is a value in the field's format, not prose. */}
+            <div className="tp-pair tp-mt">
+              <label className="tp-label">Annual escalator %
+                <input className="tp-num tp-pct" placeholder="0" data-testid="tp-escalator" value={escalator} onChange={(e) => setEscalator(e.target.value)} />
+              </label>
+              {lastYearOf(term) >= 2 && (
+                <label className="tp-label">Starts in year
+                  <select className="tp-num tp-pct tp-select" data-testid="tp-escalator-start" value={startYear}
+                    disabled={!(isDecimal(escalator) && Number(escalator) !== 0)}
+                    onChange={(e) => setStartYear(Number(e.target.value))}>
+                    {Array.from({ length: lastYearOf(term) - 1 }, (_, i) => i + 2).map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
+            {lastYearOf(term) < 2 && isDecimal(escalator) && Number(escalator) !== 0 && (
+              <p className="tp-small tp-muted" data-testid="tp-escalator-none">A {term}-month term has no year 2, so the escalator has no effect.</p>
+            )}
           </div>
           <div>
             <label className="tp-label">GST %
               <input className="tp-num tp-pct" data-testid="tp-gst" value={gst} onChange={(e) => setGst(e.target.value)} />
             </label>
-            <div className="tp-label tp-mt">WHT</div>
-            <div className="tp-seg" role="group" aria-label="WHT">
-              {WHT_OPTIONS.map((o) => (
-                <button key={o.id} type="button" className={o.id === wht ? 'on' : ''} aria-pressed={o.id === wht}
-                  data-testid={`tp-wht-${o.id}`} onClick={() => setWht(o.id)}>{o.label}</button>
-              ))}
+            {/* B3: a typed WHT rate and a separate Gross up switch. B4: Split WHT
+                replaces the single rate with one per invoice line; one Gross up
+                switch applies to both. */}
+            {whtSplit ? (
+              <div className="tp-pair tp-stack tp-mt">
+                <label className="tp-label">WHT on hardware %
+                  <input className="tp-num tp-pct" placeholder="0" data-testid="tp-wht-hw" value={whtHw} onChange={(e) => setWhtHw(e.target.value)} />
+                </label>
+                <label className="tp-label">WHT on software as a service %
+                  <input className="tp-num tp-pct" placeholder="0" data-testid="tp-wht-saas" value={whtSaas} onChange={(e) => setWhtSaas(e.target.value)} />
+                </label>
+              </div>
+            ) : (
+              <label className="tp-label tp-mt">WHT %
+                <input className="tp-num tp-pct" placeholder="0" data-testid="tp-wht" value={whtPct} onChange={(e) => setWhtPct(e.target.value)} />
+              </label>
+            )}
+            <div className="tp-switches tp-mt">
+              <Switch id="tp-wht-grossup" on={grossUp} label="Gross up" onToggle={() => setGrossUp(!grossUp)} />
+              <Switch id="tp-wht-split" on={whtSplit} label="Split WHT" onToggle={() => setWhtSplit(!whtSplit)} />
             </div>
+          </div>
           </div>
         </div>
       </section>
@@ -187,7 +254,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                   return (
                     <tr key={r.termMonths} className={`tp-ladder${r.termMonths === term ? ' on' : ''}`}
                       data-testid={`tp-ladder-${r.termMonths}`} aria-selected={r.termMonths === term}
-                      onClick={() => setTerm(r.termMonths)}>
+                      onClick={() => chooseTerm(r.termMonths)}>
                       <td>{r.termMonths} months</td>
                       {capex
                         ? <><td>{money(r.upfrontCents!)}</td><td>{money(r.monthlyServiceCents!)}</td></>
@@ -203,7 +270,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           </section>
 
           <section className="tp-card" aria-label="Quote">
-            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator` : ''}</span></h2>
+            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtSplit ? ', split WHT' : ''}</span></h2>
             <div className="tp-figures">
               <div><div className="tp-label">{capex ? 'Monthly service fee (year 1)' : 'Monthly total (year 1)'}</div>
                 <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(capex ? q.capex!.monthlyServiceCents : q.monthlyTotalCents)}</div></div>
@@ -248,18 +315,26 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           </section>
 
           <section className="tp-card" aria-label="Payment schedule">
-            <h2 className="tp-h2">Payment schedule <span className="tp-hint">{capex ? 'hardware upfront, then a monthly service fee' : 'one invoice a month for the term'}</span></h2>
-            <table className="tp-table" data-testid="tp-schedule">
+            <h2 className="tp-h2">Payment schedule <span className="tp-hint">{capex ? 'hardware upfront, then a monthly service fee' : whtSplit ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term'}</span></h2>
+            <table className="tp-table tp-lines" data-testid="tp-schedule">
               <thead><tr><th>When</th><th>Invoices</th><th>Net fee</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
                 <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
               <tbody>
-                {q.schedule.map((r) => (
-                  <tr key={`${r.kind}-${r.fromMonth}`}>
-                    <td>{r.kind === 'upfront' ? 'Upfront (hardware)' : `Months ${r.fromMonth} to ${r.toMonth}`}</td>
+                {q.schedule.flatMap((r) => [
+                  <tr key={`${r.kind}-${r.fromMonth}`} data-testid={`tp-sched-${r.kind}-${r.fromMonth}`}>
+                    <td>{r.kind === 'upfront' ? 'Upfront (hardware)' : `Months ${r.fromMonth} to ${r.toMonth}${capex && whtSplit ? ' (service)' : ''}`}</td>
                     <td>{r.count}</td><td>{money(r.netCents)}</td><td>{money(r.invoiceCents)}</td><td>{money(r.gstCents)}</td>
                     <td>{money(r.invoiceInclGstCents)}</td><td>{money(r.whtCents)}</td><td>{money(r.receivedCents)}</td>
-                  </tr>
-                ))}
+                  </tr>,
+                  // B4: a split OPEX month is two invoice lines, each with its own WHT.
+                  ...(r.lines ?? []).map((l) => (
+                    <tr key={`${r.kind}-${r.fromMonth}-${l.kind}`} className="tp-band" data-testid={`tp-sched-${r.fromMonth}-${l.kind}`}>
+                      <td>{l.kind === 'hardware' ? 'Hardware line' : 'Software as a service line'}</td>
+                      <td></td><td>{money(l.netCents)}</td><td>{money(l.invoiceCents)}</td><td>{money(l.gstCents)}</td>
+                      <td>{money(l.invoiceInclGstCents)}</td><td>{money(l.whtCents)}</td><td>{money(l.receivedCents)}</td>
+                    </tr>
+                  )),
+                ])}
               </tbody>
             </table>
             <p className="tp-small tp-muted">{capex

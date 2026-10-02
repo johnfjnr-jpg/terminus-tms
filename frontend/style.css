@@ -9283,8 +9283,26 @@ select:autofill {
 .tp-hint { font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--muted); }
 .tp-label { display: block; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .tp-mt { margin-top: 14px; }
-.tp-inputs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; }
-.tp-units { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* ── TERM_PRICING_2: THE INPUTS CARD WRAPS, IT DOES NOT SQUEEZE ──────────
+   SUPERSEDED, QUOTED NOT DELETED: `display: grid; grid-template-columns:
+   repeat(4, minmax(0, 1fr))`, and `.tp-units` as `repeat(3, minmax(0, 1fr))`.
+   A quarter of the card is about 190px at 1240, and B2's row of five term
+   buttons needs more, so a `minmax(0, ...)` track would print it into the
+   next group: A1's defect, one card up. The groups now wrap at their own
+   content widths (a flex item's floor is its min-content), and the units
+   inputs take a declared width rather than a share of a shrinking track. */
+.tp-inputs, .tp-half { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 28px; }
+.tp-half { flex: 1 1 auto; }
+.tp-units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
+/* B2: term buttons in rows of five, in term order. */
+.tp-seg.tp-terms { display: grid; grid-template-columns: repeat(5, max-content); }
+.tp-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 14px; }
+.tp-pair > .tp-label { margin-bottom: 0; }
+/* Stacked, so the tax group is as wide as its widest label rather than its
+   controls side by side: measured 279px (359px split) against about 230. */
+.tp-pair.tp-stack { flex-direction: column; align-items: flex-start; gap: 10px; }
+.tp-switches { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.tp-select { text-align: left; }
 .tp-unit { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .tp-num { background: var(--dark); border: 1px solid var(--hairline-strong); color: var(--white); border-radius: 4px; padding: 7px 8px; font-family: var(--mono); font-size: 13px; width: 100%; text-align: right; }
 .tp-num:disabled { border-color: transparent; background: transparent; }
