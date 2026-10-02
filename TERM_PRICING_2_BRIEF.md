@@ -82,3 +82,18 @@ NEW RULING B6 (John, 2026-10-02): ESCALATOR START YEAR. Goes into spec v1.3 with
 
 Proceed: Part A per R1, then spec v1.3 (B1 to B6) in its own commit, then Part B, then the LAYOUT
 STOP with screenshots for John.
+
+---
+
+LAYOUT APPROVED (John, 2026-10-02) with three changes:
+L1 Quote card under gross-up: add a "WHT gross-up" tile between TCV (net) and GST, so that
+   TCV (net) + WHT gross-up + GST = TCV incl. GST exactly; assert the tiles foot in every state
+   (gross-up off: the tile is absent and TCV (net) + GST = TCV incl. GST). Example from the split-on
+   capture: 162,558.36 + 17,477.04 + 16,203.36 = 196,238.76.
+L2 The start-year select keeps a dimmed border when disabled, aligned under its label.
+L3 At 1240, the second group in each Inputs row is left-aligned (no right-edge push).
+OPEX card fix (Q1) approved as shown.
+QUEUED, not built (pre-existing, seen in the deal-form captures at 1240): the opportunity header's
+stat tiles wrap with a grey filler block after "Working Version"; the stage tab row wraps to two
+lines.
+Then regenerate the mockup from the approved state, and run the EXIT list.
