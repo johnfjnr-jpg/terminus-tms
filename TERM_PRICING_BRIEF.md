@@ -131,3 +131,19 @@ A4 WHT options read "0%", "10% gross-up", "10% borne".
 Update the mockup with A1, A3 and A4 so prototypes/ matches what is built, then proceed with
 Phase 3 as briefed (R-TP6 migrations listed with exact apply steps for John). Screenshots must show
 the ladder, quote and schedule under both OPEX and CAPEX at 1240 and 1920.
+
+---
+
+RULINGS AFTER THE PHASE 3 STOP (John, 2026-10-02), appended verbatim:
+
+Rulings (John, 2026-10-02):
+T14 on screen, option (a): SafeSight 120 + AQ 30 at 60 months, catalog costs. SPEC FIRST: add to
+docs/pricing-spec.md section 11 as T23 (header v1.2.3, own commit) with these figures, computed
+outside the engine:
+  AQ band fees 973.33 (1 to 9) and 924.67 (10 to 49); AQ line 1,690,682.40;
+  deal TCV 19,079,808.60; cost 2,640,000.00; margin on price 86.2%.
+Pin T23 as an engine golden too, then prove it on screen.
+E3 admin path, option (a): a temporary system_roles admin row for john+test2, inserted for the
+proof only. At the end of E3, DELETE it and prove the removal (select returns 0 rows for that
+user). State the insert, the removal and its proof in the report. No other system_roles change.
+Then continue: verify tables, E2, E3, screenshots (OPEX and CAPEX, 1240 and 1920), close.
