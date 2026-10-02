@@ -20,6 +20,7 @@ import accountsRoutes from './routes/accounts.js'
 import contactsRoutes from './routes/contacts.js'
 import contactVocabulariesRoutes from './routes/contact-vocabularies.js'
 import baseCostsRoutes from './routes/base-costs.js'
+import termPricingRoutes from './routes/term-pricing.js'
 import dealSheetVersionsRoutes from './routes/deal-sheet-versions.js'
 import transitionRequestRoutes from './routes/transition-requests.js'
 
@@ -195,6 +196,7 @@ await fastify.register(async function authenticatedRoutes(app) {
   app.register(contactsRoutes, { prefix: '/api' })
   app.register(contactVocabulariesRoutes, { prefix: '/api' })
   app.register(baseCostsRoutes, { prefix: '/api' })
+  app.register(termPricingRoutes, { prefix: '/api' })
   app.register(dealSheetVersionsRoutes, { prefix: '/api' })
   app.register(transitionRequestRoutes, { prefix: '/api' })
 })

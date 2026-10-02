@@ -68,7 +68,7 @@ document.getElementById('btn-signout').addEventListener('click', async () => {
 })
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail', 'opportunity-approval', 'approvals']
+const ALL_VIEWS = ['leads', 'leads-legacy', 'contacts', 'contact-detail', 'accounts', 'account-detail', 'test-beds', 'test-bed-detail', 'opportunities', 'opportunity-detail', 'term-pricing', 'opportunity-approval', 'approvals']
 
 function showAuth() {
   document.getElementById('view-auth').classList.remove('hidden')
@@ -394,6 +394,8 @@ function navigate(view, id) {
   document.querySelector(`.nav-link[data-view="${view}"]`)?.classList.add('active')
 
   if (view === 'approvals') loadApprovalsQueue()
+  // TERM_PRICING Phase 3: registered by the React bundle (main.tsx).
+  else if (view === 'term-pricing') window.loadTermPricing?.()
   else if (view === 'leads') loadContactsData()
   else if (view === 'leads-legacy') loadLegacyLeads()
   else if (view === 'contacts') loadContactsData()

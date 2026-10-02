@@ -1,7 +1,10 @@
-# Terminus Term Pricing: Specification v1.2
+# Terminus Term Pricing: Specification v1.2.3
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
+**Amended (v1.2.1, John, 1 Oct 2026):** TERMS as a parameter; anchor and short-term margins per product; tax rounding and WHT base; test cases T20 and T21. Every figure in sections 10 and 11 is unchanged.
+**Amended (v1.2.2, John, 1 Oct 2026):** with an escalator, the CAPEX monthly service fee escalates like the OPEX fee and TCV stays identical to the OPEX TCV (section 6); test case T22. Every earlier figure is unchanged.
+**Amended (v1.2.3, John, 2 Oct 2026):** test case T23, a multi-product deal on real catalog costs, so the T14 behaviour can be proven on the screen (TEST-B is not in the catalog). Every earlier figure is unchanged.
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
@@ -22,7 +25,7 @@
 | Input | Type | Rules |
 |---|---|---|
 | `units[product]` | integer per product | ≥ 0 each; at least one product ≥ 1 |
-| `term_months` | integer | One of 12, 24, 36, 48, 60, 72, 84, 96, 120. Anything else is refused with a clear error |
+| `term_months` | integer | One of `TERMS` (section 3). Anything else is refused with a clear error |
 | `payment_structure` | choice | `opex` (monthly) or `capex` (hardware upfront, section 6) |
 | `escalator_pct` | percent, optional | Blank or 0 means none (section 7) |
 | `gst_pct` | percent | Per deal, 0 allowed (section 8) |
@@ -34,9 +37,10 @@
 |---|---|---|
 | `HW_COST[product]` | from the TMS catalog | Hardware cost per unit, one-off |
 | `HOSTING_MONTHLY[product]` | from the TMS catalog | Hosting cost per unit per month |
+| `TERMS` | 12, 24, 36, 48, 60, 72, 84, 96, 120 months | The terms offered. `steps_above` counts positions in this list |
 | `ANCHOR_TERM` | 36 months | The list-price term |
-| `ANCHOR_MARGIN` | 90% | Margin on price at the anchor term |
-| `SHORT_TERM_MARGIN` | 90% | Margin on price for terms below the anchor |
+| `ANCHOR_MARGIN[product]` | 90% each product | Margin on price at the anchor term, per product |
+| `SHORT_TERM_MARGIN[product]` | 90% each product | Margin on price for terms below the anchor, per product |
 | `PROFIT_STEP` | 0.00 USD per unit per term step | Extra profit per step above 36 months. 0 = level profit |
 | `VOLUME_BANDS` | see 3.1 | Banded discount on the monthly fee |
 | `HW_UPFRONT_MARGIN` | 20% | Margin on the hardware price in the CAPEX option. 0 = at cost |
@@ -62,16 +66,18 @@ Bands count units **per product line**. A 60-unit SafeSight line prices units 1 
 
 ```
 cost(T)        = HW_COST + HOSTING_MONTHLY × T
-anchor_profit  = cost(ANCHOR_TERM) × ANCHOR_MARGIN / (1 − ANCHOR_MARGIN)
+anchor_profit  = cost(ANCHOR_TERM) × ANCHOR_MARGIN[product] / (1 − ANCHOR_MARGIN[product])
 
-price(T) = cost(T) / (1 − SHORT_TERM_MARGIN)                         if T < ANCHOR_TERM
+price(T) = cost(T) / (1 − SHORT_TERM_MARGIN[product])                if T < ANCHOR_TERM
 price(T) = cost(T) + anchor_profit + PROFIT_STEP × steps_above(T)    if T ≥ ANCHOR_TERM
 
 list_fee(T)    = price(T) / T
 saving_vs_36   = 1 − list_fee(T) / list_fee(ANCHOR_TERM)      (display only; negative means a premium)
 ```
 
-`steps_above(T)` is the position of T in the term list above 36 (48 → 1, 60 → 2, … 120 → 6).
+`steps_above(T)` is the position of T in `TERMS` above 36 (48 → 1, 60 → 2, … 120 → 6).
+
+Every line uses its own product's `HW_COST`, `HOSTING_MONTHLY`, `ANCHOR_MARGIN[product]` and `SHORT_TERM_MARGIN[product]`.
 
 ### 4.2 The invoiced fee for each band (rounded to cents FIRST)
 
@@ -118,6 +124,14 @@ upfront          = TCV − monthly_service × T          (carries any rounding r
 
 Upfront + monthly service × term = TCV exactly. Terminus recovers its hardware cash on day one; the monthly service fee carries the remaining margin.
 
+**CAPEX with an escalator (section 7):** the monthly service fee escalates like the OPEX fee, and TCV stays identical to the OPEX TCV.
+
+```
+s                = (TCV − hardware_upfront) / (12 × Σ_{k=1..years} (1 + escalator)^(k−1))
+service_year(k)  = round_half_up( s × (1 + escalator)^(k−1), 2 )
+upfront          = TCV − Σ_k ( 12 × service_year(k) )          (carries any rounding residue)
+```
+
 The TMS prototype maps `capex` onto its existing two-phase and hybrid payment structures. PO factoring stays in the cash flow (section 9).
 
 ## 7. Optional annual escalator
@@ -137,6 +151,8 @@ The client-facing saving always quotes year-1 fees. Costs are held flat in v1.2,
 | WHT | As the existing TMS gross-up toggle: with gross-up on, fees rise so that Terminus receives the net price after WHT; with it off, WHT reduces Terminus's receipts and shows as a cost |
 
 Quotes show TCV net, GST, and TCV including GST separately.
+
+Tax amounts round half-up to cents per invoice line. WHT applies to the fee before GST, never to the GST.
 
 ## 9. Cash flow
 
@@ -210,6 +226,10 @@ SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, no
 | T17 | 1 unit, 18 months | error | Term not offered |
 | T18 | all units 0 | error | No units |
 | T19 | T6 with `MARGIN_FLOOR` 90% | flag shown, quote still prices | Floor flags, never refuses |
+| T20 | T6, WHT 10%, gross-up ON | monthly invoice 322,020.86; WHT 32,202.09; Terminus receives 289,818.77 (= T6 monthly total) | Gross-up |
+| T21 | T6, WHT 10%, gross-up OFF | monthly invoice 289,818.77; WHT 28,981.88 borne; Terminus receives 260,836.89 | WHT borne |
+| T22 | T6 as `capex` with escalator 3% | TCV 18,464,248.32; upfront 1,200,000.00; service fees by year 270,983.34 / 279,112.84 / 287,486.23 / 296,110.81 / 304,994.14; upfront + Σ = TCV | CAPEX service fee escalates |
+| T23 | SafeSight 120 + AQ 30, 60 months; AQ at the catalog's `HW_COST` 2,000.00 and `HOSTING_MONTHLY` 100.00 | AQ band fees 973.33 (1 to 9) and 924.67 (10 to 49); AQ line 1,690,682.40; deal TCV 19,079,808.60; cost 2,640,000.00; margin on price 86.2% | Multi-product on real catalog costs (T14 on the screen) |
 
 Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFIT_STEP` to 1,000.00) flows through with no code change.
 
