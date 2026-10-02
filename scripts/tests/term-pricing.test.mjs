@@ -1,4 +1,4 @@
-// ── TERM PRICING GOLDENS: docs/pricing-spec.md v1.2.1, sections 10 and 11 ──
+// ── TERM PRICING GOLDENS: docs/pricing-spec.md v1.3, sections 10 and 11 ──
 //
 // Every expected figure below is COPIED from the spec as a string, never
 // computed by the code under test (spec section 12, brief Phase 1). Where a
@@ -18,8 +18,9 @@ import {
 
 // Spec section 3, as written. Costs: SafeSight at the reference figures of
 // section 10, and TEST-B, the section 11 fixture (NOT a real product).
+// v1.3 (B1): the default TERMS runs every year to ten. 108 is new.
 const SPEC_PARAMS = Object.freeze({
-  TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 120],
+  TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120],
   ANCHOR_TERM: 36,
   ANCHOR_MARGIN: { safesight: '90', 'TEST-B': '90' },
   SHORT_TERM_MARGIN: { safesight: '90', 'TEST-B': '90' },
@@ -62,6 +63,7 @@ const T10_1 = [
   [72, '2,211.11', '−47.6%', '159,199.92', '22,400.00', '136,799.92', '85.9'],
   [84, '1,923.81', '−54.4%', '161,600.04', '24,800.00', '136,800.04', '84.7'],
   [96, '1,708.33', '−59.5%', '163,999.68', '27,200.00', '136,799.68', '83.4'],
+  [108, '1,540.74', '−63.5%', '166,399.92', '29,600.00', '136,799.92', '82.2'],
   [120, '1,406.67', '−66.7%', '168,800.40', '32,000.00', '136,800.40', '81.0'],
 ]
 
@@ -93,6 +95,7 @@ const T10_2 = [
   [72, '2,211.11', '2,100.56', '1,990.00', '1,879.44'],
   [84, '1,923.81', '1,827.62', '1,731.43', '1,635.24'],
   [96, '1,708.33', '1,622.92', '1,537.50', '1,452.08'],
+  [108, '1,540.74', '1,463.70', '1,386.67', '1,309.63'],
   [120, '1,406.67', '1,336.33', '1,266.00', '1,195.67'],
 ]
 
@@ -216,7 +219,8 @@ test('T17 1 unit, 18 months: error, term not offered', () => {
   assert.throws(() => quote({ safesight: 1 }, 18),
     (e) => e instanceof TermPricingError && e.code === 'TERM_NOT_OFFERED'
       // A3 (John, 2026-10-01): the copy, with the article chosen by the number.
-      && e.message === 'An 18-month term is not offered. Choose one of: 12, 24, 36, 48, 60, 72, 84, 96, 120 months.')
+      // The list is TERMS (v1.3 default, B1), which is why 108 appears.
+      && e.message === 'An 18-month term is not offered. Choose one of: 12, 24, 36, 48, 60, 72, 84, 96, 108, 120 months.')
 })
 
 test('A3: the article is chosen by how the number is said, not hard-coded', () => {
@@ -440,4 +444,146 @@ test('the ladder prices every offered term from the same units', () => {
   assert.deepEqual(ladder.map((r) => money(r.tcvNetCents)), T10_1.map((r) => r[3]))
   assert.deepEqual(ladder.map((r) => pct(r.grossMargin)), T10_1.map((r) => r[6]))
   assert.deepEqual(ladder.map((r) => (r.isAnchor ? 'list' : vsAnchor(r.savingVsAnchor))), T10_1.map((r) => r[2]))
+})
+
+// ── v1.3 (TERM_PRICING_2): B1, B3, B4 and B6 ─────────────────────────────
+//
+// T24 to T28 are COPIED from spec section 11. A "POSITION" test carries a
+// figure the spec does not print; its derivation is written beside it from
+// the spec's own formulas, never from the engine.
+
+const T6_CAPEX = { paymentStructure: 'capex' }
+const SPLIT = (hw, saas, grossUp) => ({ whtSplit: true, whtHwPct: hw, whtSaasPct: saas, whtGrossUp: grossUp })
+
+test('T24 T6 as capex, split WHT hardware 5% / service 10%, gross-up OFF', () => {
+  const q = quote({ safesight: 120 }, 60, { ...T6_CAPEX, ...SPLIT('5', '10', false) })
+  const [up, svc] = q.schedule
+  assert.equal(up.kind, 'upfront')
+  assert.equal(money(up.whtCents), '60,000.00', 'WHT on upfront')
+  assert.equal(money(up.receivedCents), '1,140,000.00', 'Terminus receives, upfront')
+  assert.equal(money(svc.whtCents), '26,981.88', 'WHT per service invoice')
+  assert.equal(money(svc.receivedCents), '242,836.89', 'Terminus receives, per service invoice')
+  assert.equal(money(q.tax.whtBorneCents), '1,678,912.80', 'total WHT borne')
+})
+
+test('T25 T6 as opex, split WHT hardware 5% / service 10%, gross-up ON, GST 0', () => {
+  const q = quote({ safesight: 120 }, 60, { gstPct: '0', ...SPLIT('5', '10', true) })
+  const row = q.schedule[0]
+  const [hw, svc] = row.lines
+  assert.equal(hw.kind, 'hardware'); assert.equal(svc.kind, 'service')
+  assert.equal(money(hw.netCents), '20,000.00', 'hardware line')
+  assert.equal(money(hw.invoiceCents), '21,052.63', 'hardware invoice')
+  assert.equal(money(hw.whtCents), '1,052.63', 'hardware WHT')
+  assert.equal(money(hw.receivedCents), '20,000.00', 'hardware receives')
+  assert.equal(money(svc.netCents), '269,818.77', 'service line')
+  assert.equal(money(svc.invoiceCents), '299,798.63', 'service invoice')
+  assert.equal(money(svc.whtCents), '29,979.86', 'service WHT')
+  assert.equal(money(svc.receivedCents), '269,818.77', 'service receives')
+  assert.equal(money(row.invoiceCents), '320,851.26', 'invoice total')
+})
+
+test('T26 1 unit, 108: TCV 166,399.92, margin 82.2%', () => {
+  const q = quote({ safesight: 1 }, 108)
+  assert.equal(money(q.tcvNetCents), '166,399.92')
+  assert.equal(pct(q.grossMargin), '82.2')
+})
+
+test('T27 1 unit, 60, escalator 3% from year 3', () => {
+  const q = quote({ safesight: 1 }, 60, { escalatorPct: '3', escalatorStartYear: 3 })
+  assert.deepEqual(q.monthlyTotalByYear.map(money), ['2,613.33', '2,613.33', '2,691.73', '2,772.48', '2,855.66'])
+  assert.equal(money(q.tcvNetCents), '162,558.36')
+  assert.equal(pct(q.grossMargin), '87.7')
+})
+
+test('T28 T6 as capex, escalator 3% from year 3', () => {
+  const q = quote({ safesight: 120 }, 60, { ...T6_CAPEX, escalatorPct: '3', escalatorStartYear: 3 })
+  assert.equal(money(q.tcvNetCents), '18,027,745.92')
+  assert.equal(money(q.capex.upfrontCents), '1,200,000.00')
+  assert.deepEqual(q.capex.serviceByYear.map(money),
+    ['270,527.21', '270,527.21', '278,643.03', '287,002.32', '295,612.39'])
+  assert.equal(q.capex.upfrontCents + q.capex.serviceByYear.reduce((t, c) => t + 12n * c, 0n), q.tcvNetCents,
+    'upfront + sum = TCV')
+})
+
+test('B6: start year 2 is the v1.2 escalator exactly (T16 and T22 with S given)', () => {
+  const t16 = quote({ safesight: 1 }, 60, { escalatorPct: '3', escalatorStartYear: 2 })
+  assert.equal(money(t16.tcvNetCents), '166,494.36')
+  const t22 = quote({ safesight: 120 }, 60, { ...T6_CAPEX, escalatorPct: '3', escalatorStartYear: 2 })
+  assert.equal(money(t22.tcvNetCents), '18,464,248.32')
+})
+
+test('B6: a 12-month term has no year 2, so the escalator has no effect', () => {
+  assert.equal(money(quote({ safesight: 1 }, 12, { escalatorPct: '3', escalatorStartYear: 2 }).tcvNetCents), '104,000.04')
+})
+
+test('B6 (POSITION): a start year past the last year never applies within the term', () => {
+  // The ladder prices every term from the same inputs, so S = 4 meets a
+  // 36-month term. factor(k) = 1 for every k < 4, i.e. every year of it: T1.
+  assert.equal(money(quote({ safesight: 1 }, 36, { escalatorPct: '3', escalatorStartYear: 4 }).tcvNetCents), '151,999.92')
+})
+
+test('B6: a start year below 2, or not a whole number, is refused', () => {
+  for (const s of [1, 0, 2.5, '3']) {
+    assert.throws(() => quote({ safesight: 1 }, 60, { escalatorPct: '3', escalatorStartYear: s }),
+      (e) => e instanceof TermPricingError, `S = ${JSON.stringify(s)}`)
+  }
+})
+
+test('B1 (POSITION): steps_above counts positions in the v1.3 TERMS (108 is 6, 120 is 7)', () => {
+  // PROFIT_STEP 1,000.00. 108: 29,600 + 136,800 + 6 x 1,000 = 172,400; / 108
+  // = 1,596.296..., 1,596.30. 120: 32,000 + 136,800 + 7,000 = 175,800; / 120 = 1,465.00.
+  const p = withParams({ PROFIT_STEP: '1000.00' })
+  assert.equal(money(quote({ safesight: 1 }, 108, {}, p).monthlyTotalCents), '1,596.30')
+  assert.equal(money(quote({ safesight: 1 }, 120, {}, p).monthlyTotalCents), '1,465.00')
+})
+
+test('B4: with Split WHT OFF the OPEX invoice stays ONE line, so T20 and T21 are untouched', () => {
+  const on = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true })
+  assert.equal(on.schedule[0].lines, undefined, 'no line split')
+  assert.equal(money(on.schedule[0].invoiceCents), '322,020.86')
+  const off = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true, whtSplit: false, whtHwPct: '5', whtSaasPct: '7' })
+  assert.equal(money(off.schedule[0].invoiceCents), '322,020.86', 'the split rates are ignored while the split is off')
+})
+
+test('B4 (POSITION): CAPEX split at one rate equals the unsplit CAPEX quote', () => {
+  const one = quote({ safesight: 120 }, 60, { ...T6_CAPEX, whtPct: '10', whtGrossUp: true })
+  const two = quote({ safesight: 120 }, 60, { ...T6_CAPEX, ...SPLIT('10', '10', true) })
+  assert.deepEqual(two.schedule.map((r) => [r.invoiceCents, r.whtCents]), one.schedule.map((r) => [r.invoiceCents, r.whtCents]))
+})
+
+test('B4 (POSITION): with an escalator the hardware line is flat and the service line carries the increase', () => {
+  // The hardware line is T15's upfront basis, 1,200,000.00 / 60 = 20,000.00,
+  // every year; the service line is that year's OPEX fee less it.
+  const q = quote({ safesight: 120 }, 60, { escalatorPct: '3', ...SPLIT('5', '10', false) })
+  assert.equal(q.schedule.length, 5, 'one run per contract year')
+  q.schedule.forEach((row, i) => {
+    assert.equal(money(row.lines[0].netCents), '20,000.00', `year ${i + 1} hardware`)
+    assert.equal(row.lines[1].netCents, q.monthlyTotalByYear[i] - 2000000n, `year ${i + 1} service = fee - hardware`)
+  })
+})
+
+test('B4 (POSITION): GST is added per line on the line invoice', () => {
+  // T25 at GST 9%: 21,052.63 x 0.09 = 1,894.7367, 1,894.74; 299,798.63 x 0.09
+  // = 26,981.8767, 26,981.88; the invoice's GST is their sum, 28,876.62.
+  const q = quote({ safesight: 120 }, 60, { gstPct: '9', ...SPLIT('5', '10', true) })
+  const [hw, svc] = q.schedule[0].lines
+  assert.equal(money(hw.gstCents), '1,894.74')
+  assert.equal(money(svc.gstCents), '26,981.88')
+  assert.equal(money(q.schedule[0].gstCents), '28,876.62')
+})
+
+test('B4 (POSITION, spec 13): a split OPEX service line below zero is refused, never invoiced', () => {
+  // HW_UPFRONT_MARGIN 99%: 8,000 / 0.01 = 800,000 upfront; / 12 = 66,666.67 a
+  // month of hardware against a 12-month fee of 8,666.67.
+  const p = withParams({ HW_UPFRONT_MARGIN: '99' })
+  assert.throws(() => quote({ safesight: 1 }, 12, SPLIT('5', '10', false), p), (e) => e.code === 'NEGATIVE_SERVICE_LINE')
+  assert.doesNotThrow(() => quote({ safesight: 1 }, 12, { whtPct: '5' }, p), 'unsplit, nothing to refuse')
+})
+
+test('B3: every WHT rate is 0 up to but not including 100', () => {
+  for (const extra of [{ whtPct: '100' }, { whtPct: '-1' }, SPLIT('100', '0', false), SPLIT('0', '-0.5', false)]) {
+    assert.throws(() => quote({ safesight: 1 }, 36, extra), (e) => e.code === 'BAD_TAX', JSON.stringify(extra))
+  }
+  assert.equal(money(quote({ safesight: 1 }, 36, { whtPct: '' }).tax.whtCents), '0.00', 'blank is 0')
+  assert.equal(money(quote({ safesight: 1 }, 36, SPLIT('', '', false)).tax.whtCents), '0.00', 'blank split rates are 0')
 })
