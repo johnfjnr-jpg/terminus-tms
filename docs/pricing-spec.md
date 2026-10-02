@@ -1,10 +1,11 @@
-# Terminus Term Pricing: Specification v1.2.3
+# Terminus Term Pricing: Specification v1.3
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
 **Amended (v1.2.1, John, 1 Oct 2026):** TERMS as a parameter; anchor and short-term margins per product; tax rounding and WHT base; test cases T20 and T21. Every figure in sections 10 and 11 is unchanged.
 **Amended (v1.2.2, John, 1 Oct 2026):** with an escalator, the CAPEX monthly service fee escalates like the OPEX fee and TCV stays identical to the OPEX TCV (section 6); test case T22. Every earlier figure is unchanged.
 **Amended (v1.2.3, John, 2 Oct 2026):** test case T23, a multi-product deal on real catalog costs, so the T14 behaviour can be proven on the screen (TEST-B is not in the catalog). Every earlier figure is unchanged.
+**Amended (v1.3, John, 2 Oct 2026, rulings B1 to B6 of TERM_PRICING_2):** the default `TERMS` runs every year to ten, adding 108 months (B1); WHT is a typed rate with a separate gross-up switch (B3), optionally split between the hardware and the software-as-a-service invoice lines (B4); the escalator starts in a chosen contract year (B6); test cases T24 to T28. Every earlier figure is unchanged: rows 10.1 and 10.2 gain 108, and `steps_above(120)` becomes 7 while `PROFIT_STEP` is 0.
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
@@ -28,8 +29,12 @@
 | `term_months` | integer | One of `TERMS` (section 3). Anything else is refused with a clear error |
 | `payment_structure` | choice | `opex` (monthly) or `capex` (hardware upfront, section 6) |
 | `escalator_pct` | percent, optional | Blank or 0 means none (section 7) |
+| `escalator_start_year` | integer | The contract year the escalator first applies, `S` in section 7. At least 2; default 2. A year past the term's last year means the escalator never applies within the term |
 | `gst_pct` | percent | Per deal, 0 allowed (section 8) |
-| `wht_pct`, `wht_gross_up` | percent, yes/no | Per deal (section 8) |
+| `wht_pct` | percent | Per deal, 0 up to but not including 100; blank is 0 (section 8) |
+| `wht_gross_up` | yes/no | One switch for every invoice line (section 8) |
+| `wht_split` | yes/no | Off: `wht_pct` applies to every invoice line. On: `wht_hw_pct` and `wht_saas_pct` apply instead (section 8) |
+| `wht_hw_pct`, `wht_saas_pct` | percent each | With `wht_split` on: WHT on the hardware line and on the software-as-a-service line, each 0 up to but not including 100; blank is 0 |
 
 ## 3. Configurable parameters (admin settings, never hard-coded)
 
@@ -37,7 +42,7 @@
 |---|---|---|
 | `HW_COST[product]` | from the TMS catalog | Hardware cost per unit, one-off |
 | `HOSTING_MONTHLY[product]` | from the TMS catalog | Hosting cost per unit per month |
-| `TERMS` | 12, 24, 36, 48, 60, 72, 84, 96, 120 months | The terms offered. `steps_above` counts positions in this list |
+| `TERMS` | 12, 24, 36, 48, 60, 72, 84, 96, 108, 120 months | The terms offered. `steps_above` counts positions in this list. This is the default; the live setting is an admin's to change |
 | `ANCHOR_TERM` | 36 months | The list-price term |
 | `ANCHOR_MARGIN[product]` | 90% each product | Margin on price at the anchor term, per product |
 | `SHORT_TERM_MARGIN[product]` | 90% each product | Margin on price for terms below the anchor, per product |
@@ -75,7 +80,7 @@ list_fee(T)    = price(T) / T
 saving_vs_36   = 1 − list_fee(T) / list_fee(ANCHOR_TERM)      (display only; negative means a premium)
 ```
 
-`steps_above(T)` is the position of T in `TERMS` above 36 (48 → 1, 60 → 2, … 120 → 6).
+`steps_above(T)` is the position of T in `TERMS` above 36 (48 → 1, 60 → 2, … 108 → 6, 120 → 7 with the default `TERMS`).
 
 Every line uses its own product's `HW_COST`, `HOSTING_MONTHLY`, `ANCHOR_MARGIN[product]` and `SHORT_TERM_MARGIN[product]`.
 
@@ -127,19 +132,25 @@ Upfront + monthly service × term = TCV exactly. Terminus recovers its hardware 
 **CAPEX with an escalator (section 7):** the monthly service fee escalates like the OPEX fee, and TCV stays identical to the OPEX TCV.
 
 ```
-s                = (TCV − hardware_upfront) / (12 × Σ_{k=1..years} (1 + escalator)^(k−1))
-service_year(k)  = round_half_up( s × (1 + escalator)^(k−1), 2 )
+s                = (TCV − hardware_upfront) / (12 × Σ_{k=1..years} factor(k))
+service_year(k)  = round_half_up( s × factor(k), 2 )
 upfront          = TCV − Σ_k ( 12 × service_year(k) )          (carries any rounding residue)
 ```
+
+`factor(k)` is section 7's. Before v1.3 it was written `(1 + escalator)^(k−1)`, which is `factor(k)` with `S` = 2.
 
 The TMS prototype maps `capex` onto its existing two-phase and hybrid payment structures. PO factoring stays in the cash flow (section 9).
 
 ## 7. Optional annual escalator
 
 ```
-fee_year(k) = round_half_up( fee_year(1) × (1 + escalator_pct)^(k − 1), 2 )     per band, k = 1 … ceil(T/12)
+factor(k)   = 1                                     for k < S
+factor(k)   = (1 + escalator_pct)^(k − S + 1)       for k ≥ S
+fee_year(k) = round_half_up( fee_year(1) × factor(k), 2 )     per band, k = 1 … ceil(T/12)
 TCV (net)   = Σ months ( fee for that month's contract year )
 ```
+
+`S` is `escalator_start_year` (section 2), at least 2, default 2. With `S` = 2 this is the v1.2 formula, `(1 + escalator_pct)^(k − 1)`, so T16 and T22 are unchanged. A 12-month term has no year 2, so the escalator has no effect on it; nor does it on any term whose last year is before `S`.
 
 The client-facing saving always quotes year-1 fees. Costs are held flat in v1.2, so the escalator raises margin.
 
@@ -148,11 +159,27 @@ The client-facing saving always quotes year-1 fees. Costs are held flat in v1.2,
 | Tax | Treatment |
 |---|---|
 | GST | Added on top of every invoice: invoiced = net × (1 + `gst_pct`). Never inside margin or TCV (net) |
-| WHT | As the existing TMS gross-up toggle: with gross-up on, fees rise so that Terminus receives the net price after WHT; with it off, WHT reduces Terminus's receipts and shows as a cost |
+| WHT | A typed rate per invoice line (`wht_pct`, or with `wht_split` on `wht_hw_pct` and `wht_saas_pct`) and one gross-up switch for every line: with gross-up on, the line's invoice rises so that Terminus receives the line's net after WHT; with it off, WHT reduces Terminus's receipts and shows as a cost |
 
 Quotes show TCV net, GST, and TCV including GST separately.
 
 Tax amounts round half-up to cents per invoice line. WHT applies to the fee before GST, never to the GST.
+
+### 8.1 Invoice lines and WHT (v1.3)
+
+```
+gross-up ON:   line_invoice = round_half_up( line_net / (1 − wht_line), 2 )
+gross-up OFF:  line_invoice = line_net
+line_wht       = round_half_up( line_invoice × wht_line, 2 )        (either way)
+Terminus receives line_invoice − line_wht
+```
+
+| Structure | `wht_split` off | `wht_split` on |
+|---|---|---|
+| `capex` | The upfront invoice and each monthly service invoice, each at `wht_pct` | The upfront invoice is hardware, at `wht_hw_pct`; each monthly service invoice is software as a service, at `wht_saas_pct` |
+| `opex` | **One line**: each monthly invoice at `wht_pct` on its whole fee. This is what keeps T20 and T21 exact: two lines at the same rate would each round separately and can differ by a cent (T6 gross-up at 10% gives 322,020.85 as two lines against T20's 322,020.86) | **Two lines** on each monthly invoice: hardware = `round_half_up(hardware_upfront / T, 2)`, flat for the whole term (`hardware_upfront` as section 6, at `HW_UPFRONT_MARGIN`), at `wht_hw_pct`; service = that month's fee minus the hardware line, at `wht_saas_pct`. An escalator therefore raises the service line only |
+
+GST is added per invoice line, on the line's invoice amount, rounded half-up.
 
 ## 9. Cash flow
 
@@ -174,6 +201,7 @@ Reference product SafeSight: `HW_COST` 8,000.00, `HOSTING_MONTHLY` 200.00. Param
 | 72 | 2,211.11 | −47.6% | 159,199.92 | 22,400.00 | 136,799.92 | 85.9% |
 | 84 | 1,923.81 | −54.4% | 161,600.04 | 24,800.00 | 136,800.04 | 84.7% |
 | 96 | 1,708.33 | −59.5% | 163,999.68 | 27,200.00 | 136,799.68 | 83.4% |
+| 108 | 1,540.74 | −63.5% | 166,399.92 | 29,600.00 | 136,799.92 | 82.2% |
 | 120 | 1,406.67 | −66.7% | 168,800.40 | 32,000.00 | 136,800.40 | 81.0% |
 
 Profit varies by cents only, from fee rounding.
@@ -190,6 +218,7 @@ Profit varies by cents only, from fee rounding.
 | 72 | 2,211.11 | 2,100.56 | 1,990.00 | 1,879.44 |
 | 84 | 1,923.81 | 1,827.62 | 1,731.43 | 1,635.24 |
 | 96 | 1,708.33 | 1,622.92 | 1,537.50 | 1,452.08 |
+| 108 | 1,540.74 | 1,463.70 | 1,386.67 | 1,309.63 |
 | 120 | 1,406.67 | 1,336.33 | 1,266.00 | 1,195.67 |
 
 ### 10.3 Worst-case margin (every unit at that band's fee)
@@ -230,6 +259,11 @@ SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, no
 | T21 | T6, WHT 10%, gross-up OFF | monthly invoice 289,818.77; WHT 28,981.88 borne; Terminus receives 260,836.89 | WHT borne |
 | T22 | T6 as `capex` with escalator 3% | TCV 18,464,248.32; upfront 1,200,000.00; service fees by year 270,983.34 / 279,112.84 / 287,486.23 / 296,110.81 / 304,994.14; upfront + Σ = TCV | CAPEX service fee escalates |
 | T23 | SafeSight 120 + AQ 30, 60 months; AQ at the catalog's `HW_COST` 2,000.00 and `HOSTING_MONTHLY` 100.00 | AQ band fees 973.33 (1 to 9) and 924.67 (10 to 49); AQ line 1,690,682.40; deal TCV 19,079,808.60; cost 2,640,000.00; margin on price 86.2% | Multi-product on real catalog costs (T14 on the screen) |
+| T24 | T6 as `capex`, `wht_split` on, hardware 5%, service 10%, gross-up OFF | WHT on upfront 60,000.00, Terminus receives 1,140,000.00; WHT per service invoice 26,981.88, Terminus receives 242,836.89; total WHT borne 1,678,912.80 | Split WHT, CAPEX |
+| T25 | T6 as `opex`, `wht_split` on, hardware 5%, service 10%, gross-up ON, GST 0 | hardware line 20,000.00 → invoice 21,052.63, WHT 1,052.63, receives 20,000.00; service line 269,818.77 → invoice 299,798.63, WHT 29,979.86, receives 269,818.77; invoice total 320,851.26 | Split WHT, OPEX two lines |
+| T26 | 1 unit, 108 | TCV 166,399.92; margin 82.2% | The ten-year ladder's new term |
+| T27 | 1 unit, 60, escalator 3% from year 3 | year fees 2,613.33 / 2,613.33 / 2,691.73 / 2,772.48 / 2,855.66; TCV 162,558.36; margin 87.7% | Escalator start year |
+| T28 | T6 as `capex`, escalator 3% from year 3 | TCV 18,027,745.92; upfront 1,200,000.00; service fees by year 270,527.21 / 270,527.21 / 278,643.03 / 287,002.32 / 295,612.39; upfront + Σ = TCV | CAPEX with a later escalator start |
 
 Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFIT_STEP` to 1,000.00) flows through with no code change.
 
@@ -250,3 +284,4 @@ Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFI
 | Warranty | Excluded for now |
 | Cost escalation | Costs held flat |
 | Linking a quote to an opportunity's TCV | After the demo, with a "one deal, one price" rule |
+| A split OPEX invoice whose service line would fall below zero (the hardware line exceeds the month's fee, possible only with unusual admin margins) | The quote refuses with a clear error rather than invoice a negative line (implementation position, TERM_PRICING_2) |
