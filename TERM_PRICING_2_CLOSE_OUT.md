@@ -45,13 +45,20 @@ The ruling count and the brief's appended sections agree: both are 4.
 | proofs from the click | `probe-screen.mjs --tp2`: 21 / 21 (T24, T25, T26 at 108 with TERMS passed in test, T27, T28, L1). The default run is still 29 / 29 |
 | engine calibration | 39 / 39 injections as expected; the reverted run is byte-identical |
 | full gate | `npm run verify -- --round-close` with a browser on `0db4409`: **all 26 stages passed**. Pure 794/794, database 105/105, React 1457/1457, every HTTP probe, the readonly-view browser probe. NordVPN not running; resolver 192.168.18.1; Supabase resolves and TCP 443 connects. A first run without `PUPPETEER_PATH` skipped the required browser stage and reported itself UNANSWERED; it was not counted |
-| merge --no-ff | MERGE |
-| merged gate | GATE_MERGED |
-| ls-remote re-check | LSREMOTE |
+| merge --no-ff | `9fb1ec6` on `main`. Its tree `9a348f8` is byte-identical to the gated branch tree at `516f435` |
+| merged gate | `npm run verify -- --round-close` with a browser on `9fb1ec6`: **all 26 stages passed** (pure 794/794, database 105/105, React 1457/1457, readonly-view browser probe) |
+| ls-remote re-check | `origin/main` is still `328da3a`, an ancestor of HEAD, so the push is a fast-forward |
 
 ## 4. Revert rehearsal
 
-REHEARSAL
+**The rehearsal was done in a TEMPORARY INDEX.** A checkout would put a reverted tree on the disk the dev server serves (rule 9), and a second worktree is ruled out (rule 19).
+
+**Result: reverse-applying the merge's diff gives tree `e4f500a`, which is exactly `328da3a`'s tree.**
+
+- The real index and the working tree were untouched: the index hash was `9a348f8` before and after, equal to HEAD, and the tree was clean.
+- A negative case confirmed the comparison can fail.
+
+**The revert, when wanted:** `git revert -m 1 9fb1ec6`.
 
 ## 5. What surprised
 
@@ -68,3 +75,13 @@ REHEARSAL
    mid-number and the schedule overflowed. Found by opening the capture (Verification 4).
 6. **With Split WHT off, an OPEX month must stay one line.** Two lines at the same rate round
    twice and move T20 by a cent.
+
+## 6. Promoted to CLAUDE.md
+
+Build discipline 9's stale-server clause gains one paragraph: read `ps` by parent PID, because a `--watch` child looks unwatched by its command line. It was checked against the existing clause first; that clause covers restarting, not reading.
+
+The first edit's anchor stopped one line short and split the existing sentence. The edit tool reported it landed, and reading the file back found the split. It was repaired in the same commit, and the diff is exactly the 9 added lines.
+
+## 7. Commits after the merged gate
+
+**Markdown only:** this report's completion and the `CLAUDE.md` paragraph. They ride the green merged gate on `9fb1ec6` (rule 48a), named here.

@@ -207,6 +207,15 @@ not resolve it quietly.
    meant to measure a change to `src/`, confirm the server was restarted after
    the change.**
 
+   **AND READ `ps` BY PARENT PID, NOT BY COMMAND LINE. TERM_PRICING_2,
+   2026-10-03.** A `node --watch` parent restarts a CHILD on every source
+   change, and the child's command line shows the full node binary path with
+   **no `--watch`**. Read alone, the child looks exactly like an unwatched
+   server, and a round recorded it as one, as a finding, until the child was
+   seen restarting one second after an engine write. The check is
+   `ps -o pid,ppid,lstart,command`: a server whose parent is the `--watch`
+   process is watched, and its start time says whether it postdates the change.
+
 10. **A CONTROL FINDING DOES NOT AUTOMATICALLY OUTRANK THE QUEUE.** Set by
     the business 2026-08-29, and it is theirs to set.
 
