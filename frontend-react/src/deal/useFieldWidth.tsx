@@ -127,8 +127,16 @@ export function useColumnWidths(formats: (string | null)[]) {
       if (head) {
         const hcs = getComputedStyle(head)
         const headFont = `${hcs.fontStyle} ${hcs.fontWeight} ${hcs.fontSize} ${hcs.fontFamily}`
+        /* ── THE TRACKING IS PART OF THE WORD. LABEL_CONTRAST, 2026-10-05 ──
+           A canvas measures glyphs and ignores `letter-spacing`, and the heads
+           carry 0.1em of it, which the browser adds after every character. So
+           "UNITS" measured 36px and painted 42px at 12px (31.5 against 37 at
+           the old 10.5px), and the column was narrower than its own heading:
+           the shared shrink check flagged it, and raising the label token made
+           it push the Installation panel 6px past its section at 1240. */
+        const tracking = parseFloat(hcs.letterSpacing) || 0
         for (const w of (head.textContent ?? '').split(/\s+/)) {
-          word = Math.max(word, measureIn(headFont, w))
+          word = Math.max(word, measureIn(headFont, w) + tracking * [...w].length)
         }
       }
       return `${Math.ceil(Math.max(figure, word))}px`

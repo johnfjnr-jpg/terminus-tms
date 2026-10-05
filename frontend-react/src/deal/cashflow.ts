@@ -30,18 +30,20 @@ export interface CashFlow {
 // positive magnitudes; `neg` controls the DISPLAY convention only.
 const cellVal = (v: number, neg?: boolean): CFCell => {
   const r = Math.round(v)
-  if (!r) return { value: '-', color: 'var(--muted-2)' }
+  // LABEL_CONTRAST C2: --muted, not --muted-2. The dimmer token painted 2.73:1,
+  // and G9 retired it as a text colour; inline styles were outside its scan.
+  if (!r) return { value: '-', color: 'var(--muted)' }
   return { value: neg ? `-${money(r)}` : money(r), color: neg ? 'var(--muted)' : 'var(--white)' }
 }
 
 export function buildCashFlowRows(cf: CashFlow): CFRow[] {
   const cells = (fn: (r: CashFlow['rows'][0]) => number, neg?: boolean) => cf.rows.map((r) => cellVal(fn(r), neg))
-  const blanks = (): CFCell[] => cf.rows.map(() => ({ value: '', color: 'var(--muted-2)' }))
+  const blanks = (): CFCell[] => cf.rows.map(() => ({ value: '', color: 'var(--muted)' }))
   const list: CFRow[] = []
   const push = (label: string, rowCells: CFCell[], opts: { section?: boolean; total?: boolean } = {}) =>
     list.push({
       label, cells: rowCells,
-      labelColor: opts.section ? 'var(--muted-2)' : 'var(--white)',
+      labelColor: opts.section ? 'var(--muted)' : 'var(--white)',
       weight: opts.total ? '500' : '400',
       bg: opts.section ? 'rgba(242,242,240,0.04)' : 'transparent',
       total: !!opts.total,
@@ -65,7 +67,7 @@ export function buildCashFlowRows(cf: CashFlow): CFRow[] {
     // interest would each print a full run of zeros for a facility that is
     // switched ON - a confident zero across the whole term. One row that says
     // so instead.
-    push('Factoring, term not recorded', cf.rows.map(() => ({ value: '', color: 'var(--muted-2)' })))
+    push('Factoring, term not recorded', cf.rows.map(() => ({ value: '', color: 'var(--muted)' })))
   } else if (cf.factoringEnabled) {
     push('Factoring principal repayment', cells((r) => r.facP, true))
     push('Factoring interest', cells((r) => r.facI, true))
