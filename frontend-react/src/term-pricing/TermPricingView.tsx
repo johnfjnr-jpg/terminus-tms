@@ -106,7 +106,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     if (escalator.trim() !== '' && !isDecimal(escalator)) return { error: 'The escalator must be a percentage, for example 3.' }
     if (gst.trim() !== '' && !isDecimal(gst)) return { error: 'GST must be a percentage, for example 9.' }
     const whtFields: Array<[string, string]> = whtSplit
-      ? [[whtHw, 'WHT on hardware'], [whtSaas, 'WHT on software as a service']]
+      ? [[whtHw, 'WHT on hardware'], [whtSaas, 'WHT on SaaS']]
       : [[whtPct, 'WHT']]
     const badWht = whtFields.find(([v]) => v.trim() !== '' && !isDecimal(v))
     if (badWht) return { error: `${badWht[1]} must be a percentage, for example 10.` }
@@ -149,10 +149,15 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
       <section className="tp-card" aria-label="Inputs">
         <h2 className="tp-h2">Inputs</h2>
-        {/* Two halves, so where four groups cannot share a row the card falls
-            to two by two rather than three and one. */}
-        <div className="tp-inputs">
-          <div className="tp-half">
+        {/* ── TP_INPUTS (John, 2026-10-03): DEAL TERMS FIRST, TAX BELOW ──────
+            Built to the approved pictures, prototypes/term-pricing-inputs/.
+            SUPERSEDED, QUOTED NOT DELETED: TERM_PRICING_2's two `.tp-half`
+            wrappers holding four groups (units and term; structure and tax),
+            with the tax controls stacked. Each section is now one row whose
+            groups sit together from the left, under a small heading with a
+            rule to its right (I1). */}
+        <div className="tp-section-head">Deal terms</div>
+        <div className="tp-row" data-testid="tp-deal-row">
           <div>
             <div className="tp-label">Units per product</div>
             <div className="tp-units">
@@ -175,8 +180,6 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               ))}
             </div>
           </div>
-          </div>
-          <div className="tp-half">
           <div>
             <div className="tp-label">Payment structure</div>
             <div className="tp-seg" role="group" aria-label="Payment structure">
@@ -184,7 +187,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <button type="button" className={capex ? 'on' : ''} aria-pressed={capex} data-testid="tp-capex" onClick={() => setStructure('capex')}>CAPEX hardware upfront</button>
             </div>
             {/* B6: a typed rate (blank is 0, no escalator) and the year it starts.
-                The placeholder is a value in the field's format, not prose. */}
+                The placeholder is a value in the field's format, not prose.
+                I6: the disabled select keeps L2's dimmed border. */}
             <div className="tp-pair tp-mt">
               <label className="tp-label">Annual escalator %
                 <input className="tp-num tp-pct" placeholder="0" data-testid="tp-escalator" value={escalator} onChange={(e) => setEscalator(e.target.value)} />
@@ -203,34 +207,37 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <p className="tp-small tp-muted" data-testid="tp-escalator-none">A {term}-month term has no year 2, so the escalator has no effect.</p>
             )}
           </div>
-          <div>
-            <label className="tp-label">GST %
-              <input className="tp-num tp-pct" data-testid="tp-gst" value={gst} onChange={(e) => setGst(e.target.value)} />
-            </label>
-            {/* B3: a typed WHT rate and a separate Gross up switch. B4: Split WHT
-                replaces the single rate with one per invoice line; one Gross up
-                switch applies to both. */}
-            {whtSplit ? (
-              <div className="tp-pair tp-stack tp-mt">
-                <label className="tp-label">WHT on hardware %
-                  <input className="tp-num tp-pct" placeholder="0" data-testid="tp-wht-hw" value={whtHw} onChange={(e) => setWhtHw(e.target.value)} />
-                </label>
-                <label className="tp-label">WHT on software as a service %
-                  <input className="tp-num tp-pct" placeholder="0" data-testid="tp-wht-saas" value={whtSaas} onChange={(e) => setWhtSaas(e.target.value)} />
-                </label>
-              </div>
-            ) : (
-              <label className="tp-label tp-mt">WHT %
-                <input className="tp-num tp-pct" placeholder="0" data-testid="tp-wht" value={whtPct} onChange={(e) => setWhtPct(e.target.value)} />
-              </label>
-            )}
-            <div className="tp-switches tp-mt">
-              <Switch id="tp-wht-grossup" on={grossUp} label="Gross up" onToggle={() => setGrossUp(!grossUp)} />
-              <Switch id="tp-wht-split" on={whtSplit} label="Split WHT" onToggle={() => setWhtSplit(!whtSplit)} />
-            </div>
-          </div>
-          </div>
         </div>
+
+        {/* TAX (I1 to I4): one row, GST | Split WHT | WHT field(s) | Gross up.
+            Split WHT swaps one field for two IN THE SAME ROW, so the card
+            keeps its height (I3). The inputs are two digits wide (I2). */}
+        <div className="tp-section-head">Tax</div>
+        <div className="tp-row tp-tax-row" data-testid="tp-tax-row">
+          <label className="tp-label">GST %
+            <input className="tp-num tp-pct2" data-testid="tp-gst" value={gst} onChange={(e) => setGst(e.target.value)} />
+          </label>
+          <Switch id="tp-wht-split" on={whtSplit} label="Split WHT" onToggle={() => setWhtSplit(!whtSplit)} />
+          {whtSplit ? (
+            <>
+              <label className="tp-label">WHT on hardware %
+                <input className="tp-num tp-pct2" placeholder="0" data-testid="tp-wht-hw" value={whtHw} onChange={(e) => setWhtHw(e.target.value)} />
+              </label>
+              <label className="tp-label">WHT on SaaS %
+                <input className="tp-num tp-pct2" placeholder="0" data-testid="tp-wht-saas" value={whtSaas} onChange={(e) => setWhtSaas(e.target.value)} />
+              </label>
+            </>
+          ) : (
+            <label className="tp-label">WHT %
+              <input className="tp-num tp-pct2" placeholder="0" data-testid="tp-wht" value={whtPct} onChange={(e) => setWhtPct(e.target.value)} />
+            </label>
+          )}
+          <Switch id="tp-wht-grossup" on={grossUp} label="Gross up" onToggle={() => setGrossUp(!grossUp)} />
+        </div>
+        <p className="tp-small tp-muted tp-tax-note" data-testid="tp-tax-note">
+          WHT applies to each invoice line before GST. GST is added on top of every invoice.{whtSplit ? ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.' : ''}
+        </p>
+
       </section>
 
       {!params.ok && <p className="tp-error" role="alert">The settings cannot be priced: {params.message}</p>}
@@ -332,7 +339,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                   // B4: a split OPEX month is two invoice lines, each with its own WHT.
                   ...(r.lines ?? []).map((l) => (
                     <tr key={`${r.kind}-${r.fromMonth}-${l.kind}`} className="tp-band" data-testid={`tp-sched-${r.fromMonth}-${l.kind}`}>
-                      <td>{l.kind === 'hardware' ? 'Hardware line' : 'Software as a service line'}</td>
+                      <td>{l.kind === 'hardware' ? 'Hardware line' : 'SaaS line'}</td>
                       <td></td><td>{money(l.netCents)}</td><td>{money(l.invoiceCents)}</td><td>{money(l.gstCents)}</td>
                       <td>{money(l.invoiceInclGstCents)}</td><td>{money(l.whtCents)}</td><td>{money(l.receivedCents)}</td>
                     </tr>

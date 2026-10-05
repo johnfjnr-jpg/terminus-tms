@@ -9291,19 +9291,40 @@ select:autofill {
    next group: A1's defect, one card up. The groups now wrap at their own
    content widths (a flex item's floor is its min-content), and the units
    inputs take a declared width rather than a share of a shrinking track. */
-.tp-inputs, .tp-half { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px 28px; }
-/* L3: within a half the groups sit together from the left; where the halves
-   share a row the space falls between them, not inside them. */
-.tp-half { flex: 0 1 auto; justify-content: flex-start; }
+/* ── TP_INPUTS (John, 2026-10-03): DEAL TERMS, THEN TAX ──────────────────
+   SUPERSEDED, QUOTED NOT DELETED: `.tp-inputs, .tp-half { display: flex;
+   flex-wrap: wrap; justify-content: space-between; gap: 18px 28px }` and
+   L3's `.tp-half { flex: 0 1 auto; justify-content: flex-start }`, which
+   paired four groups into two halves.
+   Built to the approved pictures (prototypes/term-pricing-inputs/): each
+   section is a small uppercase heading with a rule to its right, over one row
+   of groups packed from the left. The gaps are read off the pictures: 56px
+   between the deal-term groups, 28px between the tax controls. The rows still
+   wrap rather than squeeze, so no group is ever printed under another, and
+   the sweep asserts each row stays ONE line across 1240 to 1920 (I1, I3). */
+.tp-section-head { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); margin: 4px 0 14px; }
+.tp-section-head::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
+.tp-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 56px; margin-bottom: 22px; }
+/* The switches have no label, so the row aligns on its BOTTOM edge: each
+   switch sits level with the inputs beside it, as in the pictures. */
+.tp-tax-row { align-items: flex-end; gap: 18px 28px; margin-bottom: 0; }
+.tp-tax-row > .tp-label { margin-bottom: 0; }
+/* I4: the note sits about 19px under the tax row in the approved pictures. */
+.tp-small.tp-tax-note { margin: 16px 0 0; }
+/* I2: GST % and every WHT input sized for two digits, under their labels.
+   THE COMPOUND SELECTOR IS NEEDED: `.tp-num` is declared LATER in this file
+   with `width: 100%`, so a bare `.tp-pct2` lost on source order and the
+   inputs took the browser's default 183px. Measured by the sweep's I2 check,
+   which also caught the tax row wrapping as a result (I3). */
+.tp-num.tp-pct2 { display: block; width: 56px; margin-top: 6px; }
 .tp-units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
 /* B2: term buttons in rows of five, in term order. */
 .tp-seg.tp-terms { display: grid; grid-template-columns: repeat(5, max-content); }
 .tp-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 14px; }
 .tp-pair > .tp-label { margin-bottom: 0; }
-/* Stacked, so the tax group is as wide as its widest label rather than its
-   controls side by side: measured 279px (359px split) against about 230. */
-.tp-pair.tp-stack { flex-direction: column; align-items: flex-start; gap: 10px; }
-.tp-switches { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+/* SUPERSEDED by TP_INPUTS, QUOTED NOT DELETED: `.tp-pair.tp-stack {
+   flex-direction: column }` and `.tp-switches { flex-direction: column }`,
+   which stacked the tax controls. The tax row now holds them side by side. */
 .tp-select { text-align: left; }
 /* L2: disabled, the select keeps a dimmed border so it still reads as a field
    under its label (`.tp-num:disabled` drops the border for read-only values). */
