@@ -304,6 +304,37 @@ try {
         }))
         return { ok: s.table > 0 && s.years, detail: JSON.stringify(s), minAtoms: 40 }
       })
+      // ── LABEL_CONTRAST (John, 2026-10-03, option a): the intake heading ──
+      // The lump-sum input and the Installation responsibility select share
+      // their top and bottom edges; the units-and-installation section fits its
+      // track; and the intake heading's own squeeze is cleared. The shrink check
+      // on the whole section covers both of the last two.
+      await sweep(page, '#deal-section-1', 'deal units and installation', async (p) => {
+        const s = await p.evaluate(() => ({
+          lump: !!document.querySelector('#deal-lumpCost'), resp: !!document.querySelector('#deal-installResp'),
+        }))
+        return { ok: s.lump && s.resp, detail: JSON.stringify(s), minAtoms: 40 }
+      }, async (p, where) => {
+        const e = await p.evaluate(() => {
+          const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return { t: Math.round(b.top * 10) / 10, b: Math.round(b.bottom * 10) / 10 } }
+          return { lump: r('#deal-lumpCost'), resp: r('#deal-installResp'), lumpLabelLines: Math.round(document.querySelector('#deal-lumpCost-group label, #deal-lumpCost-group .deal-field-label, #deal-lumpCost-group span')?.getBoundingClientRect().height ?? 0) }
+        })
+        check(Math.abs(e.lump.t - e.resp.t) <= 1 && Math.abs(e.lump.b - e.resp.b) <= 1,
+          `${where}: the lump-sum input and the responsibility select share top and bottom edges`, JSON.stringify(e))
+      })
+      if (SHOTS) {
+        for (const width of [1240, 1920]) {
+          await page.setViewport({ width, height: 1100 })
+          await settle(page)
+          await page.$eval('#deal-install-panel', (el) => el.scrollIntoView({ block: 'center' }))
+          await settle(page)
+          await page.mouse.move(1, 1)
+          const r = await page.$eval('#deal-install-panel', (el) => { const b = el.getBoundingClientRect(); return { x: b.x - 12, y: b.y - 12, width: b.width + 24, height: b.height + 24 } })
+          const file = `${ROOT}prototypes/label-contrast/lc-installation-${width}.png`
+          await page.screenshot({ path: file, clip: r })
+          console.log(`SHOT  ${file.slice(ROOT.length)}`)
+        }
+      }
       await page.close()
     } finally {
       await tearDown(TAG)

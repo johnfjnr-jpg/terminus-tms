@@ -2627,6 +2627,26 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 }
 #deal-installResp { width: 232px; }
 #deal-lumpCost { width: 104px; }
+/* ── LABEL_CONTRAST (John, 2026-10-03, option a): THE FIELD IS AS WIDE AS
+   ITS CONTROL, AND ITS LABEL WRAPS ──────────────────────────────────────
+   At 12px "LUMP SUM COST" took its column to the label's one-line width,
+   123px -> 138px, and the band (already 379px in a 365px track before the
+   round) pushed the units-and-installation section 6px past its edge at
+   1240. THE PHASE 1 DIAGNOSIS SAID THE UNITS HEAD; THAT WAS WRONG. The
+   units-head fix (its tracking now measured) stands on its own; this is
+   the measured cause. The same mistake as `#deal-lump-summary` below:
+   `max-content` measures the prose, not the fields. */
+#deal-intake-head .deal-field { width: min-content; }
+/* And the ruling's assertion: the lump-sum input and the responsibility
+   select share their top and bottom edges. With the label on two lines the
+   groups no longer start level, so the band aligns on its BOTTOM edge, and
+   the two controls take ONE declared height, one token with two consumers
+   (the pattern `--opex-head-h` uses). Matching the input's padding and type
+   to the select was tried first and left them 2px apart: "normal" line
+   height differs between the mono and the body face. 35px is the select's
+   own measured height, so the select does not move. */
+#deal-intake-head { align-items: end; --intake-control-h: 35px; }
+#deal-intake-head #deal-lumpCost, #deal-intake-head #deal-installResp { height: var(--intake-control-h); box-sizing: border-box; }
 
 /* AND TWO THINGS THE SIZING BROKE, FOUND BY OPENING THE SCREENSHOT.
    `.deal-field` has no base layout rule of its own - only scoped variants -
