@@ -41,3 +41,12 @@ inputs-1240-split-off.png.png; John corrected its name before the copy. sha256 o
   inputs-1240-split-off.png fe8699ed2d044faf1d3ab52de914f5b45418e7762da53aa9c774d094692a72c9
   inputs-1240-split-on.png  a3e81bbafd7f5b0db07780acd170713226f48228d59f83f6b6f7b1ebc5ab1771
   inputs-1920-split-on.png  504c4eb756cdbe6735c58c860ce8f9eb66fbddadc31f0a20a2fa224a14bd64a6
+
+---
+
+RULING (John, 2026-10-03): option (a). Keep the current button size; the mockup's button
+dimensions were illustrative, the approved picture is the arrangement, which is built. Record that
+in the close-out beside the comparison screenshots. QUEUED, not built: the engine's error message
+for an invalid SaaS rate still reads "WHT on software as a service"; converge to "SaaS" in the next
+round that touches the engine. Proceed to the gate: full gate (NordVPN quit, resolver clean);
+merge --no-ff; merged gate; ls-remote re-check; stop at "ready for John's push". Never git push.
