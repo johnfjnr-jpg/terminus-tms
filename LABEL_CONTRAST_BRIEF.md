@@ -24,3 +24,21 @@ re-check; stop at "ready for John's push". Never git push.
 ---
 
 BASE (2026-10-05): origin/main 8458f57 (TP_INPUTS, pushed).
+
+---
+
+PROPOSAL B APPROVED (John, 2026-10-03): C1 (--muted alpha 0.75), C2, S1, S2 as B, and Phase 2 widens
+the units grid's column track for the 12px "UNITS" head (no override).
+ADD to Phase 2:
+P1 DISABLED STATES: every disabled control that paints in --muted (start-year select, Save settings,
+   others found) must remain visibly dimmer than its enabled state. Measure enabled vs
+   disabled contrast for each; if any disabled control reaches within 1.5:1 of its enabled form,
+   STOP and propose a separate disabled token. Screenshot the start-year select and Save settings,
+   enabled and disabled.
+P2 ACTIVE vs INACTIVE: sidebar nav, opportunity tabs and the stage strip: the active item must stay
+   clearly distinguishable from inactive ones after the change. Measure and screenshot; if the
+   difference rests on colour alone and narrows below 1.5:1, STOP and report.
+QUEUED, not built: the four pre-existing Commercials squeezes at 1240 (units grid head, intake head
+track, PO factoring card, factoring toggle) join the opportunity-header 1240 round.
+Then Phase 2 as briefed: sweep, goldens, full gate (NordVPN quit, resolver clean), merge --no-ff,
+merged gate, ls-remote re-check, stop at "ready for John's push". Never git push.
