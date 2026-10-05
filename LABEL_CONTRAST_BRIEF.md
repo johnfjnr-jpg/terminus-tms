@@ -42,3 +42,15 @@ QUEUED, not built: the four pre-existing Commercials squeezes at 1240 (units gri
 track, PO factoring card, factoring toggle) join the opportunity-header 1240 round.
 Then Phase 2 as briefed: sweep, goldens, full gate (NordVPN quit, resolver clean), merge --no-ff,
 merged gate, ls-remote re-check, stop at "ready for John's push". Never git push.
+
+---
+
+RULING (John, 2026-10-03): option (a). Apply #deal-intake-head .deal-field { width: min-content; }
+so "LUMP SUM COST" wraps to two lines. Record that the Phase 1 diagnosis (units head) was wrong and
+the measured cause was the intake heading, and that the units-head fix stands on its own.
+ASSERT, at 1240 to 1920 step 40: the lump-sum input and the Installation Responsibility select
+share the same top and bottom edge (within 1px); the section fits its track (no squeeze); the
+intake-head queued squeeze is cleared. Screenshot the Installation card at 1240 and 1920.
+Remaining queued for the 1240 round: the PO factoring card and its toggle.
+Then: full gate (NordVPN quit, resolver clean); merge --no-ff; merged gate; ls-remote re-check;
+stop at "ready for John's push". Never git push.
