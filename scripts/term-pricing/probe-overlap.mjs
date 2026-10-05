@@ -30,7 +30,8 @@
 //   lost-root     the Term Pricing root selector is wrong (population check)
 //   six-a-row     the term buttons lay out six to a row (B2)
 //   l2-borderless the disabled start-year select loses its border (L2)
-//   l3-push       the second group in a half is pushed to the right edge (L3)
+//   i1-wrap       the deal-terms row is too narrow for its groups, so it wraps (I1)
+//   i3-height     Split WHT puts the WHT fields on a line of their own (I3)
 //
 // UNWIRED: needs a browser, a live server and a session.
 
@@ -67,7 +68,9 @@ const INJECTIONS = {
   'six-a-row': '.tp-seg.tp-terms { grid-template-columns: repeat(6, max-content) !important; }',
   // L2 and L3: the two shapes John's approval ruled out.
   'l2-borderless': '.tp-num.tp-select:disabled { border-color: transparent !important; }',
-  'l3-push': '.tp-half { flex: 1 1 auto !important; justify-content: space-between !important; }',
+  // TP_INPUTS: L3's halves are retired with the layout they measured.
+  'i1-wrap': '[data-testid="tp-deal-row"] { max-width: 600px !important; }',
+  'i3-height': '[data-testid="tp-wht-saas"] { margin-top: 40px !important; }',
 }
 
 async function signedIn(browser, { admin = false } = {}) {
@@ -217,15 +220,12 @@ try {
                 const cents = (id) => { const t = document.querySelector(`[data-testid="${id}"]`)?.textContent.trim(); return t == null ? null : String(BigInt(t.replace(/[,.]/g, ''))) }
                 const sel = document.querySelector('[data-testid="tp-escalator-start"]')
                 const lab = sel?.closest('label')
-                const halves = [...document.querySelectorAll('#view-term-pricing .tp-half')].map((h) => {
-                  const r = [...h.children].map((c) => c.getBoundingClientRect())
-                  return r.length === 2 && Math.abs(r[0].top - r[1].top) < 2 ? Math.round(r[1].left - r[0].right) : null
-                })
+
                 return {
                   tcv: cents('tp-q-tcv'), up: cents('tp-q-grossup'), gst: cents('tp-q-gst'), incl: cents('tp-q-tcvincl'),
                   grossUpOn: document.querySelector('[data-testid="tp-wht-grossup"]')?.getAttribute('aria-checked') === 'true',
                   selBorder: sel && getComputedStyle(sel).borderTopColor, selLeft: sel && Math.round(sel.getBoundingClientRect().left),
-                  labLeft: lab && Math.round(lab.getBoundingClientRect().left), selDisabled: sel?.disabled, halves,
+                  labLeft: lab && Math.round(lab.getBoundingClientRect().left), selDisabled: sel?.disabled,
                 }
               })
               // L1: present exactly when Gross up is on, and the tiles foot either way.
@@ -237,9 +237,41 @@ try {
                 check(!/rgba\(.*,\s*0\)$|transparent/.test(m.selBorder) && m.selLeft === m.labLeft,
                   `${where}: L2 the disabled start-year select has a border, under its label`, JSON.stringify({ border: m.selBorder, sel: m.selLeft, label: m.labLeft }))
               }
-              // L3: two groups sharing a row inside a half are packed from the left (the 28px gap).
-              check(m.halves.length === 2 && m.halves.every((g) => g === null || g === 28),
-                `${where}: L3 the groups in each half sit together from the left`, JSON.stringify(m.halves))
+              // ── TP_INPUTS I1 to I4, as relations between elements ──────────
+              const inputs = () => p.evaluate(() => {
+                const card = document.querySelector('#view-term-pricing [aria-label="Inputs"]')
+                const kids = (id) => [...document.querySelectorAll(`[data-testid="${id}"] > *`)].map((e) => e.getBoundingClientRect())
+                const deal = kids('tp-deal-row'), tax = kids('tp-tax-row')
+                const spread = (xs) => Math.round(Math.max(...xs) - Math.min(...xs))
+                const fields = ['tp-gst', 'tp-wht', 'tp-wht-hw', 'tp-wht-saas'].map((t) => document.querySelector(`[data-testid="${t}"]`)).filter(Boolean)
+                  .map((i) => ({ t: i.dataset.testid, w: Math.round(i.getBoundingClientRect().width), dx: Math.round(i.getBoundingClientRect().left - i.closest('label').getBoundingClientRect().left) }))
+                return {
+                  h: Math.round(card.getBoundingClientRect().height),
+                  dealTops: deal.length ? spread(deal.map((r) => r.top)) : null, dealN: deal.length,
+                  taxBottoms: tax.length ? spread(tax.map((r) => r.bottom)) : null, taxN: tax.length,
+                  fields, note: document.querySelector('[data-testid="tp-tax-note"]')?.textContent.trim(),
+                  split: document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === 'true',
+                }
+              })
+              const a = await inputs()
+              const NOTE = 'WHT applies to each invoice line before GST. GST is added on top of every invoice.'
+              const SPLIT_NOTE = ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.'
+              const rowsOk = (x) => x.dealN === 3 && x.dealTops <= 1 && x.taxN === (x.split ? 5 : 4) && x.taxBottoms <= 1
+              check(rowsOk(a), `${where}: I1 deal terms one row of three groups, tax one row`, JSON.stringify({ dealN: a.dealN, dealTops: a.dealTops, taxN: a.taxN, taxBottoms: a.taxBottoms }))
+              check(a.fields.length === (a.split ? 3 : 2) && a.fields.every((f) => f.w <= 60 && f.dx === 0),
+                `${where}: I2 GST and WHT inputs two digits wide, under their labels`, JSON.stringify(a.fields))
+              check(a.note === NOTE + (a.split ? SPLIT_NOTE : ''), `${where}: I4 the tax note reads for split ${a.split ? 'on' : 'off'}`, JSON.stringify(a.note))
+              // I3: toggle Split WHT, measure, toggle back. The card's height must not move.
+              await p.click('[data-testid="tp-wht-split"]')
+              await p.waitForFunction((v) => document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === String(v), {}, !a.split)
+              await settle(p)
+              const b = await inputs()
+              await p.click('[data-testid="tp-wht-split"]')
+              await p.waitForFunction((v) => document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === String(v), {}, a.split)
+              await settle(p)
+              const c = await inputs()
+              check(b.split === !a.split && a.h === b.h && c.h === a.h && rowsOk(b),
+                `${where}: I3 toggling Split WHT keeps the card's height (${a.h}px) and the tax row one line`, JSON.stringify({ heights: [a.h, b.h, c.h], toggled: { taxN: b.taxN, taxBottoms: b.taxBottoms, dealTops: b.dealTops } }))
             })
           }
         }

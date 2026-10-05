@@ -200,10 +200,30 @@ if (FLOW) {
   check(s25[0][0] === 'Months 1 to 60' && s25[0][3] === '320,851.26', 'T25 invoice total 320,851.26', JSON.stringify(s25[0]))
   check(JSON.stringify([s25[1][0], s25[1][2], s25[1][3], s25[1][6], s25[1][7]]) === JSON.stringify(['Hardware line', '20,000.00', '21,052.63', '1,052.63', '20,000.00']),
     'T25 hardware line 20,000.00 -> invoice 21,052.63, WHT 1,052.63, receives 20,000.00', JSON.stringify(s25[1]))
-  check(JSON.stringify([s25[2][0], s25[2][2], s25[2][3], s25[2][6], s25[2][7]]) === JSON.stringify(['Software as a service line', '269,818.77', '299,798.63', '29,979.86', '269,818.77']),
+  // I5 (TP_INPUTS): the schedule names the line "SaaS line".
+  check(JSON.stringify([s25[2][0], s25[2][2], s25[2][3], s25[2][6], s25[2][7]]) === JSON.stringify(['SaaS line', '269,818.77', '299,798.63', '29,979.86', '269,818.77']),
     'T25 service line 269,818.77 -> invoice 299,798.63, WHT 29,979.86, receives 269,818.77', JSON.stringify(s25[2]))
   check(!!(await page.$(tid('tp-q-grossup'))), 'L1: with Gross up on the WHT gross-up tile is shown')
   await foot('T25')
+
+  // TP_INPUTS E3: Split WHT swaps the fields IN PLACE. Off, the single WHT
+  // field takes the hardware field's place in the same tax row; on again, both
+  // return and T25 still reads.
+  const box = (t) => page.$eval(tid(t), (e) => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top) } }).catch(() => null)
+  const rowTop = () => page.$eval(tid('tp-tax-row'), (e) => Math.round(e.getBoundingClientRect().top))
+  const [hwOn, saasOn, topOn] = [await box('tp-wht-hw'), await box('tp-wht-saas'), await rowTop()]
+  await sw('tp-wht-split', false)
+  const [single, topOff, hwGone] = [await box('tp-wht'), await rowTop(), await box('tp-wht-hw')]
+  check(!!hwOn && !!saasOn && !!single && single.l === hwOn.l && single.t === hwOn.t && topOff === topOn && hwGone === null,
+    'E3 Split WHT off: one WHT field, in the hardware field\'s place, same tax row', JSON.stringify({ hwOn, saasOn, single, topOn, topOff }))
+  await sw('tp-wht-split', true)
+  const [hwBack, saasBack] = [await box('tp-wht-hw'), await box('tp-wht-saas')]
+  check(JSON.stringify(hwBack) === JSON.stringify(hwOn) && JSON.stringify(saasBack) === JSON.stringify(saasOn) && !(await page.$(tid('tp-wht'))),
+    'E3 Split WHT on again: both fields back in place, the single field gone', JSON.stringify({ hwBack, saasBack }))
+  await page.waitForFunction((s) => document.querySelector(s)?.textContent.trim() === '320,851.26', { timeout: 6000 }, `${V} [data-testid="tp-sched-monthly-1"] td:nth-child(4)`).catch(() => {})
+  const s25b = await sched()
+  check(s25b[0][3] === '320,851.26' && s25b[1][3] === '21,052.63' && s25b[2][0] === 'SaaS line' && s25b[2][3] === '299,798.63',
+    'E3 T25 still reads with split on and gross-up on after the swap', JSON.stringify(s25b.slice(0, 3).map((r) => [r[0], r[3]])))
   await capture('tp2-T25', 1240)
 } else {
   // T1 is the screen's opening state.
