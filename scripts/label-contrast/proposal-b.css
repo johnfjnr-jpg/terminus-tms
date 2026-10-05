@@ -1,0 +1,19 @@
+/* LABEL_CONTRAST Phase 1 PROPOSAL B: A, less the three tight heads (#deal-opex-table th,
+   .cm-grid-head, .cm-total-label), which at 12px pushed the OPEX year figures
+   across the card's border and widened the installation panel at 1240.
+   Otherwise as A: injected in the browser only for the
+   before-and-after screenshots and measurements. Nothing on disk uses it.
+
+   C1  --muted 0.50 -> 0.75: 9.05:1 on --dark, 9.40:1 on --black, 7.68:1 on the
+       cash-flow section row (was 4.75, 4.83 and 3.6). 0.70 was tried first and
+       read 6.90 on that row, measured. One token, so every quiet text moves.
+   C2  The text still painted in --muted-2 (2.73:1) comes from INLINE styles
+       in cashflow.ts and panelParts.tsx. Phase 2 would re-point those to
+       --muted; for the preview the token itself is raised, which also
+       brightens the one border that uses it.
+   S1  --field-label-size 10.5px -> 12px (the five rules that use it).
+   S2  The label rules on Term Pricing and the Commercials tab whose size is a
+       literal 9 to 10.5px, pointed at the token. */
+:root { --muted: rgba(242,242,240,0.75); --muted-2: rgba(242,242,240,0.75); --field-label-size: 12px; }
+.label, .cf-row.head .cf-label, .ohl-label,
+.tp-chip, .tp-tag { font-size: var(--field-label-size) !important; }
