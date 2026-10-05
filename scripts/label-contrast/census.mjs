@@ -80,7 +80,11 @@ function census() {
     const cs = getComputedStyle(el)
     const fg = parse(cs.color); const bg = bgOf(el)
     if (!fg) continue
-    const painted = over(fg, bg)
+    // OPACITY IS PART OF THE PAINT (found by the P1 probe): a text inside an
+    // element or ancestor with opacity below 1 paints dimmer than its colour.
+    let op = 1
+    for (let e = el; e; e = e.parentElement) op *= parseFloat(getComputedStyle(e).opacity)
+    const painted = over({ ...fg, a: fg.a * op }, bg)
     const cls = (e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}${e.classList.length ? '.' + [...e.classList].slice(0, 3).join('.') : ''}`
     out.push({
       color: cs.color, size: cs.fontSize, weight: cs.fontWeight, tracking: cs.letterSpacing, transform: cs.textTransform,
@@ -89,6 +93,8 @@ function census() {
       contrast: Math.round(ratio(painted, bg) * 100) / 100,
       where: `${el.parentElement ? cls(el.parentElement) + ' > ' : ''}${cls(el)}`,
       text: n.nodeValue.trim().slice(0, 30),
+      // A disabled control is MEANT to be dimmer (P1); it is reported apart.
+      disabled: !!el.closest(':disabled'),
     })
   }
   return out
@@ -162,5 +168,8 @@ for (const g of rows) {
   if (g.wheres.size > 6) console.log(`   ... ${g.wheres.size - 6} more sites`)
 }
 if (RULES) for (const [k, v] of Object.entries(rendered)) console.log(`\nRENDERS ON ${k}: ${v.join(' | ')}`)
+const quietEnabled = samples.filter((s) => /0\.75\)/.test(s.color) && !s.disabled).map((s) => s.contrast)
+const quietDisabled = samples.filter((s) => /0\.75\)/.test(s.color) && s.disabled)
+if (quietEnabled.length) console.log(`\nQUIET ENABLED ${quietEnabled.length} nodes: ${Math.min(...quietEnabled)} to ${Math.max(...quietEnabled)}:1; QUIET DISABLED ${quietDisabled.length}: ${quietDisabled.map((s) => `"${s.text}" ${s.contrast}`).join(', ')}`)
 console.log(`\n${samples.length} text nodes, ${rows.length} styles; tokens read: ${Object.keys(tokens).length}`)
 if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify(rows.map((g) => ({ ...g, screens: [...g.screens], contrasts: [...g.contrasts], bgs: [...g.bgs], wheres: [...g.wheres.entries()] })), null, 1))

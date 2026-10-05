@@ -37,7 +37,13 @@ try {
     paymentMode: 'opex', structure: 'single', ssExisting: 11, ssNew: 10, aqm: 9, hemir: 0,
     duration: 60, warrantyPct: 0, installResp: 'Terminus Contractor - Lump Sum', lumpSumCost: 300000,
     invoicing: 'monthly', targetMargin: 30 } })
-  for (const state of ['before', 'after']) {
+  // "before" is captured ONLY on the default run. A run previewing another
+  // proposal (--css) re-captured "before" from whatever build was serving,
+  // and once Phase 2 had landed that overwrote the committed pre-change
+  // captures with pictures of the changed screen (Verification 44's time
+  // axis). The journal guard refused the commit that would have kept them.
+  const states = process.argv.includes('--css') ? ['after'] : ['before', 'after']
+  for (const state of states) {
     const page = await browser.newPage()
     await page.setViewport({ width: 1240, height: 1100 })
     await page.goto('http://127.0.0.1:3000/', { waitUntil: 'domcontentloaded' })

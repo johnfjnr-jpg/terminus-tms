@@ -23,7 +23,9 @@
      already used across the estate; the Units card's 9px was the outlier and
      is what made it read as shrunken type beside the Installation panel. The
      larger of two sizes wins here because the smaller was the defect. */
-  --field-label-size:      10.5px;
+  /* LABEL_CONTRAST S1: 10.5px -> 12px, and S2 points the label rules that
+     hard-coded 9 to 10.5px at this token, so the size is held in one place. */
+  --field-label-size:      12px;
   --field-label-tracking:  0.1em;
   --numeric-cell-size:     13px;
   --secondary-note-size:   11px;
@@ -117,7 +119,12 @@
   --red:             #e06c6c;
   --hairline:        rgba(242,242,240,0.12);
   --hairline-strong: rgba(242,242,240,0.22);
-  --muted:           rgba(242,242,240,0.5);
+  /* LABEL_CONTRAST C1 (John, 2026-10-03): 0.50 -> 0.75. Measured as painted:
+     9.05:1 on --dark, 9.40:1 on --black and 7.68:1 on the cash-flow section
+     rows, against 4.75, 4.83 and 2.63 before. 0.70 was tried and read 6.90 on
+     those rows. The white figures stay at 13.5 to 16.1:1, so labels stay
+     visibly quieter than what they label. */
+  --muted:           rgba(242,242,240,0.75);
   --muted-2:         rgba(242,242,240,0.32);
   --heading:         "General Sans", -apple-system, sans-serif;
   --body:            "Satoshi", -apple-system, sans-serif;
@@ -430,7 +437,7 @@ h2 {
 
 .label {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--field-label-size);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -2441,7 +2448,7 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
 .cf-row.head .cf-label {
   z-index: 4;
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--field-label-size);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -6649,7 +6656,7 @@ textarea::placeholder { color: var(--muted); }
 }
 .ohl-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--field-label-size);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -9356,14 +9363,14 @@ select:autofill {
    overflow-wrap split them; below 1600 the figures step down a size instead. */
 .tp-v { font-family: var(--mono); font-size: 18px; margin-top: 2px; white-space: nowrap; }
 .tp-lead { font-size: 22px; }
-.tp-chip { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--muted); margin-top: 8px; }
+.tp-chip { display: inline-block; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--muted); margin-top: 8px; }
 .tp-chip.tp-flag { border-color: currentColor; color: var(--attention); }
 .tp-small { font-size: 12px; margin-top: 8px; }
 .tp-muted { color: var(--muted); }
 .tp-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 16px; }
 .tp-lines .tp-band td { color: var(--muted); }
 .tp-lines .tp-band td:first-child { padding-left: 22px; font-size: 12.5px; }
-.tp-tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--hairline-strong); border-radius: 3px; padding: 2px 6px; }
+.tp-tag { font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--hairline-strong); border-radius: 3px; padding: 2px 6px; }
 .tp-toggle { margin-left: auto; }
 /* ── A1 (TERM_PRICING_2): TWO COLUMNS ONLY WHERE BOTH FIT ────────────────
    SUPERSEDED, QUOTED NOT DELETED: `display: grid; grid-template-columns:

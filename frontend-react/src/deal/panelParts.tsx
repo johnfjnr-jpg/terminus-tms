@@ -76,10 +76,11 @@ export function YearScheduleView({ schedule }: { schedule: YearSchedule }) {
           </div>
         ))}
         <div className="ds-row">
-          <span className="ds-label" style={{ color: 'var(--muted-2)' }}>Total</span>
+          {/* LABEL_CONTRAST C2: --muted, not the retired --muted-2 (2.73:1). */}
+          <span className="ds-label" style={{ color: 'var(--muted)' }}>Total</span>
           <span className="ds-value" style={{ color: 'var(--green)' }}>${money(schedule.total)}</span>
         </div>
-        <p style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted-2)', marginTop: 10 }}>
+        <p style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--muted)', marginTop: 10 }}>
           Hosting sits outside the milestones and applies every month of the term.
         </p>
       </div>
