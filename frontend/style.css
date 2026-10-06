@@ -9383,6 +9383,28 @@ select:autofill {
    overflow-wrap split them; below 1600 the figures step down a size instead. */
 .tp-v { font-family: var(--mono); font-size: 18px; margin-top: 2px; white-space: nowrap; }
 .tp-lead { font-size: 22px; }
+/* ── TILE_FIT (John, 2026-10-06): ONE SIZE FOR THE ROW ───────────────────
+   SUPERSEDED, QUOTED NOT DELETED: fixed sizes, 18px and a 22px lead, stepped
+   down to 14px and 16px below 1600 (the media query further down). With
+   seven tiles the widest figures ran to the next tile's border at 1240, 1280
+   and 1600 to 1920. Now `useFittedFigures` sets --tp-fig to the largest size
+   at which the widest figure fits its tile, for every tile alike (F1), the
+   lead in proportion (F2), never below the floor; below it the row wraps to
+   two rows of equal tiles (F3). The tokens are the numbers:
+     --tp-fig-max 18   today's largest standard size, so a short row does not
+                       grow past the design (a position, not a ruling)
+     --tp-fig-min 13   F3's floor
+     --tp-fig-lead-ratio 1.2222   22:18, today's proportion at full size.
+                       The brief's "22:17" matches no measured state (22:18
+                       at 1600 and wider, 16:14 below), recorded, not hidden. */
+/* --tp-fig and --tp-fig-cols are set inline by useFittedFigures; these are
+   their defaults before the first fit (the stylesheet invariant requires
+   every custom property it uses to be defined in it). */
+.tp-figures { --tp-fig-max: 18; --tp-fig-min: 13; --tp-fig-lead-ratio: 1.2222; --tp-fig: 18px; --tp-fig-cols: 4; }
+.tp-figures .tp-v { font-size: var(--tp-fig, 18px); }
+.tp-figures .tp-v.tp-lead { font-size: calc(var(--tp-fig, 18px) * var(--tp-fig-lead-ratio)); }
+.tp-figures.tp-figures--wrap { grid-auto-flow: row; grid-template-columns: repeat(var(--tp-fig-cols), minmax(0, 1fr)); }
+.tp-figures.tp-figures--wrap > div { border-bottom: 1px solid var(--hairline); }
 .tp-chip { display: inline-block; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--muted); margin-top: 8px; }
 .tp-chip.tp-flag { border-color: currentColor; color: var(--attention); }
 .tp-small { font-size: 12px; margin-top: 8px; }
@@ -9430,8 +9452,8 @@ select:autofill {
 .tp-save-row { margin-top: 14px; text-align: right; }
 @media (max-width: 1599px) {
   .tp-figures > div { padding: 12px 10px; }
-  .tp-v { font-size: 14px; }
-  .tp-lead { font-size: 16px; }
+  /* TILE_FIT retired `.tp-v { 14px }` and `.tp-lead { 16px }` here: the size
+     is now fitted to the row (--tp-fig), so a width step cannot decide it. */
 }
 
 
