@@ -97,7 +97,10 @@ async function expectText(t, expected, claim) {
 }
 const ladderRows = () => page.$$eval(`${V} [data-testid="tp-ladder"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
 const scheduleRows = () => page.$$eval(`${V} [data-testid="tp-schedule"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
-const linesRows = () => page.$$eval(`${V} .tp-lines tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+// RE-POINTED by QUOTE_PANEL: `.tp-lines` now marks the pricing, profit and
+// schedule tables of the one panel, so the band rows are read from the pricing
+// table by its test id. Columns: band, units, list fee, discount, fee, monthly.
+const linesRows = () => page.$$eval(`${V} [data-testid="tp-pricing"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
 const measure = () => page.evaluate(() => {
   const view = document.getElementById('view-term-pricing')
   const over = [...view.querySelectorAll('.tp-card, .tp-figures, table')].filter((e) => e.scrollWidth > e.clientWidth + 1).length
@@ -188,8 +191,10 @@ if (FLOW) {
   const s24 = await sched()
   check(s24[0][0] === 'Upfront (hardware)' && s24[0][6] === '60,000.00' && s24[0][7] === '1,140,000.00', 'T24 WHT on upfront 60,000.00, Terminus receives 1,140,000.00', JSON.stringify(s24[0]))
   check(s24[1][0] === 'Months 1 to 60 (service)' && s24[1][6] === '26,981.88' && s24[1][7] === '242,836.89', 'T24 WHT per service invoice 26,981.88, Terminus receives 242,836.89', JSON.stringify(s24[1]))
-  const prof24 = await page.$$eval(`${V} .tp-split > div:last-child tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
-  check(prof24.some((r) => r[0] === 'WHT borne by Terminus' && r[1] === '1,678,912.80'), 'T24 total WHT borne 1,678,912.80', JSON.stringify(prof24))
+  // RE-POINTED by QUOTE_PANEL: the Profit table is gone; WHT borne is the
+  // profit table's whole-deal row, shown negative in the gross profit column.
+  const prof24 = await page.$$eval(`${V} [data-testid="tp-profit-wht"]`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+  check(prof24.length === 1 && prof24[0][0] === 'WHT borne by Terminus (whole deal)' && prof24[0][4] === '-1,678,912.80', 'T24 total WHT borne 1,678,912.80', JSON.stringify(prof24))
   check(!(await page.$(tid('tp-q-grossup'))), 'L1: with Gross up off there is no WHT gross-up tile')
   await foot('T24')
 
@@ -310,6 +315,9 @@ if (FLOW) {
     ['36 months', '4,222.22', 'list', '151,999.92', '90.0%'], ['48 months', '3,216.67', '−23.8%', '154,400.16', '88.6%'],
     ['60 months', '2,613.33', '−38.1%', '156,799.80', '87.2%'], ['72 months', '2,211.11', '−47.6%', '159,199.92', '85.9%'],
     ['84 months', '1,923.81', '−54.4%', '161,600.04', '84.7%'], ['96 months', '1,708.33', '−59.5%', '163,999.68', '83.4%'],
+    // Spec v1.3 table 10.1: the live TERMS has carried 108 since John's admin
+    // change on 2026-10-03, so the opening ladder has ten rows.
+    ['108 months', '1,540.74', '−63.5%', '166,399.92', '82.2%'],
     ['120 months', '1,406.67', '−66.7%', '168,800.40', '81.0%'],
   ]
   const lad = await ladderRows()
@@ -338,7 +346,8 @@ if (FLOW) {
   const card = [await text('tp-q-upfront'), await text('tp-q-monthly'), await text('tp-q-tcv'), await text('tp-q-margin')]
   check(!!sel15[1] && sel15[1] === card[0] && sel15[2] === card[1] && sel15[4] === card[2] && sel15[5] === card[3],
     'A1: the selected CAPEX row EQUALS the quote card (upfront, service fee, TCV, margin)', `${JSON.stringify(sel15)} vs ${JSON.stringify(card)}`)
-  check((await linesRows()).length > 0 && (await page.$eval(`${V} .tp-split .tp-label`, (e) => e.textContent.trim())) === 'Pricing basis (OPEX fees)', 'under CAPEX the lines table reads "Pricing basis (OPEX fees)"')
+  // RE-POINTED by QUOTE_PANEL: the heading is the panel's, and it says "year 1".
+  check((await linesRows()).length > 0 && (await text('tp-pricing-head')) === 'Pricing basis (OPEX fees, year 1)', 'under CAPEX the pricing table reads "Pricing basis (OPEX fees, year 1)"')
   await capture('capex-T15', 1240)
 
   // T23
@@ -347,10 +356,11 @@ if (FLOW) {
   await expectText('tp-q-tcv', '19,079,808.60', 'T23 TCV')
   await expectText('tp-q-margin', '86.2%', 'T23 margin')
   const lines23 = await linesRows()
-  const aqBands = lines23.filter((r) => r[0].startsWith('units')).slice(-2).map((r) => [r[0], r[2]])
-  check(JSON.stringify(aqBands) === JSON.stringify([['units 1 to 9 at 0% off', '973.33'], ['units 10 to 49 at 5% off', '924.67']]), 'T23 AQ band fees 973.33 and 924.67', JSON.stringify(aqBands))
-  const cost23 = await page.$$eval(`${V} .tp-split > div:last-child tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
-  check(cost23.some((r) => r[0] === 'Hardware and hosting cost' && r[1] === '2,640,000.00'), 'T23 cost 2,640,000.00')
+  const aqBands = lines23.filter((r) => r[0].startsWith('units')).slice(-2).map((r) => [r[0], r[3], r[4]])
+  check(JSON.stringify(aqBands) === JSON.stringify([['units 1 to 9', '0%', '973.33'], ['units 10 to 49', '5%', '924.67']]), 'T23 AQ band fees 973.33 and 924.67', JSON.stringify(aqBands))
+  // RE-POINTED by QUOTE_PANEL: the deal's cost is the profit table's Total row.
+  const cost23 = await page.$$eval(`${V} [data-testid="tp-profit-total"]`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+  check(cost23.length === 1 && cost23[0][3] === '2,640,000.00', 'T23 cost 2,640,000.00', JSON.stringify(cost23))
 
   // T16
   await type('tp-units-air_quality', '0')

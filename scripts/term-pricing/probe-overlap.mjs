@@ -180,7 +180,16 @@ try {
       // disabled). SPLIT WHT ON sets both rates and Gross up, and the
       // escalator to 3% from year 3 at 60 months, so the start-year select is
       // live: the B3, B4 and B6 controls in both of the states John reviews.
-      for (const split of [false, true]) {
+      // QUOTE_PANEL E3 adds WHT BORNE: one rate, Gross up off, with the
+      // escalator still on, so the profit table carries its whole-deal WHT
+      // rows and the pricing table its escalator note.
+      for (const wstate of ['off', 'on', 'borne']) {
+        const split = wstate === 'on'
+        if (wstate === 'borne') {
+          await setSwitch(page, 'tp-wht-split', false)
+          await setSwitch(page, 'tp-wht-grossup', false)
+          await typeInto(page, 'tp-wht', '10')
+        }
         if (split) {
           await page.click('[data-testid="tp-term-60"]')
           await typeInto(page, 'tp-escalator', '3')
@@ -195,7 +204,7 @@ try {
           for (const open of [false, true]) {
             const isOpen = await page.$eval('[data-testid="tp-settings-toggle"]', (e) => e.getAttribute('aria-expanded') === 'true')
             if (isOpen !== open) await page.click('[data-testid="tp-settings-toggle"]')
-            const label = `tp ${admin ? 'admin' : 'non-admin'} ${mode} split-${split ? 'on' : 'off'} settings-${open ? 'open' : 'closed'}`
+            const label = `tp ${admin ? 'admin' : 'non-admin'} ${mode} wht-${wstate} settings-${open ? 'open' : 'closed'}`
             await sweep(page, TP, label, async (p) => {
               const s = await p.evaluate((m) => ({
                 mode: document.querySelector(`[data-testid="tp-${m}"]`)?.getAttribute('aria-pressed') === 'true',
@@ -206,12 +215,14 @@ try {
                 single: !!document.querySelector('[data-testid="tp-wht"]'),
                 pair: !!document.querySelector('[data-testid="tp-wht-hw"]') && !!document.querySelector('[data-testid="tp-wht-saas"]'),
                 start: document.querySelector('[data-testid="tp-escalator-start"]')?.disabled,
+                whtRows: !!document.querySelector('[data-testid="tp-profit-wht"]'),
               }), mode)
               // An admin with Settings open has a Save; a non-admin never does.
               // Split on hides the single rate and shows the pair (B4); the
               // start year is live only with a rate (B6).
               const ok = s.mode && s.ladder && s.open === open && (open ? s.adminSave === admin : true)
-                && s.split === split && s.single === !split && s.pair === split && s.start === !split
+                && s.split === split && s.single === !split && s.pair === split && s.start === (wstate === 'off')
+                && s.whtRows === (wstate === 'borne')
               return { ok, detail: JSON.stringify(s), minAtoms: open ? 200 : 120 }
             }, async (p, where) => {
               const b2 = await rowsOfFive(p)
