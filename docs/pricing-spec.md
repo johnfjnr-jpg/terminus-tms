@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.3
+# Terminus Term Pricing: Specification v1.4
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -6,6 +6,7 @@
 **Amended (v1.2.2, John, 1 Oct 2026):** with an escalator, the CAPEX monthly service fee escalates like the OPEX fee and TCV stays identical to the OPEX TCV (section 6); test case T22. Every earlier figure is unchanged.
 **Amended (v1.2.3, John, 2 Oct 2026):** test case T23, a multi-product deal on real catalog costs, so the T14 behaviour can be proven on the screen (TEST-B is not in the catalog). Every earlier figure is unchanged.
 **Amended (v1.3, John, 2 Oct 2026, rulings B1 to B6 of TERM_PRICING_2):** the default `TERMS` runs every year to ten, adding 108 months (B1); WHT is a typed rate with a separate gross-up switch (B3), optionally split between the hardware and the software-as-a-service invoice lines (B4); the escalator starts in a chosen contract year (B6); test cases T24 to T28. Every earlier figure is unchanged: rows 10.1 and 10.2 gain 108, and `steps_above(120)` becomes 7 while `PROFIT_STEP` is 0.
+**Amended (v1.4, John, 5 Oct 2026, QUOTE_PANEL):** per-product totals in section 4.3 (each product's TCV, cost, gross profit and margin, summing exactly to the deal); WHT is never allocated to a product; test cases T29 and T30. Every earlier figure is unchanged.
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
@@ -101,6 +102,19 @@ gross_margin   = gross_profit / TCV × 100
 ```
 
 **The tie rule:** TCV always equals the invoiced fees × months, exactly. Nothing is re-summed from rounded parts.
+
+**Per product (v1.4).** Each product line carries its own totals, from its own invoiced band fees:
+
+```
+product_TCV(p)     = Σ its bands Σ contract years ( units_in_band × fee_year(k) × months_in_year(k) )
+                                                          (fee_year(k) escalated per section 7)
+product_cost(p)    = units(p) × cost(T)
+product_profit(p)  = product_TCV(p) − product_cost(p)
+product_margin(p)  = product_profit(p) / product_TCV(p) × 100
+Σ products ( product_TCV, product_cost, product_profit ) = TCV, total_cost, gross_profit    exactly
+```
+
+A product's TCV is the same under `opex` and `capex`: the payment structure changes when cash arrives, never what a line is worth (section 6). **WHT is never allocated to a product.** It is withheld per invoice, and an invoice is not a product, so WHT borne is reported for the whole deal only (gross profit after WHT, and the margin after WHT).
 
 ### 4.4 Margin floor
 
@@ -264,6 +278,8 @@ SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, no
 | T26 | 1 unit, 108 | TCV 166,399.92; margin 82.2% | The ten-year ladder's new term |
 | T27 | 1 unit, 60, escalator 3% from year 3 | year fees 2,613.33 / 2,613.33 / 2,691.73 / 2,772.48 / 2,855.66; TCV 162,558.36; margin 87.7% | Escalator start year |
 | T28 | T6 as `capex`, escalator 3% from year 3 | TCV 18,027,745.92; upfront 1,200,000.00; service fees by year 270,527.21 / 270,527.21 / 278,643.03 / 287,002.32 / 295,612.39; upfront + Σ = TCV | CAPEX with a later escalator start |
+| T29 | SafeSight 120 + AQ 40 + HEMIR 2, 60 months, `opex`, no escalator | SafeSight TCV 17,389,126.20, cost 2,400,000.00, profit 14,989,126.20, 86.2%; AQ 2,245,484.40, 320,000.00, 1,925,484.40, 85.7%; HEMIR 2,384,000.40, 260,000.00, 2,124,000.40, 89.1%; deal 22,018,611.00, 2,980,000.00, 19,038,611.00, 86.5% | Per-product totals sum to the deal |
+| T30 | the same units, 60 months, `capex`, escalator 3% from year 2, WHT 10% borne | SafeSight TCV 18,464,248.32, 87.0%; AQ 2,384,313.00, 86.6%; HEMIR 2,531,396.40, 89.7%; deal TCV 23,379,957.72, gross profit 20,399,957.72, 87.3%; upfront 1,550,000.04; service fees by year 342,647.69 / 352,927.12 / 363,514.94 / 374,420.39 / 385,653.00; WHT borne 2,337,995.72; gross profit after WHT 18,061,962.00, 77.3% | Per product under CAPEX with an escalator; WHT whole-deal only |
 
 Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFIT_STEP` to 1,000.00) flows through with no code change.
 

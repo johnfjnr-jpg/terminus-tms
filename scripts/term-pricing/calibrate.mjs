@@ -143,6 +143,14 @@ const INJECTIONS = [
   { id: 'J33', file: ENGINE, why: 'the gross-up is never computed (L1)',
     find: 'grossUpCents: totals.invoicedCents - totals.netCents,', put: 'grossUpCents: 0n,',
     expect: 'L1 the split-on capture' },
+  // ── QUOTE_PANEL, spec v1.4 (M4) ──
+  { id: 'J34', file: ENGINE, why: 'a product TCV ignores the escalator, so the products no longer sum to the deal',
+    find: 'for (let k = 1; k <= years; k++) tcvNetCents += monthlyByYear[k - 1] * BigInt(monthsInYear(k))',
+    put: 'tcvNetCents = monthlyByYear[0] * BigInt(T)', expect: 'v1.4: the products sum to the deal' },
+  { id: 'J35', file: ENGINE, why: 'WHT is allocated to a product line',
+    find: 'tcvNetCents, costCents, grossProfitCents: tcvNetCents - costCents,',
+    put: 'tcvNetCents, costCents, grossProfitCents: tcvNetCents - costCents, whtShareCents: 0n,',
+    expect: 'v1.4: WHT is never allocated' },
   // ── R-TP1, one import each way, as the brief requires ──
   { id: 'K1', file: ENGINE, why: 'the engine imports the deal-sheet engine',
     prepend: IMPORT('calculateTax', './deal-calculator.js'), expect: 'R-TP1 (1)' },

@@ -9387,7 +9387,23 @@ select:autofill {
 .tp-chip.tp-flag { border-color: currentColor; color: var(--attention); }
 .tp-small { font-size: 12px; margin-top: 8px; }
 .tp-muted { color: var(--muted); }
-.tp-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top: 16px; }
+/* ── QUOTE_PANEL: one panel, four sections ───────────────────────────────
+   SUPERSEDED, QUOTED NOT DELETED: `.tp-split { display: grid;
+   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; margin-top:
+   16px }`, the side-by-side Product lines and Profit tables. Their content
+   now runs in one column under section labels, as the approved pictures show:
+   a subtotal row per product (bold), band rows indented and quiet, a bold
+   total, and quiet whole-deal rows that are not indented. */
+.tp-section-label { margin: 24px 0 10px; }
+.tp-lines .tp-subtotal td { font-weight: 600; }
+.tp-lines .tp-quiet td { color: var(--muted); }
+.tp-small.tp-schedule-hint { margin: -4px 0 10px; }
+/* OVERFLOW RULING (John, 2026-10-06): the schedule's eight columns carried
+   10px of padding a side, and under CAPEX with three products the table ran
+   up to 54px past the panel's content box at 1240 (measured by the sweep's
+   fit check, and identically on main before this round). Padding first, as
+   ruled; the figure font is untouched unless this does not fit. */
+.tp-table.tp-schedule th, .tp-table.tp-schedule td { padding-left: 6px; padding-right: 6px; }
 .tp-lines .tp-band td { color: var(--muted); }
 .tp-lines .tp-band td:first-child { padding-left: 22px; font-size: 12.5px; }
 .tp-tag { font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--hairline-strong); border-radius: 3px; padding: 2px 6px; }

@@ -47,6 +47,8 @@ export interface QuoteBand { from: number; to: number | null; discountPct: strin
 export interface QuoteLine {
   product: string; units: number; listFee: Fraction; savingVsAnchor: Fraction
   costPerUnitCents: bigint; bands: QuoteBand[]; monthlyByYear: bigint[]
+  // v1.4: per-product totals; they sum to the deal exactly. No WHT field: WHT is never per product.
+  tcvNetCents: bigint; costCents: bigint; grossProfitCents: bigint; grossMargin: Fraction
 }
 export interface ScheduleRow {
   kind: 'upfront' | 'monthly'; fromMonth: number; toMonth: number; count: number

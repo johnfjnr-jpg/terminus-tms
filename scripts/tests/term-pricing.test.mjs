@@ -614,3 +614,75 @@ test('L1 TCV (net) + WHT gross-up + GST = TCV incl. GST in every structure and W
   // T20 basis: (322,020.86 - 289,818.77) x 60 = 32,202.09 x 60 = 1,932,125.40.
   assert.equal(money(quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true }).tax.grossUpCents), '1,932,125.40')
 })
+
+// ── v1.4 (QUOTE_PANEL): per-product totals ──────────────────────────────
+//
+// T29 and T30 are COPIED from spec section 11. AQ and HEMIR take the catalog
+// costs the Term Pricing screen reads (AQ 2,000.00 and 100.00 as T23 states;
+// HEMIR 100,000.00 and 500.00), with 90% margins as section 3.
+const CATALOG = withParams({
+  ANCHOR_MARGIN: { ...SPEC_PARAMS.ANCHOR_MARGIN, air_quality: '90', hemir: '90' },
+  SHORT_TERM_MARGIN: { ...SPEC_PARAMS.SHORT_TERM_MARGIN, air_quality: '90', hemir: '90' },
+  costs: { ...SPEC_PARAMS.costs,
+    air_quality: { hwCost: '2000.00', hostingMonthly: '100.00' },
+    hemir: { hwCost: '100000.00', hostingMonthly: '500.00' } },
+})
+const DEMO = { safesight: 120, air_quality: 40, hemir: 2 }
+const row = (q, p) => { const l = q.lines.find((x) => x.product === p); return [money(l.tcvNetCents), money(l.costCents), money(l.grossProfitCents), pct(l.grossMargin)] }
+
+test('T29 per product, 60 months, OPEX, no escalator', () => {
+  const q = quote(DEMO, 60, {}, CATALOG)
+  assert.deepEqual(row(q, 'safesight'), ['17,389,126.20', '2,400,000.00', '14,989,126.20', '86.2'])
+  assert.deepEqual(row(q, 'air_quality'), ['2,245,484.40', '320,000.00', '1,925,484.40', '85.7'])
+  assert.deepEqual(row(q, 'hemir'), ['2,384,000.40', '260,000.00', '2,124,000.40', '89.1'])
+  assert.deepEqual([money(q.tcvNetCents), money(q.totalCostCents), money(q.grossProfitCents), pct(q.grossMargin)],
+    ['22,018,611.00', '2,980,000.00', '19,038,611.00', '86.5'])
+})
+
+test('T30 per product, 60 months, CAPEX, escalator 3% from year 2, WHT 10% borne', () => {
+  const q = quote(DEMO, 60, { paymentStructure: 'capex', escalatorPct: '3', escalatorStartYear: 2, whtPct: '10', whtGrossUp: false }, CATALOG)
+  const pick = (p) => { const r = row(q, p); return [r[0], r[3]] }
+  assert.deepEqual(pick('safesight'), ['18,464,248.32', '87.0'])
+  assert.deepEqual(pick('air_quality'), ['2,384,313.00', '86.6'])
+  assert.deepEqual(pick('hemir'), ['2,531,396.40', '89.7'])
+  assert.equal(money(q.tcvNetCents), '23,379,957.72')
+  assert.equal(money(q.grossProfitCents), '20,399,957.72')
+  assert.equal(pct(q.grossMargin), '87.3')
+  assert.equal(money(q.capex.upfrontCents), '1,550,000.04')
+  assert.deepEqual(q.capex.serviceByYear.map(money), ['342,647.69', '352,927.12', '363,514.94', '374,420.39', '385,653.00'])
+  assert.equal(money(q.tax.whtBorneCents), '2,337,995.72')
+  assert.equal(money(q.grossProfitCents - q.tax.whtBorneCents), '18,061,962.00')
+  assert.equal(pct(q.marginAfterWht), '77.3')
+})
+
+test('v1.4: the products sum to the deal EXACTLY, in every structure, escalator and WHT state', () => {
+  for (const extra of [{}, { paymentStructure: 'capex' }, { escalatorPct: '3', escalatorStartYear: 3 },
+    { paymentStructure: 'capex', escalatorPct: '3', whtPct: '10' }, SPLIT('5', '10', true)]) {
+    for (const T of [12, 36, 60, 120]) {
+      const q = quote(DEMO, T, extra, CATALOG)
+      const sum = (k) => q.lines.reduce((t, l) => t + l[k], 0n)
+      const what = `${T} ${JSON.stringify(extra)}`
+      assert.equal(sum('tcvNetCents'), q.tcvNetCents, `TCV ${what}`)
+      assert.equal(sum('costCents'), q.totalCostCents, `cost ${what}`)
+      assert.equal(sum('grossProfitCents'), q.grossProfitCents, `profit ${what}`)
+    }
+  }
+})
+
+test('v1.4: a product TCV is the same under OPEX and CAPEX', () => {
+  const o = quote(DEMO, 60, { escalatorPct: '3' }, CATALOG), c = quote(DEMO, 60, { paymentStructure: 'capex', escalatorPct: '3' }, CATALOG)
+  // Both sides must EXIST: this test passed against the old engine, undefined
+  // against undefined (Verification 14).
+  assert.ok(o.lines.length === 3 && [...o.lines, ...c.lines].every((l) => typeof l.tcvNetCents === 'bigint' && l.tcvNetCents > 0n), 'no product TCV to compare')
+  assert.deepEqual(c.lines.map((l) => l.tcvNetCents), o.lines.map((l) => l.tcvNetCents))
+})
+
+test('v1.4: WHT is never allocated to a product', () => {
+  // With WHT borne, the products still sum to the deal's gross profit BEFORE
+  // WHT, and no product carries a WHT figure of its own.
+  const q = quote(DEMO, 60, { whtPct: '10', whtGrossUp: false }, CATALOG)
+  assert.ok(q.tax.whtBorneCents > 0n, 'the case has WHT borne, so the claim is not vacuous')
+  assert.equal(q.lines.reduce((t, l) => t + l.grossProfitCents, 0n), q.grossProfitCents)
+  for (const l of q.lines) assert.deepEqual(Object.keys(l).filter((k) => /wht/i.test(k)), [], `${l.product} carries a WHT field`)
+})
+

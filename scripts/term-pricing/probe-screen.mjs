@@ -34,6 +34,8 @@ const FLOW = process.argv.includes('--flow')
 // TERMS passed IN TEST: written into the browser's copy of the real GET
 // response and nowhere else. Every other byte is the route's.
 const TP2 = process.argv.includes('--tp2')
+// QUOTE_PANEL (--qp): the approved pictures' two states, from the click.
+const QP = process.argv.includes('--qp')
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : `${ROOT}prototypes/term-pricing/screens`
 const RUN = process.env.TP_RUN ?? 'p3'
 const session = JSON.parse(readFileSync(`${ROOT}session-ref.json`, 'utf8'))
@@ -95,7 +97,10 @@ async function expectText(t, expected, claim) {
 }
 const ladderRows = () => page.$$eval(`${V} [data-testid="tp-ladder"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
 const scheduleRows = () => page.$$eval(`${V} [data-testid="tp-schedule"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
-const linesRows = () => page.$$eval(`${V} .tp-lines tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+// RE-POINTED by QUOTE_PANEL: `.tp-lines` now marks the pricing, profit and
+// schedule tables of the one panel, so the band rows are read from the pricing
+// table by its test id. Columns: band, units, list fee, discount, fee, monthly.
+const linesRows = () => page.$$eval(`${V} [data-testid="tp-pricing"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
 const measure = () => page.evaluate(() => {
   const view = document.getElementById('view-term-pricing')
   const over = [...view.querySelectorAll('.tp-card, .tp-figures, table')].filter((e) => e.scrollWidth > e.clientWidth + 1).length
@@ -186,8 +191,10 @@ if (FLOW) {
   const s24 = await sched()
   check(s24[0][0] === 'Upfront (hardware)' && s24[0][6] === '60,000.00' && s24[0][7] === '1,140,000.00', 'T24 WHT on upfront 60,000.00, Terminus receives 1,140,000.00', JSON.stringify(s24[0]))
   check(s24[1][0] === 'Months 1 to 60 (service)' && s24[1][6] === '26,981.88' && s24[1][7] === '242,836.89', 'T24 WHT per service invoice 26,981.88, Terminus receives 242,836.89', JSON.stringify(s24[1]))
-  const prof24 = await page.$$eval(`${V} .tp-split > div:last-child tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
-  check(prof24.some((r) => r[0] === 'WHT borne by Terminus' && r[1] === '1,678,912.80'), 'T24 total WHT borne 1,678,912.80', JSON.stringify(prof24))
+  // RE-POINTED by QUOTE_PANEL: the Profit table is gone; WHT borne is the
+  // profit table's whole-deal row, shown negative in the gross profit column.
+  const prof24 = await page.$$eval(`${V} [data-testid="tp-profit-wht"]`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+  check(prof24.length === 1 && prof24[0][0] === 'WHT borne by Terminus (whole deal)' && prof24[0][4] === '-1,678,912.80', 'T24 total WHT borne 1,678,912.80', JSON.stringify(prof24))
   check(!(await page.$(tid('tp-q-grossup'))), 'L1: with Gross up off there is no WHT gross-up tile')
   await foot('T24')
 
@@ -225,6 +232,107 @@ if (FLOW) {
   check(s25b[0][3] === '320,851.26' && s25b[1][3] === '21,052.63' && s25b[2][0] === 'SaaS line' && s25b[2][3] === '299,798.63',
     'E3 T25 still reads with split on and gross-up on after the swap', JSON.stringify(s25b.slice(0, 3).map((r) => [r[0], r[3]])))
   await capture('tp2-T25', 1240)
+} else if (QP) {
+  // ── QUOTE_PANEL E2: the approved pictures' two states, from the click ──
+  // Every expected figure is COPIED from the pictures (prototypes/
+  // term-pricing-quote/) and spec v1.4's T29 and T30, never computed here.
+  const rows = (t) => page.$$eval(`${V} [data-testid="${t}"] tbody tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+  const cents = (s) => BigInt(String(s).replace(/[,.]/g, ''))
+  const sumCol = (rs, i) => rs.reduce((t, r) => t + cents(r[i]), 0n)
+  await type('tp-units-safesight', '120'); await type('tp-units-air_quality', '40'); await type('tp-units-hemir', '2')
+  await page.click(tid('tp-term-60'))
+
+  // OPEX picture.
+  await expectText('tp-q-tcv', '22,018,611.00', 'QP OPEX TCV (net)')
+  await expectText('tp-q-monthly', '366,976.85', 'QP OPEX monthly total (year 1)')
+  await expectText('tp-q-gst', '1,981,675.20', 'QP OPEX GST')
+  await expectText('tp-q-tcvincl', '24,000,286.20', 'QP OPEX TCV incl. GST')
+  await expectText('tp-q-margin', '86.5%', 'QP OPEX margin')
+  check((await text('tp-pricing-head')) === 'Pricing by product and band', 'QP OPEX heading "Pricing by product and band"')
+  const pr = await rows('tp-pricing')
+  check(JSON.stringify(pr) === JSON.stringify([
+    ['SafeSight', '120', '', '', '', '289,818.77'], ['units 1 to 9', '9', '2,613.33', '0%', '2,613.33', '23,519.97'],
+    ['units 10 to 49', '40', '2,613.33', '5%', '2,482.67', '99,306.80'], ['units 50 to 199', '71', '2,613.33', '10%', '2,352.00', '166,992.00'],
+    ['AQ', '40', '', '', '', '37,424.74'], ['units 1 to 9', '9', '973.33', '0%', '973.33', '8,759.97'], ['units 10 to 49', '31', '973.33', '5%', '924.67', '28,664.77'],
+    ['HEMIR', '2', '', '', '', '39,733.34'], ['units 1 to 9', '2', '19,866.67', '0%', '19,866.67', '39,733.34'], ['Total per month', '162', '', '', '', '366,976.85']]),
+    'QP OPEX pricing by product and band reads the picture row for row', JSON.stringify(pr))
+  const pf = await rows('tp-profit')
+  check(JSON.stringify(pf) === JSON.stringify([
+    ['SafeSight', '120', '17,389,126.20', '2,400,000.00', '14,989,126.20', '86.2%'], ['AQ', '40', '2,245,484.40', '320,000.00', '1,925,484.40', '85.7%'],
+    ['HEMIR', '2', '2,384,000.40', '260,000.00', '2,124,000.40', '89.1%'], ['Total', '162', '22,018,611.00', '2,980,000.00', '19,038,611.00', '86.5%']]),
+    'QP OPEX profit by product reads T29 and the picture, and no WHT rows', JSON.stringify(pf))
+  const prods = pf.filter((r) => r[0] !== 'Total')
+  check(sumCol(prods, 2) === cents(await text('tp-q-tcv')) && sumCol(prods, 2) === cents(pf.at(-1)[2]) && sumCol(prods, 3) === cents(pf.at(-1)[3]) && sumCol(prods, 4) === cents(pf.at(-1)[4]),
+    'QP OPEX the product rows sum to the deal tile and the Total row (TCV, cost, profit)')
+  const sc = await scheduleRows()
+  check(JSON.stringify(sc) === JSON.stringify([['Months 1 to 60', '60', '366,976.85', '366,976.85', '33,027.92', '400,004.77', '0.00', '366,976.85']]),
+    'QP OPEX payment schedule reads the picture', JSON.stringify(sc))
+  check(cents(pr.at(-1)[5]) === cents(sc[0][2]), 'QP OPEX the band table total equals the schedule\'s year-1 net fee')
+  check(!(await page.$(tid('tp-escalator-note'))), 'QP OPEX no escalator, so no escalator note')
+
+  // CAPEX picture.
+  await page.click(tid('tp-capex'))
+  await type('tp-escalator', '3')
+  await page.waitForFunction((s) => !document.querySelector(s)?.disabled, {}, tid('tp-escalator-start'))
+  await page.select(tid('tp-escalator-start'), '2')
+  await type('tp-wht', '10')
+  await expectText('tp-q-tcv', '23,379,957.72', 'QP CAPEX TCV (net)')
+  await expectText('tp-q-monthly', '342,647.69', 'QP CAPEX monthly service fee (year 1)')
+  await expectText('tp-q-gst', '2,104,196.16', 'QP CAPEX GST')
+  await expectText('tp-q-tcvincl', '25,484,153.88', 'QP CAPEX TCV incl. GST')
+  await expectText('tp-q-margin', '87.3%', 'QP CAPEX margin')
+  await expectText('tp-q-after-wht', 'Margin on price after WHT: 77.3%', 'QP CAPEX margin after WHT')
+  check((await text('tp-pricing-head')) === 'Pricing basis (OPEX fees, year 1)', 'QP CAPEX heading "Pricing basis (OPEX fees, year 1)"')
+  // Scoped to the Quote card: the first run's `.tp-h2 .tp-hint` matched the
+  // Term ladder's hint, which comes first on the page.
+  check((await page.$eval(`${V} [aria-label="Quote"] .tp-h2 .tp-hint`, (e) => e.textContent.trim())) === '60 months, CAPEX, 3% annual escalator from year 2, WHT 10% borne', 'QP CAPEX title reads the picture')
+  check((await text('tp-escalator-note')) === 'Fees rise 3% a year from year 2. The payment schedule shows each year\'s figures; under CAPEX the client pays hardware upfront and a monthly service fee instead.', 'QP CAPEX escalator note reads the picture')
+  const pf2 = await rows('tp-profit')
+  check(JSON.stringify(pf2) === JSON.stringify([
+    ['SafeSight', '120', '18,464,248.32', '2,400,000.00', '16,064,248.32', '87.0%'], ['AQ', '40', '2,384,313.00', '320,000.00', '2,064,313.00', '86.6%'],
+    ['HEMIR', '2', '2,531,396.40', '260,000.00', '2,271,396.40', '89.7%'], ['Total', '162', '23,379,957.72', '2,980,000.00', '20,399,957.72', '87.3%'],
+    ['WHT borne by Terminus (whole deal)', '', '', '', '-2,337,995.72', ''], ['Gross profit after WHT', '', '', '', '18,061,962.00', '77.3%']]),
+    'QP CAPEX profit by product reads T30 and the picture, WHT whole-deal only', JSON.stringify(pf2))
+  const prods2 = pf2.slice(0, 3)
+  check(sumCol(prods2, 2) === cents(await text('tp-q-tcv')) && sumCol(prods2, 4) === cents(pf2[3][4]),
+    'QP CAPEX the product rows sum to the deal tile and the Total row')
+  const sc2 = (await scheduleRows()).map((r) => [r[0], r[2], r[6], r[7]])
+  check(JSON.stringify(sc2) === JSON.stringify([
+    ['Upfront (hardware)', '1,550,000.04', '155,000.00', '1,395,000.04'], ['Months 1 to 12', '342,647.69', '34,264.77', '308,382.92'],
+    ['Months 13 to 24', '352,927.12', '35,292.71', '317,634.41'], ['Months 25 to 36', '363,514.94', '36,351.49', '327,163.45'],
+    ['Months 37 to 48', '374,420.39', '37,442.04', '336,978.35'], ['Months 49 to 60', '385,653.00', '38,565.30', '347,087.70']]),
+    'QP CAPEX payment schedule reads the picture (net, WHT, receives)', JSON.stringify(sc2))
+  // The separate cards are gone: one Quote panel holds all four sections.
+  check(!(await page.$(`${V} [aria-label="Payment schedule"]`)) && !!(await page.$(`${V} [aria-label="Quote"] [data-testid="tp-schedule"]`)),
+    'QP the payment schedule lives in the Quote panel; the separate card is gone')
+  // D3 (John, 2026-10-06): today's CAPEX note plus the picture's sentence.
+  check((await page.$eval(`${V} [aria-label="Quote"] [data-testid="tp-schedule"] + p`, (e) => e.textContent.trim())) ===
+    'Upfront 1,550,000.04 plus the monthly service fees ties to TCV 23,379,957.72 exactly, the same TCV as OPEX; the upfront carries any rounding residue. WHT is withheld per invoice, so it is shown for the whole deal, not per product.',
+    'D3 the CAPEX schedule note is today\'s sentence plus the picture\'s')
+  // D2: "WHT borne" stays the schedule's column head when WHT is borne.
+  check((await page.$$eval(`${V} [data-testid="tp-schedule"] thead th`, (t) => t.map((x) => x.textContent.trim())))[6] === 'WHT borne', 'D2 the schedule head reads "WHT borne"')
+  // D1: the CAPEX Upfront tile is kept.
+  check((await text('tp-q-upfront')) === '1,550,000.04', 'D1 the CAPEX Upfront tile is kept')
+  await capture('qp-capex', 1240)
+  // D4: every title wording, pinned (the borne one is checked above).
+  const hint = () => page.$eval(`${V} [aria-label="Quote"] .tp-h2 .tp-hint`, (e) => e.textContent.trim())
+  const sw = async (id, on) => {
+    if ((await page.$eval(tid(id), (e) => e.getAttribute('aria-checked'))) !== String(on)) await page.click(tid(id))
+    await page.waitForFunction((s, v) => document.querySelector(s)?.getAttribute('aria-checked') === String(v), {}, tid(id), on)
+  }
+  const pinned = async (want, claim) => {
+    try { await page.waitForFunction((s, w) => document.querySelector(s)?.textContent.trim() === w, { timeout: 6000 }, `${V} [aria-label="Quote"] .tp-h2 .tp-hint`, want); check(true, claim, want) }
+    catch { check(false, claim, `expected ${want}, saw ${await hint()}`) }
+  }
+  await sw('tp-wht-grossup', true)
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2, WHT 10% grossed up', 'D4 one rate, gross-up: ", WHT 10% grossed up"')
+  await sw('tp-wht-split', true)
+  await type('tp-wht-hw', '5'); await type('tp-wht-saas', '10')
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2, split WHT 5% hardware / 10% SaaS, grossed up', 'D4 split, gross-up')
+  await sw('tp-wht-grossup', false)
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2, split WHT 5% hardware / 10% SaaS, borne', 'D4 split, borne')
+  await sw('tp-wht-split', false); await type('tp-wht', '')
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2', 'D4 no WHT: nothing about WHT in the title')
 } else {
   // T1 is the screen's opening state.
   await expectText('tp-q-tcv', '151,999.92', 'T1 TCV')
@@ -234,6 +342,9 @@ if (FLOW) {
     ['36 months', '4,222.22', 'list', '151,999.92', '90.0%'], ['48 months', '3,216.67', '−23.8%', '154,400.16', '88.6%'],
     ['60 months', '2,613.33', '−38.1%', '156,799.80', '87.2%'], ['72 months', '2,211.11', '−47.6%', '159,199.92', '85.9%'],
     ['84 months', '1,923.81', '−54.4%', '161,600.04', '84.7%'], ['96 months', '1,708.33', '−59.5%', '163,999.68', '83.4%'],
+    // Spec v1.3 table 10.1: the live TERMS has carried 108 since John's admin
+    // change on 2026-10-03, so the opening ladder has ten rows.
+    ['108 months', '1,540.74', '−63.5%', '166,399.92', '82.2%'],
     ['120 months', '1,406.67', '−66.7%', '168,800.40', '81.0%'],
   ]
   const lad = await ladderRows()
@@ -262,7 +373,8 @@ if (FLOW) {
   const card = [await text('tp-q-upfront'), await text('tp-q-monthly'), await text('tp-q-tcv'), await text('tp-q-margin')]
   check(!!sel15[1] && sel15[1] === card[0] && sel15[2] === card[1] && sel15[4] === card[2] && sel15[5] === card[3],
     'A1: the selected CAPEX row EQUALS the quote card (upfront, service fee, TCV, margin)', `${JSON.stringify(sel15)} vs ${JSON.stringify(card)}`)
-  check((await linesRows()).length > 0 && (await page.$eval(`${V} .tp-split .tp-label`, (e) => e.textContent.trim())) === 'Pricing basis (OPEX fees)', 'under CAPEX the lines table reads "Pricing basis (OPEX fees)"')
+  // RE-POINTED by QUOTE_PANEL: the heading is the panel's, and it says "year 1".
+  check((await linesRows()).length > 0 && (await text('tp-pricing-head')) === 'Pricing basis (OPEX fees, year 1)', 'under CAPEX the pricing table reads "Pricing basis (OPEX fees, year 1)"')
   await capture('capex-T15', 1240)
 
   // T23
@@ -271,10 +383,11 @@ if (FLOW) {
   await expectText('tp-q-tcv', '19,079,808.60', 'T23 TCV')
   await expectText('tp-q-margin', '86.2%', 'T23 margin')
   const lines23 = await linesRows()
-  const aqBands = lines23.filter((r) => r[0].startsWith('units')).slice(-2).map((r) => [r[0], r[2]])
-  check(JSON.stringify(aqBands) === JSON.stringify([['units 1 to 9 at 0% off', '973.33'], ['units 10 to 49 at 5% off', '924.67']]), 'T23 AQ band fees 973.33 and 924.67', JSON.stringify(aqBands))
-  const cost23 = await page.$$eval(`${V} .tp-split > div:last-child tr`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
-  check(cost23.some((r) => r[0] === 'Hardware and hosting cost' && r[1] === '2,640,000.00'), 'T23 cost 2,640,000.00')
+  const aqBands = lines23.filter((r) => r[0].startsWith('units')).slice(-2).map((r) => [r[0], r[3], r[4]])
+  check(JSON.stringify(aqBands) === JSON.stringify([['units 1 to 9', '0%', '973.33'], ['units 10 to 49', '5%', '924.67']]), 'T23 AQ band fees 973.33 and 924.67', JSON.stringify(aqBands))
+  // RE-POINTED by QUOTE_PANEL: the deal's cost is the profit table's Total row.
+  const cost23 = await page.$$eval(`${V} [data-testid="tp-profit-total"]`, (rs) => rs.map((r) => [...r.cells].map((c) => c.textContent.trim())))
+  check(cost23.length === 1 && cost23[0][3] === '2,640,000.00', 'T23 cost 2,640,000.00', JSON.stringify(cost23))
 
   // T16
   await type('tp-units-air_quality', '0')

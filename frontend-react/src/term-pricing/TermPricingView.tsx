@@ -16,7 +16,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import {
-  priceQuote, termLadder, normaliseParams, formatMoney, formatPct,
+  priceQuote, termLadder, normaliseParams, formatMoney, formatPct, roundHalfUp,
 } from '../../../src/lib/term-pricing.js'
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
 
@@ -139,6 +139,15 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const q = result && 'quote' in result ? result.quote : null
   const ladder = result && 'ladder' in result ? result.ladder : null
   const capex = structure === 'capex'
+  // D4 (John, 2026-10-06): the title states the WHT treatment. One rate:
+  // ", WHT 10% borne" or ", WHT 10% grossed up", nothing at 0. Split:
+  // ", split WHT 5% hardware / 10% SaaS, grossed up" (or "borne"). The rates
+  // are the inputs as typed, blank read as 0 (the blank-zero rule).
+  const rateText = (v: string) => (v.trim() === '' ? '0' : v.trim())
+  const treatment = grossUp ? 'grossed up' : 'borne'
+  const whtTitle = whtSplit
+    ? `, split WHT ${rateText(whtHw)}% hardware / ${rateText(whtSaas)}% SaaS, ${treatment}`
+    : isDecimal(whtPct) && Number(whtPct) > 0 ? `, WHT ${whtPct.trim()}% ${treatment}` : ''
 
   return (
     <div className="wrap tp-view" data-testid="term-pricing">
@@ -277,7 +286,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           </section>
 
           <section className="tp-card" aria-label="Quote">
-            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtSplit ? ', split WHT' : ''}</span></h2>
+            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtTitle}</span></h2>
             <div className="tp-figures">
               <div><div className="tp-label">{capex ? 'Monthly service fee (year 1)' : 'Monthly total (year 1)'}</div>
                 <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(capex ? q.capex!.monthlyServiceCents : q.monthlyTotalCents)}</div></div>
@@ -294,39 +303,75 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                 {q.marginAfterWht && <div className="tp-small" data-testid="tp-q-after-wht">Margin on price after WHT: {pct(q.marginAfterWht)}</div>}
               </div>
             </div>
-            <div className="tp-split">
-              <div>
-                <div className="tp-label">{capex ? 'Pricing basis (OPEX fees)' : 'Product lines (bands count per line)'}</div>
-                <table className="tp-table tp-lines">
-                  <thead><tr><th>Line</th><th>Units</th><th>Fee / unit / mo</th><th>Monthly</th></tr></thead>
-                  <tbody>
-                    {q.lines.flatMap((l) => [
-                      <tr key={l.product}><td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td><td></td><td>{money(l.monthlyByYear[0])}</td></tr>,
-                      ...l.bands.map((b) => (
-                        <tr key={`${l.product}-${b.from}`} className="tp-band">
-                          <td>units {b.to === null ? `${b.from}+` : `${b.from} to ${b.to}`} at {b.discountPct}% off</td>
-                          <td>{b.units}</td><td>{money(b.feeByYear[0])}</td><td>{money(BigInt(b.units) * b.feeByYear[0])}</td>
-                        </tr>
-                      )),
-                    ])}
-                  </tbody>
-                </table>
-              </div>
-              <div>
-                <div className="tp-label">Profit</div>
-                <table className="tp-table"><tbody>
-                  <tr><td>TCV (net)</td><td>{money(q.tcvNetCents)}</td></tr>
-                  <tr><td>Hardware and hosting cost</td><td>{money(q.totalCostCents)}</td></tr>
-                  <tr><td>Gross profit</td><td>{money(q.grossProfitCents)}</td></tr>
-                  <tr><td>WHT borne by Terminus</td><td>{money(q.tax.whtBorneCents)}</td></tr>
-                </tbody></table>
-              </div>
-            </div>
-          </section>
+            {/* ── QUOTE_PANEL (John, 2026-10-05): ONE PANEL ────────────────────
+                Built to the approved pictures (prototypes/term-pricing-quote/).
+                SUPERSEDED, QUOTED NOT DELETED: a two-column `.tp-split` of a
+                "Product lines" table and a "Profit" table, then a separate
+                Payment schedule card. Their content now lives only here, in
+                Q1's order: tiles, pricing by product and band, profit by
+                product, payment schedule. */}
+            <div className="tp-label tp-section-label" data-testid="tp-pricing-head">{capex ? 'Pricing basis (OPEX fees, year 1)' : 'Pricing by product and band'}</div>
+            <table className="tp-table tp-lines tp-pricing" data-testid="tp-pricing">
+              <thead><tr><th>Product and band</th><th>Units</th><th>List fee / unit (USD)</th><th>Volume discount</th><th>Fee / unit (USD)</th><th>Monthly (USD)</th></tr></thead>
+              <tbody>
+                {q.lines.flatMap((l) => [
+                  <tr key={l.product} className="tp-subtotal" data-testid={`tp-pricing-${l.product}`}>
+                    <td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td><td></td><td></td><td></td><td>{money(l.monthlyByYear[0])}</td>
+                  </tr>,
+                  ...l.bands.map((b) => (
+                    <tr key={`${l.product}-${b.from}`} className="tp-band">
+                      <td>units {b.to === null ? `${b.from}+` : `${b.from} to ${b.to}`}</td>
+                      <td>{b.units}</td><td>{money(roundHalfUp(l.listFee, 2))}</td><td>{b.discountPct}%</td>
+                      <td>{money(b.feeByYear[0])}</td><td>{money(BigInt(b.units) * b.feeByYear[0])}</td>
+                    </tr>
+                  )),
+                ])}
+                <tr className="tp-subtotal tp-total" data-testid="tp-pricing-total">
+                  <td>Total per month</td><td>{q.lines.reduce((t, l) => t + l.units, 0)}</td><td></td><td></td><td></td><td>{money(q.monthlyTotalCents)}</td>
+                </tr>
+              </tbody>
+            </table>
+            {/* Q1(b): with an escalator, the fees above are year 1's. */}
+            {q.monthlyTotalByYear.length > 1 && isDecimal(escalator) && Number(escalator) !== 0 && (
+              <p className="tp-small tp-muted" data-testid="tp-escalator-note">
+                Fees rise {escalator.trim()}% a year from year {startYear}.{capex ? ' The payment schedule shows each year\'s figures; under CAPEX the client pays hardware upfront and a monthly service fee instead.' : ''}
+              </p>
+            )}
 
-          <section className="tp-card" aria-label="Payment schedule">
-            <h2 className="tp-h2">Payment schedule <span className="tp-hint">{capex ? 'hardware upfront, then a monthly service fee' : whtSplit ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term'}</span></h2>
-            <table className="tp-table tp-lines" data-testid="tp-schedule">
+            {/* Q2: per product from the engine (spec v1.4); WHT is never per product. */}
+            <div className="tp-label tp-section-label">Profit by product</div>
+            <table className="tp-table tp-lines" data-testid="tp-profit">
+              <thead><tr><th>Product</th><th>Units</th><th>TCV (net)</th><th>Hardware and hosting cost</th><th>Gross profit</th><th>Margin on price</th></tr></thead>
+              <tbody>
+                {q.lines.map((l) => (
+                  <tr key={l.product} data-testid={`tp-profit-${l.product}`}>
+                    <td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td>
+                    <td>{money(l.tcvNetCents)}</td><td>{money(l.costCents)}</td><td>{money(l.grossProfitCents)}</td><td>{pct(l.grossMargin)}</td>
+                  </tr>
+                ))}
+                <tr className="tp-subtotal tp-total" data-testid="tp-profit-total">
+                  <td>Total</td><td>{q.lines.reduce((t, l) => t + l.units, 0)}</td>
+                  <td>{money(q.tcvNetCents)}</td><td>{money(q.totalCostCents)}</td><td>{money(q.grossProfitCents)}</td><td>{pct(q.grossMargin)}</td>
+                </tr>
+                {q.tax.whtBorneCents > 0n && (
+                  <>
+                    <tr className="tp-quiet" data-testid="tp-profit-wht">
+                      <td>WHT borne by Terminus (whole deal)</td><td></td><td></td><td></td><td>{money(-q.tax.whtBorneCents)}</td><td></td>
+                    </tr>
+                    {/* The one subtraction on this screen: the engine's own
+                        definition of marginAfterWht's numerator (Q4), shown. */}
+                    <tr className="tp-quiet" data-testid="tp-profit-after-wht">
+                      <td>Gross profit after WHT</td><td></td><td></td><td></td><td>{money(q.grossProfitCents - q.tax.whtBorneCents)}</td><td>{q.marginAfterWht ? pct(q.marginAfterWht) : ''}</td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+
+            {/* Q1(d): the payment schedule, rows and notes as before. */}
+            <div className="tp-label tp-section-label">Payment schedule</div>
+            <p className="tp-small tp-muted tp-schedule-hint">{capex ? 'hardware upfront, then a monthly service fee' : whtSplit ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term'}</p>
+            <table className="tp-table tp-lines tp-schedule" data-testid="tp-schedule">
               <thead><tr><th>When</th><th>Invoices</th><th>Net fee</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
                 <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
               <tbody>
@@ -348,9 +393,11 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               </tbody>
             </table>
             <p className="tp-small tp-muted">{capex
-              ? `Upfront ${money(q.capex!.upfrontCents)} plus the monthly service fees ties to TCV ${money(q.tcvNetCents)} exactly, the same TCV as OPEX; the upfront carries any rounding residue.`
+              // D3 (John, 2026-10-06): today's sentence plus the picture's.
+              ? `Upfront ${money(q.capex!.upfrontCents)} plus the monthly service fees ties to TCV ${money(q.tcvNetCents)} exactly, the same TCV as OPEX; the upfront carries any rounding residue. WHT is withheld per invoice, so it is shown for the whole deal, not per product.`
               : `Net fees times months equal TCV ${money(q.tcvNetCents)} exactly. GST is added on top of each invoice; WHT applies to the fee before GST.`}</p>
           </section>
+
         </>
       )}
 
