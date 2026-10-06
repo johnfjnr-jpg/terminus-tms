@@ -12,7 +12,7 @@
 //
 // Margin means margin on price everywhere on this screen (R-TP4).
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import {
@@ -57,6 +57,72 @@ const vsAnchor = (saving: { n: bigint; d: bigint }, isAnchor: boolean) => {
 }
 const isWhole = (s: string) => /^\d+$/.test(s.trim())
 const isDecimal = (s: string) => /^\d+(\.\d+)?$/.test(s.trim())
+
+// ── TILE_FIT (John, 2026-10-06): ONE SHARED FIGURE SIZE FOR THE TILES ──────
+// F1: the largest size at which the widest figure in the row fits its tile,
+// padding included, applied to every tile alike. F2: the lead figure keeps its
+// proportion. F3: never below the floor; if the row cannot fit at the floor,
+// the tiles wrap to two rows of equal width instead. The cap, the floor and
+// the lead ratio are CSS tokens on `.tp-figures`, read here, so the numbers
+// live in one place and a test can plant a different one.
+//
+// A figure's width scales with its size, so each is measured once at a
+// reference size in its own font and the fitting size is solved for, rather
+// than searched. Recomputed when the figures, the tile count or the width
+// change (a ResizeObserver on the row).
+function useFittedFigures(dep: unknown) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useLayoutEffect(() => {
+    const row = ref.current
+    if (!row) return
+    const canvas = document.createElement('canvas').getContext('2d')
+    const fit = () => {
+      const cs = getComputedStyle(row)
+      const token = (name: string, dflt: number) => { const v = parseFloat(cs.getPropertyValue(name)); return Number.isFinite(v) ? v : dflt }
+      const max = token('--tp-fig-max', 18), min = token('--tp-fig-min', 13), lead = token('--tp-fig-lead-ratio', 22 / 18)
+      const tiles = [...row.children] as HTMLElement[]
+      const figs = tiles.map((t) => t.querySelector<HTMLElement>('.tp-v'))
+      // Width of each figure per pixel of font size, in its own face.
+      const per = figs.map((f) => {
+        if (!f || !canvas) return 0
+        const fcs = getComputedStyle(f)
+        canvas.font = `${fcs.fontStyle} ${fcs.fontWeight} 100px ${fcs.fontFamily}`
+        return (canvas.measureText(f.textContent ?? '').width / 100) * (f.classList.contains('tp-lead') ? lead : 1)
+      })
+      const solve = () => Math.min(...tiles.map((t, i) => {
+        const tcs = getComputedStyle(t)
+        const room = t.clientWidth - parseFloat(tcs.paddingLeft) - parseFloat(tcs.paddingRight)
+        return per[i] > 0 ? room / per[i] : Infinity
+      }))
+      row.classList.remove('tp-figures--wrap')
+      row.style.setProperty('--tp-fig-cols', String(Math.ceil(tiles.length / 2)))
+      let size = solve()
+      if (size < min) {
+        row.classList.add('tp-figures--wrap')
+        size = solve()
+      }
+      size = Math.max(min, Math.min(max, Math.floor(size * 4) / 4))
+      row.style.setProperty('--tp-fig', `${size}px`)
+      // Wrapped, the hairlines follow the grid: a rule under the first row and
+      // none at a row's right end, so no line doubles against the card's own
+      // border (seen in the first wrapped capture). CSS cannot count columns
+      // held in a variable, so the tiles are marked here.
+      const cols = Math.ceil(tiles.length / 2), wrapped = row.classList.contains('tp-figures--wrap')
+      tiles.forEach((t, i) => {
+        t.classList.toggle('tp-fig-top', wrapped && i < cols)
+        t.classList.toggle('tp-fig-end', wrapped && (i + 1) % cols === 0)
+      })
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(row)
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    let live = true
+    fonts?.ready.then(() => { if (live) fit() }).catch(() => {})
+    return () => { live = false; ro.disconnect() }
+  }, [dep])
+  return ref
+}
 
 export function TermPricingView({ navToken }: { navToken: number }) {
   const shell = useShell()
@@ -131,6 +197,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       return { error: (e as Error).message }
     }
   }, [params, units, term, structure, escalator, startYear, gst, whtPct, grossUp, whtSplit, whtHw, whtSaas])
+  // TILE_FIT: refits whenever the quote (its figures and tile count) changes.
+  const figuresRef = useFittedFigures(result)
 
   if (isError) return <div className="wrap tp-view"><p className="tp-error" role="alert">{(error as Error).message}</p></div>
   if (!data || !params) return <div className="wrap tp-view"><p className="field-note">Loading term pricing...</p></div>
@@ -287,7 +355,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
           <section className="tp-card" aria-label="Quote">
             <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtTitle}</span></h2>
-            <div className="tp-figures">
+            <div className="tp-figures" ref={figuresRef} data-testid="tp-figures">
               <div><div className="tp-label">{capex ? 'Monthly service fee (year 1)' : 'Monthly total (year 1)'}</div>
                 <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(capex ? q.capex!.monthlyServiceCents : q.monthlyTotalCents)}</div></div>
               {capex && <div><div className="tp-label">Upfront</div><div className="tp-v" data-testid="tp-q-upfront">{money(q.capex!.upfrontCents)}</div></div>}
