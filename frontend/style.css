@@ -9404,7 +9404,8 @@ select:autofill {
 .tp-figures .tp-v { font-size: var(--tp-fig, 18px); }
 .tp-figures .tp-v.tp-lead { font-size: calc(var(--tp-fig, 18px) * var(--tp-fig-lead-ratio)); }
 .tp-figures.tp-figures--wrap { grid-auto-flow: row; grid-template-columns: repeat(var(--tp-fig-cols), minmax(0, 1fr)); }
-.tp-figures.tp-figures--wrap > div { border-bottom: 1px solid var(--hairline); }
+.tp-figures.tp-figures--wrap > div.tp-fig-top { border-bottom: 1px solid var(--hairline); }
+.tp-figures.tp-figures--wrap > div.tp-fig-end { border-right: 0; }
 .tp-chip { display: inline-block; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; border: 1px solid var(--hairline-strong); color: var(--muted); margin-top: 8px; }
 .tp-chip.tp-flag { border-color: currentColor; color: var(--attention); }
 .tp-small { font-size: 12px; margin-top: 8px; }

@@ -103,6 +103,15 @@ function useFittedFigures(dep: unknown) {
       }
       size = Math.max(min, Math.min(max, Math.floor(size * 4) / 4))
       row.style.setProperty('--tp-fig', `${size}px`)
+      // Wrapped, the hairlines follow the grid: a rule under the first row and
+      // none at a row's right end, so no line doubles against the card's own
+      // border (seen in the first wrapped capture). CSS cannot count columns
+      // held in a variable, so the tiles are marked here.
+      const cols = Math.ceil(tiles.length / 2), wrapped = row.classList.contains('tp-figures--wrap')
+      tiles.forEach((t, i) => {
+        t.classList.toggle('tp-fig-top', wrapped && i < cols)
+        t.classList.toggle('tp-fig-end', wrapped && (i + 1) % cols === 0)
+      })
     }
     fit()
     const ro = new ResizeObserver(fit)

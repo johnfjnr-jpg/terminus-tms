@@ -68,6 +68,11 @@ const INJECTIONS = {
   'six-a-row': '.tp-seg.tp-terms { grid-template-columns: repeat(6, max-content) !important; }',
   // L2 and L3: the two shapes John's approval ruled out.
   'l2-borderless': '.tp-num.tp-select:disabled { border-color: transparent !important; }',
+  // TILE_FIT calibrations (E2): a planted per-tile size must fire the shared-
+  // size check; a planted 8px floor must fire F3 (the row shrinks below 13px
+  // instead of wrapping).
+  'per-tile-size': '#view-term-pricing .tp-figures > div:nth-child(3) .tp-v { font-size: 12px !important; }',
+  'floor-8': '#view-term-pricing .tp-figures { --tp-fig-min: 8 !important; }',
   // TP_INPUTS: L3's halves are retired with the layout they measured.
   'i1-wrap': '[data-testid="tp-deal-row"] { max-width: 600px !important; }',
   'i3-height': '[data-testid="tp-wht-saas"] { margin-top: 40px !important; }',
@@ -267,6 +272,33 @@ try {
               })
               check(fit.over.length === 0 && !fit.cardScrolls && fit.receives === 'Terminus receives' && fit.receivesRight <= 0.5,
                 `${where}: every Quote table fits the panel, "Terminus receives" visible`, JSON.stringify(fit))
+              // ── TILE_FIT (F1 to F3): every figure inside its tile; one shared
+              // size per row with the lead in proportion; never under 13px; and
+              // when the row wraps, every tile the same width.
+              const tiles = await p.evaluate(() => {
+                const row = document.querySelector('#view-term-pricing [aria-label="Quote"] .tp-figures')
+                const ratio = parseFloat(getComputedStyle(row).getPropertyValue('--tp-fig-lead-ratio'))
+                const out = { outside: [], sizes: [], lead: null, ratio, wrapped: row.classList.contains('tp-figures--wrap'), widths: [] }
+                for (const t of row.children) {
+                  const cs = getComputedStyle(t), b = t.getBoundingClientRect()
+                  const left = b.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft)
+                  const right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight)
+                  out.widths.push(Math.round(b.width))
+                  const v = t.querySelector('.tp-v')
+                  if (!v) continue
+                  const r = document.createRange(); r.selectNodeContents(v); const fb = r.getBoundingClientRect()
+                  if (fb.left < left - 0.5 || fb.right > right + 0.5) out.outside.push(`${v.textContent.trim()} by ${Math.round(Math.max(left - fb.left, fb.right - right))}px`)
+                  const fs = parseFloat(getComputedStyle(v).fontSize)
+                  if (v.classList.contains('tp-lead')) out.lead = fs; else out.sizes.push(fs)
+                }
+                return out
+              })
+              const std = tiles.sizes[0]
+              check(tiles.outside.length === 0, `${where}: TILE_FIT every figure inside its tile`, tiles.outside.join('; '))
+              check(tiles.sizes.length > 0 && tiles.sizes.every((s) => Math.abs(s - std) < 0.05) && Math.abs(tiles.lead - std * tiles.ratio) < 0.1,
+                `${where}: TILE_FIT one shared size (${std}px), lead in proportion (${tiles.lead}px)`, JSON.stringify(tiles))
+              check(std >= 13 && (!tiles.wrapped || Math.max(...tiles.widths) - Math.min(...tiles.widths) <= 1),
+                `${where}: TILE_FIT F3 never under 13px${tiles.wrapped ? ', wrapped with equal tiles' : ''}`, JSON.stringify({ std, wrapped: tiles.wrapped, widths: tiles.widths }))
               // ── TP_INPUTS I1 to I4, as relations between elements ──────────
               const inputs = () => p.evaluate(() => {
                 const card = document.querySelector('#view-term-pricing [aria-label="Inputs"]')
