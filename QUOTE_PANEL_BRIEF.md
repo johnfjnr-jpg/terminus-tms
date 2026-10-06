@@ -70,3 +70,21 @@ RESOLVED (2026-10-06): ls-remote origin/main = b7310cb. Copied:
      sha256 fd5c01be0819c9fbfed1580b075d7ca6a123931a9e86e677e978cd72da6cf86b
   "One panel CAPEX, 3 escalator, WHT borne@1x.png" -> quote-panel-capex.png
      sha256 f7de5c9183ff10a7f8a27f43d9d2f0587d2fbb5745f283cea0da6c86c8c3027b
+
+---
+
+RULINGS (John, 2026-10-06):
+D1 Keep the CAPEX "Upfront" tile (the picture omitted it in error).
+D2 Keep "WHT borne" as the schedule column head when WHT is borne.
+D3 CAPEX schedule note = today's sentence plus the picture's: "...the same TCV as OPEX; the upfront
+   carries any rounding residue. WHT is withheld per invoice, so it is shown for the whole deal, not
+   per product."
+D4 Title hint with Gross up on: ", WHT <rate>% grossed up" (split: ", split WHT <hw>% hardware /
+   <saas>% SaaS, grossed up" or "borne" as applies). Pin each wording in the probe.
+OVERFLOW (section 4): fix in this round. First tighten the schedule's column padding (and only
+then the figure font) until the table fits its content box at every width in the sweep, all
+states; "Terminus receives" must stay visible without scrolling. If it cannot fit, STOP and
+photograph before choosing a scroll container. --qp must be 26 / 26 with the legibility check
+unrelaxed.
+Then the EXIT list: full gate (NordVPN quit, resolver clean); merge --no-ff; merged gate;
+ls-remote re-check; stop at "ready for John's push". Never git push.
