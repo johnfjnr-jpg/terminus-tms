@@ -321,12 +321,22 @@ export function priceQuote(input, params) {
     })
     const monthlyByYear = []
     for (let k = 0; k < years; k++) monthlyByYear.push(bands.reduce((s, b) => s + BigInt(b.units) * b.feeByYear[k], 0n))
+    // v1.4 section 4.3, per product: the line's own invoiced fees over the
+    // term (escalated), its cost and its profit. Summed from the same cents as
+    // the deal, so the products add to the deal exactly. No WHT here: WHT is
+    // withheld per invoice and is never allocated to a product.
+    const costPerUnitCents = roundHalfUp(costAt(cost, T), 2)
+    let tcvNetCents = 0n
+    for (let k = 1; k <= years; k++) tcvNetCents += monthlyByYear[k - 1] * BigInt(monthsInYear(k))
+    const costCents = BigInt(units) * costPerUnitCents
     return {
       product, units, listFee,
       savingVsAnchor: sub(ONE, div(listFee, listFeeAt(p, product, p.anchorTerm))),
-      costPerUnitCents: roundHalfUp(costAt(cost, T), 2),
+      costPerUnitCents,
       hwCostPerUnit: cost.hw,
       bands, monthlyByYear,
+      tcvNetCents, costCents, grossProfitCents: tcvNetCents - costCents,
+      grossMargin: tcvNetCents === 0n ? ZERO : frac(tcvNetCents - costCents, tcvNetCents),
     }
   })
 
