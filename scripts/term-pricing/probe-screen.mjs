@@ -305,7 +305,34 @@ if (FLOW) {
   // The separate cards are gone: one Quote panel holds all four sections.
   check(!(await page.$(`${V} [aria-label="Payment schedule"]`)) && !!(await page.$(`${V} [aria-label="Quote"] [data-testid="tp-schedule"]`)),
     'QP the payment schedule lives in the Quote panel; the separate card is gone')
+  // D3 (John, 2026-10-06): today's CAPEX note plus the picture's sentence.
+  check((await page.$eval(`${V} [aria-label="Quote"] [data-testid="tp-schedule"] + p`, (e) => e.textContent.trim())) ===
+    'Upfront 1,550,000.04 plus the monthly service fees ties to TCV 23,379,957.72 exactly, the same TCV as OPEX; the upfront carries any rounding residue. WHT is withheld per invoice, so it is shown for the whole deal, not per product.',
+    'D3 the CAPEX schedule note is today\'s sentence plus the picture\'s')
+  // D2: "WHT borne" stays the schedule's column head when WHT is borne.
+  check((await page.$$eval(`${V} [data-testid="tp-schedule"] thead th`, (t) => t.map((x) => x.textContent.trim())))[6] === 'WHT borne', 'D2 the schedule head reads "WHT borne"')
+  // D1: the CAPEX Upfront tile is kept.
+  check((await text('tp-q-upfront')) === '1,550,000.04', 'D1 the CAPEX Upfront tile is kept')
   await capture('qp-capex', 1240)
+  // D4: every title wording, pinned (the borne one is checked above).
+  const hint = () => page.$eval(`${V} [aria-label="Quote"] .tp-h2 .tp-hint`, (e) => e.textContent.trim())
+  const sw = async (id, on) => {
+    if ((await page.$eval(tid(id), (e) => e.getAttribute('aria-checked'))) !== String(on)) await page.click(tid(id))
+    await page.waitForFunction((s, v) => document.querySelector(s)?.getAttribute('aria-checked') === String(v), {}, tid(id), on)
+  }
+  const pinned = async (want, claim) => {
+    try { await page.waitForFunction((s, w) => document.querySelector(s)?.textContent.trim() === w, { timeout: 6000 }, `${V} [aria-label="Quote"] .tp-h2 .tp-hint`, want); check(true, claim, want) }
+    catch { check(false, claim, `expected ${want}, saw ${await hint()}`) }
+  }
+  await sw('tp-wht-grossup', true)
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2, WHT 10% grossed up', 'D4 one rate, gross-up: ", WHT 10% grossed up"')
+  await sw('tp-wht-split', true)
+  await type('tp-wht-hw', '5'); await type('tp-wht-saas', '10')
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2, split WHT 5% hardware / 10% SaaS, grossed up', 'D4 split, gross-up')
+  await sw('tp-wht-grossup', false)
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2, split WHT 5% hardware / 10% SaaS, borne', 'D4 split, borne')
+  await sw('tp-wht-split', false); await type('tp-wht', '')
+  await pinned('60 months, CAPEX, 3% annual escalator from year 2', 'D4 no WHT: nothing about WHT in the title')
 } else {
   // T1 is the screen's opening state.
   await expectText('tp-q-tcv', '151,999.92', 'T1 TCV')

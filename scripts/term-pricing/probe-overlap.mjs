@@ -176,6 +176,12 @@ try {
       const page = await signedIn(browser, { admin })
       await page.evaluate(() => window.navigate('term-pricing'))
       await page.waitForFunction(() => document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'), { timeout: 15000 })
+      // QUOTE_PANEL: the demo deal's units, so every figure is as wide as a real
+      // deal makes it. The schedule overflowed only with figures this size, and
+      // the opening state's one unit could not have shown it.
+      await typeInto(page, 'tp-units-safesight', '120')
+      await typeInto(page, 'tp-units-air_quality', '40')
+      await typeInto(page, 'tp-units-hemir', '2')
       // SPLIT WHT OFF is the opening state, escalator 0 (its start year
       // disabled). SPLIT WHT ON sets both rates and Gross up, and the
       // escalator to 3% from year 3 at 60 months, so the start-year select is
@@ -248,6 +254,19 @@ try {
                 check(!/rgba\(.*,\s*0\)$|transparent/.test(m.selBorder) && m.selLeft === m.labLeft,
                   `${where}: L2 the disabled start-year select has a border, under its label`, JSON.stringify({ border: m.selBorder, sel: m.selLeft, label: m.labLeft }))
               }
+              // ── QUOTE_PANEL overflow ruling: every table in the panel fits the
+              // panel's content box, and "Terminus receives" is visible without
+              // scrolling. A relation between elements, not a CSS property.
+              const fit = await p.evaluate(() => {
+                const card = document.querySelector('#view-term-pricing [aria-label="Quote"]')
+                const cs = getComputedStyle(card), b = card.getBoundingClientRect()
+                const right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight)
+                const over = [...card.querySelectorAll('table')].map((t) => ({ id: t.dataset.testid, by: Math.round((t.getBoundingClientRect().right - right) * 10) / 10 })).filter((x) => x.by > 0.5)
+                const head = [...card.querySelectorAll('[data-testid="tp-schedule"] thead th')].at(-1)
+                return { over, cardScrolls: card.scrollWidth > card.clientWidth + 1, receives: head?.textContent.trim(), receivesRight: head && Math.round(head.getBoundingClientRect().right - right) }
+              })
+              check(fit.over.length === 0 && !fit.cardScrolls && fit.receives === 'Terminus receives' && fit.receivesRight <= 0.5,
+                `${where}: every Quote table fits the panel, "Terminus receives" visible`, JSON.stringify(fit))
               // ── TP_INPUTS I1 to I4, as relations between elements ──────────
               const inputs = () => p.evaluate(() => {
                 const card = document.querySelector('#view-term-pricing [aria-label="Inputs"]')

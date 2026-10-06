@@ -139,6 +139,15 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const q = result && 'quote' in result ? result.quote : null
   const ladder = result && 'ladder' in result ? result.ladder : null
   const capex = structure === 'capex'
+  // D4 (John, 2026-10-06): the title states the WHT treatment. One rate:
+  // ", WHT 10% borne" or ", WHT 10% grossed up", nothing at 0. Split:
+  // ", split WHT 5% hardware / 10% SaaS, grossed up" (or "borne"). The rates
+  // are the inputs as typed, blank read as 0 (the blank-zero rule).
+  const rateText = (v: string) => (v.trim() === '' ? '0' : v.trim())
+  const treatment = grossUp ? 'grossed up' : 'borne'
+  const whtTitle = whtSplit
+    ? `, split WHT ${rateText(whtHw)}% hardware / ${rateText(whtSaas)}% SaaS, ${treatment}`
+    : isDecimal(whtPct) && Number(whtPct) > 0 ? `, WHT ${whtPct.trim()}% ${treatment}` : ''
 
   return (
     <div className="wrap tp-view" data-testid="term-pricing">
@@ -277,7 +286,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           </section>
 
           <section className="tp-card" aria-label="Quote">
-            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtSplit ? ', split WHT' : ''}{/* QUOTE_PANEL picture: the borne rate in the title. */}{!whtSplit && q.tax.whtBorneCents > 0n ? `, WHT ${whtPct.trim()}% borne` : ''}</span></h2>
+            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtTitle}</span></h2>
             <div className="tp-figures">
               <div><div className="tp-label">{capex ? 'Monthly service fee (year 1)' : 'Monthly total (year 1)'}</div>
                 <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(capex ? q.capex!.monthlyServiceCents : q.monthlyTotalCents)}</div></div>
@@ -362,7 +371,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             {/* Q1(d): the payment schedule, rows and notes as before. */}
             <div className="tp-label tp-section-label">Payment schedule</div>
             <p className="tp-small tp-muted tp-schedule-hint">{capex ? 'hardware upfront, then a monthly service fee' : whtSplit ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term'}</p>
-            <table className="tp-table tp-lines" data-testid="tp-schedule">
+            <table className="tp-table tp-lines tp-schedule" data-testid="tp-schedule">
               <thead><tr><th>When</th><th>Invoices</th><th>Net fee</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
                 <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
               <tbody>
@@ -384,7 +393,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               </tbody>
             </table>
             <p className="tp-small tp-muted">{capex
-              ? `Upfront ${money(q.capex!.upfrontCents)} plus the monthly service fees ties to TCV ${money(q.tcvNetCents)} exactly, the same TCV as OPEX; the upfront carries any rounding residue.`
+              // D3 (John, 2026-10-06): today's sentence plus the picture's.
+              ? `Upfront ${money(q.capex!.upfrontCents)} plus the monthly service fees ties to TCV ${money(q.tcvNetCents)} exactly, the same TCV as OPEX; the upfront carries any rounding residue. WHT is withheld per invoice, so it is shown for the whole deal, not per product.`
               : `Net fees times months equal TCV ${money(q.tcvNetCents)} exactly. GST is added on top of each invoice; WHT applies to the fee before GST.`}</p>
           </section>
 
