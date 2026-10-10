@@ -26,3 +26,23 @@ B4 Re-implement, never import (R-TP1). Propose nothing beyond the mapping.
 EXIT for Part A after approval: goldens incl. T31 exact; G1 to G5 unchanged; overlap sweep zero;
 full gate (NordVPN quit, resolver clean); merge --no-ff; merged gate; ls-remote re-check; stop at
 "ready for John's push". Never git push.
+
+---
+
+RULINGS (John, 2026-10-10), appended at the phase they launch (the exit):
+R1 SafeSight ANCHOR_MARGIN 50% stays as set: the margin formula is under review and is a live
+   setting, not a defect. OPEX drives the price; CAPEX is payment timing on the same TCV. Probes
+   keep proving the spec figures via --spec; live data is not changed by this round.
+R2 Accept the wrapped "Per camera / mo" heading at 1240 as built.
+A3 APPROVED: run the exit (overlap sweep, goldens, full gate with NordVPN quit, merge --no-ff,
+   merged gate, ls-remote re-check), stop at "ready for John's push". Never git push.
+Part B rulings, recorded in the close-out for the next round (nothing built here):
+ B-1 Two-phase hardware residue carried by month 1.
+ B-2 Hybrid milestone percentages must total exactly 100% or the quote refuses.
+ B-3 CAPEX per-camera column set as proposed, subject to a mockup approved by John before build.
+ B-4 Today's "hardware upfront" becomes Hybrid with one milestone, month 0, 100%; T15, T22, T30
+     unchanged.
+ B-5 Principle of record: OPEX sets the price and TCV; CAPEX structures (Two-phase, Hybrid) only
+     schedule payment of that same TCV.
+QUEUED: FB1 (deal-sheet recovery period longer than the contract silently under-collects hardware)
+as a pricing defect; FB2 and FB3 alongside it.
