@@ -36,6 +36,18 @@ const FLOW = process.argv.includes('--flow')
 const TP2 = process.argv.includes('--tp2')
 // QUOTE_PANEL (--qp): the approved pictures' two states, from the click.
 const QP = process.argv.includes('--qp')
+// PER_CAMERA_AND_CAPEX_P0 (--pc): spec v1.5's T31 from the click, the "-" at
+// zero SafeSight units, and no per-camera column under CAPEX.
+const PC = process.argv.includes('--pc')
+// --spec (PER_CAMERA_AND_CAPEX_P0, POSITION): the live ANCHOR_MARGIN for
+// SafeSight was set to 50 by John's account on 2026-10-07, after the TILE_FIT
+// push, so every spec figure this probe copies (90% throughout, spec section
+// 3) is now a different deal from the live one. The live row is John's data
+// and is not written back. With --spec the spec's margins are passed IN TEST,
+// into the browser's copy of the real GET response and nowhere else, the same
+// way --tp2 passes TERMS. Without --spec the probe reads the live settings.
+const SPEC = process.argv.includes('--spec')
+const SPEC_MARGINS = { safesight: '90', air_quality: '90', hemir: '90' }
 const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : `${ROOT}prototypes/term-pricing/screens`
 const RUN = process.env.TP_RUN ?? 'p3'
 const session = JSON.parse(readFileSync(`${ROOT}session-ref.json`, 'utf8'))
@@ -50,17 +62,21 @@ const check = (ok, claim, detail = '') => {
 const browser = await puppeteer.launch({ headless: 'new' })
 const page = await browser.newPage()
 await page.setViewport({ width: 1240, height: 1100 })
-if (TP2) {
-  await page.evaluateOnNewDocument(() => {
+if (TP2 || SPEC) {
+  const over = {
+    ...(TP2 ? { TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120] } : {}),
+    ...(SPEC ? { ANCHOR_MARGIN: SPEC_MARGINS, SHORT_TERM_MARGIN: SPEC_MARGINS } : {}),
+  }
+  await page.evaluateOnNewDocument((over) => {
     const real = window.fetch
     window.fetch = async (...a) => {
       const res = await real(...a)
       if (!/\/api\/term-pricing(\?|$)/.test(String(a[0]?.url ?? a[0])) || !res.ok) return res
       const body = await res.clone().json()
-      return new Response(JSON.stringify({ ...body, settings: { ...body.settings, TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120] } }),
+      return new Response(JSON.stringify({ ...body, settings: { ...body.settings, ...over } }),
         { status: res.status, headers: res.headers })
     }
-  })
+  }, over)
 }
 await page.goto(BASE, { waitUntil: 'domcontentloaded' })
 await page.evaluate((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(session))
@@ -158,7 +174,8 @@ if (FLOW) {
   await expectText('tp-q-tcv', '166,399.92', 'T26 TCV at 108 months')
   await expectText('tp-q-margin', '82.2%', 'T26 margin')
   const row108 = await page.$eval(tid('tp-ladder-108'), (r) => [...r.cells].map((c) => c.textContent.trim()))
-  check(row108[1] === '1,540.74' && row108[2] === '−63.5%', 'the ladder carries 108: fee 1,540.74, vs 36 −63.5% (table 10.1)', JSON.stringify(row108))
+  // RE-POINTED by PER_CAMERA_AND_CAPEX_P0: cell 2 is now per camera.
+  check(row108[1] === '1,540.74' && row108[3] === '−63.5%', 'the ladder carries 108: fee 1,540.74, vs 36 −63.5% (table 10.1)', JSON.stringify(row108))
 
   // T27: 1 unit, 60, escalator 3% from year 3, through the start-year select.
   await page.click(tid('tp-term-60'))
@@ -232,6 +249,30 @@ if (FLOW) {
   check(s25b[0][3] === '320,851.26' && s25b[1][3] === '21,052.63' && s25b[2][0] === 'SaaS line' && s25b[2][3] === '299,798.63',
     'E3 T25 still reads with split on and gross-up on after the swap', JSON.stringify(s25b.slice(0, 3).map((r) => [r[0], r[3]])))
   await capture('tp2-T25', 1240)
+} else if (PC) {
+  // ── PER_CAMERA_AND_CAPEX_P0 A1: T31 from the click. Every expected figure
+  // is COPIED from spec v1.5's T31, never computed here.
+  const T31 = [['12', '8,009.44'], ['24', '4,928.89'], ['36', '3,902.04'], ['48', '2,972.74'], ['60', '2,415.16'],
+    ['72', '2,043.44'], ['84', '1,777.92'], ['96', '1,578.79'], ['108', '1,423.90'], ['120', '1,299.99']]
+  await type('tp-units-safesight', '120'); await type('tp-units-air_quality', '40'); await type('tp-units-hemir', '2')
+  await expectText('tp-ladder-percam-120', '1,299.99', 'T31 settled (120 months)')
+  const head = await page.$$eval(`${V} [data-testid="tp-ladder"] thead th`, (t) => t.map((x) => x.textContent.trim()))
+  check(head[1] === 'Monthly fee (year 1)' && head[2] === 'Per camera / mo', 'A1 "Per camera / mo" sits directly after the monthly fee column', JSON.stringify(head))
+  const got = await page.$$eval(`${V} [data-testid="tp-ladder"] tbody tr`, (rs) => rs.map((r) => [r.cells[0].textContent.trim().replace(' months', ''), r.cells[2].textContent.trim()]))
+  check(JSON.stringify(got) === JSON.stringify(T31), 'T31 per camera at every term, from the click', JSON.stringify(got))
+  await capture('pc-opex-T31', 1240)
+  // Zero SafeSight units: every row reads "-", and the rest of the ladder still prices.
+  await type('tp-units-safesight', '0')
+  await expectText('tp-ladder-percam-60', '-', 'A1 per camera reads "-" with 0 SafeSight units')
+  const dash = await page.$$eval(`${V} [data-testid="tp-ladder"] tbody tr`, (rs) => rs.map((r) => r.cells[2].textContent.trim()))
+  check(dash.length === T31.length && dash.every((d) => d === '-'), 'A1 every row reads "-" with 0 SafeSight units', JSON.stringify(dash))
+  // CAPEX: no per-camera column, and the CAPEX heads are unchanged.
+  await type('tp-units-safesight', '120')
+  await page.click(tid('tp-capex'))
+  await page.waitForFunction((s) => document.querySelector(s)?.textContent.includes('Upfront'), { timeout: 6000 }, `${V} [data-testid="tp-ladder"] thead`)
+  const capHead = await page.$$eval(`${V} [data-testid="tp-ladder"] thead th`, (t) => t.map((x) => x.textContent.trim()))
+  check(!capHead.includes('Per camera / mo') && capHead[1] === 'Upfront' && capHead[2] === 'Monthly service fee (year 1)' && !(await page.$(tid('tp-ladder-percam-60'))),
+    'A1 under CAPEX the column is not shown', JSON.stringify(capHead))
 } else if (QP) {
   // ── QUOTE_PANEL E2: the approved pictures' two states, from the click ──
   // Every expected figure is COPIED from the pictures (prototypes/
@@ -347,8 +388,12 @@ if (FLOW) {
     ['108 months', '1,540.74', '−63.5%', '166,399.92', '82.2%'],
     ['120 months', '1,406.67', '−66.7%', '168,800.40', '81.0%'],
   ]
+  // RE-POINTED by PER_CAMERA_AND_CAPEX_P0: under OPEX the ladder carries "Per
+  // camera / mo" after the fee. At one SafeSight unit it IS the fee (section
+  // 4.5 over one unit), so it is the table's own fee column, not a new figure.
+  const t101pc = t101.map((r) => [r[0], r[1], r[1], ...r.slice(2)])
   const lad = await ladderRows()
-  check(JSON.stringify(lad) === JSON.stringify(t101), 'the ladder at 1 unit reads table 10.1 row for row (fee, vs 36, TCV, margin)', lad.length + ' rows')
+  check(JSON.stringify(lad) === JSON.stringify(t101pc), 'the ladder at 1 unit reads table 10.1 row for row (fee, per camera, vs 36, TCV, margin)', lad.length + ' rows')
 
   // T6
   await type('tp-units-safesight', '120')
@@ -356,7 +401,10 @@ if (FLOW) {
   await expectText('tp-q-tcv', '17,389,126.20', 'T6 TCV')
   await expectText('tp-q-margin', '86.2%', 'T6 margin')
   const sel6 = await page.$eval(`${V} tr.tp-ladder.on`, (r) => [...r.cells].map((c) => c.textContent.trim()))
-  check(sel6[0] === '60 months' && sel6[3] === '17,389,126.20' && sel6[4] === '86.2%', 'the selected ladder row is 60 months and equals the quote card', JSON.stringify(sel6))
+  // RE-POINTED by PER_CAMERA_AND_CAPEX_P0: TCV and margin moved one cell right.
+  check(sel6[0] === '60 months' && sel6[4] === '17,389,126.20' && sel6[5] === '86.2%', 'the selected ladder row is 60 months and equals the quote card', JSON.stringify(sel6))
+  // T6 per camera is the monthly total over 120 units: 289,818.77 / 120 = 2,415.1564, half-up 2,415.16 (T31's 60-month figure).
+  check(sel6[2] === '2,415.16', 'T6 per camera 2,415.16', JSON.stringify(sel6))
   await capture('opex-T6', 1240)
 
   // T15 (A1)

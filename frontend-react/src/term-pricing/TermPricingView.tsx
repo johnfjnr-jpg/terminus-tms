@@ -22,6 +22,10 @@ import { buildParams } from '../../../src/lib/term-pricing-settings.js'
 
 export const TERM_PRICING_KEY = ['term-pricing'] as const
 
+// v1.5 section 4.5: the ladder's "Per camera / mo" divides this product's
+// line. The calculator names no product, so the screen says which is the camera.
+const PER_CAMERA_PRODUCT = 'safesight'
+
 const PRODUCTS = [
   { key: 'safesight', label: 'SafeSight' },
   { key: 'air_quality', label: 'AQ' },
@@ -191,7 +195,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       whtSaasPct: whtSplit ? blankNull(whtSaas) : null,
     }
     try {
-      return { quote: priceQuote(input, params.p), ladder: termLadder(input, params.p) }
+      return { quote: priceQuote(input, params.p), ladder: termLadder({ ...input, perCameraProduct: PER_CAMERA_PRODUCT }, params.p) }
     } catch (e) {
       // The engine's refusals are written for a person (T17, T18 and A3).
       return { error: (e as Error).message }
@@ -329,7 +333,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             <table className="tp-table" data-testid="tp-ladder">
               <thead><tr>
                 <th>Term</th>
-                {capex ? <><th>Upfront</th><th>Monthly service fee (year 1)</th></> : <th>Monthly fee (year 1)</th>}
+                {capex ? <><th>Upfront</th><th>Monthly service fee (year 1)</th></> : <><th>Monthly fee (year 1)</th><th>Per camera / mo</th></>}
                 <th>vs 36 months, this deal</th><th>TCV (net)</th><th>Margin on price</th>
               </tr></thead>
               <tbody>
@@ -342,7 +346,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                       <td>{r.termMonths} months</td>
                       {capex
                         ? <><td>{money(r.upfrontCents!)}</td><td>{money(r.monthlyServiceCents!)}</td></>
-                        : <td>{money(r.monthlyTotalCents)}</td>}
+                        : <><td>{money(r.monthlyTotalCents)}</td>
+                          <td data-testid={`tp-ladder-percam-${r.termMonths}`}>{r.perCameraCents === null ? '-' : money(r.perCameraCents)}</td></>}
                       <td className={v.kind === 'saving' ? 'tp-saving' : v.kind === 'premium' ? 'tp-premium' : undefined}>{v.text}</td>
                       <td>{money(r.tcvNetCents)}</td>
                       <td>{pct(r.grossMargin)}</td>

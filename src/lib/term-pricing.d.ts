@@ -85,6 +85,8 @@ export interface LadderRow {
   termMonths: number; isAnchor: boolean; paymentStructure: 'opex' | 'capex'
   monthlyTotalCents: bigint; upfrontCents: bigint | null; monthlyServiceCents: bigint | null
   savingVsAnchor: Fraction; tcvNetCents: bigint; grossMargin: Fraction; belowMarginFloor: boolean
+  /** v1.5 section 4.5: OPEX only; null under CAPEX, with no product named, or no units. */
+  perCameraCents: bigint | null
 }
 
 export function parseDecimal(value: string | bigint, what?: string): Fraction
@@ -93,6 +95,6 @@ export function normaliseParams(params: EngineParamsInput | NormalisedParams): N
 export function articleFor(n: number): 'a' | 'an'
 export function unitEconomics(product: string, termMonths: number, params: EngineParamsInput | NormalisedParams): unknown
 export function priceQuote(input: QuoteInput, params: EngineParamsInput | NormalisedParams): Quote
-export function termLadder(input: Omit<QuoteInput, 'termMonths'> & { termMonths?: number }, params: EngineParamsInput | NormalisedParams): LadderRow[]
+export function termLadder(input: Omit<QuoteInput, 'termMonths'> & { termMonths?: number; perCameraProduct?: string }, params: EngineParamsInput | NormalisedParams): LadderRow[]
 export function formatMoney(cents: bigint): string
 export function formatPct(ratio: Fraction, places?: number): string
