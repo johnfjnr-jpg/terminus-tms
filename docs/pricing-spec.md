@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.4
+# Terminus Term Pricing: Specification v1.5
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -7,6 +7,7 @@
 **Amended (v1.2.3, John, 2 Oct 2026):** test case T23, a multi-product deal on real catalog costs, so the T14 behaviour can be proven on the screen (TEST-B is not in the catalog). Every earlier figure is unchanged.
 **Amended (v1.3, John, 2 Oct 2026, rulings B1 to B6 of TERM_PRICING_2):** the default `TERMS` runs every year to ten, adding 108 months (B1); WHT is a typed rate with a separate gross-up switch (B3), optionally split between the hardware and the software-as-a-service invoice lines (B4); the escalator starts in a chosen contract year (B6); test cases T24 to T28. Every earlier figure is unchanged: rows 10.1 and 10.2 gain 108, and `steps_above(120)` becomes 7 while `PROFIT_STEP` is 0.
 **Amended (v1.4, John, 5 Oct 2026, QUOTE_PANEL):** per-product totals in section 4.3 (each product's TCV, cost, gross profit and margin, summing exactly to the deal); WHT is never allocated to a product; test cases T29 and T30. Every earlier figure is unchanged.
+**Amended (v1.5, John, 10 Oct 2026, PER_CAMERA_AND_CAPEX_P0):** the term ladder's OPEX per-camera fee (section 4.5); test case T31. Every earlier figure is unchanged.
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
@@ -119,6 +120,17 @@ A product's TCV is the same under `opex` and `capex`: the payment structure chan
 ### 4.4 Margin floor
 
 `gross_margin` below `MARGIN_FLOOR` shows a visible flag. The quote still prices.
+
+### 4.5 Per camera, OPEX (v1.5)
+
+The term ladder shows, under `opex`, what one SafeSight camera costs the client per month at each term:
+
+```
+per_camera(T) = round_half_up( safesight_monthly_total(T) / units[SafeSight], 2 )
+safesight_monthly_total(T) = Σ SafeSight bands ( units_in_band × band_fee(T, band) )     (year 1, after the banded volume discount)
+```
+
+Shown as "-" when `units[SafeSight]` is 0. Display only: it is never invoiced and never feeds TCV, so it may differ from any band fee by the banding average. Under `capex` the column is not shown (not yet decided; section 13).
 
 ## 5. Money handling
 
@@ -280,6 +292,7 @@ SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, no
 | T28 | T6 as `capex`, escalator 3% from year 3 | TCV 18,027,745.92; upfront 1,200,000.00; service fees by year 270,527.21 / 270,527.21 / 278,643.03 / 287,002.32 / 295,612.39; upfront + Σ = TCV | CAPEX with a later escalator start |
 | T29 | SafeSight 120 + AQ 40 + HEMIR 2, 60 months, `opex`, no escalator | SafeSight TCV 17,389,126.20, cost 2,400,000.00, profit 14,989,126.20, 86.2%; AQ 2,245,484.40, 320,000.00, 1,925,484.40, 85.7%; HEMIR 2,384,000.40, 260,000.00, 2,124,000.40, 89.1%; deal 22,018,611.00, 2,980,000.00, 19,038,611.00, 86.5% | Per-product totals sum to the deal |
 | T30 | the same units, 60 months, `capex`, escalator 3% from year 2, WHT 10% borne | SafeSight TCV 18,464,248.32, 87.0%; AQ 2,384,313.00, 86.6%; HEMIR 2,531,396.40, 89.7%; deal TCV 23,379,957.72, gross profit 20,399,957.72, 87.3%; upfront 1,550,000.04; service fees by year 342,647.69 / 352,927.12 / 363,514.94 / 374,420.39 / 385,653.00; WHT borne 2,337,995.72; gross profit after WHT 18,061,962.00, 77.3% | Per product under CAPEX with an escalator; WHT whole-deal only |
+| T31 | SafeSight 120 + AQ 40 + HEMIR 2, `opex`, catalog costs: per camera at every term (section 4.5) | 12: 8,009.44; 24: 4,928.89; 36: 3,902.04; 48: 2,972.74; 60: 2,415.16; 72: 2,043.44; 84: 1,777.92; 96: 1,578.79; 108: 1,423.90; 120: 1,299.99 | Per camera divides the SafeSight line only; AQ and HEMIR do not move it |
 
 Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFIT_STEP` to 1,000.00) flows through with no code change.
 
@@ -299,5 +312,6 @@ Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFI
 | Installation | Excluded; must be recovered in full on 12- and 24-month terms when added |
 | Warranty | Excluded for now |
 | Cost escalation | Costs held flat |
+| Per-camera columns under `capex` (hardware per camera, service fee per camera) | Not shown; proposed in the PER_CAMERA_AND_CAPEX_P0 report with the mapping onto the Commercials two-phase and hybrid structures |
 | Linking a quote to an opportunity's TCV | After the demo, with a "one deal, one price" rule |
 | A split OPEX invoice whose service line would fall below zero (the hardware line exceeds the month's fee, possible only with unusual admin margins) | The quote refuses with a clear error rather than invoice a negative line (implementation position, TERM_PRICING_2) |
