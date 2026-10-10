@@ -13,6 +13,14 @@
 // Every scan reads code with comments stripped (Verification 39), so prose
 // about an import can neither satisfy nor trip a check. The engine's own name
 // is assembled from parts so this file never contains an import of it.
+//
+// ── TP_CAPEX (Q4, 2026-10-10): THE SHARED MILESTONE VOCABULARY ─────────────
+// C-11 shares the milestone NAMES between Commercials and term pricing, in
+// src/lib/milestone-vocabulary.js (names only, no pricing logic). R-TP1 part 1
+// stands with NO exception: the engine never sees a milestone name. It takes
+// a milestone as an opaque key and checks shares, months, duplicates and the
+// count; the SCREEN reads the names from the vocabulary module. So the
+// vocabulary is not an engine import and needs no entry below.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -28,8 +36,11 @@ const ENGINE_NAME = ['term', 'pricing'].join('-')
 // diff somebody reads.
 export const ALLOWED_IMPORTERS = [
   'scripts/tests/term-pricing.test.mjs',
-  // Phase 2: generates the static mockup's figures from the engine.
-  'prototypes/term-pricing/build-mockup.mjs',
+  // RETIRED by TP_CAPEX (Q12), QUOTED NOT DELETED: "Phase 2: generates the
+  // static mockup's figures from the engine." 'prototypes/term-pricing/
+  // build-mockup.mjs' rendered the TERM_PRICING_2 picture, whose CAPEX design
+  // spec v1.6 supersedes; it was deleted rather than re-pointed, and its last
+  // output, prototypes/term-pricing/index.html, stays as the frozen record.
   // Phase 3: settings rows to engine parameters, and validation of an admin's
   // change through the engine's own normaliseParams. The route imports this,
   // not the engine.

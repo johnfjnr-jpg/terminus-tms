@@ -18,7 +18,10 @@ import { useShell } from '../ShellContext'
 import {
   priceQuote, termLadder, normaliseParams, formatMoney, formatPct, roundHalfUp,
 } from '../../../src/lib/term-pricing.js'
+import type { CpiMode } from '../../../src/lib/term-pricing.js'
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
+// TP_CAPEX (C-11): the milestone names, defined once and shared with Commercials.
+import { MILESTONE_NAMES } from '../../../src/lib/milestone-vocabulary.js'
 
 export const TERM_PRICING_KEY = ['term-pricing'] as const
 
@@ -128,6 +131,24 @@ function useFittedFigures(dep: unknown) {
   return ref
 }
 
+// ── TP_CAPEX (John, 2026-10-10): the CAPEX view ─────────────────────────────
+// Built to the approved mockup, prototypes/term-pricing-capex.html (C-13):
+// content and behaviour binding, the visual language this screen's own. The
+// mockup's margin banner is NOT built (Q11). Every existing section the mockup
+// omits stays as built (Q7).
+type CapexAmount = 'hardware' | 'custom'
+type CapexStructure = 'hybrid' | 'two_phase'
+interface MilestoneDraft { key: string; month: string; share: string }
+const MAX_MILESTONES = 5
+// The screen's default Hybrid row, by NAME from the shared vocabulary (C-11).
+// The engine never sees a name as a name (Q4): it receives this as a key.
+const DEFAULT_MILESTONE: MilestoneDraft = { key: MILESTONE_NAMES[0], month: '0', share: '100' }
+const CPI_MODES: Array<{ key: CpiMode; label: string }> = [
+  { key: 'none', label: 'None' }, { key: 'published', label: 'Published CPI' }, { key: 'locked', label: 'Locked rate' },
+]
+const monthsText = (from: number, to: number) => (from === to ? `${from}` : `${from} to ${to}`)
+const dash = (c: bigint) => (c === 0n ? '-' : money(c))
+
 export function TermPricingView({ navToken }: { navToken: number }) {
   const shell = useShell()
   const qc = useQueryClient()
@@ -145,6 +166,9 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const [units, setUnits] = useState<Record<string, string>>({ safesight: '1', air_quality: '0', hemir: '0' })
   const [term, setTerm] = useState<number>(36)
   const [structure, setStructure] = useState<'opex' | 'capex'>('opex')
+  // v1.6 (C-3, Q14): the CPI mode. The rate and the start year are shown for
+  // Published and Locked and hidden under None, which ignores them.
+  const [cpiMode, setCpiMode] = useState<CpiMode>('none')
   const [escalator, setEscalator] = useState('')
   // B6: the contract year the escalator first applies. The select offers 2 to
   // the term's last year, so a shorter term pulls the choice back inside it
@@ -157,6 +181,13 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const [whtSplit, setWhtSplit] = useState(false)
   const [whtHw, setWhtHw] = useState('')
   const [whtSaas, setWhtSaas] = useState('')
+  // v1.6 (C-4, C-6): the CAPEX amount and how it is paid. Defaults: Hardware,
+  // Hybrid, one Contract start row at month 0, 100%; R = 12 for Two-phase.
+  const [capexAmount, setCapexAmount] = useState<CapexAmount>('hardware')
+  const [capexCustom, setCapexCustom] = useState('')
+  const [capexStructure, setCapexStructure] = useState<CapexStructure>('hybrid')
+  const [milestones, setMilestones] = useState<MilestoneDraft[]>([DEFAULT_MILESTONE])
+  const [recovery, setRecovery] = useState('12')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const chooseTerm = (t: number) => {
     setTerm(t)
@@ -169,23 +200,49 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     catch (e) { return { ok: false as const, message: (e as Error).message } }
   }, [data])
 
+  const unitCounts = useMemo(
+    () => Object.fromEntries(PRODUCTS.map((p) => [p.key, units[p.key].trim() === '' ? 0 : Number(units[p.key])])),
+    [units])
+  const badUnits = PRODUCTS.find((p) => units[p.key].trim() !== '' && !isWhole(units[p.key]))
+
+  // v1.6 (C-10): the ladder is the OPEX Base row at every term, from the units
+  // alone, so a CAPEX amount or schedule that refuses the quote cannot take
+  // the ladder with it. Its own try, its own refusal.
+  const ladderResult = useMemo(() => {
+    if (!params?.ok || badUnits) return null
+    try { return { ladder: termLadder({ units: unitCounts, perCameraProduct: PER_CAMERA_PRODUCT }, params.p) } }
+    catch (e) { return { error: (e as Error).message } }
+  }, [params, unitCounts, badUnits])
+
+  // The hardware value (C-4) for the CAPEX amount field, read from an OPEX
+  // Base quote at this term so it shows even while the CAPEX quote refuses.
+  const reference = useMemo(() => {
+    if (!params?.ok || badUnits) return null
+    try { return priceQuote({ units: unitCounts, termMonths: term, paymentStructure: 'opex', cpiMode: 'none' }, params.p) }
+    catch { return null }
+  }, [params, unitCounts, badUnits, term])
+
   const result = useMemo(() => {
     if (!params?.ok) return null
-    const bad = PRODUCTS.find((p) => units[p.key].trim() !== '' && !isWhole(units[p.key]))
-    if (bad) return { error: `Units of ${bad.label} must be a whole number, 0 or more.` }
-    if (escalator.trim() !== '' && !isDecimal(escalator)) return { error: 'The escalator must be a percentage, for example 3.' }
-    if (gst.trim() !== '' && !isDecimal(gst)) return { error: 'GST must be a percentage, for example 9.' }
+    if (badUnits) return { error: `Units of ${badUnits.label} must be a whole number, 0 or more.`, code: 'BAD_UNITS' }
+    const cpiOn = cpiMode !== 'none'
+    if (cpiOn && escalator.trim() !== '' && !isDecimal(escalator)) return { error: 'The CPI rate must be a percentage, for example 3.', code: 'BAD_ESCALATOR' }
+    if (gst.trim() !== '' && !isDecimal(gst)) return { error: 'GST must be a percentage, for example 9.', code: 'BAD_TAX' }
     const whtFields: Array<[string, string]> = whtSplit
       ? [[whtHw, 'WHT on hardware'], [whtSaas, 'WHT on SaaS']]
       : [[whtPct, 'WHT']]
     const badWht = whtFields.find(([v]) => v.trim() !== '' && !isDecimal(v))
-    if (badWht) return { error: `${badWht[1]} must be a percentage, for example 10.` }
+    if (badWht) return { error: `${badWht[1]} must be a percentage, for example 10.`, code: 'BAD_TAX' }
     const blankNull = (v: string) => (v.trim() === '' ? null : v.trim())
+    // A whole number goes to the engine as a number; anything else goes as
+    // typed, so the ENGINE's refusal (with its own reason) is what shows.
+    const whole = (v: string) => (isWhole(v) ? Number(v) : v) as number
     const input = {
-      units: Object.fromEntries(PRODUCTS.map((p) => [p.key, units[p.key].trim() === '' ? 0 : Number(units[p.key])])),
+      units: unitCounts,
       termMonths: term,
       paymentStructure: structure,
-      escalatorPct: blankNull(escalator),
+      cpiMode,
+      escalatorPct: cpiOn ? blankNull(escalator) : null,
       escalatorStartYear: startYear,
       gstPct: blankNull(gst),
       whtPct: whtSplit ? null : blankNull(whtPct),
@@ -193,14 +250,25 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       whtSplit,
       whtHwPct: whtSplit ? blankNull(whtHw) : null,
       whtSaasPct: whtSplit ? blankNull(whtSaas) : null,
+      ...(structure === 'capex' ? {
+        capexAmount,
+        // Thousands separators are formatting, not the amount (C-4 keeps the
+        // figure itself exactly as entered).
+        capexCustom: capexAmount === 'custom' ? capexCustom.replace(/,/g, '').trim() : null,
+        capexStructure,
+        ...(capexStructure === 'hybrid'
+          ? { milestones: milestones.map((m) => ({ key: m.key, month: whole(m.month), sharePct: m.share.trim() })) }
+          : { recoveryMonths: whole(recovery) }),
+      } : {}),
     }
     try {
-      return { quote: priceQuote(input, params.p), ladder: termLadder({ ...input, perCameraProduct: PER_CAMERA_PRODUCT }, params.p) }
+      return { quote: priceQuote(input, params.p) }
     } catch (e) {
-      // The engine's refusals are written for a person (T17, T18 and A3).
-      return { error: (e as Error).message }
+      // The engine's refusals are written for a person (T17, T18, A3, G-C4).
+      return { error: (e as Error).message, code: (e as { code?: string }).code ?? '' }
     }
-  }, [params, units, term, structure, escalator, startYear, gst, whtPct, grossUp, whtSplit, whtHw, whtSaas])
+  }, [params, badUnits, unitCounts, term, structure, cpiMode, escalator, startYear, gst, whtPct, grossUp, whtSplit, whtHw, whtSaas,
+    capexAmount, capexCustom, capexStructure, milestones, recovery])
   // TILE_FIT: refits whenever the quote (its figures and tile count) changes.
   const figuresRef = useFittedFigures(result)
 
@@ -209,8 +277,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
   const terms = params.ok ? params.p.terms : []
   const q = result && 'quote' in result ? result.quote : null
-  const ladder = result && 'ladder' in result ? result.ladder : null
+  const ladder = ladderResult && 'ladder' in ladderResult ? ladderResult.ladder : null
   const capex = structure === 'capex'
+  const plan = q?.capex ?? null
+  const rateShown = escalator.trim() === '' ? '0' : escalator.trim()
+  const cpiOn = cpiMode !== 'none' && isDecimal(escalator) && Number(escalator) !== 0
+  const upliftShown = !!q && q.cpiUpliftCents !== 0n
+  const hwMarginPct = String(data.settings.HW_UPFRONT_MARGIN ?? '')
+  const hardwareValueCents = q?.hardwareValueCents ?? reference?.hardwareValueCents ?? null
   // D4 (John, 2026-10-06): the title states the WHT treatment. One rate:
   // ", WHT 10% borne" or ", WHT 10% grossed up", nothing at 0. Split:
   // ", split WHT 5% hardware / 10% SaaS, grossed up" (or "borne"). The rates
@@ -220,6 +294,22 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const whtTitle = whtSplit
     ? `, split WHT ${rateText(whtHw)}% hardware / ${rateText(whtSaas)}% SaaS, ${treatment}`
     : isDecimal(whtPct) && Number(whtPct) > 0 ? `, WHT ${whtPct.trim()}% ${treatment}` : ''
+  const cpiTitle = q && q.monthlyTotalByYear.length > 1 && cpiOn
+    ? `, CPI ${cpiMode === 'locked' ? 'locked' : 'published'} ${rateShown}% from year ${startYear}` : ''
+  const sharesRefused = result && 'error' in result && result.code === 'SHARES_TOTAL'
+  const usedElsewhere = (i: number, name: string) => milestones.some((m, j) => j !== i && m.key === name)
+  const setRow = (i: number, patch: Partial<MilestoneDraft>) => setMilestones(milestones.map((m, j) => (j === i ? { ...m, ...patch } : m)))
+  const addRow = () => {
+    if (milestones.length >= MAX_MILESTONES) return
+    const next = MILESTONE_NAMES.find((n) => !milestones.some((m) => m.key === n)) ?? MILESTONE_NAMES[0]
+    setMilestones([...milestones, { key: next, month: milestones[milestones.length - 1]?.month ?? '0', share: '' }])
+  }
+  const chooseCustom = () => {
+    // The field starts from the hardware value the first time, so Custom
+    // opens on a valid amount rather than on a refusal.
+    if (capexCustom.trim() === '' && hardwareValueCents !== null) setCapexCustom(money(hardwareValueCents))
+    setCapexAmount('custom')
+  }
 
   return (
     <div className="wrap tp-view" data-testid="term-pricing">
@@ -232,11 +322,9 @@ export function TermPricingView({ navToken }: { navToken: number }) {
         <h2 className="tp-h2">Inputs</h2>
         {/* ── TP_INPUTS (John, 2026-10-03): DEAL TERMS FIRST, TAX BELOW ──────
             Built to the approved pictures, prototypes/term-pricing-inputs/.
-            SUPERSEDED, QUOTED NOT DELETED: TERM_PRICING_2's two `.tp-half`
-            wrappers holding four groups (units and term; structure and tax),
-            with the tax controls stacked. Each section is now one row whose
-            groups sit together from the left, under a small heading with a
-            rule to its right (I1). */}
+            Each section is one row whose groups sit together from the left,
+            under a small heading with a rule to its right (I1). TP_CAPEX adds
+            the CPI section between them. */}
         <div className="tp-section-head">Deal terms</div>
         <div className="tp-row" data-testid="tp-deal-row">
           <div>
@@ -262,20 +350,36 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             </div>
           </div>
           <div>
-            <div className="tp-label">Payment structure</div>
-            <div className="tp-seg" role="group" aria-label="Payment structure">
-              <button type="button" className={!capex ? 'on' : ''} aria-pressed={!capex} data-testid="tp-opex" onClick={() => setStructure('opex')}>OPEX monthly</button>
-              <button type="button" className={capex ? 'on' : ''} aria-pressed={capex} data-testid="tp-capex" onClick={() => setStructure('capex')}>CAPEX hardware upfront</button>
+            {/* TP_CAPEX: "Pricing basis", the mockup's words. SUPERSEDED,
+                QUOTED NOT DELETED: "Payment structure", with "OPEX monthly"
+                and "CAPEX hardware upfront", which v1.6 made untrue (a CAPEX
+                amount may be custom and paid over months). */}
+            <div className="tp-label">Pricing basis</div>
+            <div className="tp-seg" role="group" aria-label="Pricing basis">
+              <button type="button" className={!capex ? 'on' : ''} aria-pressed={!capex} data-testid="tp-opex" onClick={() => setStructure('opex')}>OPEX</button>
+              <button type="button" className={capex ? 'on' : ''} aria-pressed={capex} data-testid="tp-capex" onClick={() => setStructure('capex')}>CAPEX</button>
             </div>
-            {/* B6: a typed rate (blank is 0, no escalator) and the year it starts.
-                The placeholder is a value in the field's format, not prose.
-                I6: the disabled select keeps L2's dimmed border. */}
-            <div className="tp-pair tp-mt">
-              <label className="tp-label">Annual escalator %
+          </div>
+        </div>
+
+        {/* v1.6 (C-3, Q14): the CPI mode, then its rate and start year. */}
+        <div className="tp-section-head">Annual increase (CPI)</div>
+        <div className="tp-row tp-cpi-row" data-testid="tp-cpi-row">
+          <div className="tp-seg" role="group" aria-label="Annual increase (CPI)">
+            {CPI_MODES.map((m) => (
+              <button key={m.key} type="button" className={cpiMode === m.key ? 'on' : ''} aria-pressed={cpiMode === m.key}
+                data-testid={`tp-cpi-${m.key}`} onClick={() => setCpiMode(m.key)}>{m.label}</button>
+            ))}
+          </div>
+          {cpiMode !== 'none' && (
+            <div className="tp-pair">
+              {/* The placeholder is a value in the field's format, not prose.
+                  I6: the disabled select keeps L2's dimmed border. */}
+              <label className="tp-label">Rate %
                 <input className="tp-num tp-pct" placeholder="0" data-testid="tp-escalator" value={escalator} onChange={(e) => setEscalator(e.target.value)} />
               </label>
               {lastYearOf(term) >= 2 && (
-                <label className="tp-label">Starts in year
+                <label className="tp-label">From year
                   <select className="tp-num tp-pct tp-select" data-testid="tp-escalator-start" value={startYear}
                     disabled={!(isDecimal(escalator) && Number(escalator) !== 0)}
                     onChange={(e) => setStartYear(Number(e.target.value))}>
@@ -284,11 +388,16 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                 </label>
               )}
             </div>
-            {lastYearOf(term) < 2 && isDecimal(escalator) && Number(escalator) !== 0 && (
-              <p className="tp-small tp-muted" data-testid="tp-escalator-none">A {term}-month term has no year 2, so the escalator has no effect.</p>
-            )}
-          </div>
+          )}
+          <p className="tp-small tp-muted tp-cpi-note" data-testid="tp-cpi-note">
+            {cpiMode === 'locked'
+              ? `Locked rate: a negotiated fixed figure, for example the average of the last 5 years. Final TCV is contractual and becomes the deal value. Applies to the ${capex ? 'subscription only; CAPEX payments never escalate' : 'monthly fee'}.`
+              : 'Published CPI: Final TCV shown as projected at an assumed rate; deal value stays Base TCV.'}
+          </p>
         </div>
+        {cpiMode !== 'none' && lastYearOf(term) < 2 && isDecimal(escalator) && Number(escalator) !== 0 && (
+          <p className="tp-small tp-muted" data-testid="tp-escalator-none">A {term}-month term has no year 2, so the CPI has no effect.</p>
+        )}
 
         {/* TAX (I1 to I4): one row, GST | Split WHT | WHT field(s) | Gross up.
             Split WHT swaps one field for two IN THE SAME ROW, so the card
@@ -316,162 +425,404 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           <Switch id="tp-wht-grossup" on={grossUp} label="Gross up" onToggle={() => setGrossUp(!grossUp)} />
         </div>
         <p className="tp-small tp-muted tp-tax-note" data-testid="tp-tax-note">
-          WHT applies to each invoice line before GST. GST is added on top of every invoice.{whtSplit ? ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.' : ''}
+          WHT applies to each invoice line before GST. GST is added on top of every invoice.{whtSplit ? (capex
+            ? ' With Split WHT on, CAPEX payments take the hardware rate up to the hardware value; CAPEX above it and all subscription take the SaaS rate.'
+            : ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.') : ''}
         </p>
-
       </section>
 
       {!params.ok && <p className="tp-error" role="alert">The settings cannot be priced: {params.message}</p>}
+
+      {/* ── v1.6 (C-13, Q6): THE PRICE, SET BY OPEX ─────────────────────────
+          Base TCV carries the APPROVAL tag in every mode; Final TCV is what
+          the client is invoiced; Deal value follows C-3. */}
+      {q && (
+        <section className="tp-card" aria-label="Price" data-testid="tp-price">
+          <h2 className="tp-h2">Price, set by OPEX {capex && <span className="tp-chip tp-lock" data-testid="tp-price-lock">locked: CAPEX changes timing only</span>}</h2>
+          <div className="tp-price">
+            <div>
+              <div className="tp-label">Base TCV <span className="tp-tag tp-tag-go" data-testid="tp-approval-tag">Approval</span></div>
+              <div className="tp-v" data-testid="tp-p-base">{money(q.tcvNetCents)}</div>
+              <div className="tp-small tp-muted" data-testid="tp-p-base-note">No CPI · margin {pct(q.grossMargin)} on Base</div>
+            </div>
+            <div>
+              <div className="tp-label">Final TCV{upliftShown && cpiMode === 'published' ? ' (projected)' : ''}</div>
+              <div className={`tp-v${upliftShown ? '' : ' tp-same'}`} data-testid="tp-p-final">{money(q.finalTcvCents)}</div>
+              <div className="tp-small tp-muted" data-testid="tp-p-final-note">{upliftShown
+                ? `Base + CPI uplift ${money(q.cpiUpliftCents)}${cpiMode === 'published' ? ', projected' : ''}`
+                : 'Same as Base: no CPI applied'}</div>
+            </div>
+            <div>
+              <div className="tp-label">OPEX monthly fee (year 1)</div>
+              <div className="tp-v" data-testid="tp-p-opex">{money(q.monthlyTotalCents)}</div>
+              <div className="tp-small tp-muted">{capex ? 'Reference only under CAPEX' : 'The client\'s monthly fee'}</div>
+            </div>
+            <div>
+              <div className="tp-label">Deal value</div>
+              <div className="tp-v tp-deal" data-testid="tp-p-deal">{q.cpiMode === 'locked' ? 'Final TCV' : 'Base TCV'}
+                {q.cpiMode === 'locked' && <span className="tp-tag tp-tag-go">CPI locked</span>}</div>
+              <div className="tp-small tp-muted" data-testid="tp-p-deal-note">{q.cpiMode === 'locked' ? 'Client signs for Final TCV' : 'Pipeline value'}</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── v1.6 (C-4 to C-9): THE CAPEX PAYMENT ───────────────────────────
+          An input card: it stays on screen while the quote refuses, so the
+          refusal can be fixed where it was made. */}
+      {capex && (
+        <section className="tp-card" aria-label="CAPEX payment" data-testid="tp-capex-card">
+          <h2 className="tp-h2">CAPEX payment</h2>
+          <div className="tp-capex-row">
+            <span className="tp-label">CAPEX amount</span>
+            <div className="tp-seg" role="group" aria-label="CAPEX amount">
+              <button type="button" className={capexAmount === 'hardware' ? 'on' : ''} aria-pressed={capexAmount === 'hardware'}
+                data-testid="tp-capex-hardware" onClick={() => setCapexAmount('hardware')}>Hardware</button>
+              <button type="button" className={capexAmount === 'custom' ? 'on' : ''} aria-pressed={capexAmount === 'custom'}
+                data-testid="tp-capex-custom" onClick={chooseCustom}>Custom</button>
+            </div>
+            {capexAmount === 'hardware'
+              ? <input className="tp-num tp-money" data-testid="tp-capex-amount" disabled value={hardwareValueCents === null ? '' : money(hardwareValueCents)} />
+              : <input className="tp-num tp-money" data-testid="tp-capex-amount" inputMode="decimal" value={capexCustom} onChange={(e) => setCapexCustom(e.target.value)} />}
+            <span className="tp-small tp-muted tp-inline" data-testid="tp-capex-amount-note">{capexAmount === 'hardware'
+              ? `Hardware including markup (cost / (1 − ${hwMarginPct}%)). Default.`
+              : 'Client budget figure, kept exact. Must be above 0 and below Base TCV.'}</span>
+          </div>
+          <div className="tp-capex-row">
+            <span className="tp-label">Paid as</span>
+            <div className="tp-seg" role="group" aria-label="Paid as">
+              <button type="button" className={capexStructure === 'two_phase' ? 'on' : ''} aria-pressed={capexStructure === 'two_phase'}
+                data-testid="tp-capex-two-phase" onClick={() => setCapexStructure('two_phase')}>Two-phase</button>
+              <button type="button" className={capexStructure === 'hybrid' ? 'on' : ''} aria-pressed={capexStructure === 'hybrid'}
+                data-testid="tp-capex-hybrid" onClick={() => setCapexStructure('hybrid')}>Hybrid</button>
+            </div>
+            <span className="tp-small tp-muted tp-inline">{capexStructure === 'hybrid'
+              ? 'Milestones (up to 5), chosen from the Commercials milestone list.'
+              : 'Equal monthly instalments over a recovery period, alongside the subscription.'}</span>
+          </div>
+
+          {capexStructure === 'hybrid' ? (
+            <>
+              <table className="tp-table tp-milestones" data-testid="tp-milestones">
+                <thead><tr><th>Milestone</th><th>Month</th><th>Share</th><th>Amount</th><th aria-label="Remove"></th></tr></thead>
+                <tbody>
+                  {milestones.map((m, i) => (
+                    <tr key={i} data-testid={`tp-ms-${i}`}>
+                      <td>
+                        <select className="tp-num tp-select tp-ms-key" data-testid={`tp-ms-key-${i}`} aria-label={`Milestone ${i + 1}`}
+                          value={m.key} onChange={(e) => setRow(i, { key: e.target.value })}>
+                          {MILESTONE_NAMES.map((n) => <option key={n} value={n} disabled={usedElsewhere(i, n)}>{n}</option>)}
+                        </select>
+                      </td>
+                      <td><input className="tp-num tp-ms-month" inputMode="numeric" data-testid={`tp-ms-month-${i}`} aria-label={`Month of milestone ${i + 1}`}
+                        value={m.month} onChange={(e) => setRow(i, { month: e.target.value })} /></td>
+                      <td><span className="tp-pct-field"><input className="tp-num tp-ms-share" inputMode="decimal" data-testid={`tp-ms-share-${i}`} aria-label={`Share of milestone ${i + 1}, percent`}
+                        value={m.share} onChange={(e) => setRow(i, { share: e.target.value })} /><span className="tp-muted">%</span></span></td>
+                      <td data-testid={`tp-ms-amount-${i}`}>{plan ? money(plan.payments[i].cents) : '-'}
+                        {plan && i === milestones.length - 1 && milestones.length > 1 && <span className="tp-small tp-muted tp-carries"> carries rounding</span>}</td>
+                      <td>{milestones.length > 1 && (
+                        <button type="button" className="btn-ghost tp-remove" data-testid={`tp-ms-remove-${i}`} aria-label={`Remove ${m.key}`}
+                          onClick={() => setMilestones(milestones.filter((_, j) => j !== i))}>✕</button>)}</td>
+                    </tr>
+                  ))}
+                  <tr className="tp-subtotal tp-total" data-testid="tp-ms-total">
+                    <td>Total</td><td></td><td>{plan ? '100%' : '-'}</td><td>{plan ? money(plan.capexCents) : '-'}</td><td></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="tp-capex-row tp-mt">
+                <button type="button" className="btn-ghost tp-add" data-testid="tp-ms-add" disabled={milestones.length >= MAX_MILESTONES}
+                  onClick={addRow}>+ Add milestone ({milestones.length} of {MAX_MILESTONES})</button>
+                {/* The status is the ENGINE's verdict, not a sum taken here: a
+                    quote that prices has shares totalling exactly 100%. */}
+                {plan
+                  ? <span className="tp-ok" data-testid="tp-ms-status">✓ Shares total exactly 100%</span>
+                  : sharesRefused && <span className="tp-error tp-small" data-testid="tp-ms-status">{(result as { error: string }).error}</span>}
+                <span className="tp-small tp-muted tp-inline">Milestones from the Commercials list; month 0 = contract start.</span>
+              </div>
+            </>
+          ) : (
+            <div className="tp-capex-row">
+              <span className="tp-label">Recovery period</span>
+              <input className="tp-num tp-ms-month" inputMode="numeric" data-testid="tp-capex-recovery" aria-label="Recovery period, months"
+                value={recovery} onChange={(e) => setRecovery(e.target.value)} />
+              <span className="tp-small tp-muted tp-inline">months (1 to term). Default 12.</span>
+              {plan && plan.recoveryMonths !== null && (
+                <span className="tp-ok tp-push" data-testid="tp-capex-instalments">{plan.recoveryMonths === 1
+                  ? `${money(plan.payments[0].cents)} in month 1`
+                  : `${money(plan.payments[0].cents)} × ${plan.recoveryMonths - 1}, month ${plan.recoveryMonths} = ${money(plan.payments[plan.recoveryMonths - 1].cents)} (carries rounding)`}</span>
+              )}
+            </div>
+          )}
+
+          {plan?.warnings.hardwareFundedCents != null && (
+            <div className="tp-warn" role="note" data-testid="tp-warn-funds">CAPEX {money(plan.capexCents)} is below hardware cost {money(plan.hardwareCostCents)}: Terminus funds {money(plan.warnings.hardwareFundedCents)} of hardware. Quote allowed.</div>
+          )}
+          <div className="tp-divider" />
+          <div className="tp-capex-row tp-flush">
+            <span className="tp-label">Subscription</span>
+            {plan && q ? (
+              <span className="tp-small tp-muted tp-inline" data-testid="tp-subscription-note">{cpiOn && upliftShown
+                ? <>Base <b>{money(plan.baseFeeCents)}</b> a month, then +{rateShown}% a year from year {startYear}. CAPEX does not escalate.</>
+                : <>({money(q.tcvNetCents)} − {money(plan.capexCents)}) / {term} = <b>{money(plan.baseFeeCents)}</b> a month; month {term} = {money(plan.lastBaseFeeCents)}</>}</span>
+            ) : <span className="tp-small tp-muted tp-inline">-</span>}
+          </div>
+          {plan?.warnings.subscriptionBelowHosting && (
+            <div className="tp-warn" role="note" data-testid="tp-warn-hosting">The subscription of {money(plan.baseFeeCents)} a month is below the deal's monthly hosting cost of {money(plan.warnings.hostingMonthlyCents)}. Quote allowed.</div>
+          )}
+        </section>
+      )}
+
       {result && 'error' in result && (
         <section className="tp-card"><p className="tp-error" role="alert" data-testid="tp-error">{result.error}</p></section>
       )}
 
-      {ladder && q && (
-        <>
-          <section className="tp-card" aria-label="Term ladder">
-            <h2 className="tp-h2">Term ladder <span className="tp-hint">the same inputs at every term; select a row to quote it</span></h2>
-            <table className="tp-table" data-testid="tp-ladder">
-              <thead><tr>
-                <th>Term</th>
-                {capex ? <><th>Upfront</th><th>Monthly service fee (year 1)</th></> : <><th>Monthly fee (year 1)</th><th>Per camera / mo</th></>}
-                <th>vs 36 months, this deal</th><th>TCV (net)</th><th>Margin on price</th>
-              </tr></thead>
-              <tbody>
-                {ladder.map((r) => {
-                  const v = vsAnchor(r.savingVsAnchor, r.isAnchor)
-                  return (
-                    <tr key={r.termMonths} className={`tp-ladder${r.termMonths === term ? ' on' : ''}`}
-                      data-testid={`tp-ladder-${r.termMonths}`} aria-selected={r.termMonths === term}
-                      onClick={() => chooseTerm(r.termMonths)}>
-                      <td>{r.termMonths} months</td>
-                      {capex
-                        ? <><td>{money(r.upfrontCents!)}</td><td>{money(r.monthlyServiceCents!)}</td></>
-                        : <><td>{money(r.monthlyTotalCents)}</td>
-                          <td data-testid={`tp-ladder-percam-${r.termMonths}`}>{r.perCameraCents === null ? '-' : money(r.perCameraCents)}</td></>}
+      {ladderResult && 'error' in ladderResult && !(result && 'error' in result) && (
+        <section className="tp-card"><p className="tp-error" role="alert" data-testid="tp-ladder-error">{ladderResult.error}</p></section>
+      )}
+
+      {ladder && (
+        <section className="tp-card" aria-label="Term ladder">
+          {/* v1.6 (C-10, Q12): under CAPEX the ladder is Term and the OPEX
+              per-camera fee only. SUPERSEDED, QUOTED NOT DELETED: the CAPEX
+              columns "Upfront" and "Monthly service fee (year 1)". Under OPEX
+              the columns stand; the TCV is Base (C-1). */}
+          {capex
+            ? <h2 className="tp-h2">Term ladder <span className="tp-hint">SafeSight per camera; select a row to quote it</span></h2>
+            : <h2 className="tp-h2">Term ladder <span className="tp-hint">the same inputs at every term, Base figures; select a row to quote it</span></h2>}
+          <table className="tp-table" data-testid="tp-ladder">
+            <thead><tr>
+              <th>Term</th>
+              {capex ? <th>OPEX / cam / mo</th> : <><th>Monthly fee (year 1)</th><th>Per camera / mo</th>
+                <th>vs 36 months, this deal</th><th>Base TCV</th><th>Margin on price</th></>}
+            </tr></thead>
+            <tbody>
+              {ladder.map((r) => {
+                const v = vsAnchor(r.savingVsAnchor, r.isAnchor)
+                const percam = <td data-testid={`tp-ladder-percam-${r.termMonths}`}>{r.perCameraCents === null ? '-' : money(r.perCameraCents)}</td>
+                return (
+                  <tr key={r.termMonths} className={`tp-ladder${r.termMonths === term ? ' on' : ''}`}
+                    data-testid={`tp-ladder-${r.termMonths}`} aria-selected={r.termMonths === term}
+                    onClick={() => chooseTerm(r.termMonths)}>
+                    <td>{r.termMonths} months</td>
+                    {capex ? percam : <>
+                      <td>{money(r.monthlyTotalCents)}</td>
+                      {percam}
                       <td className={v.kind === 'saving' ? 'tp-saving' : v.kind === 'premium' ? 'tp-premium' : undefined}>{v.text}</td>
                       <td>{money(r.tcvNetCents)}</td>
                       <td>{pct(r.grossMargin)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </section>
-
-          <section className="tp-card" aria-label="Quote">
-            <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{q.monthlyTotalByYear.length > 1 && escalator.trim() && Number(escalator) !== 0 ? `, ${escalator.trim()}% annual escalator from year ${startYear}` : ''}{whtTitle}</span></h2>
-            <div className="tp-figures" ref={figuresRef} data-testid="tp-figures">
-              <div><div className="tp-label">{capex ? 'Monthly service fee (year 1)' : 'Monthly total (year 1)'}</div>
-                <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(capex ? q.capex!.monthlyServiceCents : q.monthlyTotalCents)}</div></div>
-              {capex && <div><div className="tp-label">Upfront</div><div className="tp-v" data-testid="tp-q-upfront">{money(q.capex!.upfrontCents)}</div></div>}
-              <div><div className="tp-label">TCV (net)</div><div className="tp-v" data-testid="tp-q-tcv">{money(q.tcvNetCents)}</div></div>
-              {/* L1: with Gross up on, the tiles foot: TCV (net) + WHT gross-up +
-                  GST = TCV incl. GST. The figure is the engine's, not a sum here. */}
-              {grossUp && <div><div className="tp-label">WHT gross-up</div><div className="tp-v" data-testid="tp-q-grossup">{money(q.tax.grossUpCents)}</div></div>}
-              <div><div className="tp-label">GST</div><div className="tp-v" data-testid="tp-q-gst">{money(q.tax.gstCents)}</div></div>
-              <div><div className="tp-label">TCV incl. GST</div><div className="tp-v" data-testid="tp-q-tcvincl">{money(q.tax.tcvInclGstCents)}</div></div>
-              <div><div className="tp-label">Margin on price</div><div className="tp-v" data-testid="tp-q-margin">{pct(q.grossMargin)}</div>
-                <div className={`tp-chip${q.belowMarginFloor ? ' tp-flag' : ''}`} data-testid="tp-q-floor">
-                  {q.belowMarginFloor ? 'Below' : 'Above'} the {formatPct(q.marginFloor, 1)}% floor</div>
-                {q.marginAfterWht && <div className="tp-small" data-testid="tp-q-after-wht">Margin on price after WHT: {pct(q.marginAfterWht)}</div>}
-              </div>
-            </div>
-            {/* ── QUOTE_PANEL (John, 2026-10-05): ONE PANEL ────────────────────
-                Built to the approved pictures (prototypes/term-pricing-quote/).
-                SUPERSEDED, QUOTED NOT DELETED: a two-column `.tp-split` of a
-                "Product lines" table and a "Profit" table, then a separate
-                Payment schedule card. Their content now lives only here, in
-                Q1's order: tiles, pricing by product and band, profit by
-                product, payment schedule. */}
-            <div className="tp-label tp-section-label" data-testid="tp-pricing-head">{capex ? 'Pricing basis (OPEX fees, year 1)' : 'Pricing by product and band'}</div>
-            <table className="tp-table tp-lines tp-pricing" data-testid="tp-pricing">
-              <thead><tr><th>Product and band</th><th>Units</th><th>List fee / unit (USD)</th><th>Volume discount</th><th>Fee / unit (USD)</th><th>Monthly (USD)</th></tr></thead>
-              <tbody>
-                {q.lines.flatMap((l) => [
-                  <tr key={l.product} className="tp-subtotal" data-testid={`tp-pricing-${l.product}`}>
-                    <td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td><td></td><td></td><td></td><td>{money(l.monthlyByYear[0])}</td>
-                  </tr>,
-                  ...l.bands.map((b) => (
-                    <tr key={`${l.product}-${b.from}`} className="tp-band">
-                      <td>units {b.to === null ? `${b.from}+` : `${b.from} to ${b.to}`}</td>
-                      <td>{b.units}</td><td>{money(roundHalfUp(l.listFee, 2))}</td><td>{b.discountPct}%</td>
-                      <td>{money(b.feeByYear[0])}</td><td>{money(BigInt(b.units) * b.feeByYear[0])}</td>
-                    </tr>
-                  )),
-                ])}
-                <tr className="tp-subtotal tp-total" data-testid="tp-pricing-total">
-                  <td>Total per month</td><td>{q.lines.reduce((t, l) => t + l.units, 0)}</td><td></td><td></td><td></td><td>{money(q.monthlyTotalCents)}</td>
-                </tr>
-              </tbody>
-            </table>
-            {/* Q1(b): with an escalator, the fees above are year 1's. */}
-            {q.monthlyTotalByYear.length > 1 && isDecimal(escalator) && Number(escalator) !== 0 && (
-              <p className="tp-small tp-muted" data-testid="tp-escalator-note">
-                Fees rise {escalator.trim()}% a year from year {startYear}.{capex ? ' The payment schedule shows each year\'s figures; under CAPEX the client pays hardware upfront and a monthly service fee instead.' : ''}
-              </p>
-            )}
-
-            {/* Q2: per product from the engine (spec v1.4); WHT is never per product. */}
-            <div className="tp-label tp-section-label">Profit by product</div>
-            <table className="tp-table tp-lines" data-testid="tp-profit">
-              <thead><tr><th>Product</th><th>Units</th><th>TCV (net)</th><th>Hardware and hosting cost</th><th>Gross profit</th><th>Margin on price</th></tr></thead>
-              <tbody>
-                {q.lines.map((l) => (
-                  <tr key={l.product} data-testid={`tp-profit-${l.product}`}>
-                    <td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td>
-                    <td>{money(l.tcvNetCents)}</td><td>{money(l.costCents)}</td><td>{money(l.grossProfitCents)}</td><td>{pct(l.grossMargin)}</td>
+                    </>}
                   </tr>
-                ))}
-                <tr className="tp-subtotal tp-total" data-testid="tp-profit-total">
-                  <td>Total</td><td>{q.lines.reduce((t, l) => t + l.units, 0)}</td>
-                  <td>{money(q.tcvNetCents)}</td><td>{money(q.totalCostCents)}</td><td>{money(q.grossProfitCents)}</td><td>{pct(q.grossMargin)}</td>
+                )
+              })}
+            </tbody>
+          </table>
+          {capex && <p className="tp-small tp-muted" data-testid="tp-ladder-note">Base figures, no CPI. The OPEX ladder sets the price. CAPEX is one deal-level payment (default: total hardware value), so it has no per-camera figure.</p>}
+        </section>
+      )}
+
+      {q && (
+        <section className="tp-card" aria-label="Quote">
+          <h2 className="tp-h2">Quote <span className="tp-hint">{term} months, {capex ? 'CAPEX' : 'OPEX'}{cpiTitle}{whtTitle}</span></h2>
+          {/* v1.6 (C-13): under CAPEX the tiles lead with CAPEX, Subscription,
+              Cash in year 1 and the TCV; the CPI uplift joins them when there
+              is one. Today's tax and margin tiles follow (Q7). The TCV tile is
+              the FINAL schedule's, so L1's foot holds across the row: TCV +
+              WHT gross-up + GST = TCV incl. GST. */}
+          <div className="tp-figures" ref={figuresRef} data-testid="tp-figures">
+            {capex && plan ? (
+              <>
+                <div><div className="tp-label">{plan.structure === 'two_phase' ? 'CAPEX / month' : 'CAPEX'}</div>
+                  <div className="tp-v tp-lead" data-testid="tp-q-capex">{money(plan.structure === 'two_phase' ? plan.payments[0].cents : plan.capexCents)}</div>
+                  <div className="tp-small tp-muted" data-testid="tp-q-capex-note">{plan.structure === 'two_phase'
+                    ? `months 1 to ${plan.recoveryMonths}`
+                    : plan.payments.length > 1 ? `${plan.payments.length} milestones`
+                      : plan.payments[0].month === 0 ? 'month 0, on signature' : `month ${plan.payments[0].month}`}</div></div>
+                <div><div className="tp-label">{upliftShown ? 'Subscription yr 1' : 'Subscription'}</div>
+                  <div className="tp-v" data-testid="tp-q-subscription">{money(plan.subscriptionByYear[0])}</div>
+                  <div className="tp-small tp-muted">{upliftShown ? `rises ${rateShown}% a year` : `months 1 to ${term}`}</div></div>
+                <div><div className="tp-label">Cash in year 1</div>
+                  <div className="tp-v" data-testid="tp-q-cash1">{money(q.cashYear1Cents)}</div>
+                  <div className="tp-small tp-muted" data-testid="tp-q-cash1-note">vs OPEX {money(q.opexCashYear1Cents)}</div></div>
+              </>
+            ) : (
+              <div><div className="tp-label">Monthly total (year 1)</div>
+                <div className="tp-v tp-lead" data-testid="tp-q-monthly">{money(q.monthlyTotalCents)}</div></div>
+            )}
+            {upliftShown && (
+              <div><div className="tp-label">CPI uplift</div><div className="tp-v" data-testid="tp-q-uplift">{money(q.cpiUpliftCents)}</div>
+                <div className="tp-small tp-muted">{capex ? 'on subscription only' : 'on the monthly fee'}</div></div>
+            )}
+            <div><div className="tp-label">{upliftShown ? 'Final TCV' : 'Base TCV'}</div><div className="tp-v" data-testid="tp-q-tcv">{money(q.finalTcvCents)}</div>
+              <div className="tp-small tp-muted" data-testid="tp-q-tcv-note">{!upliftShown ? 'ties exactly' : q.cpiMode === 'locked' ? 'deal value (locked)' : 'projected'}</div></div>
+            {/* L1: with Gross up on, the tiles foot: TCV + WHT gross-up + GST =
+                TCV incl. GST. The figure is the engine's, not a sum here. */}
+            {grossUp && <div><div className="tp-label">WHT gross-up</div><div className="tp-v" data-testid="tp-q-grossup">{money(q.tax.grossUpCents)}</div></div>}
+            <div><div className="tp-label">GST</div><div className="tp-v" data-testid="tp-q-gst">{money(q.tax.gstCents)}</div></div>
+            <div><div className="tp-label">TCV incl. GST</div><div className="tp-v" data-testid="tp-q-tcvincl">{money(q.tax.tcvInclGstCents)}</div></div>
+            <div><div className="tp-label">Margin on price</div><div className="tp-v" data-testid="tp-q-margin">{pct(q.grossMargin)}</div>
+              <div className={`tp-chip${q.belowMarginFloor ? ' tp-flag' : ''}`} data-testid="tp-q-floor">
+                {q.belowMarginFloor ? 'Below' : 'Above'} the {formatPct(q.marginFloor, 1)}% floor</div>
+              {q.marginAfterWht && <div className="tp-small" data-testid="tp-q-after-wht">Margin on price after WHT: {pct(q.marginAfterWht)}</div>}
+            </div>
+          </div>
+          {/* ── QUOTE_PANEL (John, 2026-10-05): ONE PANEL ────────────────────
+              Built to the approved pictures (prototypes/term-pricing-quote/):
+              tiles, pricing by product and band, profit by product, payment
+              schedule. */}
+          <div className="tp-label tp-section-label" data-testid="tp-pricing-head">{capex ? 'Pricing basis (OPEX fees, year 1)' : 'Pricing by product and band'}</div>
+          <table className="tp-table tp-lines tp-pricing" data-testid="tp-pricing">
+            <thead><tr><th>Product and band</th><th>Units</th><th>List fee / unit (USD)</th><th>Volume discount</th><th>Fee / unit (USD)</th><th>Monthly (USD)</th></tr></thead>
+            <tbody>
+              {q.lines.flatMap((l) => [
+                <tr key={l.product} className="tp-subtotal" data-testid={`tp-pricing-${l.product}`}>
+                  <td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td><td></td><td></td><td></td><td>{money(l.monthlyByYear[0])}</td>
+                </tr>,
+                ...l.bands.map((b) => (
+                  <tr key={`${l.product}-${b.from}`} className="tp-band">
+                    <td>units {b.to === null ? `${b.from}+` : `${b.from} to ${b.to}`}</td>
+                    <td>{b.units}</td><td>{money(roundHalfUp(l.listFee, 2))}</td><td>{b.discountPct}%</td>
+                    <td>{money(b.feeByYear[0])}</td><td>{money(BigInt(b.units) * b.feeByYear[0])}</td>
+                  </tr>
+                )),
+              ])}
+              <tr className="tp-subtotal tp-total" data-testid="tp-pricing-total">
+                <td>Total per month</td><td>{q.lines.reduce((t, l) => t + l.units, 0)}</td><td></td><td></td><td></td><td>{money(q.monthlyTotalCents)}</td>
+              </tr>
+            </tbody>
+          </table>
+          {/* Q1(b): with a CPI, the fees above are year 1's. */}
+          {q.monthlyTotalByYear.length > 1 && cpiOn && (
+            <p className="tp-small tp-muted" data-testid="tp-escalator-note">
+              {capex
+                ? `The CPI raises the subscription ${rateShown}% a year from year ${startYear}; CAPEX payments never escalate. The payment schedule shows each year's figures.`
+                : `Fees rise ${rateShown}% a year from year ${startYear}. The payment schedule shows each year's figures.`}
+            </p>
+          )}
+
+          {/* Q2: per product from the engine (spec v1.4), on BASE TCV (v1.6,
+              Q5); WHT is never per product, and the WHT borne here is the
+              Base schedule's, the basis of the margin it reduces. */}
+          <div className="tp-label tp-section-label">Profit by product (Base TCV)</div>
+          <table className="tp-table tp-lines" data-testid="tp-profit">
+            <thead><tr><th>Product</th><th>Units</th><th>Base TCV</th><th>Hardware and hosting cost</th><th>Gross profit</th><th>Margin on price</th></tr></thead>
+            <tbody>
+              {q.lines.map((l) => (
+                <tr key={l.product} data-testid={`tp-profit-${l.product}`}>
+                  <td>{PRODUCTS.find((p) => p.key === l.product)?.label ?? l.product}</td><td>{l.units}</td>
+                  <td>{money(l.tcvNetCents)}</td><td>{money(l.costCents)}</td><td>{money(l.grossProfitCents)}</td><td>{pct(l.grossMargin)}</td>
                 </tr>
-                {q.tax.whtBorneCents > 0n && (
-                  <>
-                    <tr className="tp-quiet" data-testid="tp-profit-wht">
-                      <td>WHT borne by Terminus (whole deal)</td><td></td><td></td><td></td><td>{money(-q.tax.whtBorneCents)}</td><td></td>
-                    </tr>
-                    {/* The one subtraction on this screen: the engine's own
-                        definition of marginAfterWht's numerator (Q4), shown. */}
-                    <tr className="tp-quiet" data-testid="tp-profit-after-wht">
-                      <td>Gross profit after WHT</td><td></td><td></td><td></td><td>{money(q.grossProfitCents - q.tax.whtBorneCents)}</td><td>{q.marginAfterWht ? pct(q.marginAfterWht) : ''}</td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
+              ))}
+              <tr className="tp-subtotal tp-total" data-testid="tp-profit-total">
+                <td>Total</td><td>{q.lines.reduce((t, l) => t + l.units, 0)}</td>
+                <td>{money(q.tcvNetCents)}</td><td>{money(q.totalCostCents)}</td><td>{money(q.grossProfitCents)}</td><td>{pct(q.grossMargin)}</td>
+              </tr>
+              {q.base.tax.whtBorneCents > 0n && (
+                <>
+                  <tr className="tp-quiet" data-testid="tp-profit-wht">
+                    <td>WHT borne by Terminus (whole deal)</td><td></td><td></td><td></td><td>{money(-q.base.tax.whtBorneCents)}</td><td></td>
+                  </tr>
+                  {/* The one subtraction on this screen: the engine's own
+                      definition of marginAfterWht's numerator (Q4), shown. */}
+                  <tr className="tp-quiet" data-testid="tp-profit-after-wht">
+                    <td>Gross profit after WHT</td><td></td><td></td><td></td><td>{money(q.grossProfitCents - q.base.tax.whtBorneCents)}</td><td>{q.marginAfterWht ? pct(q.marginAfterWht) : ''}</td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
 
-            {/* Q1(d): the payment schedule, rows and notes as before. */}
-            <div className="tp-label tp-section-label">Payment schedule</div>
-            <p className="tp-small tp-muted tp-schedule-hint">{capex ? 'hardware upfront, then a monthly service fee' : whtSplit ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term'}</p>
-            <table className="tp-table tp-lines tp-schedule" data-testid="tp-schedule">
-              <thead><tr><th>When</th><th>Invoices</th><th>Net fee</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
-                <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
-              <tbody>
-                {q.schedule.flatMap((r) => [
-                  <tr key={`${r.kind}-${r.fromMonth}`} data-testid={`tp-sched-${r.kind}-${r.fromMonth}`}>
-                    <td>{r.kind === 'upfront' ? 'Upfront (hardware)' : `Months ${r.fromMonth} to ${r.toMonth}${capex && whtSplit ? ' (service)' : ''}`}</td>
-                    <td>{r.count}</td><td>{money(r.netCents)}</td><td>{money(r.invoiceCents)}</td><td>{money(r.gstCents)}</td>
-                    <td>{money(r.invoiceInclGstCents)}</td><td>{money(r.whtCents)}</td><td>{money(r.receivedCents)}</td>
-                  </tr>,
-                  // B4: a split OPEX month is two invoice lines, each with its own WHT.
-                  ...(r.lines ?? []).map((l) => (
-                    <tr key={`${r.kind}-${r.fromMonth}-${l.kind}`} className="tp-band" data-testid={`tp-sched-${r.fromMonth}-${l.kind}`}>
-                      <td>{l.kind === 'hardware' ? 'Hardware line' : 'SaaS line'}</td>
-                      <td></td><td>{money(l.netCents)}</td><td>{money(l.invoiceCents)}</td><td>{money(l.gstCents)}</td>
-                      <td>{money(l.invoiceInclGstCents)}</td><td>{money(l.whtCents)}</td><td>{money(l.receivedCents)}</td>
-                    </tr>
-                  )),
-                ])}
-              </tbody>
-            </table>
-            <p className="tp-small tp-muted">{capex
-              // D3 (John, 2026-10-06): today's sentence plus the picture's.
-              ? `Upfront ${money(q.capex!.upfrontCents)} plus the monthly service fees ties to TCV ${money(q.tcvNetCents)} exactly, the same TCV as OPEX; the upfront carries any rounding residue. WHT is withheld per invoice, so it is shown for the whole deal, not per product.`
-              : `Net fees times months equal TCV ${money(q.tcvNetCents)} exactly. GST is added on top of each invoice; WHT applies to the fee before GST.`}</p>
-          </section>
+          <div className="tp-label tp-section-label">Payment schedule</div>
+          {capex ? (
+            <>
+              <p className="tp-small tp-muted tp-schedule-hint" data-testid="tp-schedule-hint">{upliftShown
+                ? 'what the client is invoiced, with the CPI on the subscription'
+                : 'the CAPEX payments and the subscription, month by month'}</p>
+              {/* v1.6 (C-13, Q7): the mockup's four columns lead, Months |
+                  CAPEX | Subscription | Invoice; today's tax columns follow. */}
+              <table className="tp-table tp-lines tp-schedule" data-testid="tp-schedule">
+                <thead><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
+                  <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
+                <tbody>
+                  {q.schedule.flatMap((r) => [
+                    <tr key={`m-${r.fromMonth}`} data-testid={`tp-sched-${r.fromMonth}`}>
+                      <td>{monthsText(r.fromMonth, r.toMonth)}</td>
+                      <td>{dash(r.capexCents)}</td><td>{dash(r.subscriptionCents)}</td><td>{money(r.netCents)}</td>
+                      <td>{money(r.invoiceCents)}</td><td>{money(r.gstCents)}</td><td>{money(r.invoiceInclGstCents)}</td>
+                      <td>{money(r.whtCents)}</td><td>{money(r.receivedCents)}</td>
+                    </tr>,
+                    // C-8, Q8: with Split WHT on, an invoice carries a hardware
+                    // line and a SaaS line, each with its own WHT.
+                    ...(r.lines ?? []).map((l) => (
+                      <tr key={`m-${r.fromMonth}-${l.kind}`} className="tp-band" data-testid={`tp-sched-${r.fromMonth}-${l.kind}`}>
+                        <td>{l.kind === 'hardware' ? 'Hardware line' : 'SaaS line'}</td><td></td><td></td>
+                        <td>{money(l.netCents)}</td><td>{money(l.invoiceCents)}</td><td>{money(l.gstCents)}</td>
+                        <td>{money(l.invoiceInclGstCents)}</td><td>{money(l.whtCents)}</td><td>{money(l.receivedCents)}</td>
+                      </tr>
+                    )),
+                  ])}
+                  <tr className="tp-subtotal tp-total" data-testid="tp-sched-total">
+                    <td>Total</td><td>{money(q.tax.capexCents)}</td><td>{money(q.tax.subscriptionCents)}</td><td>{money(q.tax.netCents)}</td>
+                    <td>{money(q.tax.invoicedCents)}</td><td>{money(q.tax.gstCents)}</td><td>{money(q.tax.tcvInclGstCents)}</td>
+                    <td>{money(q.tax.whtCents)}</td><td>{money(q.tax.receivedCents)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="tp-small tp-muted" data-testid="tp-schedule-note">{plan?.structure === 'two_phase'
+                ? `Phase 1 (months 1 to ${plan.recoveryMonths}): CAPEX instalment plus subscription. Phase 2 (months ${(plan.recoveryMonths ?? 0) + 1} to ${term}): subscription only.`
+                : plan && plan.payments.some((x) => x.month >= 1)
+                  ? 'A milestone in a subscription month adds to that month\'s invoice.'
+                  : 'Default under CAPEX: Hardware amount, Hybrid, one milestone at 100% on signature.'}
+                {upliftShown ? ` Each year's subscription is the base fee times that year's CPI factor, rounded half-up; month ${term} escalates its own base. CAPEX does not escalate.` : ''}
+                {' '}CAPEX plus the subscription ties to Base TCV {money(q.tcvNetCents)} exactly before the CPI; the last instalment, milestone and month carry the rounding.</p>
+            </>
+          ) : (
+            <>
+              <p className="tp-small tp-muted tp-schedule-hint">{whtSplit ? 'one invoice a month, as a hardware line and a service line' : 'one invoice a month for the term'}</p>
+              <table className="tp-table tp-lines tp-schedule" data-testid="tp-schedule">
+                <thead><tr><th>When</th><th>Invoices</th><th>Net fee</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
+                  <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
+                <tbody>
+                  {q.schedule.flatMap((r) => [
+                    <tr key={`${r.kind}-${r.fromMonth}`} data-testid={`tp-sched-${r.kind}-${r.fromMonth}`}>
+                      <td>{`Months ${r.fromMonth} to ${r.toMonth}`}</td>
+                      <td>{r.count}</td><td>{money(r.netCents)}</td><td>{money(r.invoiceCents)}</td><td>{money(r.gstCents)}</td>
+                      <td>{money(r.invoiceInclGstCents)}</td><td>{money(r.whtCents)}</td><td>{money(r.receivedCents)}</td>
+                    </tr>,
+                    // B4: a split OPEX month is two invoice lines, each with its own WHT.
+                    ...(r.lines ?? []).map((l) => (
+                      <tr key={`${r.kind}-${r.fromMonth}-${l.kind}`} className="tp-band" data-testid={`tp-sched-${r.fromMonth}-${l.kind}`}>
+                        <td>{l.kind === 'hardware' ? 'Hardware line' : 'SaaS line'}</td>
+                        <td></td><td>{money(l.netCents)}</td><td>{money(l.invoiceCents)}</td><td>{money(l.gstCents)}</td>
+                        <td>{money(l.invoiceInclGstCents)}</td><td>{money(l.whtCents)}</td><td>{money(l.receivedCents)}</td>
+                      </tr>
+                    )),
+                  ])}
+                </tbody>
+              </table>
+              <p className="tp-small tp-muted">{upliftShown
+                ? `Net fees times months equal Final TCV ${money(q.finalTcvCents)} exactly; Base TCV ${money(q.tcvNetCents)} is the same fees before the CPI. GST is added on top of each invoice; WHT applies to the fee before GST.`
+                : `Net fees times months equal TCV ${money(q.tcvNetCents)} exactly. GST is added on top of each invoice; WHT applies to the fee before GST.`}</p>
+            </>
+          )}
+        </section>
+      )}
 
-        </>
+      {/* The mockup's notes, under CAPEX: the tax treatment of these invoices
+          and the rules the screen follows (C-13). */}
+      {capex && (
+        <section className="tp-card" aria-label="Rules" data-testid="tp-rules">
+          <h2 className="tp-h2">Tax on these invoices</h2>
+          <p className="tp-small tp-muted" data-testid="tp-rules-tax">GST per invoice line. <b>Split WHT:</b> hardware rate on CAPEX payments up to the hardware value{hardwareValueCents === null ? '' : ` (${money(hardwareValueCents)})`}; any CAPEX above that, and all subscription, at the SaaS rate. Single WHT applies to the whole invoice. Not carried over from Commercials: installation and annual invoicing.</p>
+          <h2 className="tp-h2 tp-mt">Rules on this screen</h2>
+          <ol className="tp-small tp-muted tp-rules" data-testid="tp-rules-list">
+            <li>Base TCV sets approval, margin and the margin floor.</li>
+            <li>Deal value is Base TCV unless CPI is locked, then Final TCV.</li>
+            <li>CAPEX amount defaults to hardware; Custom overrides it.</li>
+            <li>Subscription = (Base TCV − CAPEX) / term; CPI applies to it only.</li>
+            <li>Rounding cents go on the last instalment, last milestone and last month.</li>
+          </ol>
+        </section>
       )}
 
       <SettingsCard state={data} open={settingsOpen} onToggle={() => setSettingsOpen(!settingsOpen)}
@@ -479,6 +830,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     </div>
   )
 }
+
 
 // ── SETTINGS: collapsed by default (Q5); editable only by an admin (R-TP6) ──
 

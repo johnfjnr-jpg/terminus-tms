@@ -53,12 +53,10 @@ const GENERATED = [
   // the moment it first mattered. Its sibling `expectations.json` was already
   // covered, by the `scripts/**.json` pattern rather than by anybody deciding.
   'GOLDEN_DEALS.md',
-  // Written by `prototypes/term-pricing/build-mockup.mjs`, never by hand: every
-  // figure on the page is computed by the term pricing engine at build time.
-  // ADDED 2026-10-01 the same way GOLDEN_DEALS.md was: the file was CREATED in
-  // one commit (exempt as an addition) and first MODIFIED in the next, where
-  // this guard refused it. Edits go to the generator, which is routed.
-  'prototypes/term-pricing/index.html',
+  // REMOVED by TP_CAPEX (Q12): 'prototypes/term-pricing/index.html' was
+  // declared here as written only by its generator. The generator is retired
+  // and deleted, so the page is a frozen record of the TERM_PRICING_2 picture
+  // and nothing writes it; any edit to it is now an ordinary routed edit.
 ]
 const GENERATED_DIRS = [
   'frontend-react/dist/',
