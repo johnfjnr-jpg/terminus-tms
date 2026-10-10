@@ -740,7 +740,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                 : 'the CAPEX payments and the subscription, month by month'}</p>
               {/* v1.6 (C-13, Q7): the mockup's four columns lead, Months |
                   CAPEX | Subscription | Invoice; today's tax columns follow. */}
-              <table className="tp-table tp-lines tp-schedule" data-testid="tp-schedule">
+              <table className="tp-table tp-lines tp-schedule tp-schedule-capex" data-testid="tp-schedule">
                 <thead><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
                   <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
                 <tbody>
@@ -772,7 +772,9 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                 ? `Phase 1 (months 1 to ${plan.recoveryMonths}): CAPEX instalment plus subscription. Phase 2 (months ${(plan.recoveryMonths ?? 0) + 1} to ${term}): subscription only.`
                 : plan && plan.payments.some((x) => x.month >= 1)
                   ? 'A milestone in a subscription month adds to that month\'s invoice.'
-                  : 'Default under CAPEX: Hardware amount, Hybrid, one milestone at 100% on signature.'}
+                  : plan?.amountMode === 'hardware' && plan.payments.length === 1 && plan.payments[0].month === 0
+                    ? 'Default under CAPEX: Hardware amount, Hybrid, one milestone at 100% on signature.'
+                    : 'One milestone pays the whole CAPEX amount.'}
                 {upliftShown ? ` Each year's subscription is the base fee times that year's CPI factor, rounded half-up; month ${term} escalates its own base. CAPEX does not escalate.` : ''}
                 {' '}CAPEX plus the subscription ties to Base TCV {money(q.tcvNetCents)} exactly before the CPI; the last instalment, milestone and month carry the rounding.</p>
             </>
