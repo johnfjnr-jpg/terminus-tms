@@ -103,12 +103,30 @@ function useFittedFigures(dep: unknown) {
       }))
       row.classList.remove('tp-figures--wrap')
       row.style.setProperty('--tp-fig-cols', String(Math.ceil(tiles.length / 2)))
+      const clamp = (s: number) => Math.max(min, Math.min(max, Math.floor(s * 4) / 4))
       let size = solve()
-      if (size < min) {
+      // TP_CAPEX: a tile holds more than its figure, and the rest cannot shrink
+      // with it: a label word such as "SUBSCRIPTION", the floor chip. Under
+      // CAPEX the row can carry eight tiles, and the live-margins sweep found
+      // them 120px wide at 1360 where "Subscription yr 1" needs 122px: the
+      // figures fitted, so F3 never wrapped. So with the figure size applied,
+      // each tile's WHOLE min-content (measured as the sweep measures it) must
+      // fit its width, or the row wraps. A first fix checked only the chip and
+      // left this exact case standing, because the chip was not what failed.
+      const contentFits = () => tiles.every((t) => {
+        const now = t.getBoundingClientRect().width
+        const w = t.style.width
+        t.style.width = 'min-content'
+        const need = t.getBoundingClientRect().width
+        t.style.width = w
+        return need <= now + 0.5
+      })
+      row.style.setProperty('--tp-fig', `${clamp(size)}px`)
+      if (size < min || !contentFits()) {
         row.classList.add('tp-figures--wrap')
         size = solve()
       }
-      size = Math.max(min, Math.min(max, Math.floor(size * 4) / 4))
+      size = clamp(size)
       row.style.setProperty('--tp-fig', `${size}px`)
       // Wrapped, the hairlines follow the grid: a rule under the first row and
       // none at a row's right end, so no line doubles against the card's own
@@ -148,6 +166,46 @@ const CPI_MODES: Array<{ key: CpiMode; label: string }> = [
 ]
 const monthsText = (from: number, to: number) => (from === to ? `${from}` : `${from} to ${to}`)
 const dash = (c: bigint) => (c === 0n ? '-' : money(c))
+
+// ── TP_CAPEX: THE CAPEX SCHEDULE FITS ITS PANEL ──────────────────────────────
+// C-13 and Q7 give the CAPEX schedule nine columns, one more than OPEX's, and
+// how wide they run depends on the deal: the CPI, split WHT lines, gross-up
+// and GST each widen a column. Fixed breakpoints were tried first and a case
+// nobody had measured beat each one (the sweep found two-phase + split +
+// gross-up 26px over at 1360). So the table is FITTED, as TILE_FIT fits the
+// tiles: full size when it fits; otherwise the padding narrows first, as this
+// table's own ruling says, then the figure font steps down until it fits. The
+// floor is 10px; a deal that needs less overflows and the sweep reports it.
+function useFittedSchedule(dep: unknown) {
+  const ref = useRef<HTMLTableElement | null>(null)
+  useLayoutEffect(() => {
+    const t = ref.current
+    const box = t?.parentElement
+    if (!t || !box) return
+    const fit = () => {
+      const cs = getComputedStyle(box)
+      const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      t.classList.remove('tp-schedule--tight')
+      t.style.removeProperty('--tp-sched-fig')
+      if (t.getBoundingClientRect().width <= room + 0.5) return
+      t.classList.add('tp-schedule--tight')
+      const td = t.querySelector('td')
+      let size = td ? parseFloat(getComputedStyle(td).fontSize) : 13.5
+      while (t.getBoundingClientRect().width > room + 0.5 && size > 10) {
+        size = Math.max(10, size - 0.25)
+        t.style.setProperty('--tp-sched-fig', `${size}px`)
+      }
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(box)
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    let live = true
+    fonts?.ready.then(() => { if (live) fit() }).catch(() => {})
+    return () => { live = false; ro.disconnect() }
+  }, [dep])
+  return ref
+}
 
 export function TermPricingView({ navToken }: { navToken: number }) {
   const shell = useShell()
@@ -271,6 +329,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     capexAmount, capexCustom, capexStructure, milestones, recovery])
   // TILE_FIT: refits whenever the quote (its figures and tile count) changes.
   const figuresRef = useFittedFigures(result)
+  const scheduleRef = useFittedSchedule(result)
 
   if (isError) return <div className="wrap tp-view"><p className="tp-error" role="alert">{(error as Error).message}</p></div>
   if (!data || !params) return <div className="wrap tp-view"><p className="field-note">Loading term pricing...</p></div>
@@ -426,7 +485,10 @@ export function TermPricingView({ navToken }: { navToken: number }) {
         </div>
         <p className="tp-small tp-muted tp-tax-note" data-testid="tp-tax-note">
           WHT applies to each invoice line before GST. GST is added on top of every invoice.{whtSplit ? (capex
-            ? ' With Split WHT on, CAPEX payments take the hardware rate up to the hardware value; CAPEX above it and all subscription take the SaaS rate.'
+            // As short as the OPEX sentence, so toggling Split WHT keeps the
+            // card's height (I3; the sweep found the long form wrapping). The
+            // rule in full is in the Tax on these invoices note.
+            ? ' Split WHT: hardware rate up to the hardware value, SaaS rate on the rest.'
             : ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.') : ''}
         </p>
       </section>
@@ -740,7 +802,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                 : 'the CAPEX payments and the subscription, month by month'}</p>
               {/* v1.6 (C-13, Q7): the mockup's four columns lead, Months |
                   CAPEX | Subscription | Invoice; today's tax columns follow. */}
-              <table className="tp-table tp-lines tp-schedule tp-schedule-capex" data-testid="tp-schedule">
+              <table className="tp-table tp-lines tp-schedule tp-schedule-capex" data-testid="tp-schedule" ref={scheduleRef}>
                 <thead><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th><th>Invoice (pre-GST)</th><th>GST</th><th>Invoice incl. GST</th>
                   <th>{q.tax.whtBorneCents > 0n ? 'WHT borne' : q.tax.whtCents > 0n ? 'WHT (grossed up)' : 'WHT'}</th><th>Terminus receives</th></tr></thead>
                 <tbody>

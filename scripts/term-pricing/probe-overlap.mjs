@@ -81,6 +81,44 @@ const INJECTIONS = {
   // the ink gap between the two measured 94px at 1240 and 128px at 1920, and a
   // first 70px injection came back SILENT because it never reached the fee.
   'percam-over-fee': '[data-testid^="tp-ladder-percam-"] { position: relative; left: -160px; }',
+  // TP_CAPEX: the CAPEX schedule's fitting switched off (its figure size
+  // pinned) must fire the Quote fit check wherever the fitting was doing the
+  // work, under CAPEX and only under CAPEX. Padding would not do: the fitting
+  // would absorb it by shrinking the font, which is the fitting working.
+  'capex-schedule-wide': '.tp-table.tp-schedule.tp-schedule-capex td { font-size: 14px !important; }',
+}
+
+// TP_CAPEX: put the CAPEX card into one of three payment shapes. Idempotent:
+// it first returns the milestone table to one row.
+async function capexVariant(page, v) {
+  await page.waitForSelector('[data-testid="tp-capex-card"]')
+  const rows = () => page.$$eval('[data-testid^="tp-ms-key-"]', (s) => s.length)
+  if (v === 'two-phase') {
+    await page.click('[data-testid="tp-capex-hardware"]')
+    await page.click('[data-testid="tp-capex-two-phase"]')
+    await page.waitForSelector('[data-testid="tp-capex-instalments"]')
+    return
+  }
+  await page.click('[data-testid="tp-capex-hybrid"]')
+  await page.waitForSelector('[data-testid="tp-ms-key-0"]')
+  while ((await rows()) > 1) await page.click(`[data-testid="tp-ms-remove-${(await rows()) - 1}"]`)
+  if (v === 'default') {
+    await page.click('[data-testid="tp-capex-hardware"]')
+    await typeInto(page, 'tp-ms-share-0', '100')
+  } else {
+    await page.click('[data-testid="tp-capex-custom"]')
+    await typeInto(page, 'tp-capex-amount', '1000000.00')
+    await typeInto(page, 'tp-ms-share-0', '30')
+    await page.click('[data-testid="tp-ms-add"]')
+    await page.waitForSelector('[data-testid="tp-ms-key-1"]')
+    await typeInto(page, 'tp-ms-month-1', '3'); await typeInto(page, 'tp-ms-share-1', '40')
+    await page.click('[data-testid="tp-ms-add"]')
+    await page.waitForSelector('[data-testid="tp-ms-key-2"]')
+    await page.select('[data-testid="tp-ms-key-2"]', 'Commissioning')
+    await typeInto(page, 'tp-ms-month-2', '6'); await typeInto(page, 'tp-ms-share-2', '30')
+  }
+  // Wait on the state itself: a quote that prices (shares total 100%).
+  await page.waitForFunction(() => document.querySelector('[data-testid="tp-ms-status"]')?.textContent.startsWith('✓'), { timeout: 6000 })
 }
 
 async function signedIn(browser, { admin = false } = {}) {
@@ -214,6 +252,9 @@ try {
         }
         if (split) {
           await page.click('[data-testid="tp-term-60"]')
+          // TP_CAPEX (C-3, Q14): the rate is shown once a CPI mode is chosen.
+          await page.click('[data-testid="tp-cpi-published"]')
+          await page.waitForSelector('[data-testid="tp-escalator"]')
           await typeInto(page, 'tp-escalator', '3')
           await page.select('[data-testid="tp-escalator-start"]', '3')
           await setSwitch(page, 'tp-wht-split', true)
@@ -221,12 +262,17 @@ try {
           await typeInto(page, 'tp-wht-hw', '5')
           await typeInto(page, 'tp-wht-saas', '10')
         }
-        for (const mode of ['opex', 'capex']) {
+        // TP_CAPEX: under CAPEX three payment shapes, so the new cards, the
+        // milestone table and the nine-column schedule are swept in each: the
+        // default (Hardware, one row at month 0), Two-phase over 12 months,
+        // and G-C2's three milestones on a Custom amount.
+        for (const [mode, variant] of [['opex', 'default'], ['capex', 'default'], ['capex', 'two-phase'], ['capex', 'milestones']]) {
           await page.click(`[data-testid="tp-${mode}"]`)
+          if (mode === 'capex') await capexVariant(page, variant)
           for (const open of [false, true]) {
             const isOpen = await page.$eval('[data-testid="tp-settings-toggle"]', (e) => e.getAttribute('aria-expanded') === 'true')
             if (isOpen !== open) await page.click('[data-testid="tp-settings-toggle"]')
-            const label = `tp ${admin ? 'admin' : 'non-admin'} ${mode} wht-${wstate} settings-${open ? 'open' : 'closed'}`
+            const label = `tp ${admin ? 'admin' : 'non-admin'} ${mode}${mode === 'capex' ? ` ${variant}` : ''} wht-${wstate} settings-${open ? 'open' : 'closed'}`
             await sweep(page, TP, label, async (p) => {
               const s = await p.evaluate((m) => ({
                 mode: document.querySelector(`[data-testid="tp-${m}"]`)?.getAttribute('aria-pressed') === 'true',
@@ -243,7 +289,9 @@ try {
               // Split on hides the single rate and shows the pair (B4); the
               // start year is live only with a rate (B6).
               const ok = s.mode && s.ladder && s.open === open && (open ? s.adminSave === admin : true)
-                && s.split === split && s.single === !split && s.pair === split && s.start === (wstate === 'off')
+                // TP_CAPEX (Q14): under CPI None (the 'off' state) the start
+                // year is not on the screen at all; with a CPI mode it is live.
+                && s.split === split && s.single === !split && s.pair === split && s.start === (wstate === 'off' ? undefined : false)
                 && s.whtRows === (wstate === 'borne')
               return { ok, detail: JSON.stringify(s), minAtoms: open ? 200 : 120 }
             }, async (p, where) => {
@@ -328,7 +376,10 @@ try {
               })
               const a = await inputs()
               const NOTE = 'WHT applies to each invoice line before GST. GST is added on top of every invoice.'
-              const SPLIT_NOTE = ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.'
+              // TP_CAPEX (C-8): under CAPEX the split note states the CAPEX rule.
+              const SPLIT_NOTE = mode === 'capex'
+                ? ' Split WHT: hardware rate up to the hardware value, SaaS rate on the rest.'
+                : ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.'
               const rowsOk = (x) => x.dealN === 3 && x.dealTops <= 1 && x.taxN === (x.split ? 5 : 4) && x.taxBottoms <= 1
               check(rowsOk(a), `${where}: I1 deal terms one row of three groups, tax one row`, JSON.stringify({ dealN: a.dealN, dealTops: a.dealTops, taxN: a.taxN, taxBottoms: a.taxBottoms }))
               check(a.fields.length === (a.split ? 3 : 2) && a.fields.every((f) => f.w <= 60 && f.dx === 0),
