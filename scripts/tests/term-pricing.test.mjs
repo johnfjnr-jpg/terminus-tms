@@ -941,6 +941,36 @@ test('v1.6 (POSITION): a last instalment or last month that would be negative is
     (e) => e.code === 'NEGATIVE_LAST_ITEM')
 })
 
+test('v1.6 (C-4, POSITION): the hardware value is rounded ONCE, at deal level, never per product', () => {
+  // From the spec's formula: HW_UPFRONT_MARGIN 30%, SafeSight 3 + TEST-B 1:
+  // (3 x 8,000 + 2,000) / 0.7 = 26,000 / 0.7 = 37,142.857.., half-up 37,142.86.
+  // Rounded per product it would read 34,285.71 + 2,857.14 = 37,142.85.
+  const q = quote({ safesight: 3, 'TEST-B': 1 }, 60, { paymentStructure: 'capex' }, withParams({ HW_UPFRONT_MARGIN: '30' }))
+  assert.equal(money(q.capex.hardwareValueCents), '37,142.86')
+  assert.equal(money(q.capex.capexCents), '37,142.86')
+})
+
+test('v1.6 (C-5): CAPEX payments never escalate, even a milestone in a CPI year', () => {
+  // G-C2's schedule with a year-2 milestone, under CPI locked 3% (S 2): the
+  // month-13 payment is its share of CAPEX, unchanged, and the invoice is that
+  // payment plus the year-2 subscription.
+  const rows = HYBRID(['Contract start', 0, '50'], ['Go live', 13, '50'])
+  const flat = quote(DEMO, 60, CAPEX({ capexAmount: 'custom', capexCustom: '1000000.00', ...rows }), CATALOG)
+  const cpi = quote(DEMO, 60, CAPEX({ capexAmount: 'custom', capexCustom: '1000000.00', ...rows, ...LOCK('3', 2) }), CATALOG)
+  assert.deepEqual(cpi.capex.payments.map((p) => money(p.cents)), ['500,000.00', '500,000.00'])
+  assert.deepEqual(cpi.capex.payments, flat.capex.payments, 'the CPI does not touch the payments')
+  const m13 = cpi.schedule.find((r) => r.fromMonth === 13)
+  assert.ok(m13 && m13.subscriptionCents > flat.schedule.find((r) => r.fromMonth === 13).subscriptionCents, 'year 2 subscription did escalate')
+  assert.equal(money(m13.capexCents), '500,000.00')
+  assert.equal(m13.netCents, m13.capexCents + m13.subscriptionCents, 'invoice = unescalated CAPEX + escalated subscription')
+})
+
+test('v1.6: with no CPI the OPEX schedule is one run and the Base schedule IS the Final one', () => {
+  const q = quote({ safesight: 120 }, 60)
+  assert.deepEqual(q.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.netCents)]), [[1, 60, '289,818.77']])
+  assert.equal(q.base.schedule, q.schedule, 'one schedule, not two that agree')
+})
+
 test('v1.6 (Verification 24): a recovery period other than the default 12 is used', () => {
   // POSITION: 1,550,000.00 / 24 = 64,583.333.., half-up 64,583.33 for months 1
   // to 23; month 24 = 1,550,000.00 - 23 x 64,583.33 = 64,583.41.
