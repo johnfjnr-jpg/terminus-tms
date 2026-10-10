@@ -1,5 +1,6 @@
 import { toNumberOrNull } from '../../../src/lib/numeric-payload.js'
 import { scheduleReconciliation, milestoneUsd } from '../../../src/lib/milestone-schedule.js'
+import { MILESTONE_NAMES } from '../../../src/lib/milestone-vocabulary.js'
 import { money } from './rows'
 import { readContractorMilestones } from './payload'
 import type { Values } from './payload'
@@ -31,20 +32,18 @@ import type { Values } from './payload'
  * the live data against them: 13 of 13 named contractor rows are one of these
  * and none is anything else.
  *
+ * TP_CAPEX (C-11): DEFINED ONCE, in src/lib/milestone-vocabulary.js, and
+ * shared with the term pricing screen's Hybrid CAPEX rows. Re-exported here
+ * under its old name so no reader of it moves. Names only: the arithmetic
+ * stays in milestone-schedule.js.
+ *
  * QUEUED, NOT BUILT (John, R-W12): this could be a vocabulary TABLE, the way
  * `contact_roles`, `contact_stances`, `industries` and `closed_lost_reasons`
  * already are - a small table with `id, label, sort_order` and a GET route.
  * That is a schema change and a configuration decision; the constant is
  * neither, and it is what both grids read today.
  */
-export const CONTRACTOR_MILESTONES = [
-  'Contract start',
-  'Hardware delivered to site',
-  'Installation complete',
-  'Commissioning',
-  'Go live',
-  'Final acceptance',
-] as const
+export const CONTRACTOR_MILESTONES = MILESTONE_NAMES
 
 export interface MilestoneOption { value: string; label: string; unknown: boolean }
 

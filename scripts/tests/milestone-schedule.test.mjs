@@ -138,11 +138,21 @@ test('both grids and the server ask the same evaluator', () => {
 test('the milestone list is the one the business gave', () => {
   // RE-POINTED, Round 6 Phase R. The list is the business's, wherever it is
   // declared; only the file moved.
-  const block = readCode(new URL('../../frontend-react/src/deal/milestones.ts', import.meta.url))
+  //
+  // RE-POINTED AGAIN, TP_CAPEX (C-11): the names are defined ONCE, in the
+  // shared vocabulary module, and the Commercials grids read them through
+  // milestones.ts. Both halves are asserted: the names are in the module, and
+  // milestones.ts takes its list from the module rather than declaring one.
+  const vocab = readCode(new URL('../../src/lib/milestone-vocabulary.js', import.meta.url))
   for (const m of ['Contract start', 'Hardware delivered to site', 'Installation complete',
     'Commissioning', 'Go live', 'Final acceptance']) {
-    assert.ok(block.includes(m), `missing milestone: ${m}`)
+    assert.ok(vocab.includes(`'${m}'`), `missing milestone: ${m}`)
   }
+  const block = readCode(new URL('../../frontend-react/src/deal/milestones.ts', import.meta.url))
+  assert.match(block, /import \{ MILESTONE_NAMES \} from '\.\.\/\.\.\/\.\.\/src\/lib\/milestone-vocabulary\.js'/,
+    'the Commercials list is taken from the shared vocabulary')
+  assert.match(block, /export const CONTRACTOR_MILESTONES = MILESTONE_NAMES\b/, 'and is not a second declaration')
+  assert.ok(!/'Hardware delivered to site'/.test(block), 'milestones.ts declares no name of its own')
   assert.match(block, /label: 'Select milestone'/,
     'the empty option must be a real option carrying words, not a bare placeholder')
   const rows = readCode(new URL('../../frontend-react/src/deal/panelParts.tsx', import.meta.url))

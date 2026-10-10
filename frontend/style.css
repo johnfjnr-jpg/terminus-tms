@@ -9451,6 +9451,58 @@ select:autofill {
 .tp-set-wide { width: 330px; }
 .tp-set-narrow { width: 72px; }
 .tp-save-row { margin-top: 14px; text-align: right; }
+/* ── TP_CAPEX (C-13): the price card, the CAPEX payment card, the CPI row ──
+   Built to prototypes/term-pricing-capex.html in this screen's own visual
+   language: the same cards, labels, segments, tables and figure face. */
+.tp-price { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 18px; }
+.tp-price > div { min-width: 0; }
+.tp-price .tp-v { font-size: 18px; }
+.tp-price .tp-v.tp-same { color: var(--muted); }
+.tp-price .tp-v.tp-deal { font-family: var(--body); font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tp-price .tp-small { margin-top: 4px; }
+.tp-tag.tp-tag-go { color: var(--green); border-color: rgba(102,204,153,0.55); }
+.tp-label .tp-tag { margin-left: 6px; }
+.tp-chip.tp-lock { margin-left: 10px; color: var(--green); border-color: rgba(102,204,153,0.55); text-transform: none; letter-spacing: 0; }
+.tp-cpi-row { align-items: center; gap: 14px 28px; }
+.tp-small.tp-cpi-note { flex: 1 1 320px; margin: 0; }
+.tp-capex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+.tp-capex-row.tp-flush { margin-bottom: 0; }
+.tp-capex-row > .tp-label { margin: 0; width: 120px; flex: 0 0 auto; }
+.tp-small.tp-inline { margin-top: 0; }
+.tp-push { margin-left: auto; }
+.tp-num.tp-money { width: 150px; text-align: right; }
+.tp-num.tp-ms-key { width: 230px; }
+.tp-num.tp-ms-month { width: 64px; text-align: right; }
+.tp-num.tp-ms-share { width: 72px; text-align: right; }
+.tp-pct-field { display: inline-flex; align-items: center; gap: 6px; }
+.tp-table.tp-milestones td { vertical-align: middle; }
+.tp-table.tp-milestones td:first-child { font-family: var(--body); }
+.tp-carries { margin-left: 6px; }
+.tp-ok { color: var(--green); font-size: 12px; }
+/* A button carries a background, border, padding and centred text that the
+   span or div this treatment might otherwise sit on does not (Verification 7,
+   the fourth axis), so the reset is stated here rather than assumed. */
+.btn-ghost.tp-remove { background: transparent; border: 0; padding: 2px 6px; color: var(--muted); }
+.btn-ghost.tp-remove:hover { color: var(--white); }
+/* The warning's border follows its colour, so the site binds --attention once
+   (the attention-token census counts bindings; .tp-chip.tp-flag does the same). */
+.tp-warn { border: 1px solid currentColor; color: var(--attention); border-radius: 4px; padding: 7px 12px; font-size: 12px; margin-top: 10px; }
+.tp-divider { border-top: 1px solid var(--hairline); margin: 14px 0 12px; }
+.tp-rules { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; }
+/* The CAPEX schedule carries nine columns (the mockup's four, then today's
+   five tax columns, Q7), one more than OPEX's eight, and how wide they run
+   depends on the deal. It is FITTED to its panel by useFittedSchedule
+   (TermPricingView.tsx), as TILE_FIT fits the tiles. Full size when it fits;
+   when it does not, the padding narrows first, as ruled for this table, then
+   the figure font steps down (--tp-sched-fig, set by the hook).
+   SUPERSEDED, QUOTED NOT DELETED: three fixed breakpoints, 4px padding below
+   1360 and figures at 12.5 / 12 / 11.5px below 1360 / 1320 / 1280, sized on
+   the widest case found by hand. The sweep then found two-phase + split WHT +
+   gross-up 26px over at 1360: a fixed step is sized to the cases somebody
+   thought of. */
+.tp-table.tp-schedule.tp-schedule-capex td { font-size: var(--tp-sched-fig, var(--numeric-cell-size)); }
+.tp-table.tp-schedule.tp-schedule-capex.tp-schedule--tight th,
+.tp-table.tp-schedule.tp-schedule-capex.tp-schedule--tight td { padding-left: 4px; padding-right: 4px; }
 @media (max-width: 1599px) {
   .tp-figures > div { padding: 12px 10px; }
   /* TILE_FIT retired `.tp-v { 14px }` and `.tp-lead { 16px }` here: the size

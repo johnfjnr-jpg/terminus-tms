@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-10-10T02:56:49.172Z`
-- Git commit: `0b7635e0c18809763c29f30936d2664278586912`
+- Generated at: `2026-10-10T11:53:34.452Z`
+- Git commit: `3504755419eab0d4952b3d8ed4bc9532101e34d5`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 547,548 bytes
-- sha256: `630727cfdf8dc3364598e0142ea6cd454335f0677d32d9f5cebcdc34998d44e4`
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 571,064 bytes
+- sha256: `332c90e9f3367c04d9c7b74031dbed8b894a2c6aa08b4780158be0d30d6a440b`
 - React suite: 1457/1457 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1089 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1060 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1101 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1072 | yes |
 
 ## `stage_definitions`
 
@@ -405,38 +405,54 @@ _None._
 | opportunity | (null) | Qualification | 10 |
 | opportunity | (null) | Solution Alignment | 20 |
 
+## `term_pricing_settings`
+
+9 rows. The LIVE values the Term Pricing screen prices with; docs/pricing-spec.md section 3 prints the spec's defaults, which differ where an admin has changed one.
+
+| key | value | updated_at |
+|---|---|---|
+| ANCHOR_MARGIN | `{"air_quality":"90","hemir":"90","safesight":"50"}` | 2026-10-07T09:23:05.684+00:00 |
+| ANCHOR_TERM | `36` | 2026-10-02T14:06:47.232224+00:00 |
+| CURRENCY | `"USD"` | 2026-10-02T14:06:47.232224+00:00 |
+| HW_UPFRONT_MARGIN | `"20"` | 2026-10-02T14:06:47.232224+00:00 |
+| MARGIN_FLOOR | `"25"` | 2026-10-02T14:06:47.232224+00:00 |
+| PROFIT_STEP | `"0.00"` | 2026-10-02T14:06:47.232224+00:00 |
+| SHORT_TERM_MARGIN | `{"air_quality":"90","hemir":"90","safesight":"90"}` | 2026-10-06T14:31:48.932+00:00 |
+| TERMS | `[12,24,36,48,60,72,84,96,108,120]` | 2026-10-03T10:36:17.431+00:00 |
+| VOLUME_BANDS | `[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}]` | 2026-10-02T14:06:47.232224+00:00 |
+
 ## Record counts by type and status
 
-134 live, 117739 soft deleted, 117873 rows in total.
+134 live, 118475 soft deleted, 118609 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1706 |
-| contact | Active | 0 | 3393 |
+| account | active | 7 | 1710 |
+| contact | Active | 0 | 3417 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 12534 |
+| contact | Qualified | 12 | 12628 |
 | contact | Unqualified | 5 | 767 |
-| document | approved | 65 | 5686 |
+| document | approved | 65 | 5718 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 309 |
+| opportunity | Evaluation | 0 | 311 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1888 |
-| opportunity | Qualification | 6 | 10926 |
-| opportunity | Solution Alignment | 7 | 1440 |
+| opportunity | Proposal | 3 | 1900 |
+| opportunity | Qualification | 6 | 11014 |
+| opportunity | Solution Alignment | 7 | 1448 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1526 |
+| test_bed | Qualification | 4 | 1530 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 22166 |
+| unit | Planned | 9 | 22306 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -447,20 +463,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 6812 | 0 | 55157 |
+| 6852 | 0 | 55485 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5089 rows, of which 3 carry a null `stage`.
+5115 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2480 | 0 |
-| approved | Legal | 1436 | 1 |
+| approved | Commercial | 2492 | 0 |
+| approved | Legal | 1444 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1164 | 0 |
+| approved | Technical | 1170 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |

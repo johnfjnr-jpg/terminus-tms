@@ -1,6 +1,6 @@
 // ── THE TERM PRICING ENGINE ──────────────────────────────────────────────
 //
-// Implements docs/pricing-spec.md (Specification v1.3) exactly. CLAUDE.md
+// Implements docs/pricing-spec.md (Specification v1.6) exactly. CLAUDE.md
 // Architecture rule 14: no hard-coded parameters, no floats for money. That
 // rule does not govern the deal-sheet engine, and this file is not part of it.
 //
@@ -268,12 +268,24 @@ export function unitEconomics(product, termMonths, params) {
  *   units: { safesight: 120, ... },     integers >= 0, at least one >= 1
  *   termMonths: 60,                     one of TERMS
  *   paymentStructure: 'opex' | 'capex',
- *   escalatorPct: '3' | null,           blank or 0 means none
+ *   cpiMode: 'none' | 'published' | 'locked',   v1.6 (C-3): default none; a rate with no mode is refused
+ *   escalatorPct: '3' | null,           the CPI rate; blank or 0 means none; ignored under none
  *   escalatorStartYear: 2,              v1.3 (B6): the year it first applies, >= 2, default 2
  *   gstPct: '9', whtPct: '10', whtGrossUp: true,
  *   whtSplit: false,                    v1.3 (B4): on, whtHwPct and whtSaasPct replace whtPct
  *   whtHwPct: '5', whtSaasPct: '10',
+ *   v1.6 (C-4, C-6), capex only:
+ *   capexAmount: 'hardware' | 'custom', capexCustom: '1000000.00',
+ *   capexStructure: 'hybrid' | 'two_phase',
+ *   milestones: [{ key, month, sharePct }],   key is an OPAQUE token (Q4): never a name to this file
+ *   recoveryMonths: 12,
  * }
+ *
+ * v1.6 (C-1, C-2, Q5): TWO SCHEDULES. `tcvNetCents` is BASE TCV (no CPI) and
+ * carries approval: margin, the floor, the per-product totals, and the margin
+ * after WHT (on the Base schedule's WHT). `schedule` and `tax` are the FINAL
+ * schedule, what the client is invoiced; `base` holds the Base schedule. With
+ * no CPI the two are the same schedule.
  */
 export function priceQuote(input, params) {
   const p = norm(params)
@@ -294,8 +306,23 @@ export function priceQuote(input, params) {
     throw new TermPricingError('BAD_STRUCTURE', 'payment structure must be opex or capex')
   }
 
-  const escalator = input.escalatorPct == null || input.escalatorPct === ''
+  // v1.6 section 7 (C-3): the escalator is the CPI, and it has a mode. A rate
+  // with no mode is REFUSED rather than given one, so a caller written before
+  // v1.6 cannot be quietly priced as Published or Locked. Under none the rate
+  // is ignored: Final = Base.
+  const rate = input.escalatorPct == null || input.escalatorPct === ''
     ? ZERO : pctToRatio(input.escalatorPct, 'escalator_pct')
+  let cpiMode = input.cpiMode
+  if (cpiMode == null) {
+    if (cmp(rate, ZERO) !== 0) {
+      throw new TermPricingError('CPI_MODE_REQUIRED', 'Choose how the CPI applies: Published CPI or Locked rate.')
+    }
+    cpiMode = 'none'
+  }
+  if (!['none', 'published', 'locked'].includes(cpiMode)) {
+    throw new TermPricingError('BAD_CPI_MODE', 'The CPI mode must be None, Published CPI or Locked rate.')
+  }
+  const escalator = cpiMode === 'none' ? ZERO : rate
   const years = Math.ceil(T / 12)
   // v1.3 section 7 (B6): factor(k) = 1 before the start year S, then
   // (1 + e)^(k - S + 1). S = 2 is the v1.2 formula, (1 + e)^(k - 1). An S past
@@ -322,12 +349,15 @@ export function priceQuote(input, params) {
     const monthlyByYear = []
     for (let k = 0; k < years; k++) monthlyByYear.push(bands.reduce((s, b) => s + BigInt(b.units) * b.feeByYear[k], 0n))
     // v1.4 section 4.3, per product: the line's own invoiced fees over the
-    // term (escalated), its cost and its profit. Summed from the same cents as
-    // the deal, so the products add to the deal exactly. No WHT here: WHT is
-    // withheld per invoice and is never allocated to a product.
+    // term, its cost and its profit. Summed from the same cents as the deal,
+    // so the products add to the deal exactly. No WHT here: WHT is withheld
+    // per invoice and is never allocated to a product.
+    //
+    // v1.6 (C-1, Q5): ON BASE. Year-1 fees times T; no CPI uplift is ever
+    // allocated to a product. SUPERSEDED, left visible: v1.4 summed the
+    // escalated fee of each contract year here.
     const costPerUnitCents = roundHalfUp(costAt(cost, T), 2)
-    let tcvNetCents = 0n
-    for (let k = 1; k <= years; k++) tcvNetCents += monthlyByYear[k - 1] * BigInt(monthsInYear(k))
+    const tcvNetCents = monthlyByYear[0] * BigInt(T)
     const costCents = BigInt(units) * costPerUnitCents
     return {
       product, units, listFee,
@@ -343,63 +373,20 @@ export function priceQuote(input, params) {
   const monthlyTotalByYear = []
   for (let k = 0; k < years; k++) monthlyTotalByYear.push(lines.reduce((s, l) => s + l.monthlyByYear[k], 0n))
 
-  // The tie rule: TCV is the invoiced fees times months, exactly.
-  let tcvNetCents = 0n
-  for (let k = 1; k <= years; k++) tcvNetCents += monthlyTotalByYear[k - 1] * BigInt(monthsInYear(k))
+  // v1.6 (C-1): BASE TCV, the year-1 monthly total times T, in both
+  // structures. It carries approval: the margin, the floor and the profit
+  // table. The tie rule holds on it: the Base schedule's net invoices sum to
+  // it exactly (checked below, and a break is refused, never shown).
+  // SUPERSEDED, left visible: v1.5 summed each contract year's ESCALATED fee
+  // here, so the margin rose with the escalator.
+  const tcvNetCents = monthlyTotalByYear[0] * BigInt(T)
 
   const totalCostCents = lines.reduce((s, l) => s + BigInt(l.units) * l.costPerUnitCents, 0n)
   const grossProfitCents = tcvNetCents - totalCostCents
   const grossMargin = frac(grossProfitCents, tcvNetCents)
 
-  // Section 6: the payment schedule, net of tax. Rows are runs of identical
-  // invoices: month 0 is the CAPEX upfront invoice.
-  //
-  // Both structures bill one fee per contract year. Consecutive years with the
-  // same fee (no escalator) merge into one run, so a flat deal reads as one row.
-  const yearRows = (feeByYear) => {
-    const rows = []
-    for (let k = 1; k <= years; k++) {
-      const from = 12 * (k - 1) + 1
-      const to = 12 * (k - 1) + monthsInYear(k)
-      const last = rows[rows.length - 1]
-      if (last && last.netCents === feeByYear[k - 1]) last.toMonth = to
-      else rows.push({ kind: 'monthly', fromMonth: from, toMonth: to, netCents: feeByYear[k - 1] })
-    }
-    return rows
-  }
-  // Section 6's hardware amount, at HW_UPFRONT_MARGIN. CAPEX invoices it
-  // upfront; v1.3 section 8.1 also uses it for the OPEX hardware line.
-  const hardwareUpfront = lines.reduce(
-    (s, l) => add(s, div(mul(fromInt(l.units), l.hwCostPerUnit), sub(ONE, p.hwUpfrontMargin))), ZERO)
-  let schedule
-  let capex = null
-  if (structure === 'opex') {
-    schedule = yearRows(monthlyTotalByYear)
-  } else {
-    // v1.2.2 section 6: the service fee escalates like the OPEX fee and TCV is
-    // the OPEX TCV. The weight is 12 x sum of the year factors in the spec; it
-    // is written as months-in-year x factor, which is identical for every term
-    // that is a whole number of years and stays consistent with section 7's
-    // own year split if a TERMS entry ever is not.
-    let weight = ZERO
-    for (let k = 1; k <= years; k++) weight = add(weight, mul(fromInt(monthsInYear(k)), factor(k)))
-    const s = div(sub(fromCents(tcvNetCents), hardwareUpfront), weight)
-    const serviceByYear = []
-    for (let k = 1; k <= years; k++) serviceByYear.push(roundHalfUp(mul(s, factor(k)), 2))
-    const upfrontCents = tcvNetCents - serviceByYear.reduce((t, c, i) => t + c * BigInt(monthsInYear(i + 1)), 0n)
-    capex = { hardwareUpfront, upfrontCents, monthlyServiceCents: serviceByYear[0], serviceByYear }
-    schedule = [{ kind: 'upfront', fromMonth: 0, toMonth: 0, netCents: upfrontCents }, ...yearRows(serviceByYear)]
-  }
-
-  // Section 8: tax per invoice line, half-up to cents. WHT applies to the fee
-  // before GST. With gross-up the line rises so Terminus receives its net.
-  //
-  // v1.3 section 8.1 (B3, B4): every WHT rate is typed, 0 up to but not
-  // including 100, blank 0. With the split OFF one rate applies to every line
-  // and an OPEX month is ONE line, which is what keeps T20 and T21 exact (two
-  // lines round twice). With it ON, hardware takes whtHwPct and software as a
-  // service whtSaasPct: under CAPEX the upfront and the monthly invoices, under
-  // OPEX two lines on each monthly invoice.
+  // Section 8: the tax inputs. Every WHT rate is typed, 0 up to but not
+  // including 100, blank 0 (v1.3, B3, B4).
   const gst = input.gstPct == null || input.gstPct === '' ? ZERO : pctToRatio(input.gstPct, 'gst_pct')
   const whtRate = (v, what) => {
     const r = v == null || v === '' ? ZERO : pctToRatio(v, what)
@@ -411,55 +398,309 @@ export function priceQuote(input, params) {
   const whtHw = split ? whtRate(input.whtHwPct, 'WHT on hardware') : wht
   const whtSaas = split ? whtRate(input.whtSaasPct, 'WHT on software as a service') : wht
   const grossUp = !!input.whtGrossUp
+
+  // v1.6 section 6.1 (C-4): the hardware value, at HW_UPFRONT_MARGIN, rounded
+  // ONCE at deal level. It is CAPEX's default amount, the boundary of split WHT
+  // on CAPEX payments (C-8), and (Q9) the basis of the OPEX hardware line.
+  const hardwareUpfront = lines.reduce(
+    (s, l) => add(s, div(mul(fromInt(l.units), l.hwCostPerUnit), sub(ONE, p.hwUpfrontMargin))), ZERO)
+  const hardwareValueCents = roundHalfUp(hardwareUpfront, 2)
+
+  // A schedule is a list of runs of identical invoices. Each run carries its
+  // invoice LINES before tax as `parts`: [kind, net], where kind is
+  // 'hardware' or 'service' with Split WHT on, and 'invoice' (one line at the
+  // single rate) with it off. One line per rate per invoice, so a single rate
+  // rounds once (what keeps T20 and T21 exact).
+  const yearOf = (m) => Math.ceil(m / 12)
+  const monthsInYearOf = monthsInYear
+
+  // OPEX: one fee per contract year; consecutive equal years merge into one
+  // run. v1.3 section 8.1 (B4), kept by Q9: with Split WHT on, each month is a
+  // flat hardware line and a service line carrying the rest.
+  const opexHardwareLineCents = structure === 'opex' && split
+    ? roundHalfUp(div(fromCents(hardwareValueCents), fromInt(T)), 2) : null
+  const opexRows = (feeByYear) => {
+    const rows = []
+    for (let k = 1; k <= years; k++) {
+      const from = 12 * (k - 1) + 1
+      const to = 12 * (k - 1) + monthsInYearOf(k)
+      const last = rows[rows.length - 1]
+      if (last && last.netCents === feeByYear[k - 1]) { last.toMonth = to; continue }
+      const fee = feeByYear[k - 1]
+      let parts
+      if (opexHardwareLineCents !== null) {
+        const serviceCents = fee - opexHardwareLineCents
+        if (serviceCents < 0n) {
+          throw new TermPricingError('NEGATIVE_SERVICE_LINE',
+            `The hardware line (${formatMoney(opexHardwareLineCents)} a month) is more than the month's fee (${formatMoney(fee)}), so the service line would be negative. Turn Split WHT off, or review the hardware margin.`)
+        }
+        parts = [['hardware', opexHardwareLineCents], ['service', serviceCents]]
+      } else {
+        parts = [['invoice', fee]]
+      }
+      rows.push({ kind: 'monthly', fromMonth: from, toMonth: to, capexCents: 0n, subscriptionCents: fee, netCents: fee, parts })
+    }
+    return rows
+  }
+
+  const noCpi = cmp(escalator, ZERO) === 0
+  let capex = null
+  let finalRows
+  let baseRows
+  if (structure === 'opex') {
+    finalRows = opexRows(monthlyTotalByYear)
+    baseRows = noCpi ? finalRows : opexRows(monthlyTotalByYear.map(() => monthlyTotalByYear[0]))
+  } else {
+    capex = capexPlan()
+    finalRows = capexRows(factor)
+    baseRows = noCpi ? finalRows : capexRows(() => ONE)
+  }
+
+  // v1.6 sections 6.1 to 6.4: the CAPEX amount, how it is paid, the
+  // subscription, and the warnings. Every refusal names what to change.
+  function capexPlan() {
+    const amountMode = input.capexAmount ?? 'hardware'
+    if (amountMode !== 'hardware' && amountMode !== 'custom') {
+      throw new TermPricingError('BAD_CAPEX_AMOUNT', 'The CAPEX amount must be Hardware or Custom.')
+    }
+    let capexCents
+    if (amountMode === 'hardware') {
+      capexCents = hardwareValueCents
+    } else {
+      // Kept EXACTLY as entered (C-4): more than two decimals is refused,
+      // never rounded, because a rounded budget figure is not the client's.
+      const s = typeof input.capexCustom === 'string' ? input.capexCustom.trim() : ''
+      if (!/^\d+(\.\d{1,2})?$/.test(s)) {
+        throw new TermPricingError('CAPEX_CUSTOM', 'Enter the CAPEX amount in USD with at most two decimals, for example 1000000.00.')
+      }
+      capexCents = roundHalfUp(parseDecimal(s, 'CAPEX'), 2)
+    }
+    if (capexCents <= 0n || capexCents >= tcvNetCents) {
+      throw new TermPricingError('CAPEX_RANGE', `The CAPEX amount must be above 0 and below Base TCV (${formatMoney(tcvNetCents)}).`)
+    }
+
+    const capexStructure = input.capexStructure ?? 'hybrid'
+    if (capexStructure !== 'hybrid' && capexStructure !== 'two_phase') {
+      throw new TermPricingError('BAD_CAPEX_STRUCTURE', 'CAPEX is paid Two-phase or Hybrid.')
+    }
+    const payments = []
+    let recoveryMonths = null
+    if (capexStructure === 'hybrid') {
+      // Q4: a milestone is an OPAQUE KEY here. This file never holds a
+      // milestone name; with no rows given it pays one row, month 0, 100%,
+      // carrying no key, and the screen supplies its default row by name.
+      const given = input.milestones
+      const rows = given == null ? [{ key: null, month: 0, sharePct: '100' }] : given
+      if (!Array.isArray(rows) || rows.length < 1 || rows.length > 5) {
+        throw new TermPricingError('MILESTONE_COUNT', 'A Hybrid schedule has 1 to 5 milestones.')
+      }
+      const seen = new Set()
+      let total = ZERO
+      let prev = -1
+      const shares = rows.map((r, i) => {
+        const n = i + 1
+        if (given != null) {
+          if (typeof r?.key !== 'string' || r.key.trim() === '') {
+            throw new TermPricingError('MILESTONE_KEY', `Choose a milestone for row ${n}.`)
+          }
+          if (seen.has(r.key)) {
+            throw new TermPricingError('DUPLICATE_MILESTONE', `${r.key} appears twice. A milestone may appear once per schedule.`)
+          }
+          seen.add(r.key)
+        }
+        if (typeof r.month !== 'number' || !Number.isSafeInteger(r.month) || r.month < 0 || r.month > T) {
+          throw new TermPricingError('MILESTONE_MONTH', `Row ${n}: the month must be a whole number from 0 to ${T}.`)
+        }
+        if (r.month < prev) {
+          throw new TermPricingError('MILESTONE_ORDER', 'Milestone months must not decrease down the rows.')
+        }
+        prev = r.month
+        let share
+        try { share = pctToRatio(r.sharePct, 'share') } catch {
+          throw new TermPricingError('MILESTONE_SHARE', `Row ${n}: the share must be a percentage, for example 30.`)
+        }
+        if (cmp(share, ZERO) <= 0 || cmp(share, ONE) > 0) {
+          throw new TermPricingError('MILESTONE_SHARE', `Row ${n}: the share must be above 0% and at most 100%.`)
+        }
+        total = add(total, share)
+        return share
+      })
+      if (cmp(total, ONE) !== 0) {
+        const shown = formatPct(total, 6).replace(/\.?0+$/, '')
+        throw new TermPricingError('SHARES_TOTAL', `The milestone shares total ${shown}%. They must total exactly 100%.`)
+      }
+      // C-7: every row but the last is rounded; the LAST carries the rounding.
+      let paid = 0n
+      rows.forEach((r, i) => {
+        const cents = i < rows.length - 1 ? roundHalfUp(mul(fromCents(capexCents), shares[i]), 2) : capexCents - paid
+        if (cents < 0n) {
+          throw new TermPricingError('NEGATIVE_LAST_ITEM', 'The last milestone would be negative after rounding. Review the shares.')
+        }
+        paid += cents
+        payments.push({ key: given == null ? null : r.key, month: r.month, cents })
+      })
+    } else {
+      recoveryMonths = input.recoveryMonths ?? 12
+      if (typeof recoveryMonths !== 'number' || !Number.isSafeInteger(recoveryMonths) || recoveryMonths < 1 || recoveryMonths > T) {
+        throw new TermPricingError('RECOVERY_MONTHS', `The recovery period must be a whole number of months from 1 to ${T}.`)
+      }
+      const R = recoveryMonths
+      const instalment = roundHalfUp(div(fromCents(capexCents), fromInt(R)), 2)
+      const lastInstalment = capexCents - instalment * BigInt(R - 1)
+      if (lastInstalment < 0n) {
+        throw new TermPricingError('NEGATIVE_LAST_ITEM', `The last instalment would be negative after rounding. Use a shorter recovery period or a larger CAPEX amount.`)
+      }
+      for (let m = 1; m <= R; m++) payments.push({ key: null, month: m, cents: m < R ? instalment : lastInstalment })
+    }
+
+    // Section 6.3 (C-5, Q2): month T carries the rounding.
+    const remainder = tcvNetCents - capexCents
+    const baseFeeCents = roundHalfUp(div(fromCents(remainder), fromInt(T)), 2)
+    const lastBaseFeeCents = remainder - baseFeeCents * BigInt(T - 1)
+    if (lastBaseFeeCents < 0n) {
+      throw new TermPricingError('NEGATIVE_LAST_ITEM', 'The last month\'s subscription would be negative after rounding. Use a smaller CAPEX amount.')
+    }
+    const subOf = (base, k) => roundHalfUp(mul(fromCents(base), factor(k)), 2)
+
+    // Section 6.4 (C-9): warnings, shown and never refused.
+    const hardwareCostCents = roundHalfUp(lines.reduce((s, l) => add(s, mul(fromInt(l.units), l.hwCostPerUnit)), ZERO), 2)
+    const hostingMonthlyCents = roundHalfUp(lines.reduce((s, l) => add(s, mul(fromInt(l.units), p.costs[l.product].hosting)), ZERO), 2)
+
+    return {
+      amountMode, structure: capexStructure, recoveryMonths,
+      hardwareValueCents, hardwareCostCents, capexCents, payments,
+      baseFeeCents, lastBaseFeeCents,
+      // The Final subscription: each contract year's regular fee, and month T's.
+      subscriptionByYear: Array.from({ length: years }, (_, i) => subOf(baseFeeCents, i + 1)),
+      lastSubscriptionCents: subOf(lastBaseFeeCents, yearOf(T)),
+      warnings: {
+        hardwareFundedCents: capexCents < hardwareCostCents ? hardwareCostCents - capexCents : null,
+        hostingMonthlyCents,
+        subscriptionBelowHosting: baseFeeCents < hostingMonthlyCents,
+      },
+    }
+  }
+
+  // One CAPEX schedule, Base (factor 1) or Final (section 7's factor). CAPEX
+  // payments never escalate. v1.6 section 8.1 (C-8, Q8): with Split WHT on,
+  // CAPEX payments take the hardware rate up to the hardware value, in
+  // payment order; CAPEX above it and every subscription amount take the SaaS
+  // rate. A payment that straddles the boundary splits across the two lines.
+  function capexRows(f) {
+    const months = []
+    let hardwareLeft = hardwareValueCents
+    for (let m = 0; m <= T; m++) {
+      const pays = capex.payments.filter((x) => x.month === m)
+      if (m === 0 && !pays.length) continue
+      let capexCents = 0n
+      let hw = 0n
+      let above = 0n
+      for (const x of pays) {
+        const h = x.cents < hardwareLeft ? x.cents : hardwareLeft
+        hardwareLeft -= h
+        hw += h
+        above += x.cents - h
+        capexCents += x.cents
+      }
+      const base = m === T ? capex.lastBaseFeeCents : capex.baseFeeCents
+      const subscriptionCents = m >= 1 ? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) : 0n
+      const netCents = capexCents + subscriptionCents
+      let parts
+      if (split) {
+        parts = [['hardware', hw], ['service', above + subscriptionCents]].filter(([, c]) => c !== 0n)
+        if (!parts.length) parts = [['service', 0n]]
+      } else {
+        parts = [['invoice', netCents]]
+      }
+      months.push({ m, capexCents, subscriptionCents, netCents, parts })
+    }
+    const rows = []
+    const same = (a, b) => a.capexCents === b.capexCents && a.subscriptionCents === b.subscriptionCents
+      && a.parts.length === b.parts.length && a.parts.every(([k, c], i) => b.parts[i][0] === k && b.parts[i][1] === c)
+    for (const x of months) {
+      const last = rows[rows.length - 1]
+      if (last && last.toMonth === x.m - 1 && same(last, x)) { last.toMonth = x.m; continue }
+      rows.push({ kind: 'invoice', fromMonth: x.m, toMonth: x.m, capexCents: x.capexCents, subscriptionCents: x.subscriptionCents, netCents: x.netCents, parts: x.parts })
+    }
+    return rows
+  }
+
+  // Section 8: tax per invoice line, half-up to cents. WHT applies to the fee
+  // before GST. With gross-up the line rises so Terminus receives its net.
+  const rateOf = (kind) => (kind === 'hardware' ? whtHw : kind === 'service' ? whtSaas : wht)
   const taxLine = (netCents, r) => {
     const invoiceCents = grossUp && cmp(r, ZERO) > 0 ? roundHalfUp(div(fromCents(netCents), sub(ONE, r)), 2) : netCents
     const whtCents = roundHalfUp(mul(fromCents(invoiceCents), r), 2)
     const gstCents = roundHalfUp(mul(fromCents(invoiceCents), gst), 2)
     return { netCents, invoiceCents, gstCents, whtCents, receivedCents: invoiceCents - whtCents }
   }
-  // Flat for the term (B4): an escalator raises the service line only.
-  const hardwareLineCents = structure === 'opex' && split ? roundHalfUp(div(hardwareUpfront, fromInt(T)), 2) : null
-  const totals = { invoicedCents: 0n, netCents: 0n, gstCents: 0n, whtCents: 0n, whtBorneCents: 0n, receivedCents: 0n }
-  schedule = schedule.map((row) => {
-    const count = BigInt(row.toMonth - row.fromMonth + 1)
-    let parts
-    if (hardwareLineCents !== null) {
-      const serviceCents = row.netCents - hardwareLineCents
-      if (serviceCents < 0n) {
-        throw new TermPricingError('NEGATIVE_SERVICE_LINE',
-          `The hardware line (${formatMoney(hardwareLineCents)} a month) is more than the month's fee (${formatMoney(row.netCents)}), so the service line would be negative. Turn Split WHT off, or review the hardware margin.`)
+  const applyTax = (rows) => {
+    // capexCents and subscriptionCents total the schedule's two leading
+    // columns (C-13), so the screen's Total row reads the engine and adds
+    // nothing itself: capexCents + subscriptionCents = netCents, exactly.
+    const totals = { capexCents: 0n, subscriptionCents: 0n, invoicedCents: 0n, netCents: 0n, gstCents: 0n, whtCents: 0n, whtBorneCents: 0n, receivedCents: 0n }
+    const out = rows.map(({ parts: rawParts, ...row }) => {
+      const count = BigInt(row.toMonth - row.fromMonth + 1)
+      const parts = rawParts.map(([kind, net]) => ({ kind, ...taxLine(net, rateOf(kind)) }))
+      const sum = (k) => parts.reduce((t, x) => t + x[k], 0n)
+      const invoiceCents = sum('invoiceCents'), gstCents = sum('gstCents'), whtCents = sum('whtCents')
+      const r = {
+        ...row, count: Number(count),
+        invoiceCents, gstCents, invoiceInclGstCents: invoiceCents + gstCents,
+        whtCents, whtBorne: !grossUp, receivedCents: invoiceCents - whtCents,
+        ...(parts.length > 1 ? { lines: parts.map((x) => ({ ...x, invoiceInclGstCents: x.invoiceCents + x.gstCents })) } : {}),
       }
-      parts = [{ kind: 'hardware', ...taxLine(hardwareLineCents, whtHw) }, { kind: 'service', ...taxLine(serviceCents, whtSaas) }]
-    } else {
-      parts = [taxLine(row.netCents, row.kind === 'upfront' ? whtHw : whtSaas)]
+      totals.capexCents += row.capexCents * count
+      totals.subscriptionCents += row.subscriptionCents * count
+      totals.invoicedCents += invoiceCents * count
+      totals.netCents += row.netCents * count
+      totals.gstCents += gstCents * count
+      totals.whtCents += whtCents * count
+      if (!grossUp) totals.whtBorneCents += whtCents * count
+      totals.receivedCents += r.receivedCents * count
+      return r
+    })
+    // L1 (John, layout approval): the WHT gross-up is what the invoices carry
+    // above their nets, so TCV (net) + grossUpCents + GST = TCV incl. GST
+    // exactly, on each schedule. Zero whenever gross-up is off.
+    return {
+      schedule: out,
+      tax: { ...totals, grossUpCents: totals.invoicedCents - totals.netCents, tcvInclGstCents: totals.invoicedCents + totals.gstCents },
     }
-    const sum = (k) => parts.reduce((t, x) => t + x[k], 0n)
-    const invoiceCents = sum('invoiceCents'), gstCents = sum('gstCents'), whtCents = sum('whtCents')
-    const out = {
-      ...row, count: Number(count),
-      invoiceCents, gstCents, invoiceInclGstCents: invoiceCents + gstCents,
-      whtCents, whtBorne: !grossUp, receivedCents: invoiceCents - whtCents,
-      ...(parts.length > 1 ? { lines: parts.map((x) => ({ ...x, invoiceInclGstCents: x.invoiceCents + x.gstCents })) } : {}),
-    }
-    totals.invoicedCents += invoiceCents * count
-    totals.netCents += row.netCents * count
-    totals.gstCents += gstCents * count
-    totals.whtCents += whtCents * count
-    if (!grossUp) totals.whtBorneCents += whtCents * count
-    totals.receivedCents += out.receivedCents * count
-    return out
-  })
+  }
+  const final = applyTax(finalRows)
+  const base = baseRows === finalRows ? final : applyTax(baseRows)
+  // The tie rule, on Base: the Base schedule's net invoices ARE Base TCV. A
+  // break is a defect in this file, refused rather than shown.
+  if (base.tax.netCents !== tcvNetCents) {
+    throw new TermPricingError('TIE_BROKEN', `The Base schedule (${formatMoney(base.tax.netCents)}) does not tie to Base TCV (${formatMoney(tcvNetCents)}).`)
+  }
+  const finalTcvCents = final.tax.netCents
+
+  // v1.6 section 9 (Q10): cash in year 1 is the net invoices of months 0 to
+  // 12 on the schedule displayed (the Final one), before GST and WHT.
+  const cashYear1 = (rows) => rows.reduce((t, r) => {
+    const lo = Math.max(r.fromMonth, 0)
+    const hi = Math.min(r.toMonth, 12)
+    return hi >= lo ? t + r.netCents * BigInt(hi - lo + 1) : t
+  }, 0n)
 
   return {
     termMonths: T,
     paymentStructure: structure,
+    cpiMode,
     escalatorStartYear: startYear,
     whtSplit: split,
     currency: p.currency,
     lines,
     monthlyTotalCents: monthlyTotalByYear[0],
+    // The OPEX fee of each contract year with the CPI (Final); year 1 is Base's.
     monthlyTotalByYear,
+    // v1.6 (C-1, C-2, C-3): Base carries approval; Final is what is invoiced.
     tcvNetCents,
+    finalTcvCents,
+    cpiUpliftCents: finalTcvCents - tcvNetCents,
+    dealValueCents: cpiMode === 'locked' ? finalTcvCents : tcvNetCents,
     totalCostCents,
     grossProfitCents,
     grossMargin,
@@ -467,64 +708,66 @@ export function priceQuote(input, params) {
     belowMarginFloor: cmp(grossMargin, p.marginFloor) < 0,
     // Q4 (John, 2026-10-01): shown whenever WHT is borne. Gross profit less the
     // WHT Terminus bears, over TCV net. Null when nothing is borne, so a screen
-    // cannot show it by accident beside a gross-up or a zero rate.
-    marginAfterWht: totals.whtBorneCents > 0n
-      ? frac(grossProfitCents - totals.whtBorneCents, tcvNetCents) : null,
+    // cannot show it by accident beside a gross-up or a zero rate. v1.6 (Q5):
+    // on the BASE schedule, the same basis as the margin it reduces.
+    marginAfterWht: base.tax.whtBorneCents > 0n
+      ? frac(grossProfitCents - base.tax.whtBorneCents, tcvNetCents) : null,
     capex,
-    schedule,
-    // L1 (John, layout approval): the WHT gross-up is what the invoices carry
-    // above their nets, so TCV (net) + grossUpCents + GST = TCV incl. GST
-    // exactly. Zero whenever gross-up is off.
-    tax: {
-      ...totals,
-      grossUpCents: totals.invoicedCents - totals.netCents,
-      tcvInclGstCents: totals.invoicedCents + totals.gstCents,
-    },
+    hardwareValueCents,
+    cashYear1Cents: cashYear1(final.schedule),
+    opexCashYear1Cents: monthlyTotalByYear[0] * BigInt(monthsInYear(1)),
+    // The Final schedule: what the client is invoiced.
+    schedule: final.schedule,
+    tax: final.tax,
+    // The Base schedule: approval's WHT and the Base tie.
+    base: { tcvNetCents, schedule: base.schedule, tax: base.tax },
   }
 }
 
 /**
- * The term ladder: the same inputs priced at every offered term, each row a
- * full quote, so a row's figures are the quote card's figures at that term.
+ * The term ladder: the same units priced at every offered term.
  *
- * The saving or premium compares year-1 fees with the anchor term's (section
- * 7: the client-facing saving always quotes year-1 fees). Under OPEX that is
- * the monthly total; under CAPEX it is the monthly service fee, and the row
- * carries the upfront beside it (A1, John 2026-10-01).
+ * v1.6 (C-10, Q12): EVERY ROW IS THE OPEX BASE ROW, in both structures. Under
+ * CAPEX the screen shows the term and the per-camera fee only; there is no
+ * per-camera CAPEX figure. The ladder takes the units alone, so a CAPEX
+ * amount, a schedule or a tax rate that suits one term (or none) cannot
+ * refuse it. SUPERSEDED, left visible: v1.5 priced each row as the full quote
+ * at that term and, under CAPEX, carried the upfront and the service fee.
  *
- * v1.5 section 4.5: under OPEX each row also carries the per-camera fee, the
- * year-1 monthly total of the line `input.perCameraProduct` names, divided by
- * that line's units and rounded half-up. The calculator names no product; the
- * screen says which line is the camera. Null under CAPEX (not yet decided),
- * when no product is named, or when the named line has no units.
+ * The saving or premium compares year-1 OPEX fees with the anchor term's
+ * (section 7: the client-facing saving always quotes year-1 fees).
+ *
+ * v1.5 section 4.5: each row carries the per-camera fee, the year-1 monthly
+ * total of the line `input.perCameraProduct` names, divided by that line's
+ * units and rounded half-up. The calculator names no product; the screen says
+ * which line is the camera. Null when no product is named or the named line
+ * has no units.
  */
 export function termLadder(input, params) {
   const p = norm(params)
-  const feeOf = (q) => (q.capex ? q.capex.monthlyServiceCents : q.monthlyTotalCents)
-  const anchor = priceQuote({ ...input, termMonths: p.anchorTerm }, p)
+  const opexBase = { units: input?.units, paymentStructure: 'opex', cpiMode: 'none' }
+  const anchor = priceQuote({ ...opexBase, termMonths: p.anchorTerm }, p)
   const perCameraOf = (q) => {
-    if (q.capex || !input?.perCameraProduct) return null
+    if (!input?.perCameraProduct) return null
     const line = q.lines.find((l) => l.product === input.perCameraProduct)
     if (!line) return null
     return roundHalfUp(div(fromCents(line.monthlyByYear[0]), fromInt(line.units)), 2)
   }
   return p.terms.map((T) => {
-    const q = priceQuote({ ...input, termMonths: T }, p)
+    const q = priceQuote({ ...opexBase, termMonths: T }, p)
     return {
       perCameraCents: perCameraOf(q),
       termMonths: T,
       isAnchor: T === p.anchorTerm,
-      paymentStructure: q.paymentStructure,
       monthlyTotalCents: q.monthlyTotalCents,
-      upfrontCents: q.capex ? q.capex.upfrontCents : null,
-      monthlyServiceCents: q.capex ? q.capex.monthlyServiceCents : null,
-      savingVsAnchor: sub(ONE, frac(feeOf(q), feeOf(anchor))),
+      savingVsAnchor: sub(ONE, frac(q.monthlyTotalCents, anchor.monthlyTotalCents)),
       tcvNetCents: q.tcvNetCents,
       grossMargin: q.grossMargin,
       belowMarginFloor: q.belowMarginFloor,
     }
   })
 }
+
 
 // ── Formatting at the edge ───────────────────────────────────────────────
 

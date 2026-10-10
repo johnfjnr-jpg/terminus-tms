@@ -695,6 +695,20 @@ w('')
     rows.map(r => [cell(r.record_type), cell(r.variant), cell(r.stage), cell(r.default_probability_pct)])))
 }
 
+// ── term_pricing_settings ────────────────────────────────────
+// TP_CAPEX rider R-1: the LIVE values, so no reader of this file assumes the
+// spec's defaults. The live SafeSight ANCHOR_MARGIN was set by an admin on
+// 2026-10-07 and is not the 90% docs/pricing-spec.md section 3 prints. Values
+// and dates only: `updated_by` names a person and is not printed.
+{
+  const rows = (await fetchAll(db, 'term_pricing_settings', 'key, value, updated_at')).sort(by('key'))
+  w('## `term_pricing_settings`')
+  w('')
+  w(`${rows.length} rows. The LIVE values the Term Pricing screen prices with; docs/pricing-spec.md section 3 prints the spec's defaults, which differ where an admin has changed one.`)
+  w('')
+  w(table(['key', 'value', 'updated_at'], rows.map(r => [cell(r.key), jsonCell(r.value), cell(r.updated_at)])))
+}
+
 // ── record counts ────────────────────────────────────────────
 // Counts only. No id, no reference code, no owner, no payload.
 {

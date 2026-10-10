@@ -1,0 +1,166 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Term Pricing CAPEX mockup (approved 2026-10-10)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0}
+*{box-sizing:border-box}
+.root{width:1440px;height:1320px;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:28px 32px;overflow:hidden}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.top h1{font-size:22px;font-weight:600;margin:0}
+.sub{color:#a9adb5;font-size:13px;margin-top:4px}
+.seg{display:inline-flex;border:1px solid #2b2d31;border-radius:8px;overflow:hidden}
+.seg span{padding:7px 16px;font-size:13px;color:#a9adb5;font-weight:500}
+.seg span.on{background:#86d19a;color:#0f1a12;font-weight:600}
+.grid{display:grid;grid-template-columns:1fr 420px;gap:20px}
+.card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+.card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;margin:0 0 12px;font-weight:600}
+.lab{font-size:12px;color:#b4b8c0;margin-bottom:6px}
+.big{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tile{background:#202126;border:1px solid #2b2d31;border-radius:8px;padding:11px 14px}
+.tile .v{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;margin-top:4px}
+.tile .n{font-size:11px;color:#9a9ea6;margin-top:4px}
+.price{display:grid;grid-template-columns:1fr 1fr 1fr 0.7fr;gap:12px;align-items:start}
+.lock{font-size:11px;color:#86d19a;border:1px solid #2f5a3a;border-radius:20px;padding:3px 10px;display:inline-block;margin-left:10px;vertical-align:middle;text-transform:none;letter-spacing:0}
+.tag{font-size:10px;border-radius:4px;padding:2px 6px;margin-left:6px;vertical-align:middle;font-family:'IBM Plex Sans',sans-serif;font-weight:600;letter-spacing:.03em}
+.tag.g{background:#22302a;color:#86d19a}
+.tag.a{background:#2a2617;color:#e9d9a6}
+.tag.m{background:#2a2c31;color:#b4b8c0}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:6px 8px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:6px 8px;border-bottom:1px solid #24262a}
+tr.sel td{background:#22302a;color:#d8f2df}
+tr.tot td{border-top:1px solid #3a3d42;font-weight:600;border-bottom:none}
+.inp{display:inline-block;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:5px 10px;min-width:64px;text-align:right;font-family:'IBM Plex Mono',monospace}
+.dd{display:inline-flex;gap:10px;justify-content:space-between;min-width:230px;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:5px 10px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;color:#e6e7ea}
+.inp.dis{color:#8a8e96;border-style:dashed}
+.row{display:flex;gap:14px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.btn{display:inline-block;border:1px dashed #4a4e55;border-radius:6px;padding:5px 12px;font-size:12px;color:#c9ccd2}
+.ok{color:#86d19a;font-size:12px}
+.warn{background:#2a2617;border:1px solid #5a4e24;color:#e9d9a6;border-radius:6px;padding:7px 12px;font-size:12px;margin-top:10px}
+.note{font-size:12px;color:#9a9ea6;line-height:1.5}
+.pill{font-size:11px;background:#2a2c31;border-radius:4px;padding:2px 6px;color:#c9ccd2;font-family:'IBM Plex Sans',sans-serif}
+.x{color:#7d8189}
+.banner{background:#1f2125;border:1px solid #2b2d31;color:#b4b8c0;border-radius:8px;padding:8px 14px;font-size:12px;margin-bottom:14px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.divider{border-top:1px solid #2b2d31;margin:12px 0}
+
+body{background:#0f1012;padding:24px} .bt{color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:16px;margin:24px 0 10px} .root{margin-bottom:24px}</style></head><body>
+<p style="color:#b4b8c0;font-family:'IBM Plex Sans',sans-serif">Approved by John 2026-10-10. Four states of the Term Pricing CAPEX view. Static mockup: content and behaviour are binding, pixel positions follow the existing screen.</p>
+<h2 class="bt">1 · Default: Hardware amount, Hybrid 100% at month 0, no CPI</h2>
+<div class="root">
+<div class="top"><div><h1>Term Pricing</h1><div class="sub">Demo deal · 120 SafeSight · 40 AQ · 2 HEMIR · 60 months · USD before tax</div></div>
+<div style="display:flex;gap:14px;align-items:center"><span class="lab" style="margin:0">Pricing basis</span><div class="seg"><span>OPEX</span><span class="on">CAPEX</span></div></div></div>
+<div class="banner">Mockup figures use the spec's 90% anchor margins. The live SafeSight setting is 50% while the margin formula is under review.</div>
+<div class="grid"><div><div class="card"><h2>Price, set by OPEX <span class="lock">locked: CAPEX changes timing only</span></h2>
+<div class="price"><div><div class="lab">Base TCV<span class="tag g">APPROVAL</span></div><div class="big">22,018,611.00</div><div class="note">No CPI · margin 86.5% on Base</div></div>
+<div><div class="lab">Final TCV</div><div class="big x">22,018,611.00</div><div class="note">Same as Base: no CPI applied</div></div>
+<div><div class="lab">OPEX monthly fee (year 1)</div><div class="big" style="font-size:18px">366,976.85</div><div class="note">Reference only under CAPEX</div></div>
+<div><div class="lab">Deal value</div><div class="big" style="font-size:16px">Base TCV</div><div class="note">Pipeline and approval value</div></div></div></div>
+<div class="card"><h2>CAPEX payment</h2>
+<div class="row"><span class="lab" style="margin:0;width:110px">CAPEX amount</span><div class="seg"><span class="on">Hardware</span><span >Custom</span></div><span class="inp dis">1,550,000.00</span><span class="note">Hardware including markup (cost / (1 − 20%)). Default.</span></div>
+<div class="row"><span class="lab" style="margin:0;width:110px">Paid as</span><div class="seg"><span >Two-phase</span><span class="on">Hybrid</span></div>
+<span class="note">Milestones (up to 5), chosen from the Commercials milestone list.</span></div>
+<table><tr><th>Milestone</th><th>Month</th><th>Share</th><th>Amount</th><th></th></tr><tr><td><span class="dd">Contract start <span class="x">▾</span></span></td><td><span class="inp">0</span></td><td><span class="inp">100%</span></td><td>1,550,000.00</td><td class="x"></td></tr><tr class="tot"><td>Total</td><td></td><td>100%</td><td>1,550,000.00</td><td></td></tr></table>
+<div class="row" style="margin-top:10px;margin-bottom:0"><span class="btn">+ Add milestone (1 of 5)</span><span class="ok">✓ Shares total exactly 100%</span><span class="note">Milestones from the Commercials list; month 0 = contract start.</span></div>
+<div class="divider"></div>
+<div class="row" style="margin-bottom:0"><span class="lab" style="margin:0;width:110px">Subscription</span><span class="note">(22,018,611.00 − 1,550,000.00) / 60 = <b>341,143.52</b> a month; month 60 = 341,143.32</span></div></div>
+<div class="card"><h2>Annual increase (CPI)</h2>
+<div class="row" style="margin-bottom:6px"><div class="seg"><span class="on">None</span><span>Published CPI</span><span>Locked rate</span></div>
+<span class="note">Published CPI: Final TCV shown as <b>projected</b> at an assumed rate; deal value stays Base TCV.</span></div></div><div class="card"><h2>Quote</h2><div class="tiles"><div class="tile"><div class="lab">CAPEX</div><div class="v">1,550,000.00</div><div class="n">month 0, on signature</div></div><div class="tile"><div class="lab">Subscription</div><div class="v">341,143.52</div><div class="n">months 1 to 60</div></div><div class="tile"><div class="lab">Cash in year 1</div><div class="v">5,643,722.24</div><div class="n">vs OPEX 4,403,722.20</div></div><div class="tile"><div class="lab">Base TCV</div><div class="v">22,018,611.00</div><div class="n">ties exactly</div></div></div></div><div class="card"><h2>Payment schedule</h2><table><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th></tr><tr><td>0</td><td>1,550,000.00</td><td>-</td><td>1,550,000.00</td></tr><tr><td>1 to 59</td><td>-</td><td>341,143.52</td><td>341,143.52</td></tr><tr><td>60</td><td>-</td><td>341,143.32</td><td>341,143.32</td></tr>
+<tr class="tot"><td>Total</td><td>1,550,000.00</td><td>20,468,611.00</td><td>22,018,611.00</td></tr></table>
+<div class="note" style="margin-top:8px">Default under CAPEX: Hardware amount, Hybrid, one milestone at 100% on signature.</div></div></div><div><div class="card"><h2>Term ladder · SafeSight per camera</h2><table><tr><th>Term</th><th>OPEX / cam / mo</th></tr><tr><td>12</td><td>8,009.44</td></tr><tr><td>24</td><td>4,928.89</td></tr><tr><td>36</td><td>3,902.04</td></tr><tr><td>48</td><td>2,972.74</td></tr><tr class=sel><td>60</td><td>2,415.16</td></tr><tr><td>72</td><td>2,043.44</td></tr><tr><td>84</td><td>1,777.92</td></tr><tr><td>96</td><td>1,578.79</td></tr><tr><td>108</td><td>1,423.90</td></tr><tr><td>120</td><td>1,299.99</td></tr></table>
+<div class="note" style="margin-top:8px">Base figures, no CPI. The OPEX ladder sets the price. CAPEX is one deal-level payment (default: total hardware value), so it has no per-camera figure.</div></div><div class="card"><h2>Tax on these invoices</h2><div class="note">GST per invoice line.<br><b>Split WHT:</b> hardware rate on CAPEX payments up to the hardware value (1,550,000.00); any CAPEX above that, and all subscription, at the SaaS rate. Single WHT applies to the whole invoice.<br>Not carried over from Commercials: installation, annual invoicing, PO factoring.</div></div><div class="card"><h2>Rules on this screen</h2><div class="note">
+1. Base TCV sets approval, margin and the margin floor.<br>
+2. Deal value is Base TCV unless CPI is locked, then Final TCV.<br>
+3. CAPEX amount defaults to hardware; Custom overrides it.<br>
+4. Subscription = (Base TCV − CAPEX) / term; CPI applies to it only.<br>
+5. Rounding cents go on the last instalment, last milestone and last month.</div></div></div></div></div>
+<h2 class="bt">2 · Custom 1,000,000: Contract start / Hardware delivered / Commissioning</h2>
+<div class="root">
+<div class="top"><div><h1>Term Pricing</h1><div class="sub">Demo deal · 120 SafeSight · 40 AQ · 2 HEMIR · 60 months · USD before tax</div></div>
+<div style="display:flex;gap:14px;align-items:center"><span class="lab" style="margin:0">Pricing basis</span><div class="seg"><span>OPEX</span><span class="on">CAPEX</span></div></div></div>
+<div class="banner">Mockup figures use the spec's 90% anchor margins. The live SafeSight setting is 50% while the margin formula is under review.</div>
+<div class="grid"><div><div class="card"><h2>Price, set by OPEX <span class="lock">locked: CAPEX changes timing only</span></h2>
+<div class="price"><div><div class="lab">Base TCV<span class="tag g">APPROVAL</span></div><div class="big">22,018,611.00</div><div class="note">No CPI · margin 86.5% on Base</div></div>
+<div><div class="lab">Final TCV</div><div class="big x">22,018,611.00</div><div class="note">Same as Base: no CPI applied</div></div>
+<div><div class="lab">OPEX monthly fee (year 1)</div><div class="big" style="font-size:18px">366,976.85</div><div class="note">Reference only under CAPEX</div></div>
+<div><div class="lab">Deal value</div><div class="big" style="font-size:16px">Base TCV</div><div class="note">Pipeline and approval value</div></div></div></div>
+<div class="card"><h2>CAPEX payment</h2>
+<div class="row"><span class="lab" style="margin:0;width:110px">CAPEX amount</span><div class="seg"><span >Hardware</span><span class="on">Custom</span></div><span class="inp">1,000,000.00</span><span class="note">Client budget figure, kept exact. Must be above 0 and below Base TCV.</span></div>
+<div class="row"><span class="lab" style="margin:0;width:110px">Paid as</span><div class="seg"><span >Two-phase</span><span class="on">Hybrid</span></div>
+<span class="note">Milestones (up to 5), chosen from the Commercials milestone list.</span></div>
+<table><tr><th>Milestone</th><th>Month</th><th>Share</th><th>Amount</th><th></th></tr><tr><td><span class="dd">Contract start <span class="x">▾</span></span></td><td><span class="inp">0</span></td><td><span class="inp">30%</span></td><td>300,000.00</td><td class="x">✕</td></tr><tr><td><span class="dd">Hardware delivered to site <span class="x">▾</span></span></td><td><span class="inp">3</span></td><td><span class="inp">40%</span></td><td>400,000.00</td><td class="x">✕</td></tr><tr><td><span class="dd">Commissioning <span class="x">▾</span></span></td><td><span class="inp">6</span></td><td><span class="inp">30%</span></td><td>300,000.00 <span class=pill>carries rounding</span></td><td class="x">✕</td></tr><tr class="tot"><td>Total</td><td></td><td>100%</td><td>1,000,000.00</td><td></td></tr></table>
+<div class="row" style="margin-top:10px;margin-bottom:0"><span class="btn">+ Add milestone (3 of 5)</span><span class="ok">✓ Shares total exactly 100%</span><span class="note">Milestones from the Commercials list; month 0 = contract start.</span></div><div class="warn">CAPEX 1,000,000.00 is below hardware cost 1,240,000.00: Terminus funds 240,000.00 of hardware. Quote allowed.</div>
+<div class="divider"></div>
+<div class="row" style="margin-bottom:0"><span class="lab" style="margin:0;width:110px">Subscription</span><span class="note">(22,018,611.00 − 1,000,000.00) / 60 = <b>350,310.18</b> a month; month 60 = 350,310.38</span></div></div>
+<div class="card"><h2>Annual increase (CPI)</h2>
+<div class="row" style="margin-bottom:6px"><div class="seg"><span class="on">None</span><span>Published CPI</span><span>Locked rate</span></div>
+<span class="note">Published CPI: Final TCV shown as <b>projected</b> at an assumed rate; deal value stays Base TCV.</span></div></div><div class="card"><h2>Quote</h2><div class="tiles"><div class="tile"><div class="lab">CAPEX</div><div class="v">1,000,000.00</div><div class="n">3 milestones</div></div><div class="tile"><div class="lab">Subscription</div><div class="v">350,310.18</div><div class="n">months 1 to 60</div></div><div class="tile"><div class="lab">Cash in year 1</div><div class="v">5,203,722.16</div><div class="n">vs OPEX 4,403,722.20</div></div><div class="tile"><div class="lab">Base TCV</div><div class="v">22,018,611.00</div><div class="n">ties exactly</div></div></div></div><div class="card"><h2>Payment schedule</h2><table><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th></tr><tr><td>0</td><td>300,000.00</td><td>-</td><td>300,000.00</td></tr><tr><td>1 to 2</td><td>-</td><td>350,310.18</td><td>350,310.18</td></tr><tr><td>3</td><td>400,000.00</td><td>350,310.18</td><td>750,310.18</td></tr><tr><td>4 to 5</td><td>-</td><td>350,310.18</td><td>350,310.18</td></tr><tr><td>6</td><td>300,000.00</td><td>350,310.18</td><td>650,310.18</td></tr><tr><td>7 to 59</td><td>-</td><td>350,310.18</td><td>350,310.18</td></tr><tr><td>60</td><td>-</td><td>350,310.38</td><td>350,310.38</td></tr>
+<tr class="tot"><td>Total</td><td>1,000,000.00</td><td>21,018,611.00</td><td>22,018,611.00</td></tr></table>
+<div class="note" style="margin-top:8px">A milestone in a subscription month adds to that month's invoice.</div></div></div><div><div class="card"><h2>Term ladder · SafeSight per camera</h2><table><tr><th>Term</th><th>OPEX / cam / mo</th></tr><tr><td>12</td><td>8,009.44</td></tr><tr><td>24</td><td>4,928.89</td></tr><tr><td>36</td><td>3,902.04</td></tr><tr><td>48</td><td>2,972.74</td></tr><tr class=sel><td>60</td><td>2,415.16</td></tr><tr><td>72</td><td>2,043.44</td></tr><tr><td>84</td><td>1,777.92</td></tr><tr><td>96</td><td>1,578.79</td></tr><tr><td>108</td><td>1,423.90</td></tr><tr><td>120</td><td>1,299.99</td></tr></table>
+<div class="note" style="margin-top:8px">Base figures, no CPI. The OPEX ladder sets the price. CAPEX is one deal-level payment (default: total hardware value), so it has no per-camera figure.</div></div><div class="card"><h2>Tax on these invoices</h2><div class="note">GST per invoice line.<br><b>Split WHT:</b> hardware rate on CAPEX payments up to the hardware value (1,550,000.00); any CAPEX above that, and all subscription, at the SaaS rate. Single WHT applies to the whole invoice.<br>Not carried over from Commercials: installation, annual invoicing, PO factoring.</div></div><div class="card"><h2>Rules on this screen</h2><div class="note">
+1. Base TCV sets approval, margin and the margin floor.<br>
+2. Deal value is Base TCV unless CPI is locked, then Final TCV.<br>
+3. CAPEX amount defaults to hardware; Custom overrides it.<br>
+4. Subscription = (Base TCV − CAPEX) / term; CPI applies to it only.<br>
+5. Rounding cents go on the last instalment, last milestone and last month.</div></div></div></div></div>
+<h2 class="bt">3 · Hardware amount over 12 months (Two-phase)</h2>
+<div class="root">
+<div class="top"><div><h1>Term Pricing</h1><div class="sub">Demo deal · 120 SafeSight · 40 AQ · 2 HEMIR · 60 months · USD before tax</div></div>
+<div style="display:flex;gap:14px;align-items:center"><span class="lab" style="margin:0">Pricing basis</span><div class="seg"><span>OPEX</span><span class="on">CAPEX</span></div></div></div>
+<div class="banner">Mockup figures use the spec's 90% anchor margins. The live SafeSight setting is 50% while the margin formula is under review.</div>
+<div class="grid"><div><div class="card"><h2>Price, set by OPEX <span class="lock">locked: CAPEX changes timing only</span></h2>
+<div class="price"><div><div class="lab">Base TCV<span class="tag g">APPROVAL</span></div><div class="big">22,018,611.00</div><div class="note">No CPI · margin 86.5% on Base</div></div>
+<div><div class="lab">Final TCV</div><div class="big x">22,018,611.00</div><div class="note">Same as Base: no CPI applied</div></div>
+<div><div class="lab">OPEX monthly fee (year 1)</div><div class="big" style="font-size:18px">366,976.85</div><div class="note">Reference only under CAPEX</div></div>
+<div><div class="lab">Deal value</div><div class="big" style="font-size:16px">Base TCV</div><div class="note">Pipeline and approval value</div></div></div></div>
+<div class="card"><h2>CAPEX payment</h2>
+<div class="row"><span class="lab" style="margin:0;width:110px">CAPEX amount</span><div class="seg"><span class="on">Hardware</span><span >Custom</span></div><span class="inp dis">1,550,000.00</span><span class="note">Hardware including markup (cost / (1 − 20%)). Default.</span></div>
+<div class="row"><span class="lab" style="margin:0;width:110px">Paid as</span><div class="seg"><span class="on">Two-phase</span><span >Hybrid</span></div>
+<span class="note">Equal monthly instalments over a recovery period, alongside the subscription.</span></div>
+<div class="row" style="margin-bottom:0"><span class="lab" style="margin:0;width:110px">Recovery period</span><span class="inp">12</span><span class="note">months (1 to term). Default 12.</span>
+<span class="ok" style="margin-left:auto">129,166.67 × 11, month 12 = 129,166.63 (carries rounding)</span></div>
+<div class="divider"></div>
+<div class="row" style="margin-bottom:0"><span class="lab" style="margin:0;width:110px">Subscription</span><span class="note">(22,018,611.00 − 1,550,000.00) / 60 = <b>341,143.52</b> a month; month 60 = 341,143.32</span></div></div>
+<div class="card"><h2>Annual increase (CPI)</h2>
+<div class="row" style="margin-bottom:6px"><div class="seg"><span class="on">None</span><span>Published CPI</span><span>Locked rate</span></div>
+<span class="note">Published CPI: Final TCV shown as <b>projected</b> at an assumed rate; deal value stays Base TCV.</span></div></div><div class="card"><h2>Quote</h2><div class="tiles"><div class="tile"><div class="lab">CAPEX / month</div><div class="v">129,166.67</div><div class="n">months 1 to 12</div></div><div class="tile"><div class="lab">Subscription</div><div class="v">341,143.52</div><div class="n">months 1 to 60</div></div><div class="tile"><div class="lab">Cash in year 1</div><div class="v">5,643,722.24</div><div class="n">vs OPEX 4,403,722.20</div></div><div class="tile"><div class="lab">Base TCV</div><div class="v">22,018,611.00</div><div class="n">ties exactly</div></div></div></div><div class="card"><h2>Payment schedule</h2><table><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th></tr><tr><td>1 to 11</td><td>129,166.67</td><td>341,143.52</td><td>470,310.19</td></tr><tr><td>12</td><td>129,166.63</td><td>341,143.52</td><td>470,310.15</td></tr><tr><td>13 to 59</td><td>-</td><td>341,143.52</td><td>341,143.52</td></tr><tr><td>60</td><td>-</td><td>341,143.32</td><td>341,143.32</td></tr>
+<tr class="tot"><td>Total</td><td>1,550,000.00</td><td>20,468,611.00</td><td>22,018,611.00</td></tr></table>
+<div class="note" style="margin-top:8px">Phase 1 (months 1 to 12): CAPEX instalment plus subscription. Phase 2 (months 13 to 60): subscription only.</div></div></div><div><div class="card"><h2>Term ladder · SafeSight per camera</h2><table><tr><th>Term</th><th>OPEX / cam / mo</th></tr><tr><td>12</td><td>8,009.44</td></tr><tr><td>24</td><td>4,928.89</td></tr><tr><td>36</td><td>3,902.04</td></tr><tr><td>48</td><td>2,972.74</td></tr><tr class=sel><td>60</td><td>2,415.16</td></tr><tr><td>72</td><td>2,043.44</td></tr><tr><td>84</td><td>1,777.92</td></tr><tr><td>96</td><td>1,578.79</td></tr><tr><td>108</td><td>1,423.90</td></tr><tr><td>120</td><td>1,299.99</td></tr></table>
+<div class="note" style="margin-top:8px">Base figures, no CPI. The OPEX ladder sets the price. CAPEX is one deal-level payment (default: total hardware value), so it has no per-camera figure.</div></div><div class="card"><h2>Tax on these invoices</h2><div class="note">GST per invoice line.<br><b>Split WHT:</b> hardware rate on CAPEX payments up to the hardware value (1,550,000.00); any CAPEX above that, and all subscription, at the SaaS rate. Single WHT applies to the whole invoice.<br>Not carried over from Commercials: installation, annual invoicing, PO factoring.</div></div><div class="card"><h2>Rules on this screen</h2><div class="note">
+1. Base TCV sets approval, margin and the margin floor.<br>
+2. Deal value is Base TCV unless CPI is locked, then Final TCV.<br>
+3. CAPEX amount defaults to hardware; Custom overrides it.<br>
+4. Subscription = (Base TCV − CAPEX) / term; CPI applies to it only.<br>
+5. Rounding cents go on the last instalment, last milestone and last month.</div></div></div></div></div>
+<h2 class="bt">4 · CPI locked at 3% from year 2: Base vs Final TCV</h2>
+<div class="root">
+<div class="top"><div><h1>Term Pricing</h1><div class="sub">Demo deal · 120 SafeSight · 40 AQ · 2 HEMIR · 60 months · USD before tax</div></div>
+<div style="display:flex;gap:14px;align-items:center"><span class="lab" style="margin:0">Pricing basis</span><div class="seg"><span>OPEX</span><span class="on">CAPEX</span></div></div></div>
+<div class="banner">Mockup figures use the spec's 90% anchor margins. The live SafeSight setting is 50% while the margin formula is under review.</div>
+<div class="grid"><div><div class="card"><h2>Price, set by OPEX <span class="lock">locked: CAPEX changes timing only</span></h2>
+<div class="price"><div><div class="lab">Base TCV<span class="tag g">APPROVAL</span></div><div class="big">22,018,611.00</div><div class="note">No CPI · margin 86.5% on Base</div></div>
+<div><div class="lab">Final TCV</div><div class="big">23,284,127.25</div><div class="note">Base + CPI uplift 1,265,516.25</div></div>
+<div><div class="lab">OPEX monthly fee (year 1)</div><div class="big" style="font-size:18px">366,976.85</div><div class="note">Reference only under CAPEX</div></div>
+<div><div class="lab">Deal value</div><div class="big" style="font-size:16px">Final TCV<span class="tag g">CPI LOCKED</span></div><div class="note">Client signs for Final TCV</div></div></div></div>
+<div class="card"><h2>CAPEX payment</h2>
+<div class="row"><span class="lab" style="margin:0;width:110px">CAPEX amount</span><div class="seg"><span class="on">Hardware</span><span >Custom</span></div><span class="inp dis">1,550,000.00</span><span class="note">Hardware including markup (cost / (1 − 20%)). Default.</span></div>
+<div class="row"><span class="lab" style="margin:0;width:110px">Paid as</span><div class="seg"><span >Two-phase</span><span class="on">Hybrid</span></div>
+<span class="note">Milestones (up to 5), chosen from the Commercials milestone list.</span></div>
+<table><tr><th>Milestone</th><th>Month</th><th>Share</th><th>Amount</th><th></th></tr><tr><td><span class="dd">Contract start <span class="x">▾</span></span></td><td><span class="inp">0</span></td><td><span class="inp">100%</span></td><td>1,550,000.00</td><td class="x"></td></tr><tr class="tot"><td>Total</td><td></td><td>100%</td><td>1,550,000.00</td><td></td></tr></table>
+<div class="row" style="margin-top:10px;margin-bottom:0"><span class="btn">+ Add milestone (1 of 5)</span><span class="ok">✓ Shares total exactly 100%</span><span class="note">Milestones from the Commercials list; month 0 = contract start.</span></div>
+<div class="divider"></div>
+<div class="row" style="margin-bottom:0"><span class="lab" style="margin:0;width:110px">Subscription</span><span class="note">Base 341,143.52 a month, then +3.0% a year from year 2. CAPEX does not escalate.</span></div></div>
+<div class="card"><h2>Annual increase (CPI)</h2>
+<div class="row"><div class="seg"><span>None</span><span>Published CPI</span><span class="on">Locked rate</span></div>
+<span class="lab" style="margin:0">Rate</span><span class="inp">3.0%</span><span class="lab" style="margin:0">From year</span><span class="inp">2</span></div>
+<div class="note">Locked rate: a negotiated fixed figure, for example the average of the last 5 years. Final TCV is contractual and becomes the deal value. Applies to the subscription only; CAPEX payments never escalate.</div></div><div class="card"><h2>Quote</h2><div class="tiles"><div class="tile"><div class="lab">CAPEX</div><div class="v">1,550,000.00</div><div class="n">month 0, on signature</div></div><div class="tile"><div class="lab">Subscription yr 1</div><div class="v">341,143.52</div><div class="n">rises 3.0% a year</div></div><div class="tile"><div class="lab">CPI uplift</div><div class="v">1,265,516.25</div><div class="n">on subscription only</div></div><div class="tile"><div class="lab">Final TCV</div><div class="v">23,284,127.25</div><div class="n">deal value (locked)</div></div></div></div><div class="card"><h2>Payment schedule</h2><table><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice (each month)</th></tr><tr><td>0</td><td>1,550,000.00</td><td>-</td><td>1,550,000.00</td></tr><tr><td>1 to 12</td><td>-</td><td>341,143.52</td><td>341,143.52</td></tr><tr><td>13 to 24</td><td>-</td><td>351,377.83</td><td>351,377.83</td></tr><tr><td>25 to 36</td><td>-</td><td>361,919.16</td><td>361,919.16</td></tr><tr><td>37 to 48</td><td>-</td><td>372,776.74</td><td>372,776.74</td></tr><tr><td>49 to 59</td><td>-</td><td>383,960.04</td><td>383,960.04</td></tr><tr><td>60</td><td>-</td><td>383,959.81</td><td>383,959.81</td></tr>
+<tr class="tot"><td>Total</td><td>1,550,000.00</td><td>21,734,127.25</td><td>23,284,127.25</td></tr></table>
+<div class="note" style="margin-top:8px">Each year's fee = base × 1.03^(year − 1), rounded half-up. The exact escalator rounding is set in spec v1.6; these figures may move by cents.</div></div></div><div><div class="card"><h2>Term ladder · SafeSight per camera</h2><table><tr><th>Term</th><th>OPEX / cam / mo</th></tr><tr><td>12</td><td>8,009.44</td></tr><tr><td>24</td><td>4,928.89</td></tr><tr><td>36</td><td>3,902.04</td></tr><tr><td>48</td><td>2,972.74</td></tr><tr class=sel><td>60</td><td>2,415.16</td></tr><tr><td>72</td><td>2,043.44</td></tr><tr><td>84</td><td>1,777.92</td></tr><tr><td>96</td><td>1,578.79</td></tr><tr><td>108</td><td>1,423.90</td></tr><tr><td>120</td><td>1,299.99</td></tr></table>
+<div class="note" style="margin-top:8px">Base figures, no CPI. The OPEX ladder sets the price. CAPEX is one deal-level payment (default: total hardware value), so it has no per-camera figure.</div></div><div class="card"><h2>Tax on these invoices</h2><div class="note">GST per invoice line.<br><b>Split WHT:</b> hardware rate on CAPEX payments up to the hardware value (1,550,000.00); any CAPEX above that, and all subscription, at the SaaS rate. Single WHT applies to the whole invoice.<br>Not carried over from Commercials: installation, annual invoicing, PO factoring.</div></div><div class="card"><h2>Rules on this screen</h2><div class="note">
+1. Base TCV sets approval, margin and the margin floor.<br>
+2. Deal value is Base TCV unless CPI is locked, then Final TCV.<br>
+3. CAPEX amount defaults to hardware; Custom overrides it.<br>
+4. Subscription = (Base TCV − CAPEX) / term; CPI applies to it only.<br>
+5. Rounding cents go on the last instalment, last milestone and last month.</div></div></div></div></div>
+</body></html>

@@ -206,6 +206,9 @@ const AMBER_FAMILY = [
   // site binds the token once.
   '.tp-error',
   '.tp-chip.tp-flag',
+  // TP_CAPEX (C-9): the CAPEX warnings, "Terminus funds X of hardware" and the
+  // subscription below hosting. Shown, never refused: the estate's one meaning.
+  '.tp-warn',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries
