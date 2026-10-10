@@ -76,6 +76,11 @@ const INJECTIONS = {
   // TP_INPUTS: L3's halves are retired with the layout they measured.
   'i1-wrap': '[data-testid="tp-deal-row"] { max-width: 600px !important; }',
   'i3-height': '[data-testid="tp-wht-saas"] { margin-top: 40px !important; }',
+  // PER_CAMERA_AND_CAPEX_P0: the per-camera figures pushed over the monthly fee
+  // column must fire, or the sweep is not seeing the new column at all. 160px:
+  // the ink gap between the two measured 94px at 1240 and 128px at 1920, and a
+  // first 70px injection came back SILENT because it never reached the fee.
+  'percam-over-fee': '[data-testid^="tp-ladder-percam-"] { position: relative; left: -160px; }',
 }
 
 async function signedIn(browser, { admin = false } = {}) {
@@ -87,7 +92,13 @@ async function signedIn(browser, { admin = false } = {}) {
   // by rewriting that one field of the real response. --live-terms measures
   // the live setting instead.
   const terms = process.argv.includes('--live-terms') ? null : [12, 24, 36, 48, 60, 72, 84, 96, 108, 120]
-  await page.evaluateOnNewDocument((admin, terms) => {
+  // MARGINS AS THE SPEC (PER_CAMERA_AND_CAPEX_P0, ruling R1), the same way.
+  // The live SafeSight ANCHOR_MARGIN is 50 by John's setting and stays so; the
+  // sweep keeps measuring the spec's 90% figures, which are the wider ones the
+  // earlier sweeps passed on. --live-margins measures the live setting instead.
+  const m = { safesight: '90', air_quality: '90', hemir: '90' }
+  const margins = process.argv.includes('--live-margins') ? null : { ANCHOR_MARGIN: m, SHORT_TERM_MARGIN: m }
+  await page.evaluateOnNewDocument((admin, terms, margins) => {
     const real = window.fetch
     window.fetch = async (...a) => {
       const res = await real(...a)
@@ -95,10 +106,10 @@ async function signedIn(browser, { admin = false } = {}) {
       if (!/\/api\/term-pricing(\?|$)/.test(url) || !res.ok) return res
       const body = await res.clone().json()
       const out = { ...body, ...(admin ? { isAdmin: true } : {}),
-        settings: { ...body.settings, ...(terms ? { TERMS: terms } : {}) } }
+        settings: { ...body.settings, ...(terms ? { TERMS: terms } : {}), ...(margins ?? {}) } }
       return new Response(JSON.stringify(out), { status: res.status, headers: res.headers })
     }
-  }, admin, terms)
+  }, admin, terms, margins)
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
   await page.evaluate((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(session))
   await page.reload({ waitUntil: 'networkidle0' })

@@ -491,14 +491,27 @@ export function priceQuote(input, params) {
  * 7: the client-facing saving always quotes year-1 fees). Under OPEX that is
  * the monthly total; under CAPEX it is the monthly service fee, and the row
  * carries the upfront beside it (A1, John 2026-10-01).
+ *
+ * v1.5 section 4.5: under OPEX each row also carries the per-camera fee, the
+ * year-1 monthly total of the line `input.perCameraProduct` names, divided by
+ * that line's units and rounded half-up. The calculator names no product; the
+ * screen says which line is the camera. Null under CAPEX (not yet decided),
+ * when no product is named, or when the named line has no units.
  */
 export function termLadder(input, params) {
   const p = norm(params)
   const feeOf = (q) => (q.capex ? q.capex.monthlyServiceCents : q.monthlyTotalCents)
   const anchor = priceQuote({ ...input, termMonths: p.anchorTerm }, p)
+  const perCameraOf = (q) => {
+    if (q.capex || !input?.perCameraProduct) return null
+    const line = q.lines.find((l) => l.product === input.perCameraProduct)
+    if (!line) return null
+    return roundHalfUp(div(fromCents(line.monthlyByYear[0]), fromInt(line.units)), 2)
+  }
   return p.terms.map((T) => {
     const q = priceQuote({ ...input, termMonths: T }, p)
     return {
+      perCameraCents: perCameraOf(q),
       termMonths: T,
       isAnchor: T === p.anchorTerm,
       paymentStructure: q.paymentStructure,

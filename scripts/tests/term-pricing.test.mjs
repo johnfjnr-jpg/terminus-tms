@@ -686,3 +686,46 @@ test('v1.4: WHT is never allocated to a product', () => {
   for (const l of q.lines) assert.deepEqual(Object.keys(l).filter((k) => /wht/i.test(k)), [], `${l.product} carries a WHT field`)
 })
 
+// ── v1.5 (PER_CAMERA_AND_CAPEX_P0): the OPEX per-camera fee ─────────────
+//
+// T31 is COPIED from spec section 11. The engine names no product: the
+// screen says which line is "per camera" (perCameraProduct), so the figure
+// is a property of the input, not a constant in the calculator (CLAUDE.md
+// Architecture 14).
+
+const PER_CAMERA = { perCameraProduct: 'safesight' }
+const perCamera = (units, extra = {}, params = CATALOG) =>
+  termLadder({ units, paymentStructure: 'opex', ...PER_CAMERA, ...extra }, params).map((r) => [r.termMonths, r.perCameraCents === null ? null : money(r.perCameraCents)])
+
+test('T31 per camera, OPEX, SafeSight 120 + AQ 40 + HEMIR 2, every term', () => {
+  assert.deepEqual(perCamera(DEMO), [
+    [12, '8,009.44'], [24, '4,928.89'], [36, '3,902.04'], [48, '2,972.74'], [60, '2,415.16'],
+    [72, '2,043.44'], [84, '1,777.92'], [96, '1,578.79'], [108, '1,423.90'], [120, '1,299.99'],
+  ])
+})
+
+test('v1.5: per camera divides the SafeSight line only; AQ and HEMIR do not move it', () => {
+  const alone = perCamera({ safesight: 120 })
+  assert.ok(alone.every(([, v]) => v !== null), 'every row has a figure, so the comparison is not null against null')
+  assert.deepEqual(perCamera(DEMO), alone)
+})
+
+test('v1.5: per camera is null ("-") when there are no SafeSight units, and under CAPEX', () => {
+  assert.ok(perCamera({ safesight: 0, air_quality: 40 }).every(([, v]) => v === null))
+  assert.ok(perCamera(DEMO, { paymentStructure: 'capex' }).every(([, v]) => v === null))
+  // Nothing names the product: no perCameraProduct, no figure.
+  assert.ok(termLadder({ units: DEMO, paymentStructure: 'opex' }, CATALOG).every((r) => r.perCameraCents === null))
+})
+
+test('v1.5 (Verification 24): a second product follows its OWN line, rounded half-up', () => {
+  // AQ 40 at 60 months, from T23's band fees: (9 x 973.33 + 31 x 924.67) / 40
+  // = 37,424.74 / 40 = 935.6185, half-up 935.62.
+  const r = termLadder({ units: DEMO, paymentStructure: 'opex', perCameraProduct: 'air_quality' }, CATALOG).find((x) => x.termMonths === 60)
+  assert.equal(money(r.perCameraCents), '935.62')
+})
+
+test('v1.5: per camera is year 1 (after the discount) with an escalator', () => {
+  const flat = perCamera(DEMO), esc = perCamera(DEMO, { escalatorPct: '3' })
+  assert.deepEqual(esc, flat)
+})
+
