@@ -648,6 +648,21 @@ if (FLOW) {
   await sw('tp-tax-detail', true)
   want(await head('tp-schedule'), ['Months', 'CAPEX', 'Subscription', 'Invoice', 'Invoice (pre-GST)', 'GST', 'Invoice incl. GST', 'WHT', 'Terminus receives'], 'T-5 tax detail adds GST, WHT and received')
   check(await page.$eval(tid('tp-schedule'), (t) => t.classList.contains('tp-schedule-fit')), 'T-5 only the tax-detail view is fitted')
+  // With the tax detail on, the schedule takes the screen's full width: its card
+  // spans the tile row (a relation between two elements, Verification 4). The
+  // first build stacked the cards but left the two-column track, measured only
+  // in a capture.
+  for (const w of [1240, 1600, 1920]) {
+    await page.setViewport({ width: w, height: 1100 })
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    const span = await page.evaluate(() => {
+      const a = document.querySelector('#view-term-pricing [data-testid="tp-schedule-card"]').getBoundingClientRect()
+      const b = document.querySelector('#view-term-pricing [data-testid="tp-figures"]').getBoundingClientRect()
+      return { card: [Math.round(a.left), Math.round(a.right)], tiles: [Math.round(b.left), Math.round(b.right)] }
+    })
+    check(Math.abs(span.card[0] - span.tiles[0]) <= 1 && Math.abs(span.card[1] - span.tiles[1]) <= 1, `T-5 at ${w} the tax-detail schedule spans the tile row`, JSON.stringify(span))
+  }
+  await page.setViewport({ width: 1240, height: 1100 })
   // T30 from the click (absorbs --qp): WHT 10% borne, GST 9%.
   await tab('payment'); await type('tp-gst', '9'); await page.click(tid('tp-wht-single')); await type('tp-wht', '10'); await tab('quote')
   const s30 = await scheduleRows()

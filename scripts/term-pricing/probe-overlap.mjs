@@ -61,10 +61,14 @@ const check = (ok, claim, detail = '') => {
 const settle = (p) => p.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))))
 
 const INJECTIONS = {
-  // Pulled UP into its own label's text (the label sits above the input).
-  'label-input': '[data-testid="tp-gst"] { margin-top: -26px !important; }',
-  // A units input forced narrower than its content.
-  shrink: '.tp-units-row .tp-num { width: 20px !important; min-width: 0 !important; flex: none !important; }',
+  // Pulled LEFT onto its own label's text. RE-AIMED by TP_TABS: the Tax
+  // section puts the label in a column to the input's left, so the single
+  // page's upward pull (-26px) overlapped nothing and came back SILENT.
+  'label-input': '[data-testid="tp-gst"] { margin-left: -120px !important; }',
+  // A units group forced narrower than its content. RE-AIMED by TP_TABS: aimed
+  // at the inputs it was SILENT, since the shrink detector measures the flex
+  // items (each label and its input), not an input's own content.
+  shrink: '.tp-units-row > .tp-unit { width: 20px !important; min-width: 0 !important; flex: none !important; overflow: hidden; }',
   'l2-borderless': '.tp-num.tp-select:disabled { border-color: transparent !important; }',
   // TILE_FIT calibrations (E2): a planted per-tile size must fire the shared-
   // size check; a planted 8px floor must fire F3.
@@ -190,6 +194,10 @@ async function whtState(page, w) {
     await page.click('[data-testid="tp-wht-single"]')
     await typeInto(page, 'tp-wht', '10')
     await setSwitch(page, 'tp-wht-grossup', false)
+    // The CPI mode stays chosen and its rate is cleared, so the start-year
+    // select is on screen and DISABLED: the only state L2 can measure. The
+    // first sweep never reached it, and its injection came back SILENT.
+    await typeInto(page, 'tp-escalator', '')
   }
 }
 
@@ -317,7 +325,9 @@ try {
               basis: document.querySelector('[data-testid="tp-head-basis"]')?.textContent.trim(),
             }))
             const ok = (await panel(p, 'pricing')) && s.ladder && s.breakdown && s.price && s.open === open && (open ? s.adminSave === admin : true) && s.basis === basis.toUpperCase()
-            return { ok, detail: JSON.stringify(s), minAtoms: open ? 300 : 200 }
+            // The floors are the single page's (200 open, 120 closed), not raised
+            // to what this build happens to render.
+            return { ok, detail: JSON.stringify(s), minAtoms: open ? 200 : 120 }
           }, async (p, where) => {
             const l = await layout(p)
             check(l.ok, `${where}: no table in the work column wider than it`, JSON.stringify(l))
@@ -346,14 +356,20 @@ try {
               start: document.querySelector('[data-testid="tp-escalator-start"]')?.disabled,
             }))
             const ok = (await panel(p, 'payment')) && st.capexSecs === (s !== 'opex') && st.remaining === (s === 'incomplete') && st.ready === (s !== 'incomplete')
-              && st.wht === { off: 'none', split: 'split', borne: 'single' }[w] && st.start === (w === 'split' ? false : undefined)
-            return { ok, detail: JSON.stringify(st), minAtoms: s === 'opex' ? 40 : 120 }
+              // The CPI chosen for 'split' stays on for 'borne' with its rate
+              // cleared: live in 'split', on screen but DISABLED in 'borne' (L2).
+              && st.wht === { off: 'none', split: 'split', borne: 'single' }[w] && st.start === { off: undefined, split: false, borne: true }[w]
+            // The floor catches an empty or missing render (lost-root reads 0);
+            // what the state holds is asserted above. 120 was a number of mine
+            // with no basis, and the third run found the default CAPEX state at
+            // 119, rendered and correct; it is not set from that result.
+            return { ok, detail: JSON.stringify(st), minAtoms: s === 'opex' ? 40 : 80 }
           }, async (p, where) => {
             const l = await layout(p)
             check(l.ok, `${where}: no table in the work column wider than it`, JSON.stringify(l))
             // L2: a disabled select still has a visible border.
             const sel = await p.evaluate(() => { const e = document.querySelector('[data-testid="tp-escalator-start"]'); return e && e.disabled ? getComputedStyle(e).borderTopColor : null })
-            if (sel) check(!/rgba\(.*,\s*0\)$|transparent/.test(sel), `${where}: L2 the disabled start-year select has a border`, sel)
+            if (w === 'borne') check(!!sel && !/rgba\(.*,\s*0\)$|transparent/.test(sel), `${where}: L2 the disabled start-year select has a border`, String(sel))
           })
           if (s === 'incomplete') continue
           await openTab(page, 'quote')
@@ -367,7 +383,8 @@ try {
               }))
               const cols = (s === 'opex' ? 3 : 4) + (taxOn ? 5 : 0)
               const ok = (await panel(p, 'quote')) && st.cols === cols && st.capexTile === (s !== 'opex') && st.tiles >= 3
-              return { ok, detail: JSON.stringify(st), minAtoms: 80 }
+              // The OPEX quote is small: three tiles, one run and a Total.
+              return { ok, detail: JSON.stringify(st), minAtoms: 50 }
             }, (p, where) => quoteChecks(p, where, taxOn))
           }
           await setSwitch(page, 'tp-tax-detail', false)

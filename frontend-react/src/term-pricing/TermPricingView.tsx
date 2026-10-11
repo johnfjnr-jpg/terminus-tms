@@ -885,7 +885,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           <div className="tp-small tp-muted" data-testid="tp-q-cash1-note">{capex ? `OPEX would be ${money(q.opexCashYear1Cents)}` : 'months 1 to 12, before tax'}</div></div>
       </div>
 
-      <div className="tp-grid tp-grid-quote">
+      <div className={`tp-grid tp-grid-quote${showTax ? ' tp-grid-wide' : ''}`}>
         <section className="tp-card" aria-label="Payment schedule" data-testid="tp-schedule-card">
           <div className="tp-card-head">
             <h2 className="tp-h2">Payment schedule <span className="tp-hint" data-testid="tp-schedule-title">{term} months, {capex ? 'CAPEX' : 'OPEX'}{cpiTitle}{whtTitle}</span></h2>
@@ -989,12 +989,15 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           const done = !on && (t.key === 'pricing' ? pricingDone : t.key === 'payment' ? paymentDone : false)
           const blocked = t.key === 'quote' && !ready
           return (
+            // "Done" is said in the tab's accessible name, not in hidden text:
+            // a visually-hidden span still sits under the tick, and the overlap
+            // sweep's first run counted it as ink there at every width.
             <button key={t.key} type="button" role="tab" id={`tp-tab-${t.key}`} aria-selected={on} aria-controls="tp-panel"
+              aria-label={done ? `${t.label}, done` : undefined}
               aria-disabled={blocked || undefined} title={blocked && notReady ? notReady : undefined}
               className={`tp-tab${on ? ' on' : ''}${done ? ' done' : ''}${blocked ? ' blocked' : ''}`}
               data-testid={`tp-tab-${t.key}`} onClick={() => go(t.key)}>
               <span className="tp-tab-num" aria-hidden="true">{done ? '✓' : t.n}</span>{t.label}
-              {done && <span className="visually-hidden"> (done)</span>}
             </button>
           )
         })}

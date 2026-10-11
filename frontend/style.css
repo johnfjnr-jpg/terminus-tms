@@ -9553,8 +9553,18 @@ select:autofill {
 .tp-grid.tp-grid-quote > .tp-card { margin-top: 0; min-width: 0; }
 .tp-grid.tp-grid-quote > .tp-card:first-child { grid-area: schedule; }
 .tp-grid.tp-grid-quote > .tp-card:last-child { grid-area: profit; }
+/* With the tax detail on, ONE column at every width. Without this the general
+   `.tp-grid` two-column rule (1fr 360px) still supplied the columns while the
+   areas stacked, and the schedule stopped 380px short of the tiles: seen in
+   the 1600 capture after every check had passed (Verification 4). */
+.tp-grid.tp-grid-quote.tp-grid-wide { grid-template-columns: minmax(0, 1fr); }
 @container (min-width: 1220px) {
-  .tp-grid.tp-grid-quote { grid-template-columns: minmax(0, 1fr) 420px; grid-template-areas: "schedule profit"; grid-template-rows: auto; }
+  /* 440px, the mockup's (html/3/Quote.dc.html:19): at 420 the profit table,
+     with T30's WHT rows, needed 433px and the sweep found it 13px over. */
+  /* With "Show tax detail" on, the schedule's nine columns take the full width
+     and the profit card goes below: beside it at 1600 the schedule had 776px
+     and needed 789 at the 10px floor (the sweep's second run). */
+  .tp-grid.tp-grid-quote:not(.tp-grid-wide) { grid-template-columns: minmax(0, 1fr) 440px; grid-template-areas: "schedule profit"; grid-template-rows: auto; }
 }
 .tp-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; margin-bottom: 12px; }
 .tp-card-head > .tp-h2 { margin: 0; }
@@ -9574,7 +9584,17 @@ select:autofill {
 .tp-price-grid .tp-v { font-size: 16px; }
 .tp-ok.tp-floor { display: block; margin-top: 14px; }
 /* Payment terms: each section a title column and a body, as the mockup. */
-.tp-terms-card { padding-top: 4px; padding-bottom: 4px; }
+.tp-terms-card { padding-top: 4px; padding-bottom: 4px; container-type: inline-size; }
+/* The milestone table needs about 706px. Where the card cannot give it that
+   beside the title column (measured by the sweep: 618 to 698px left at some
+   widths), the title sits above the section instead, so the table keeps its
+   width rather than spilling. Decided by the card's own width. */
+@container (max-width: 940px) {
+  /* Scoped through the card: `.tp-sec` is declared further down this file,
+     and at equal specificity the later rule won (measured: 180px 638px in an
+     874px card, the query loaded and true). */
+  .tp-terms-card .tp-sec { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
 .tp-sec { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--hairline); }
 .tp-sec:last-child { border-bottom: 0; }
 .tp-sec-title { font-family: var(--heading); font-weight: 500; font-size: 15px; }
