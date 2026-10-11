@@ -181,6 +181,12 @@ async function capture(name, width) {
 const demo = async () => { await type('tp-units-safesight', '120'); await type('tp-units-air_quality', '40'); await type('tp-units-hemir', '2') }
 const pick = async (t) => { await page.click(tid(`tp-ladder-${t}`)); await expectText('tp-p-term', `${t} months`, `the ${t}-month row is chosen`) }
 
+// A probe that throws part-way still prints its verdict, naming the error as a
+// FAIL, so a calibration reads WHICH claims failed before it (Verification 9:
+// the setup must not depend on the behaviour under test, and here a later step
+// did: TP_TABS's T1 injection reset the milestones, the next step waited for a
+// third row, and the run died with no verdict after its T-1 check had run).
+try {
 if (FLOW) {
   // T1's inputs at ANCHOR_MARGIN 80%: 15,200 x 0.8 / 0.2 = 60,800; 76,000 / 36
   // = 2,111.11; x 36 = 75,999.96 (the spec's section 11 flow line).
@@ -762,6 +768,9 @@ if (!FLOW && !TP2 && !PC && !CAPEXM && !TABS) {
   await tab('payment'); await page.click(tid('tp-basis-capex')); await tab('quote')
   await expectText('tp-q-capex', '1,200,000.00', 'T15 at 1920')
   await capture('capex-T15', 1920)
+}
+} catch (e) {
+  check(false, 'the probe ran to its end', String(e.message).split('\n')[0])
 }
 
 await browser.close()

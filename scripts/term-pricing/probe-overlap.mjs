@@ -1,37 +1,39 @@
 #!/usr/bin/env node
-// ── TERM_PRICING_2 A1, A2, A3 and Q1: NO OVERPRINT, NO TRACK BELOW ITS CONTENT ──
+// ── TERM PRICING: NO OVERPRINT, NO TRACK BELOW ITS CONTENT, ON EVERY TAB ──
 //
 //   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
-//     node --env-file=.env scripts/term-pricing/probe-overlap.mjs [--only=tp|opex] [--inject=<name>]
+//     node --env-file=.env scripts/term-pricing/probe-overlap.mjs [--only=tp|opex] [--inject=<name>] [--live-margins]
 //
 // Runs the shared STRUCTURAL detector (scripts/lib/ink-overlap.mjs) at every
-// width from 1240 to 1920 in steps of 40 (A2), in every state:
+// width from 1240 to 1920 in steps of 40 (A2), in every state.
 //
-//   Term Pricing: OPEX and CAPEX, Settings collapsed and expanded, as a
-//   non-admin and as an admin.
-//   The deal form's OPEX card (OPEX_RESET Q1), on a fixture built through the
-//   API the way the screen builds a deal.
+// RE-POINTED by TP_TABS (John, 2026-10-11): the screen is three tabs, and the
+// sweep covers every tab in every state:
+//   Pricing        OPEX and CAPEX, Settings collapsed and expanded, as a
+//                  non-admin and as an admin (the only tab an admin changes);
+//   Payment terms  WHT off, split (5% / 10%, grossed up, CPI published 3% from
+//                  year 3) and borne (10%), each under OPEX and four CAPEX
+//                  shapes: the default, Monthly instalments over 12, G-C2's
+//                  three milestones, and T4-G1's milestones still being entered;
+//   Quote          the same states where a quote prices, tax detail off and on.
+// And the deal form's OPEX card (OPEX_RESET Q1), on a fixture built through the
+// API the way the screen builds a deal.
+//
+// RETIRED by TP_TABS, QUOTED NOT DELETED, with the layout they measured: B2
+// "term buttons in rows of five" (the ladder row is the term's selector, T-2),
+// TP_INPUTS I1 to I4 (the Inputs card), and their injections `six-a-row`,
+// `i1-wrap` and `i3-height`. `shrink` re-points from `.tp-units` to the units
+// row, and `capex-schedule-wide` to the fitted (tax-detail) schedule.
 //
 // THE ADMIN STATE IS BUILT DIRECTLY, AND SAID SO (Verification 47's clause).
-// The probe account is not an admin, and making one is a live write to
-// `system_roles` that this round has no ruling for. The screen reads one field,
-// `isAdmin`, from GET /api/term-pricing and nothing about how it got there, so
-// that one field is flipped in the browser's copy of the real response. Every
-// other byte is the route's own. It proves the admin LAYOUT only; the admin
-// WRITE path is proven over HTTP elsewhere (probe-live.mjs, E3).
+// The probe account is not an admin; the screen reads one field, `isAdmin`,
+// from GET /api/term-pricing, so that one field is flipped in the browser's
+// copy of the real response. It proves the admin LAYOUT only.
 //
-// EVERY VERDICT NEEDS A POPULATION (Verification 14): a state that never
-// rendered has no atoms and no overlaps, which reads exactly like a pass. Each
-// state therefore asserts it was REACHED before its zero is counted.
+// EVERY VERDICT NEEDS A POPULATION (Verification 14): each state asserts it
+// was REACHED, and the detector its atoms, before its zero is counted.
 //
-// --inject=<name> applies an in-page fault for calibration. No file is touched:
-//   label-input   the GST input is pulled up over its own label text
-//   shrink        a Term Pricing input row is forced narrower than its content
-//   lost-root     the Term Pricing root selector is wrong (population check)
-//   six-a-row     the term buttons lay out six to a row (B2)
-//   l2-borderless the disabled start-year select loses its border (L2)
-//   i1-wrap       the deal-terms row is too narrow for its groups, so it wraps (I1)
-//   i3-height     Split WHT puts the WHT fields on a line of their own (I3)
+// --inject=<name> applies an in-page fault for calibration. No file is touched.
 //
 // UNWIRED: needs a browser, a live server and a session.
 
@@ -59,81 +61,32 @@ const check = (ok, claim, detail = '') => {
 const settle = (p) => p.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))))
 
 const INJECTIONS = {
-  // Pulled UP into its own label's text. The first version pulled it LEFT, and
-  // came back SILENT: measured, the label text sits ABOVE the input (text
-  // bottom 191, input top 199), so a sideways move overlapped nothing.
-  'label-input': '[data-testid="tp-gst"] { margin-top: -16px !important; }',
-  shrink: '.tp-units > * { width: 20px !important; min-width: 0 !important; flex: none !important; }',
-  // B2: six to a row is the shape the screen had before this round.
-  'six-a-row': '.tp-seg.tp-terms { grid-template-columns: repeat(6, max-content) !important; }',
-  // L2 and L3: the two shapes John's approval ruled out.
+  // Pulled UP into its own label's text (the label sits above the input).
+  'label-input': '[data-testid="tp-gst"] { margin-top: -26px !important; }',
+  // A units input forced narrower than its content.
+  shrink: '.tp-units-row .tp-num { width: 20px !important; min-width: 0 !important; flex: none !important; }',
   'l2-borderless': '.tp-num.tp-select:disabled { border-color: transparent !important; }',
   // TILE_FIT calibrations (E2): a planted per-tile size must fire the shared-
-  // size check; a planted 8px floor must fire F3 (the row shrinks below 13px
-  // instead of wrapping).
-  'per-tile-size': '#view-term-pricing .tp-figures > div:nth-child(3) .tp-v { font-size: 12px !important; }',
+  // size check; a planted 8px floor must fire F3.
+  'per-tile-size': '#view-term-pricing .tp-figures > div:nth-child(2) .tp-v { font-size: 12px !important; }',
   'floor-8': '#view-term-pricing .tp-figures { --tp-fig-min: 8 !important; }',
-  // TP_INPUTS: L3's halves are retired with the layout they measured.
-  'i1-wrap': '[data-testid="tp-deal-row"] { max-width: 600px !important; }',
-  'i3-height': '[data-testid="tp-wht-saas"] { margin-top: 40px !important; }',
-  // PER_CAMERA_AND_CAPEX_P0: the per-camera figures pushed over the monthly fee
-  // column must fire, or the sweep is not seeing the new column at all. 160px:
-  // the ink gap between the two measured 94px at 1240 and 128px at 1920, and a
-  // first 70px injection came back SILENT because it never reached the fee.
+  // The per-camera figures pushed over the monthly fee column (160px: the ink
+  // gap measured 94px at 1240 and 128px at 1920).
   'percam-over-fee': '[data-testid^="tp-ladder-percam-"] { position: relative; left: -160px; }',
-  // TP_CAPEX: the CAPEX schedule's fitting switched off (its figure size
-  // pinned) must fire the Quote fit check wherever the fitting was doing the
-  // work, under CAPEX and only under CAPEX. Padding would not do: the fitting
-  // would absorb it by shrinking the font, which is the fitting working.
-  'capex-schedule-wide': '.tp-table.tp-schedule.tp-schedule-capex td { font-size: 14px !important; }',
-}
-
-// TP_CAPEX: put the CAPEX card into one of three payment shapes. Idempotent:
-// it first returns the milestone table to one row.
-async function capexVariant(page, v) {
-  await page.waitForSelector('[data-testid="tp-capex-card"]')
-  const rows = () => page.$$eval('[data-testid^="tp-ms-key-"]', (s) => s.length)
-  if (v === 'two-phase') {
-    await page.click('[data-testid="tp-capex-hardware"]')
-    await page.click('[data-testid="tp-capex-two-phase"]')
-    await page.waitForSelector('[data-testid="tp-capex-instalments"]')
-    return
-  }
-  await page.click('[data-testid="tp-capex-hybrid"]')
-  await page.waitForSelector('[data-testid="tp-ms-key-0"]')
-  while ((await rows()) > 1) await page.click(`[data-testid="tp-ms-remove-${(await rows()) - 1}"]`)
-  if (v === 'default') {
-    await page.click('[data-testid="tp-capex-hardware"]')
-    await typeInto(page, 'tp-ms-share-0', '100')
-  } else {
-    await page.click('[data-testid="tp-capex-custom"]')
-    await typeInto(page, 'tp-capex-amount', '1000000.00')
-    await typeInto(page, 'tp-ms-share-0', '30')
-    await page.click('[data-testid="tp-ms-add"]')
-    await page.waitForSelector('[data-testid="tp-ms-key-1"]')
-    await typeInto(page, 'tp-ms-month-1', '3'); await typeInto(page, 'tp-ms-share-1', '40')
-    await page.click('[data-testid="tp-ms-add"]')
-    await page.waitForSelector('[data-testid="tp-ms-key-2"]')
-    await page.select('[data-testid="tp-ms-key-2"]', 'Commissioning')
-    await typeInto(page, 'tp-ms-month-2', '6'); await typeInto(page, 'tp-ms-share-2', '30')
-  }
-  // Wait on the state itself: a quote that prices (shares total 100%).
-  await page.waitForFunction(() => document.querySelector('[data-testid="tp-ms-status"]')?.textContent.startsWith('✓'), { timeout: 6000 })
+  // The tax-detail schedule's fitting switched off (its figure size pinned)
+  // must fire the Quote fit check wherever the fitting was doing the work.
+  'capex-schedule-wide': '.tp-table.tp-schedule.tp-schedule-fit td { font-size: 14px !important; }',
+  // TP_TABS: the summary column forced beside the work at every width must
+  // fire where the view cannot hold both (the container query's reason).
+  'side-by-side': '.tp-grid { grid-template-columns: minmax(0, 1fr) 360px !important; grid-template-areas: "main side" "main next" !important; }',
 }
 
 async function signedIn(browser, { admin = false } = {}) {
   const page = await browser.newPage()
   await page.setViewport({ width: 1240, height: 1100 })
-  // TERMS AS v1.3 (B1), IN THE BROWSER'S COPY ONLY, AND SAID SO. The live
-  // setting is John's to change after the push and this round does not touch
-  // it, so B2's rows of five are measured against the spec's ten-term default
-  // by rewriting that one field of the real response. --live-terms measures
-  // the live setting instead.
+  // TERMS AS v1.3 (B1) and MARGINS AS THE SPEC (R1), IN THE BROWSER'S COPY
+  // ONLY, AND SAID SO. --live-terms and --live-margins measure the live ones.
   const terms = process.argv.includes('--live-terms') ? null : [12, 24, 36, 48, 60, 72, 84, 96, 108, 120]
-  // MARGINS AS THE SPEC (PER_CAMERA_AND_CAPEX_P0, ruling R1), the same way.
-  // The live SafeSight ANCHOR_MARGIN is 50 by John's setting and stays so; the
-  // sweep keeps measuring the spec's 90% figures, which are the wider ones the
-  // earlier sweeps passed on. --live-margins measures the live setting instead.
   const m = { safesight: '90', air_quality: '90', hemir: '90' }
   const margins = process.argv.includes('--live-margins') ? null : { ANCHOR_MARGIN: m, SHORT_TERM_MARGIN: m }
   await page.evaluateOnNewDocument((admin, terms, margins) => {
@@ -172,25 +125,72 @@ async function setSwitch(page, testid, on) {
   if ((await page.$eval(sel, (e) => e.getAttribute('aria-checked'))) !== String(on)) await page.click(sel)
   await page.waitForFunction((s, v) => document.querySelector(s)?.getAttribute('aria-checked') === String(v), {}, sel, on)
 }
+// T-1: open a tab and wait on THAT panel.
+async function openTab(page, name) {
+  await page.click(`[data-testid="tp-tab-${name}"]`)
+  await page.waitForSelector(`[data-testid="tp-panel-${name}"]`, { timeout: 6000 })
+}
 
-// B2 as a RELATION between elements, not a CSS property (Verification 4's
-// clause): the buttons read in term order, five to a row, and each column
-// lines up.
-async function rowsOfFive(page) {
-  return page.evaluate(() => {
-    const bs = [...document.querySelectorAll('#view-term-pricing [data-testid^="tp-term-"]')]
-    const r = bs.map((b) => { const x = b.getBoundingClientRect(); return { t: Number(b.textContent), top: Math.round(x.top), left: Math.round(x.left) } })
-    const problems = []
-    for (let i = 1; i < r.length; i++) if (r[i].t <= r[i - 1].t) problems.push(`out of term order at ${r[i].t}`)
-    for (let i = 0; i < r.length; i++) {
-      const row = Math.floor(i / 5), first = r[row * 5]
-      if (r[i].top !== first.top) problems.push(`${r[i].t} is not on row ${row + 1}`)
-      if (i % 5 && r[i].left <= r[i - 1].left) problems.push(`${r[i].t} is not right of ${r[i - 1].t}`)
-      if (i >= 5 && Math.abs(r[i].left - r[i - 5].left) > 1) problems.push(`${r[i].t} is not under ${r[i - 5].t}`)
+// The payment shapes, on the Payment terms tab. Idempotent: each first returns
+// the milestone table to one row.
+async function shape(page, s) {
+  await page.click(`[data-testid="tp-basis-${s === 'opex' ? 'opex' : 'capex'}"]`)
+  if (s === 'opex') return
+  const rows = () => page.$$eval('[data-testid^="tp-ms-key-"]', (x) => x.length)
+  if (s === 'two-phase') {
+    await page.click('[data-testid="tp-capex-hardware"]')
+    await page.click('[data-testid="tp-capex-two_phase"]')
+    await page.waitForSelector('[data-testid="tp-capex-instalments"]')
+    return
+  }
+  await page.click('[data-testid="tp-capex-hybrid"]')
+  await page.waitForSelector('[data-testid="tp-ms-key-0"]')
+  while ((await rows()) > 1) await page.click(`[data-testid="tp-ms-remove-${(await rows()) - 1}"]`)
+  if (s === 'default') {
+    await page.click('[data-testid="tp-capex-hardware"]')
+    await typeInto(page, 'tp-ms-share-0', '100')
+  } else {
+    await page.click('[data-testid="tp-capex-custom"]')
+    await typeInto(page, 'tp-capex-amount', '1000000.00')
+    if (s === 'incomplete') {
+      // T4-G1: 50% at contract start, 30% at installation, 20% still to go.
+      await typeInto(page, 'tp-ms-share-0', '50')
+      await page.click('[data-testid="tp-ms-add"]'); await page.waitForSelector('[data-testid="tp-ms-key-1"]')
+      await page.select('[data-testid="tp-ms-key-1"]', 'Installation complete')
+      await typeInto(page, 'tp-ms-month-1', '4'); await typeInto(page, 'tp-ms-share-1', '30')
+      await page.waitForSelector('[data-testid="tp-ms-remaining"]')
+      return
     }
-    if (r.length > 5 && !(r[5].top > r[0].top)) problems.push('the second row is not below the first')
-    return { n: r.length, terms: r.map((x) => x.t).join(','), problems }
-  })
+    await typeInto(page, 'tp-ms-share-0', '30')
+    await page.click('[data-testid="tp-ms-add"]'); await page.waitForSelector('[data-testid="tp-ms-key-1"]')
+    await page.select('[data-testid="tp-ms-key-1"]', 'Hardware delivered to site')
+    await typeInto(page, 'tp-ms-month-1', '3'); await typeInto(page, 'tp-ms-share-1', '40')
+    await page.click('[data-testid="tp-ms-add"]'); await page.waitForSelector('[data-testid="tp-ms-key-2"]')
+    await page.select('[data-testid="tp-ms-key-2"]', 'Commissioning')
+    await typeInto(page, 'tp-ms-month-2', '6'); await typeInto(page, 'tp-ms-share-2', '30')
+  }
+  // Wait on the state itself: the quote prices.
+  await page.waitForFunction(() => !document.querySelector('[data-testid="tp-ready"]') && !document.querySelector('[data-testid="tp-next-payment"]')?.disabled, { timeout: 6000 })
+}
+// The WHT states, on the Payment terms tab.
+async function whtState(page, w) {
+  if (w === 'off') {
+    await page.click('[data-testid="tp-wht-none"]')
+    await page.click('[data-testid="tp-cpi-none"]')
+  } else if (w === 'split') {
+    // A CPI with the start year live, so the CPI controls are in the state too.
+    await page.click('[data-testid="tp-cpi-published"]')
+    await page.waitForSelector('[data-testid="tp-escalator"]')
+    await typeInto(page, 'tp-escalator', '3')
+    await page.select('[data-testid="tp-escalator-start"]', '3')
+    await page.click('[data-testid="tp-wht-split"]')
+    await typeInto(page, 'tp-wht-hw', '5'); await typeInto(page, 'tp-wht-saas', '10')
+    await setSwitch(page, 'tp-wht-grossup', true)
+  } else {
+    await page.click('[data-testid="tp-wht-single"]')
+    await typeInto(page, 'tp-wht', '10')
+    await setSwitch(page, 'tp-wht-grossup', false)
+  }
 }
 
 async function sweep(page, rootSel, label, reached, extra) {
@@ -211,193 +211,166 @@ async function sweep(page, rootSel, label, reached, extra) {
       const h = await page.evaluate(() => document.querySelector('.app-content-scroll')?.scrollHeight ?? 1100)
       await page.setViewport({ width, height: Math.max(1100, h + 40) })
       await settle(page)
-      mkdirSync(`${ROOT}prototypes/term-pricing/screens`, { recursive: true })
-      const file = `${ROOT}prototypes/term-pricing/screens/${process.env.TP_RUN ?? 'tp2'}-${width}-${label.replace(/[^a-z0-9]+/gi, '-')}.png`
-      // Where the root sits IN the capture, so a reader can crop to it without guessing.
-      const box = await page.evaluate((s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r && [Math.round(r.top), Math.round(r.bottom)] }, rootSel)
+      mkdirSync(`${ROOT}prototypes/term-pricing-tabs/built`, { recursive: true })
+      const file = `${ROOT}prototypes/term-pricing-tabs/built/${process.env.TP_RUN ?? 'sweep'}-${width}-${label.replace(/[^a-z0-9]+/gi, '-')}.png`
       await page.screenshot({ path: file })
-      console.log(`SHOT  ${file.slice(ROOT.length)}  root y ${box?.join('..')}`)
+      console.log(`SHOT  ${file.slice(ROOT.length)}`)
       await page.setViewport({ width, height: 1100 })
     }
   }
+}
+
+// ── The checks that hold on every tab ─────────────────────────────────────
+// The two columns sit side by side only when the summary does not squeeze the
+// work: the main column is never narrower than its widest table needs.
+const layout = (p) => p.evaluate(() => {
+  const grid = document.querySelector('#view-term-pricing .tp-grid')
+  if (!grid) return { ok: true, none: true }
+  const main = grid.querySelector('.tp-main'), side = grid.querySelector('.tp-side')
+  const m = main?.getBoundingClientRect(), s = side?.getBoundingClientRect()
+  const sideBySide = !!m && !!s && Math.abs(m.top - s.top) < 2 && s.left > m.left
+  const tables = [...(main?.querySelectorAll('table') ?? [])].filter((t) => t.scrollWidth > t.parentElement.clientWidth + 1).map((t) => t.dataset.testid)
+  return { ok: tables.length === 0, sideBySide, tables }
+})
+
+// The Quote tab: every table fits its card, L1 on the tax detail's Total row,
+// and TILE_FIT on the tiles.
+async function quoteChecks(p, where, taxOn) {
+  const fit = await p.evaluate(() => {
+    const over = []
+    for (const card of document.querySelectorAll('#view-term-pricing [data-testid="tp-panel-quote"] .tp-card')) {
+      const cs = getComputedStyle(card), b = card.getBoundingClientRect()
+      const right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight)
+      for (const t of card.querySelectorAll('table')) { const by = Math.round((t.getBoundingClientRect().right - right) * 10) / 10; if (by > 0.5) over.push(`${t.dataset.testid} by ${by}`) }
+      if (card.scrollWidth > card.clientWidth + 1) over.push(`${card.dataset.testid} scrolls`)
+    }
+    const head = [...document.querySelectorAll('#view-term-pricing [data-testid="tp-schedule"] thead th')].at(-1)
+    return { over, last: head?.textContent.trim() }
+  })
+  check(fit.over.length === 0 && fit.last === (taxOn ? 'Terminus receives' : 'Invoice'), `${where}: every Quote table fits its card, the last column (${fit.last}) visible`, JSON.stringify(fit))
+  if (taxOn) {
+    // L1 (N6): TCV (net) + WHT gross-up + GST = TCV incl. GST, on the Total row,
+    // where the gross-up is what the invoices carry above their nets.
+    const t = await p.$$eval('#view-term-pricing [data-testid="tp-sched-total"] td', (c) => c.map((x) => x.textContent.trim()))
+    const c = (s) => BigInt(String(s).replace(/[,.]/g, ''))
+    const net = c(t.at(-6)), invoiced = c(t.at(-5)), gst = c(t.at(-4)), incl = c(t.at(-3))
+    check(net > 0n && invoiced >= net && net + (invoiced - net) + gst === incl, `${where}: L1 TCV (net) + WHT gross-up + GST = TCV incl. GST`, JSON.stringify(t))
+  }
+  // TILE_FIT (F1 to F3): every figure inside its tile; one shared size with
+  // the lead in proportion; never under 13px; equal tiles when wrapped.
+  const tiles = await p.evaluate(() => {
+    const row = document.querySelector('#view-term-pricing .tp-figures')
+    const ratio = parseFloat(getComputedStyle(row).getPropertyValue('--tp-fig-lead-ratio'))
+    const out = { outside: [], sizes: [], lead: null, ratio, wrapped: row.classList.contains('tp-figures--wrap'), widths: [] }
+    for (const t of row.children) {
+      const cs = getComputedStyle(t), b = t.getBoundingClientRect()
+      const left = b.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft)
+      const right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight)
+      out.widths.push(Math.round(b.width))
+      for (const el of [t.querySelector('.tp-v'), t.querySelector('.tp-label')]) {
+        if (!el) continue
+        const r = document.createRange(); r.selectNodeContents(el); const fb = r.getBoundingClientRect()
+        if (fb.left < left - 0.5 || fb.right > right + 0.5) out.outside.push(`${el.textContent.trim()} by ${Math.round(Math.max(left - fb.left, fb.right - right))}px`)
+      }
+      const v = t.querySelector('.tp-v')
+      const fs = parseFloat(getComputedStyle(v).fontSize)
+      if (v.classList.contains('tp-lead')) out.lead = fs; else out.sizes.push(fs)
+    }
+    return out
+  })
+  const std = tiles.sizes[0]
+  check(tiles.outside.length === 0, `${where}: TILE_FIT every figure and label inside its tile`, tiles.outside.join('; '))
+  check(tiles.sizes.length > 0 && tiles.sizes.every((s) => Math.abs(s - std) < 0.05) && Math.abs(tiles.lead - std * tiles.ratio) < 0.1,
+    `${where}: TILE_FIT one shared size (${std}px), lead in proportion (${tiles.lead}px)`, JSON.stringify(tiles))
+  check(std >= 13 && (!tiles.wrapped || Math.max(...tiles.widths) - Math.min(...tiles.widths) <= 1),
+    `${where}: TILE_FIT F3 never under 13px${tiles.wrapped ? ', wrapped with equal tiles' : ''}`, JSON.stringify({ std, wrapped: tiles.wrapped, widths: tiles.widths }))
 }
 
 const browser = await puppeteer.launch({ headless: 'new' })
 try {
   if (ONLY !== 'opex') {
     const TP = INJECT === 'lost-root' ? '#view-term-pricing-gone' : '#view-term-pricing'
+    const panel = (p, name) => p.evaluate((n) => !!document.querySelector(`#view-term-pricing [data-testid="tp-panel-${n}"]`), name)
     for (const admin of [false, true]) {
       const page = await signedIn(browser, { admin })
       await page.evaluate(() => window.navigate('term-pricing'))
       await page.waitForFunction(() => document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'), { timeout: 15000 })
-      // QUOTE_PANEL: the demo deal's units, so every figure is as wide as a real
-      // deal makes it. The schedule overflowed only with figures this size, and
-      // the opening state's one unit could not have shown it.
+      // The demo deal's units, so every figure is as wide as a real deal makes it.
       await typeInto(page, 'tp-units-safesight', '120')
       await typeInto(page, 'tp-units-air_quality', '40')
       await typeInto(page, 'tp-units-hemir', '2')
-      // SPLIT WHT OFF is the opening state, escalator 0 (its start year
-      // disabled). SPLIT WHT ON sets both rates and Gross up, and the
-      // escalator to 3% from year 3 at 60 months, so the start-year select is
-      // live: the B3, B4 and B6 controls in both of the states John reviews.
-      // QUOTE_PANEL E3 adds WHT BORNE: one rate, Gross up off, with the
-      // escalator still on, so the profit table carries its whole-deal WHT
-      // rows and the pricing table its escalator note.
-      for (const wstate of ['off', 'on', 'borne']) {
-        const split = wstate === 'on'
-        if (wstate === 'borne') {
-          await setSwitch(page, 'tp-wht-split', false)
-          await setSwitch(page, 'tp-wht-grossup', false)
-          await typeInto(page, 'tp-wht', '10')
-        }
-        if (split) {
-          await page.click('[data-testid="tp-term-60"]')
-          // TP_CAPEX (C-3, Q14): the rate is shown once a CPI mode is chosen.
-          await page.click('[data-testid="tp-cpi-published"]')
-          await page.waitForSelector('[data-testid="tp-escalator"]')
-          await typeInto(page, 'tp-escalator', '3')
-          await page.select('[data-testid="tp-escalator-start"]', '3')
-          await setSwitch(page, 'tp-wht-split', true)
-          await setSwitch(page, 'tp-wht-grossup', true)
-          await typeInto(page, 'tp-wht-hw', '5')
-          await typeInto(page, 'tp-wht-saas', '10')
-        }
-        // TP_CAPEX: under CAPEX three payment shapes, so the new cards, the
-        // milestone table and the nine-column schedule are swept in each: the
-        // default (Hardware, one row at month 0), Two-phase over 12 months,
-        // and G-C2's three milestones on a Custom amount.
-        for (const [mode, variant] of [['opex', 'default'], ['capex', 'default'], ['capex', 'two-phase'], ['capex', 'milestones']]) {
-          await page.click(`[data-testid="tp-${mode}"]`)
-          if (mode === 'capex') await capexVariant(page, variant)
-          for (const open of [false, true]) {
-            const isOpen = await page.$eval('[data-testid="tp-settings-toggle"]', (e) => e.getAttribute('aria-expanded') === 'true')
-            if (isOpen !== open) await page.click('[data-testid="tp-settings-toggle"]')
-            const label = `tp ${admin ? 'admin' : 'non-admin'} ${mode}${mode === 'capex' ? ` ${variant}` : ''} wht-${wstate} settings-${open ? 'open' : 'closed'}`
-            await sweep(page, TP, label, async (p) => {
-              const s = await p.evaluate((m) => ({
-                mode: document.querySelector(`[data-testid="tp-${m}"]`)?.getAttribute('aria-pressed') === 'true',
-                open: !!document.querySelector('[data-testid="tp-settings-body"]'),
-                adminSave: !!document.querySelector('[data-testid="tp-settings-save"]'),
-                ladder: !!document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'),
-                split: document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === 'true',
-                single: !!document.querySelector('[data-testid="tp-wht"]'),
-                pair: !!document.querySelector('[data-testid="tp-wht-hw"]') && !!document.querySelector('[data-testid="tp-wht-saas"]'),
-                start: document.querySelector('[data-testid="tp-escalator-start"]')?.disabled,
-                whtRows: !!document.querySelector('[data-testid="tp-profit-wht"]'),
-              }), mode)
-              // An admin with Settings open has a Save; a non-admin never does.
-              // Split on hides the single rate and shows the pair (B4); the
-              // start year is live only with a rate (B6).
-              const ok = s.mode && s.ladder && s.open === open && (open ? s.adminSave === admin : true)
-                // TP_CAPEX (Q14): under CPI None (the 'off' state) the start
-                // year is not on the screen at all; with a CPI mode it is live.
-                && s.split === split && s.single === !split && s.pair === split && s.start === (wstate === 'off' ? undefined : false)
-                && s.whtRows === (wstate === 'borne')
-              return { ok, detail: JSON.stringify(s), minAtoms: open ? 200 : 120 }
-            }, async (p, where) => {
-              const b2 = await rowsOfFive(p)
-              check(b2.n >= 10 && b2.problems.length === 0, `${where}: B2 term buttons in rows of five, in term order (${b2.terms})`, b2.problems.slice(0, 6).join('; '))
-              const m = await p.evaluate(() => {
-                const cents = (id) => { const t = document.querySelector(`[data-testid="${id}"]`)?.textContent.trim(); return t == null ? null : String(BigInt(t.replace(/[,.]/g, ''))) }
-                const sel = document.querySelector('[data-testid="tp-escalator-start"]')
-                const lab = sel?.closest('label')
+      await page.click('[data-testid="tp-ladder-60"]')
 
-                return {
-                  tcv: cents('tp-q-tcv'), up: cents('tp-q-grossup'), gst: cents('tp-q-gst'), incl: cents('tp-q-tcvincl'),
-                  grossUpOn: document.querySelector('[data-testid="tp-wht-grossup"]')?.getAttribute('aria-checked') === 'true',
-                  selBorder: sel && getComputedStyle(sel).borderTopColor, selLeft: sel && Math.round(sel.getBoundingClientRect().left),
-                  labLeft: lab && Math.round(lab.getBoundingClientRect().left), selDisabled: sel?.disabled,
-                }
-              })
-              // L1: present exactly when Gross up is on, and the tiles foot either way.
-              const sum = [m.tcv, m.up ?? '0', m.gst].reduce((a, x) => a + BigInt(x), 0n)
-              check(!!m.tcv && !!m.gst && !!m.incl && (m.up !== null) === m.grossUpOn && sum === BigInt(m.incl),
-                `${where}: L1 TCV (net)${m.grossUpOn ? ' + WHT gross-up' : ''} + GST = TCV incl. GST`, JSON.stringify(m))
-              // L2: a disabled select still has a visible border and sits under its label.
-              if (m.selDisabled) {
-                check(!/rgba\(.*,\s*0\)$|transparent/.test(m.selBorder) && m.selLeft === m.labLeft,
-                  `${where}: L2 the disabled start-year select has a border, under its label`, JSON.stringify({ border: m.selBorder, sel: m.selLeft, label: m.labLeft }))
-              }
-              // ── QUOTE_PANEL overflow ruling: every table in the panel fits the
-              // panel's content box, and "Terminus receives" is visible without
-              // scrolling. A relation between elements, not a CSS property.
-              const fit = await p.evaluate(() => {
-                const card = document.querySelector('#view-term-pricing [aria-label="Quote"]')
-                const cs = getComputedStyle(card), b = card.getBoundingClientRect()
-                const right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight)
-                const over = [...card.querySelectorAll('table')].map((t) => ({ id: t.dataset.testid, by: Math.round((t.getBoundingClientRect().right - right) * 10) / 10 })).filter((x) => x.by > 0.5)
-                const head = [...card.querySelectorAll('[data-testid="tp-schedule"] thead th')].at(-1)
-                return { over, cardScrolls: card.scrollWidth > card.clientWidth + 1, receives: head?.textContent.trim(), receivesRight: head && Math.round(head.getBoundingClientRect().right - right) }
-              })
-              check(fit.over.length === 0 && !fit.cardScrolls && fit.receives === 'Terminus receives' && fit.receivesRight <= 0.5,
-                `${where}: every Quote table fits the panel, "Terminus receives" visible`, JSON.stringify(fit))
-              // ── TILE_FIT (F1 to F3): every figure inside its tile; one shared
-              // size per row with the lead in proportion; never under 13px; and
-              // when the row wraps, every tile the same width.
-              const tiles = await p.evaluate(() => {
-                const row = document.querySelector('#view-term-pricing [aria-label="Quote"] .tp-figures')
-                const ratio = parseFloat(getComputedStyle(row).getPropertyValue('--tp-fig-lead-ratio'))
-                const out = { outside: [], sizes: [], lead: null, ratio, wrapped: row.classList.contains('tp-figures--wrap'), widths: [] }
-                for (const t of row.children) {
-                  const cs = getComputedStyle(t), b = t.getBoundingClientRect()
-                  const left = b.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft)
-                  const right = b.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight)
-                  out.widths.push(Math.round(b.width))
-                  const v = t.querySelector('.tp-v')
-                  if (!v) continue
-                  const r = document.createRange(); r.selectNodeContents(v); const fb = r.getBoundingClientRect()
-                  if (fb.left < left - 0.5 || fb.right > right + 0.5) out.outside.push(`${v.textContent.trim()} by ${Math.round(Math.max(left - fb.left, fb.right - right))}px`)
-                  const fs = parseFloat(getComputedStyle(v).fontSize)
-                  if (v.classList.contains('tp-lead')) out.lead = fs; else out.sizes.push(fs)
-                }
-                return out
-              })
-              const std = tiles.sizes[0]
-              check(tiles.outside.length === 0, `${where}: TILE_FIT every figure inside its tile`, tiles.outside.join('; '))
-              check(tiles.sizes.length > 0 && tiles.sizes.every((s) => Math.abs(s - std) < 0.05) && Math.abs(tiles.lead - std * tiles.ratio) < 0.1,
-                `${where}: TILE_FIT one shared size (${std}px), lead in proportion (${tiles.lead}px)`, JSON.stringify(tiles))
-              check(std >= 13 && (!tiles.wrapped || Math.max(...tiles.widths) - Math.min(...tiles.widths) <= 1),
-                `${where}: TILE_FIT F3 never under 13px${tiles.wrapped ? ', wrapped with equal tiles' : ''}`, JSON.stringify({ std, wrapped: tiles.wrapped, widths: tiles.widths }))
-              // ── TP_INPUTS I1 to I4, as relations between elements ──────────
-              const inputs = () => p.evaluate(() => {
-                const card = document.querySelector('#view-term-pricing [aria-label="Inputs"]')
-                const kids = (id) => [...document.querySelectorAll(`[data-testid="${id}"] > *`)].map((e) => e.getBoundingClientRect())
-                const deal = kids('tp-deal-row'), tax = kids('tp-tax-row')
-                const spread = (xs) => Math.round(Math.max(...xs) - Math.min(...xs))
-                const fields = ['tp-gst', 'tp-wht', 'tp-wht-hw', 'tp-wht-saas'].map((t) => document.querySelector(`[data-testid="${t}"]`)).filter(Boolean)
-                  .map((i) => ({ t: i.dataset.testid, w: Math.round(i.getBoundingClientRect().width), dx: Math.round(i.getBoundingClientRect().left - i.closest('label').getBoundingClientRect().left) }))
-                return {
-                  h: Math.round(card.getBoundingClientRect().height),
-                  dealTops: deal.length ? spread(deal.map((r) => r.top)) : null, dealN: deal.length,
-                  taxBottoms: tax.length ? spread(tax.map((r) => r.bottom)) : null, taxN: tax.length,
-                  fields, note: document.querySelector('[data-testid="tp-tax-note"]')?.textContent.trim(),
-                  split: document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === 'true',
-                }
-              })
-              const a = await inputs()
-              const NOTE = 'WHT applies to each invoice line before GST. GST is added on top of every invoice.'
-              // TP_CAPEX (C-8): under CAPEX the split note states the CAPEX rule.
-              const SPLIT_NOTE = mode === 'capex'
-                ? ' Split WHT: hardware rate up to the hardware value, SaaS rate on the rest.'
-                : ' With Split WHT on, OPEX invoices carry a hardware line and a SaaS line.'
-              const rowsOk = (x) => x.dealN === 3 && x.dealTops <= 1 && x.taxN === (x.split ? 5 : 4) && x.taxBottoms <= 1
-              check(rowsOk(a), `${where}: I1 deal terms one row of three groups, tax one row`, JSON.stringify({ dealN: a.dealN, dealTops: a.dealTops, taxN: a.taxN, taxBottoms: a.taxBottoms }))
-              check(a.fields.length === (a.split ? 3 : 2) && a.fields.every((f) => f.w <= 60 && f.dx === 0),
-                `${where}: I2 GST and WHT inputs two digits wide, under their labels`, JSON.stringify(a.fields))
-              check(a.note === NOTE + (a.split ? SPLIT_NOTE : ''), `${where}: I4 the tax note reads for split ${a.split ? 'on' : 'off'}`, JSON.stringify(a.note))
-              // I3: toggle Split WHT, measure, toggle back. The card's height must not move.
-              await p.click('[data-testid="tp-wht-split"]')
-              await p.waitForFunction((v) => document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === String(v), {}, !a.split)
-              await settle(p)
-              const b = await inputs()
-              await p.click('[data-testid="tp-wht-split"]')
-              await p.waitForFunction((v) => document.querySelector('[data-testid="tp-wht-split"]')?.getAttribute('aria-checked') === String(v), {}, a.split)
-              await settle(p)
-              const c = await inputs()
-              check(b.split === !a.split && a.h === b.h && c.h === a.h && rowsOk(b),
-                `${where}: I3 toggling Split WHT keeps the card's height (${a.h}px) and the tax row one line`, JSON.stringify({ heights: [a.h, b.h, c.h], toggled: { taxN: b.taxN, taxBottoms: b.taxBottoms, dealTops: b.dealTops } }))
-            })
+      // ── Pricing: OPEX and CAPEX, Settings closed and open. ────────────────
+      for (const basis of ['opex', 'capex']) {
+        await openTab(page, 'payment'); await page.click(`[data-testid="tp-basis-${basis}"]`); await openTab(page, 'pricing')
+        for (const open of [false, true]) {
+          const isOpen = await page.$eval('[data-testid="tp-settings-toggle"]', (e) => e.getAttribute('aria-expanded') === 'true')
+          if (isOpen !== open) await page.click('[data-testid="tp-settings-toggle"]')
+          await sweep(page, TP, `pricing ${admin ? 'admin' : 'non-admin'} ${basis} settings-${open ? 'open' : 'closed'}`, async (p) => {
+            const s = await p.evaluate(() => ({
+              ladder: !!document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'),
+              breakdown: !!document.querySelector('#view-term-pricing [data-testid="tp-breakdown"]'),
+              price: !!document.querySelector('#view-term-pricing [data-testid="tp-price"]'),
+              open: !!document.querySelector('[data-testid="tp-settings-body"]'),
+              adminSave: !!document.querySelector('[data-testid="tp-settings-save"]'),
+              basis: document.querySelector('[data-testid="tp-head-basis"]')?.textContent.trim(),
+            }))
+            const ok = (await panel(p, 'pricing')) && s.ladder && s.breakdown && s.price && s.open === open && (open ? s.adminSave === admin : true) && s.basis === basis.toUpperCase()
+            return { ok, detail: JSON.stringify(s), minAtoms: open ? 300 : 200 }
+          }, async (p, where) => {
+            const l = await layout(p)
+            check(l.ok, `${where}: no table in the work column wider than it`, JSON.stringify(l))
+          })
+        }
+        const isOpen = await page.$eval('[data-testid="tp-settings-toggle"]', (e) => e.getAttribute('aria-expanded') === 'true')
+        if (isOpen) await page.click('[data-testid="tp-settings-toggle"]')
+      }
+      // Payment terms and Quote do not depend on the admin flag; swept once.
+      if (admin) { await page.close(); continue }
+
+      // ── Payment terms and Quote: every WHT state, every payment shape. ────
+      for (const w of ['off', 'split', 'borne']) {
+        await openTab(page, 'payment')
+        await whtState(page, w)
+        for (const s of ['opex', 'default', 'two-phase', 'milestones', 'incomplete']) {
+          await openTab(page, 'payment')
+          await shape(page, s)
+          const label = `${s} wht-${w}`
+          await sweep(page, TP, `payment terms ${label}`, async (p) => {
+            const st = await p.evaluate(() => ({
+              capexSecs: !!document.querySelector('[data-testid="tp-sec-amount"]'),
+              remaining: !!document.querySelector('[data-testid="tp-ms-remaining"]'),
+              ready: !document.querySelector('[data-testid="tp-ready"]'),
+              wht: ['none', 'single', 'split'].find((k) => document.querySelector(`[data-testid="tp-wht-${k}"]`)?.getAttribute('aria-pressed') === 'true'),
+              start: document.querySelector('[data-testid="tp-escalator-start"]')?.disabled,
+            }))
+            const ok = (await panel(p, 'payment')) && st.capexSecs === (s !== 'opex') && st.remaining === (s === 'incomplete') && st.ready === (s !== 'incomplete')
+              && st.wht === { off: 'none', split: 'split', borne: 'single' }[w] && st.start === (w === 'split' ? false : undefined)
+            return { ok, detail: JSON.stringify(st), minAtoms: s === 'opex' ? 40 : 120 }
+          }, async (p, where) => {
+            const l = await layout(p)
+            check(l.ok, `${where}: no table in the work column wider than it`, JSON.stringify(l))
+            // L2: a disabled select still has a visible border.
+            const sel = await p.evaluate(() => { const e = document.querySelector('[data-testid="tp-escalator-start"]'); return e && e.disabled ? getComputedStyle(e).borderTopColor : null })
+            if (sel) check(!/rgba\(.*,\s*0\)$|transparent/.test(sel), `${where}: L2 the disabled start-year select has a border`, sel)
+          })
+          if (s === 'incomplete') continue
+          await openTab(page, 'quote')
+          for (const taxOn of [false, true]) {
+            await setSwitch(page, 'tp-tax-detail', taxOn)
+            await sweep(page, TP, `quote ${label} tax-${taxOn ? 'on' : 'off'}`, async (p) => {
+              const st = await p.evaluate(() => ({
+                tiles: document.querySelectorAll('#view-term-pricing [data-testid="tp-figures"] > div').length,
+                cols: document.querySelectorAll('#view-term-pricing [data-testid="tp-schedule"] thead th').length,
+                capexTile: !!document.querySelector('[data-testid="tp-q-capex"]'),
+              }))
+              const cols = (s === 'opex' ? 3 : 4) + (taxOn ? 5 : 0)
+              const ok = (await panel(p, 'quote')) && st.cols === cols && st.capexTile === (s !== 'opex') && st.tiles >= 3
+              return { ok, detail: JSON.stringify(st), minAtoms: 80 }
+            }, (p, where) => quoteChecks(p, where, taxOn))
           }
+          await setSwitch(page, 'tp-tax-detail', false)
         }
       }
       await page.close()

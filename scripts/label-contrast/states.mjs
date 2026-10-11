@@ -82,6 +82,14 @@ const shot = async (sel, name) => {
 // ── P1, the real states ──────────────────────────────────────────────────
 await page.evaluate(() => window.navigate('term-pricing'))
 await page.waitForFunction(() => document.querySelector('[data-testid="tp-ladder"]'), { timeout: 15000 })
+// FIXED by TP_TABS, a defect TP_CAPEX caused (reported as such): from TP_CAPEX
+// the start-year select exists only once a CPI mode is chosen, and the opening
+// mode is None, so this check had nothing to measure from 0fe1a18 until here.
+// TP_TABS also moved it to the Payment terms tab. Choose Published there first.
+await page.click('[data-testid="tp-tab-payment"]')
+await page.waitForSelector('[data-testid="tp-panel-payment"]')
+await page.click('[data-testid="tp-cpi-published"]')
+await page.waitForSelector('[data-testid="tp-escalator-start"]')
 const sel = '[data-testid="tp-escalator-start"]'
 const selOff = await measure(sel)
 await shot(sel, 'start-year-disabled')
@@ -93,6 +101,9 @@ check(selOff?.disabled === true && selOn?.disabled === false && selOn.c / selOff
   JSON.stringify({ disabledBorder: selOff?.border, enabledBorder: selOn?.border }))
 await page.focus('[data-testid="tp-escalator"]'); await page.keyboard.press('Backspace'); await settle()
 
+// TP_TABS: the settings card is on the Pricing tab (N2).
+await page.click('[data-testid="tp-tab-pricing"]')
+await page.waitForSelector('[data-testid="tp-panel-pricing"]')
 await page.click('[data-testid="tp-settings-toggle"]')
 await page.waitForSelector('[data-testid="tp-settings-save"]')
 const save = '[data-testid="tp-settings-save"]'
