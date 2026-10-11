@@ -47,13 +47,18 @@ export interface QuoteInput {
   capexAmount?: 'hardware' | 'custom'
   capexCustom?: string | null
   capexStructure?: 'hybrid' | 'two_phase'
-  milestones?: Array<{ key: string; month: number; sharePct: string }>
+  /** v1.7 (T-4): in capexAllocation a share may be null or blank, meaning not yet typed. */
+  milestones?: Array<{ key: string; month: number; sharePct: string | null }>
   recoveryMonths?: number
 }
 
 export type CpiMode = 'none' | 'published' | 'locked'
 
-export interface QuoteBand { from: number; to: number | null; discountPct: string; units: number; feeByYear: bigint[] }
+export interface QuoteBand {
+  from: number; to: number | null; discountPct: string; units: number; feeByYear: bigint[]
+  /** v1.7 (C1): the band's own totals on Base, from its year-1 fee; they sum to the line exactly. */
+  monthlyCents: bigint; tcvNetCents: bigint; costCents: bigint; grossProfitCents: bigint; grossMargin: Fraction
+}
 export interface QuoteLine {
   product: string; units: number; listFee: Fraction; savingVsAnchor: Fraction
   costPerUnitCents: bigint; bands: QuoteBand[]; monthlyByYear: bigint[]
@@ -88,6 +93,36 @@ export interface CapexPlan {
   subscriptionByYear: bigint[]
   lastSubscriptionCents: bigint
   warnings: { hardwareFundedCents: bigint | null; hostingMonthlyCents: bigint; subscriptionBelowHosting: boolean }
+  allocation: Allocation
+}
+/** v1.7 (T-4): how far CAPEX has been allocated. Only a complete allocation prices a quote. */
+export interface Allocation {
+  status: 'complete' | 'incomplete' | 'over'
+  rows: Array<{ key: string | null; month: number; cents: bigint | null }>
+  allocated: { share: Fraction; cents: bigint }
+  unallocated: { share: Fraction; cents: bigint }
+  excess: { share: Fraction; cents: bigint } | null
+}
+export interface BreakdownRow {
+  fromMonth: number; toMonth: number; keys: string[]
+  capexCents: bigint; subscriptionCents: bigint; netCents: bigint
+}
+export interface AllocationPreview extends Allocation {
+  baseTcvCents: bigint
+  capexCents: bigint
+  amountMode: 'hardware' | 'custom'
+  structure: 'hybrid' | 'two_phase'
+  hardwareValueCents: bigint
+  hardwareCostCents: bigint
+  baseFeeCents: bigint
+  lastBaseFeeCents: bigint
+  warnings: CapexPlan['warnings']
+  /** The Base schedule (no CPI), with milestone keys; null when over 100%. */
+  breakdown: BreakdownRow[] | null
+  /** The "not yet scheduled" amount: 0 when complete, null when over. */
+  unscheduledCents: bigint | null
+  /** priceQuote's own result when complete, otherwise null. */
+  quote: Quote | null
 }
 export interface Quote {
   termMonths: number
@@ -138,6 +173,7 @@ export function normaliseParams(params: EngineParamsInput | NormalisedParams): N
 export function articleFor(n: number): 'a' | 'an'
 export function unitEconomics(product: string, termMonths: number, params: EngineParamsInput | NormalisedParams): unknown
 export function priceQuote(input: QuoteInput, params: EngineParamsInput | NormalisedParams): Quote
+export function capexAllocation(input: QuoteInput, params: EngineParamsInput | NormalisedParams): AllocationPreview
 export function termLadder(input: Omit<QuoteInput, 'termMonths'> & { termMonths?: number; perCameraProduct?: string }, params: EngineParamsInput | NormalisedParams): LadderRow[]
 export function formatMoney(cents: bigint): string
 export function formatPct(ratio: Fraction, places?: number): string

@@ -1,6 +1,6 @@
 // ── THE TERM PRICING ENGINE ──────────────────────────────────────────────
 //
-// Implements docs/pricing-spec.md (Specification v1.6) exactly. CLAUDE.md
+// Implements docs/pricing-spec.md (Specification v1.7) exactly. CLAUDE.md
 // Architecture rule 14: no hard-coded parameters, no floats for money. That
 // rule does not govern the deal-sheet engine, and this file is not part of it.
 //
@@ -288,6 +288,35 @@ export function unitEconomics(product, termMonths, params) {
  * no CPI the two are the same schedule.
  */
 export function priceQuote(input, params) {
+  return quoteCore(input, params, false)
+}
+
+/**
+ * v1.7 section 6.2 (T-4): the milestone allocation preview, beside the quote.
+ * Same input as priceQuote, under `capex` only. While a Hybrid schedule's
+ * shares are still being entered it reports each row's amount, what is
+ * allocated and what is not, the subscription, and the Base breakdown with a
+ * "not yet scheduled" amount, so the breakdown ties to Base TCV to the cent.
+ * Once complete it IS the quote: `quote` is priceQuote's own result and the
+ * amounts are its own, so every v1.6 refusal holds by construction (one
+ * computation path, Architecture rule 3).
+ *
+ * Returns { status: 'complete' | 'incomplete' | 'over', baseTcvCents,
+ *   capexCents, amountMode, structure, hardwareValueCents, hardwareCostCents,
+ *   rows: [{ key, month, cents | null }], allocated: { share, cents },
+ *   unallocated: { share, cents }, excess: { share, cents } | null,
+ *   baseFeeCents, lastBaseFeeCents, warnings,
+ *   breakdown: [{ fromMonth, toMonth, keys, capexCents, subscriptionCents, netCents }] | null,
+ *   unscheduledCents, quote | null }
+ */
+export function capexAllocation(input, params) {
+  if ((input?.paymentStructure ?? 'opex') !== 'capex') {
+    throw new TermPricingError('NOT_CAPEX', 'The allocation preview is for a CAPEX payment basis.')
+  }
+  return quoteCore(input, params, true)
+}
+
+function quoteCore(input, params, preview) {
   const p = norm(params)
   const T = safeInt(input?.termMonths, 'term_months')
   requireTerm(p, T)
@@ -340,11 +369,23 @@ export function priceQuote(input, params) {
   const lines = entries.filter(([, n]) => n >= 1).map(([product, units]) => {
     const { cost } = productParams(p, product)
     const listFee = listFeeAt(p, product, T)
+    const costPerUnitCents = roundHalfUp(costAt(cost, T), 2)
     const bands = splitIntoBands(p, units).filter((x) => x.units > 0).map(({ band, units: bu }) => {
       const fee1 = bandFeeCents(listFee, band)
       const feeByYear = []
       for (let k = 1; k <= years; k++) feeByYear.push(roundHalfUp(mul(fromCents(fee1), factor(k)), 2))
-      return { from: band.from, to: band.to, discountPct: band.discountPct, units: bu, feeByYear }
+      // v1.7 section 4.3, per band (C1): the band's own totals on Base, from
+      // its year-1 invoiced fee, so the price breakdown does no arithmetic on
+      // money. Display only: nothing else reads them, and they sum to the
+      // product's figures exactly because both are built from the same cents.
+      const monthlyCents = BigInt(bu) * fee1
+      const tcvNetCents = monthlyCents * BigInt(T)
+      const costCents = BigInt(bu) * costPerUnitCents
+      return {
+        from: band.from, to: band.to, discountPct: band.discountPct, units: bu, feeByYear,
+        monthlyCents, tcvNetCents, costCents, grossProfitCents: tcvNetCents - costCents,
+        grossMargin: tcvNetCents === 0n ? ZERO : frac(tcvNetCents - costCents, tcvNetCents),
+      }
     })
     const monthlyByYear = []
     for (let k = 0; k < years; k++) monthlyByYear.push(bands.reduce((s, b) => s + BigInt(b.units) * b.feeByYear[k], 0n))
@@ -356,7 +397,6 @@ export function priceQuote(input, params) {
     // v1.6 (C-1, Q5): ON BASE. Year-1 fees times T; no CPI uplift is ever
     // allocated to a product. SUPERSEDED, left visible: v1.4 summed the
     // escalated fee of each contract year here.
-    const costPerUnitCents = roundHalfUp(costAt(cost, T), 2)
     const tcvNetCents = monthlyByYear[0] * BigInt(T)
     const costCents = BigInt(units) * costPerUnitCents
     return {
@@ -452,8 +492,57 @@ export function priceQuote(input, params) {
     baseRows = noCpi ? finalRows : opexRows(monthlyTotalByYear.map(() => monthlyTotalByYear[0]))
   } else {
     capex = capexPlan()
+    // v1.7 (T-4): an allocation still being entered prices no quote. The
+    // preview reports it on the Base schedule; the quote refuses it, naming
+    // the total (and, over 100%, the excess).
+    if (capex.allocation.status !== 'complete') {
+      if (preview) return allocationPreview()
+      const { status, allocated, excess } = capex.allocation
+      const shown = (r) => formatPct(r, 6).replace(/\.?0+$/, '')
+      throw new TermPricingError('SHARES_TOTAL', status === 'over'
+        ? `The milestone shares total ${shown(allocated.share)}%, ${shown(excess.share)}% (${formatMoney(excess.cents)}) over. They must total exactly 100%.`
+        : `The milestone shares total ${shown(allocated.share)}%. They must total exactly 100%.`)
+    }
     finalRows = capexRows(factor)
     baseRows = noCpi ? finalRows : capexRows(() => ONE)
+  }
+
+  // v1.7 (T-4): the preview's view of the plan. The breakdown is the BASE
+  // schedule (C4: it ties to Base TCV), run by run, each milestone run
+  // carrying its keys; while incomplete, the unallocated amount is the
+  // "not yet scheduled" row, so the two together tie to Base TCV exactly.
+  function allocationPreview(quote = null) {
+    const a = capex.allocation
+    let breakdown = null
+    let unscheduledCents = null
+    if (a.status !== 'over') {
+      breakdown = capexRows(() => ONE, true).map(({ fromMonth, toMonth, keys, capexCents, subscriptionCents, netCents }) =>
+        ({ fromMonth, toMonth, keys, capexCents, subscriptionCents, netCents }))
+      unscheduledCents = a.unallocated.cents
+      const net = breakdown.reduce((s, r) => s + r.netCents * BigInt(r.toMonth - r.fromMonth + 1), 0n)
+      if (net + unscheduledCents !== tcvNetCents) {
+        throw new TermPricingError('TIE_BROKEN', `The breakdown (${formatMoney(net)}) and the unscheduled amount (${formatMoney(unscheduledCents)}) do not tie to Base TCV (${formatMoney(tcvNetCents)}).`)
+      }
+    }
+    return {
+      status: a.status,
+      baseTcvCents: tcvNetCents,
+      capexCents: capex.capexCents,
+      amountMode: capex.amountMode,
+      structure: capex.structure,
+      hardwareValueCents: capex.hardwareValueCents,
+      hardwareCostCents: capex.hardwareCostCents,
+      rows: a.rows,
+      allocated: a.allocated,
+      unallocated: a.unallocated,
+      excess: a.excess,
+      baseFeeCents: capex.baseFeeCents,
+      lastBaseFeeCents: capex.lastBaseFeeCents,
+      warnings: capex.warnings,
+      breakdown,
+      unscheduledCents,
+      quote,
+    }
   }
 
   // v1.6 sections 6.1 to 6.4: the CAPEX amount, how it is paid, the
@@ -485,6 +574,7 @@ export function priceQuote(input, params) {
     }
     const payments = []
     let recoveryMonths = null
+    let allocation = null
     if (capexStructure === 'hybrid') {
       // Q4: a milestone is an OPAQUE KEY here. This file never holds a
       // milestone name; with no rows given it pays one row, month 0, 100%,
@@ -515,6 +605,9 @@ export function priceQuote(input, params) {
           throw new TermPricingError('MILESTONE_ORDER', 'Milestone months must not decrease down the rows.')
         }
         prev = r.month
+        // v1.7 (T-4): in the PREVIEW a share not yet typed is no share: the
+        // row has no amount and counts 0%. The quote still refuses it below.
+        if (preview && (r.sharePct == null || (typeof r.sharePct === 'string' && r.sharePct.trim() === ''))) return null
         let share
         try { share = pctToRatio(r.sharePct, 'share') } catch {
           throw new TermPricingError('MILESTONE_SHARE', `Row ${n}: the share must be a percentage, for example 30.`)
@@ -525,20 +618,36 @@ export function priceQuote(input, params) {
         total = add(total, share)
         return share
       })
-      if (cmp(total, ONE) !== 0) {
-        const shown = formatPct(total, 6).replace(/\.?0+$/, '')
-        throw new TermPricingError('SHARES_TOTAL', `The milestone shares total ${shown}%. They must total exactly 100%.`)
+      // v1.7 (T-4): complete, incomplete or over. Complete is exactly 100%
+      // with every row's share entered; only then does the last row carry the
+      // rounding (C-7). Otherwise every entered row is rounded on its own.
+      const blank = shares.some((s) => s === null)
+      const status = cmp(total, ONE) > 0 ? 'over' : cmp(total, ONE) < 0 || blank ? 'incomplete' : 'complete'
+      const own = (s) => (s === null ? null : roundHalfUp(mul(fromCents(capexCents), s), 2))
+      const amounts = status === 'complete' ? [] : shares.map(own)
+      if (status === 'complete') {
+        let paid = 0n
+        rows.forEach((r, i) => {
+          const cents = i < rows.length - 1 ? own(shares[i]) : capexCents - paid
+          if (cents < 0n) {
+            throw new TermPricingError('NEGATIVE_LAST_ITEM', 'The last milestone would be negative after rounding. Review the shares.')
+          }
+          paid += cents
+          amounts.push(cents)
+        })
       }
-      // C-7: every row but the last is rounded; the LAST carries the rounding.
-      let paid = 0n
       rows.forEach((r, i) => {
-        const cents = i < rows.length - 1 ? roundHalfUp(mul(fromCents(capexCents), shares[i]), 2) : capexCents - paid
-        if (cents < 0n) {
-          throw new TermPricingError('NEGATIVE_LAST_ITEM', 'The last milestone would be negative after rounding. Review the shares.')
-        }
-        paid += cents
-        payments.push({ key: given == null ? null : r.key, month: r.month, cents })
+        if (amounts[i] !== null) payments.push({ key: given == null ? null : r.key, month: r.month, cents: amounts[i] })
       })
+      const allocatedCents = amounts.reduce((s, c) => s + (c ?? 0n), 0n)
+      allocation = {
+        status,
+        rows: rows.map((r, i) => ({ key: given == null ? null : r.key, month: r.month, cents: amounts[i] })),
+        allocated: { share: total, cents: allocatedCents },
+        unallocated: status === 'incomplete'
+          ? { share: sub(ONE, total), cents: capexCents - allocatedCents } : { share: ZERO, cents: 0n },
+        excess: status === 'over' ? { share: sub(total, ONE), cents: allocatedCents - capexCents } : null,
+      }
     } else {
       recoveryMonths = input.recoveryMonths ?? 12
       if (typeof recoveryMonths !== 'number' || !Number.isSafeInteger(recoveryMonths) || recoveryMonths < 1 || recoveryMonths > T) {
@@ -551,6 +660,14 @@ export function priceQuote(input, params) {
         throw new TermPricingError('NEGATIVE_LAST_ITEM', `The last instalment would be negative after rounding. Use a shorter recovery period or a larger CAPEX amount.`)
       }
       for (let m = 1; m <= R; m++) payments.push({ key: null, month: m, cents: m < R ? instalment : lastInstalment })
+    }
+    // Two-phase (and a Hybrid that completed) report a complete allocation.
+    allocation ??= {
+      status: 'complete',
+      rows: payments.map(({ key, month, cents }) => ({ key, month, cents })),
+      allocated: { share: ONE, cents: capexCents },
+      unallocated: { share: ZERO, cents: 0n },
+      excess: null,
     }
 
     // Section 6.3 (C-5, Q2): month T carries the rounding.
@@ -569,7 +686,7 @@ export function priceQuote(input, params) {
     return {
       amountMode, structure: capexStructure, recoveryMonths,
       hardwareValueCents, hardwareCostCents, capexCents, payments,
-      baseFeeCents, lastBaseFeeCents,
+      baseFeeCents, lastBaseFeeCents, allocation,
       // The Final subscription: each contract year's regular fee, and month T's.
       subscriptionByYear: Array.from({ length: years }, (_, i) => subOf(baseFeeCents, i + 1)),
       lastSubscriptionCents: subOf(lastBaseFeeCents, yearOf(T)),
@@ -586,7 +703,10 @@ export function priceQuote(input, params) {
   // CAPEX payments take the hardware rate up to the hardware value, in
   // payment order; CAPEX above it and every subscription amount take the SaaS
   // rate. A payment that straddles the boundary splits across the two lines.
-  function capexRows(f) {
+  // v1.7 (T-4): `byKey` is the allocation breakdown's grouping: each month
+  // carries its milestones' keys, and a run never spans two milestones, so a
+  // milestone row keeps its name. The quote's own schedule groups as before.
+  function capexRows(f, byKey = false) {
     const months = []
     let hardwareLeft = hardwareValueCents
     for (let m = 0; m <= T; m++) {
@@ -612,15 +732,18 @@ export function priceQuote(input, params) {
       } else {
         parts = [['invoice', netCents]]
       }
-      months.push({ m, capexCents, subscriptionCents, netCents, parts })
+      const keys = pays.map((x) => x.key).filter((k) => k != null)
+      months.push({ m, capexCents, subscriptionCents, netCents, parts, keys })
     }
     const rows = []
     const same = (a, b) => a.capexCents === b.capexCents && a.subscriptionCents === b.subscriptionCents
       && a.parts.length === b.parts.length && a.parts.every(([k, c], i) => b.parts[i][0] === k && b.parts[i][1] === c)
+      && (!byKey || (!a.keys.length && !b.keys.length))
     for (const x of months) {
       const last = rows[rows.length - 1]
       if (last && last.toMonth === x.m - 1 && same(last, x)) { last.toMonth = x.m; continue }
-      rows.push({ kind: 'invoice', fromMonth: x.m, toMonth: x.m, capexCents: x.capexCents, subscriptionCents: x.subscriptionCents, netCents: x.netCents, parts: x.parts })
+      rows.push({ kind: 'invoice', fromMonth: x.m, toMonth: x.m, capexCents: x.capexCents, subscriptionCents: x.subscriptionCents, netCents: x.netCents, parts: x.parts,
+        ...(byKey ? { keys: x.keys } : {}) })
     }
     return rows
   }
@@ -685,7 +808,7 @@ export function priceQuote(input, params) {
     return hi >= lo ? t + r.netCents * BigInt(hi - lo + 1) : t
   }, 0n)
 
-  return {
+  const quote = {
     termMonths: T,
     paymentStructure: structure,
     cpiMode,
@@ -722,6 +845,8 @@ export function priceQuote(input, params) {
     // The Base schedule: approval's WHT and the Base tie.
     base: { tcvNetCents, schedule: base.schedule, tax: base.tax },
   }
+  // v1.7 (T-4): a complete allocation IS the quote, this one.
+  return preview ? allocationPreview(quote) : quote
 }
 
 /**
