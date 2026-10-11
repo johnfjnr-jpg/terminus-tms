@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-10-10T11:53:34.452Z`
-- Git commit: `3504755419eab0d4952b3d8ed4bc9532101e34d5`
+- Generated at: `2026-10-11T12:53:45.102Z`
+- Git commit: `84c6fdcb4699ab66e1c6b98a5a9525ab6dcc03ae`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 571,064 bytes
-- sha256: `332c90e9f3367c04d9c7b74031dbed8b894a2c6aa08b4780158be0d30d6a440b`
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 577,029 bytes
+- sha256: `804e89964980624d1ba805caf5064a0ae6cc9c42021189661a798033a3f49279`
 - React suite: 1457/1457 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1101 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1072 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1116 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1087 | yes |
 
 ## `stage_definitions`
 
@@ -411,7 +411,7 @@ _None._
 
 | key | value | updated_at |
 |---|---|---|
-| ANCHOR_MARGIN | `{"air_quality":"90","hemir":"90","safesight":"50"}` | 2026-10-07T09:23:05.684+00:00 |
+| ANCHOR_MARGIN | `{"air_quality":"90","hemir":"90","safesight":"90"}` | 2026-10-10T12:51:53.986+00:00 |
 | ANCHOR_TERM | `36` | 2026-10-02T14:06:47.232224+00:00 |
 | CURRENCY | `"USD"` | 2026-10-02T14:06:47.232224+00:00 |
 | HW_UPFRONT_MARGIN | `"20"` | 2026-10-02T14:06:47.232224+00:00 |
@@ -423,36 +423,36 @@ _None._
 
 ## Record counts by type and status
 
-134 live, 118475 soft deleted, 118609 rows in total.
+134 live, 119049 soft deleted, 119183 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1710 |
-| contact | Active | 0 | 3417 |
+| account | active | 7 | 1714 |
+| contact | Active | 0 | 3435 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 12628 |
+| contact | Qualified | 12 | 12708 |
 | contact | Unqualified | 5 | 767 |
-| document | approved | 65 | 5718 |
+| document | approved | 65 | 5742 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 311 |
+| opportunity | Evaluation | 0 | 313 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1900 |
-| opportunity | Qualification | 6 | 11014 |
-| opportunity | Solution Alignment | 7 | 1448 |
+| opportunity | Proposal | 3 | 1912 |
+| opportunity | Qualification | 6 | 11084 |
+| opportunity | Solution Alignment | 7 | 1456 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1530 |
+| test_bed | Qualification | 4 | 1534 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 22306 |
+| unit | Planned | 9 | 22412 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -463,20 +463,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 6852 | 0 | 55485 |
+| 6882 | 0 | 55731 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5115 rows, of which 3 carry a null `stage`.
+5141 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2492 | 0 |
-| approved | Legal | 1444 | 1 |
+| approved | Commercial | 2504 | 0 |
+| approved | Legal | 1452 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1170 | 0 |
+| approved | Technical | 1176 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
