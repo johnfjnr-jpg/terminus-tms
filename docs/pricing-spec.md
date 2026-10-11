@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.6
+# Terminus Term Pricing: Specification v1.7
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -9,6 +9,8 @@
 **Amended (v1.4, John, 5 Oct 2026, QUOTE_PANEL):** per-product totals in section 4.3 (each product's TCV, cost, gross profit and margin, summing exactly to the deal); WHT is never allocated to a product; test cases T29 and T30. Every earlier figure is unchanged.
 **Amended (v1.5, John, 10 Oct 2026, PER_CAMERA_AND_CAPEX_P0):** the term ladder's OPEX per-camera fee (section 4.5); test case T31. Every earlier figure is unchanged.
 **Amended (v1.6, John, 10 Oct 2026, TP_CAPEX, rulings C-1 to C-13 and Q1 to Q14):** OPEX sets the price; CAPEX is a way of paying part of it earlier, against a client CAPEX budget, and the remainder is a monthly subscription; CPI is an uplift on the subscription, never on CAPEX. Two TCVs: **Base TCV** (no CPI) carries approval, margin, the margin floor, the profit table and the volume discount; **Final TCV** (with CPI) is what the client is invoiced (section 4.3). A CPI mode (section 7). The CAPEX amount, Two-phase and Hybrid payment, and the subscription (section 6). Split WHT on CAPEX payments (section 8.1). Cash in year 1 (section 9). Warnings (section 6.4). Under CAPEX the ladder shows the OPEX per-camera fee only (section 4.5). **Figures that move:** T16, T22, T27, T28 and T30 now report Base and Final separately (section 11); every other earlier figure is unchanged. Test cases G-C1 to G-C6 and the L1 pair (section 11.1).
+**Amended (v1.7, John, 11 Oct 2026, TP_TABS, rulings T-4, C1 and C2):** per-band totals in section 4.3 (each band's Base TCV, cost, gross profit and margin, summing exactly to its product) (C1); the term ladder shows every column whatever the payment basis (section 4.5) (C2); the milestone allocation preview, which reports a Hybrid schedule whose shares are still being entered, and the excess named when they total above 100% (section 6.2) (T-4); test cases T4-G1 and B-1 to B-6 (section 11.3). **Every earlier figure is unchanged.**
+
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
@@ -122,6 +124,18 @@ product_margin(p)  = product_profit(p) / product_TCV(p) × 100
 Σ products ( product_TCV, product_cost, product_profit ) = TCV, total_cost, gross_profit    exactly
 ```
 
+**Per band (v1.7, C1).** Each band within a product line carries the same four totals, on Base, from the band's own year-1 invoiced fee:
+
+```
+band_TCV(b)     = units_in_band × band_fee(T, b) × T            (year-1 fee, Base: no CPI)
+band_cost(b)    = units_in_band × cost(T)                       cost(T) = HW_COST + HOSTING_MONTHLY × T, in cents
+band_profit(b)  = band_TCV(b) − band_cost(b)
+band_margin(b)  = band_profit(b) / band_TCV(b) × 100
+Σ its bands ( band_TCV, band_cost, band_profit ) = product_TCV(p), product_cost(p), product_profit(p)    exactly
+```
+
+They are display figures for the price breakdown, so the screen does no arithmetic on money; no other figure reads them.
+
 A product's TCV is the same under `opex` and `capex`: the payment structure changes when cash arrives, never what a line is worth (section 6). **WHT is never allocated to a product.** It is withheld per invoice, and an invoice is not a product, so WHT borne is reported for the whole deal only (gross profit after WHT, and the margin after WHT).
 
 **Base TCV and Final TCV (v1.6, C-1, C-2, Q1, Q5).** The figures above are written with the escalator applied; v1.6 separates the two:
@@ -155,7 +169,9 @@ safesight_monthly_total(T) = Σ SafeSight bands ( units_in_band × band_fee(T, b
 
 Shown as "-" when `units[SafeSight]` is 0. Display only: it is never invoiced and never feeds TCV, so it may differ from any band fee by the banding average.
 
-**Under `capex` (v1.6, C-10):** the ladder shows the term and this OPEX per-camera fee only, the same figure as under `opex` (T31 unchanged). There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. The ladder prices every term as OPEX, Base, no CPI, so a CAPEX amount or schedule that suits one term cannot refuse the ladder. SUPERSEDED, left visible: v1.5 read "Under `capex` the column is not shown (not yet decided; section 13)."
+**Whatever the payment basis (v1.7, C2):** the ladder shows every column (the term, the year-1 monthly fee, this per-camera fee, the saving or premium against the anchor term, Base TCV and the margin), the same figures under `opex` and `capex`. The ladder prices every term as OPEX, Base, no CPI, so the price is chosen before, and apart from, how it is paid. There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. Display only: no figure moves (T31 unchanged).
+
+SUPERSEDED by v1.7, left visible: ~~**Under `capex` (v1.6, C-10):** the ladder shows the term and this OPEX per-camera fee only, the same figure as under `opex` (T31 unchanged). There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. The ladder prices every term as OPEX, Base, no CPI, so a CAPEX amount or schedule that suits one term cannot refuse the ladder.~~ And v1.5 before it read "Under `capex` the column is not shown (not yet decided; section 13)."
 
 ## 5. Money handling
 
@@ -192,7 +208,31 @@ amount(i)    = round_half_up( CAPEX × share(i), 2 )        every row but the la
 amount(last) = CAPEX − Σ the other rows                    the last row carries the rounding
 ```
 
-Refused unless the shares total exactly 100%, no milestone appears twice, and the months never decrease down the rows. A milestone in month `m` ≥ 1 adds to that month's invoice; month 0 is its own invoice. The milestone names are the shared milestone vocabulary, also used by Commercials (names only, no pricing logic); the calculator treats a milestone as an opaque key and checks only that no key repeats.
+Refused unless the shares total exactly 100%, no milestone appears twice, and the months never decrease down the rows. Above 100% the refusal names the excess (v1.7, T-4): "The milestone shares total 120%, 20% (200,000.00) over. They must total exactly 100%.", the excess amount being `Σ round_half_up( CAPEX × share(i), 2 ) − CAPEX`.
+
+**The allocation preview (v1.7, T-4).** While the shares are being entered, the schedule is reported before it is complete, so each row's amount shows as soon as its share is typed. It is a separate result from the quote, which is unchanged: a quote is priced only from a complete allocation.
+
+```
+status         = complete      Σ shares = 100% and every row has a share: the quote prices, and the
+                               amounts are the quote's own (the last row carries the rounding, above)
+                 incomplete    Σ shares < 100%, or a row has no share yet
+                 over          Σ shares > 100%
+amount(i)      = round_half_up( CAPEX × share(i), 2 )      EVERY row, while not complete (no row carries rounding)
+                 none for a row with no share yet, which counts as 0%
+allocated      = Σ shares,  Σ amount(i)
+unallocated    = 100% − Σ shares,  CAPEX − Σ amount(i)      incomplete only
+excess         = Σ shares − 100%,  Σ amount(i) − CAPEX      over only
+```
+
+The unallocated AMOUNT is `CAPEX − Σ amount(i)`, not `round_half_up( CAPEX × unallocated share, 2 )`, which may differ by a cent: it is what makes the breakdown tie. Every other refusal of this section and of 6.1 still applies to each row as it is entered (count, milestone, duplicate, month, order, a share that is not a percentage, 0, or above 100%).
+
+While incomplete, the monthly breakdown is the Base schedule (no CPI) of the rows that have amounts, with the subscription of section 6.3, which does not depend on how CAPEX is split, plus one row "not yet scheduled" carrying the unallocated amount, so:
+
+```
+Σ breakdown net invoices + unallocated = Base TCV         exactly
+```
+
+While over, no breakdown is built (it could not tie). Neither incomplete nor over prices a quote: the quote stays refused (`SHARES_TOTAL`) until the allocation is complete. A milestone in month `m` ≥ 1 adds to that month's invoice; month 0 is its own invoice. The milestone names are the shared milestone vocabulary, also used by Commercials (names only, no pricing logic); the calculator treats a milestone as an opaque key and checks only that no key repeats.
 
 **Two-phase:** a recovery period `R`, an integer 1 to T, default 12.
 
@@ -404,6 +444,22 @@ The demo deal: SafeSight 120 + AQ 40 + HEMIR 2, 60 months, the settings of secti
 | T28 | T6 as `capex`, escalator 3% from year 3 | TCV 18,027,745.92; upfront 1,200,000.00; service fees by year 270,527.21 / 270,527.21 / 278,643.03 / 287,002.32 / 295,612.39; upfront + Σ = TCV |
 | T30 | the same units, 60 months, `capex`, escalator 3% from year 2, WHT 10% borne | SafeSight TCV 18,464,248.32, 87.0%; AQ 2,384,313.00, 86.6%; HEMIR 2,531,396.40, 89.7%; deal TCV 23,379,957.72, gross profit 20,399,957.72, 87.3%; upfront 1,550,000.04; service fees by year 342,647.69 / 352,927.12 / 363,514.94 / 374,420.39 / 385,653.00; WHT borne 2,337,995.72; gross profit after WHT 18,061,962.00, 77.3% |
 
+### 11.3 v1.7 cases (TP_TABS)
+
+The demo deal of 11.1, 60 months, the settings of section 3. No CPI.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| T4-G1 | `capex`, Custom 1,000,000.00, Milestones: Contract start m0 50%; Installation complete m4 30% | Contract start 500,000.00; Installation complete 300,000.00; allocated 80% = 800,000.00; unallocated 20% = 200,000.00; subscription 350,310.18 months 1..59, 350,310.38 month 60; breakdown invoices m0 500,000.00, m4 650,310.18; status incomplete | The allocation preview (T-4) |
+| B-1 | `opex`, the per-band totals | SafeSight 1-9: 9 units, fee 2,613.33, monthly 23,519.97, Base TCV 1,411,198.20, 87.2% | Per band (C1) |
+| B-2 | as B-1 | SafeSight 10-49: 40 units, 2,482.67, 99,306.80, 5,958,408.00, 86.6% | |
+| B-3 | as B-1 | SafeSight 50-199: 71 units, 2,352.00, 166,992.00, 10,019,520.00, 85.8% | |
+| B-4 | as B-1 | Air Quality 1-9: 9 units, 973.33, 8,759.97, 525,598.20, 86.3% | |
+| B-5 | as B-1 | Air Quality 10-49: 31 units, 924.67, 28,664.77, 1,719,886.20, 85.6% | |
+| B-6 | as B-1 | HEMIR 1-9: 2 units, 19,866.67, 39,733.34, 2,384,000.40, 89.1% | |
+
+Each product's bands sum to its v1.4 figures (T29), unchanged.
+
 ## 12. Implementing in the TMS prototype
 
 - Built through the TMS round method, as a standalone Term Pricing screen first. It does not touch the existing Commercials engine or its golden deals.
@@ -420,6 +476,6 @@ The demo deal: SafeSight 120 + AQ 40 + HEMIR 2, 60 months, the settings of secti
 | Installation | Excluded; must be recovered in full on 12- and 24-month terms when added |
 | Warranty | Excluded for now |
 | Cost escalation | Costs held flat |
-| ~~Per-camera columns under `capex` (hardware per camera, service fee per camera)~~ | **CLOSED (v1.6, C-10, Q12):** no per-camera CAPEX figure anywhere; under `capex` the ladder shows the term and the OPEX per-camera fee only (section 4.5) |
+| ~~Per-camera columns under `capex` (hardware per camera, service fee per camera)~~ | **CLOSED (v1.6, C-10, Q12):** no per-camera CAPEX figure anywhere; ~~under `capex` the ladder shows the term and the OPEX per-camera fee only~~ (superseded by v1.7, C2: the ladder shows every column whatever the basis; section 4.5) |
 | Linking a quote to an opportunity's TCV | After the demo, with a "one deal, one price" rule |
 | A split OPEX invoice whose service line would fall below zero (the hardware line exceeds the month's fee, possible only with unusual admin margins) | The quote refuses with a clear error rather than invoice a negative line (implementation position, TERM_PRICING_2) |
