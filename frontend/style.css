@@ -9329,26 +9329,16 @@ select:autofill {
    between the deal-term groups, 28px between the tax controls. The rows still
    wrap rather than squeeze, so no group is ever printed under another, and
    the sweep asserts each row stays ONE line across 1240 to 1920 (I1, I3). */
-.tp-section-head { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); margin: 4px 0 14px; }
-.tp-section-head::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
-.tp-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 56px; margin-bottom: 22px; }
 /* The switches have no label, so the row aligns on its BOTTOM edge: each
    switch sits level with the inputs beside it, as in the pictures. */
-.tp-tax-row { align-items: flex-end; gap: 18px 28px; margin-bottom: 0; }
-.tp-tax-row > .tp-label { margin-bottom: 0; }
 /* I4: the note sits about 19px under the tax row in the approved pictures. */
-.tp-small.tp-tax-note { margin: 16px 0 0; }
 /* I2: GST % and every WHT input sized for two digits, under their labels.
    THE COMPOUND SELECTOR IS NEEDED: `.tp-num` is declared LATER in this file
    with `width: 100%`, so a bare `.tp-pct2` lost on source order and the
    inputs took the browser's default 183px. Measured by the sweep's I2 check,
    which also caught the tax row wrapping as a result (I3). */
 .tp-num.tp-pct2 { display: block; width: 56px; margin-top: 6px; }
-.tp-units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
 /* B2: term buttons in rows of five, in term order. */
-.tp-seg.tp-terms { display: grid; grid-template-columns: repeat(5, max-content); }
-.tp-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 14px; }
-.tp-pair > .tp-label { margin-bottom: 0; }
 /* SUPERSEDED by TP_INPUTS, QUOTED NOT DELETED: `.tp-pair.tp-stack {
    flex-direction: column }` and `.tp-switches { flex-direction: column }`,
    which stacked the tax controls. The tax row now holds them side by side. */
@@ -9359,7 +9349,6 @@ select:autofill {
 .tp-unit { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .tp-num { background: var(--dark); border: 1px solid var(--hairline-strong); color: var(--white); border-radius: 4px; padding: 7px 8px; font-family: var(--mono); font-size: 13px; width: 100%; text-align: right; }
 .tp-num:disabled { border-color: transparent; background: transparent; }
-.tp-pct { display: block; width: 110px; margin-top: 6px; }
 .tp-seg { display: flex; flex-wrap: wrap; gap: 4px; }
 .tp-seg button { background: transparent; border: 1px solid var(--hairline-strong); color: var(--muted); border-radius: 4px; padding: 6px 9px; font-family: var(--mono); font-size: 12px; cursor: pointer; }
 .tp-seg button.on { color: var(--dark); background: var(--green); border-color: var(--green); }
@@ -9417,10 +9406,7 @@ select:autofill {
    now runs in one column under section labels, as the approved pictures show:
    a subtotal row per product (bold), band rows indented and quiet, a bold
    total, and quiet whole-deal rows that are not indented. */
-.tp-section-label { margin: 24px 0 10px; }
 .tp-lines .tp-subtotal td { font-weight: 600; }
-.tp-lines .tp-quiet td { color: var(--muted); }
-.tp-small.tp-schedule-hint { margin: -4px 0 10px; }
 /* OVERFLOW RULING (John, 2026-10-06): the schedule's eight columns carried
    10px of padding a side, and under CAPEX with three products the table ran
    up to 54px past the panel's content box at 1240 (measured by the sweep's
@@ -9454,22 +9440,9 @@ select:autofill {
 /* ── TP_CAPEX (C-13): the price card, the CAPEX payment card, the CPI row ──
    Built to prototypes/term-pricing-capex.html in this screen's own visual
    language: the same cards, labels, segments, tables and figure face. */
-.tp-price { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 18px; }
-.tp-price > div { min-width: 0; }
-.tp-price .tp-v { font-size: 18px; }
-.tp-price .tp-v.tp-same { color: var(--muted); }
-.tp-price .tp-v.tp-deal { font-family: var(--body); font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tp-price .tp-small { margin-top: 4px; }
 .tp-tag.tp-tag-go { color: var(--green); border-color: rgba(102,204,153,0.55); }
 .tp-label .tp-tag { margin-left: 6px; }
-.tp-chip.tp-lock { margin-left: 10px; color: var(--green); border-color: rgba(102,204,153,0.55); text-transform: none; letter-spacing: 0; }
-.tp-cpi-row { align-items: center; gap: 14px 28px; }
-.tp-small.tp-cpi-note { flex: 1 1 320px; margin: 0; }
-.tp-capex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
-.tp-capex-row.tp-flush { margin-bottom: 0; }
-.tp-capex-row > .tp-label { margin: 0; width: 120px; flex: 0 0 auto; }
 .tp-small.tp-inline { margin-top: 0; }
-.tp-push { margin-left: auto; }
 .tp-num.tp-money { width: 150px; text-align: right; }
 .tp-num.tp-ms-key { width: 230px; }
 .tp-num.tp-ms-month { width: 64px; text-align: right; }
@@ -9487,8 +9460,6 @@ select:autofill {
 /* The warning's border follows its colour, so the site binds --attention once
    (the attention-token census counts bindings; .tp-chip.tp-flag does the same). */
 .tp-warn { border: 1px solid currentColor; color: var(--attention); border-radius: 4px; padding: 7px 12px; font-size: 12px; margin-top: 10px; }
-.tp-divider { border-top: 1px solid var(--hairline); margin: 14px 0 12px; }
-.tp-rules { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; }
 /* The CAPEX schedule carries nine columns (the mockup's four, then today's
    five tax columns, Q7), one more than OPEX's eight, and how wide they run
    depends on the deal. It is FITTED to its panel by useFittedSchedule
@@ -9500,9 +9471,150 @@ select:autofill {
    the widest case found by hand. The sweep then found two-phase + split WHT +
    gross-up 26px over at 1360: a fixed step is sized to the cases somebody
    thought of. */
-.tp-table.tp-schedule.tp-schedule-capex td { font-size: var(--tp-sched-fig, var(--numeric-cell-size)); }
-.tp-table.tp-schedule.tp-schedule-capex.tp-schedule--tight th,
-.tp-table.tp-schedule.tp-schedule-capex.tp-schedule--tight td { padding-left: 4px; padding-right: 4px; }
+/* TP_TABS (T-5): only the tax-detail view is fitted, so the class says what
+   it does. SUPERSEDED, QUOTED NOT DELETED: `.tp-schedule-capex`, the CAPEX
+   schedule's nine columns, always on. */
+.tp-table.tp-schedule.tp-schedule-fit td { font-size: var(--tp-sched-fig, var(--numeric-cell-size)); }
+.tp-table.tp-schedule.tp-schedule-fit.tp-schedule--tight th,
+.tp-table.tp-schedule.tp-schedule-fit.tp-schedule--tight td { padding-left: 4px; padding-right: 4px; }
+/* ── TP_TABS (John, 2026-10-11): THREE TABS ──────────────────────────────
+   Built to prototypes/term-pricing-tabs/ (the HTML exports are the text
+   reference, the PNGs the visual one) in the estate's tokens (C13): content,
+   structure, order and labels binding; type and colour this screen's own.
+   SUPERSEDED, QUOTED NOT DELETED: the single page's rules, which no markup
+   renders any more (the dead-selector census found each):
+     .tp-section-head { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); margin: 4px 0 14px; }
+     .tp-section-head::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
+     .tp-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px 56px; margin-bottom: 22px; }
+     .tp-tax-row { align-items: flex-end; gap: 18px 28px; margin-bottom: 0; }
+     .tp-tax-row > .tp-label { margin-bottom: 0; }
+     .tp-small.tp-tax-note { margin: 16px 0 0; }
+     .tp-units { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
+     .tp-seg.tp-terms { display: grid; grid-template-columns: repeat(5, max-content); }
+     .tp-pair { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0 14px; }
+     .tp-pair > .tp-label { margin-bottom: 0; }
+     .tp-pct { display: block; width: 110px; margin-top: 6px; }
+     .tp-section-label { margin: 24px 0 10px; }
+     .tp-lines .tp-quiet td { color: var(--muted); }
+     .tp-small.tp-schedule-hint { margin: -4px 0 10px; }
+     .tp-price { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 18px; }
+     .tp-price > div { min-width: 0; }
+     .tp-price .tp-v { font-size: 18px; }
+     .tp-price .tp-v.tp-same { color: var(--muted); }
+     .tp-price .tp-v.tp-deal { font-family: var(--body); font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+     .tp-price .tp-small { margin-top: 4px; }
+     .tp-chip.tp-lock { margin-left: 10px; color: var(--green); border-color: rgba(102,204,153,0.55); text-transform: none; letter-spacing: 0; }
+     .tp-cpi-row { align-items: center; gap: 14px 28px; }
+     .tp-small.tp-cpi-note { flex: 1 1 320px; margin: 0; }
+     .tp-capex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+     .tp-capex-row.tp-flush { margin-bottom: 0; }
+     .tp-capex-row > .tp-label { margin: 0; width: 120px; flex: 0 0 auto; }
+     .tp-push { margin-left: auto; }
+     .tp-divider { border-top: 1px solid var(--hairline); margin: 14px 0 12px; }
+     .tp-rules { margin: 6px 0 0; padding-left: 18px; line-height: 1.6; } */
+.tp-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 28px; margin-bottom: 14px; }
+.tp-head h1 { margin: 0; }
+.tp-small.tp-head-sub { margin-top: 2px; }
+.tp-head-figs { display: flex; gap: 28px; align-items: flex-end; }
+.tp-head-figs .tp-label { margin-bottom: 2px; }
+.tp-head-figs .tp-v { font-size: 16px; }
+.tp-head-basis { font-family: var(--mono); font-size: 15px; }
+/* A tab is a button: the reset is stated here (Verification 7, fourth axis). */
+.tp-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--hairline); }
+.tp-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 12px 20px; font-family: var(--body); font-size: 14px; color: var(--muted); display: flex; gap: 10px; align-items: center; cursor: pointer; }
+.tp-tab.on { color: var(--white); border-bottom-color: var(--green); font-weight: 500; }
+.tp-tab.blocked { cursor: not-allowed; }
+.tp-tab-num { width: 22px; height: 22px; border-radius: 11px; border: 1px solid var(--hairline-strong); font-family: var(--mono); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.tp-tab.on .tp-tab-num { background: var(--green); border-color: var(--green); color: var(--dark); }
+.tp-tab.done .tp-tab-num { border-color: var(--green); color: var(--green); }
+/* The screen is wider than the estate's 1240px cap, as Contact detail is
+   (#view-contact-detail above): the mockup's two columns need it. Capped at
+   1600px, where the widest table has all the room it can use.
+   The mockup's two columns: the work on the left, a summary and Next on the
+   right. They sit side by side only when the VIEW is wide enough for both at
+   their natural widths (the widest table, the eight-column price breakdown,
+   needs about 840px beside a 360px summary). Narrower, the summary moves
+   ABOVE the work and Next below it, so the approved price is never pushed off
+   the screen under the tables (measured at 1240 in the first build, where a
+   wrapping row put it 1,300px down). The view is the container, so the
+   decision follows the space the screen actually has, not the viewport. */
+.wrap.tp-view { max-width: 1600px; padding-right: 62px; container-type: inline-size; }
+.tp-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "side" "main" "next"; gap: 20px; margin-top: 20px; }
+.tp-main { grid-area: main; min-width: 0; }
+.tp-main > .tp-card:first-child { margin-top: 0; }
+.tp-side { grid-area: side; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.tp-side > .tp-card { margin-top: 0; }
+.tp-next-wrap { grid-area: next; }
+@container (min-width: 1220px) {
+  .tp-grid { grid-template-columns: minmax(0, 1fr) 360px; grid-template-areas: "main side" "main next"; grid-template-rows: auto 1fr; }
+  .tp-next-wrap { align-self: start; }
+}
+.tp-grid.tp-grid-quote { grid-template-areas: "schedule" "profit"; }
+.tp-grid.tp-grid-quote > .tp-card { margin-top: 0; min-width: 0; }
+.tp-grid.tp-grid-quote > .tp-card:first-child { grid-area: schedule; }
+.tp-grid.tp-grid-quote > .tp-card:last-child { grid-area: profit; }
+@container (min-width: 1220px) {
+  .tp-grid.tp-grid-quote { grid-template-columns: minmax(0, 1fr) 420px; grid-template-areas: "schedule profit"; grid-template-rows: auto; }
+}
+.tp-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; margin-bottom: 12px; }
+.tp-card-head > .tp-h2 { margin: 0; }
+.btn-primary.tp-next { width: 100%; padding: 14px 20px; }
+/* Pricing. */
+.tp-units-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; }
+.tp-h2.tp-units-head { margin: 0; font-family: var(--mono); font-size: var(--field-label-size); letter-spacing: var(--field-label-tracking); text-transform: uppercase; color: var(--muted); font-weight: 400; }
+.tp-units-row .tp-unit { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
+.tp-units-row .tp-num { width: 72px; }
+.tp-tick { color: var(--green); }
+.tp-ladder:focus-visible td { outline: none; background: rgba(102,204,153,0.06); }
+.tp-ladder:focus-visible td:first-child { box-shadow: inset 2px 0 0 var(--green-bright); }
+.tp-breakdown td:nth-child(2), .tp-breakdown th:nth-child(2) { text-align: left; }
+.tp-v.tp-big { font-size: 26px; margin-bottom: 14px; }
+/* Two figures a row beside the work; across the screen when it sits above it. */
+.tp-price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 18px; }
+.tp-price-grid .tp-v { font-size: 16px; }
+.tp-ok.tp-floor { display: block; margin-top: 14px; }
+/* Payment terms: each section a title column and a body, as the mockup. */
+.tp-terms-card { padding-top: 4px; padding-bottom: 4px; }
+.tp-sec { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--hairline); }
+.tp-sec:last-child { border-bottom: 0; }
+.tp-sec-title { font-family: var(--heading); font-weight: 500; font-size: 15px; }
+.tp-small.tp-sec-note { margin-top: 2px; }
+.tp-sec-body { min-width: 0; }
+.tp-sec-body > .tp-seg + .tp-table { margin-top: 12px; }
+.tp-inline-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.tp-label.tp-inline-label { display: flex; align-items: center; gap: 8px; margin: 0; }
+.tp-label.tp-inline-label .tp-num.tp-pct2 { margin-top: 0; }
+.tp-label.tp-spread-label { margin: 0; width: 100px; }
+.tp-v.tp-figure { font-size: 18px; margin: 0; }
+.tp-tax-grid { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; gap: 14px 12px; }
+.tp-tax-grid > .tp-label { margin: 0; }
+.tp-tax-grid .tp-num.tp-pct2 { margin-top: 0; }
+.btn-ghost.tp-add { border: 1px dashed var(--hairline-strong); border-radius: 4px; padding: 6px 12px; font-size: 12px; background: transparent; color: var(--white); }
+.tp-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--hairline); }
+.tp-line > .tp-label { margin: 0; }
+.tp-line > .tp-v { font-size: 14px; margin: 0; }
+.tp-line.tp-line-total { border-bottom: 0; padding-top: 12px; font-weight: 500; }
+.tp-line.tp-line-total > .tp-v { font-size: 18px; }
+/* T-4 and T-3: the estate's one amber for the estate's one meaning, CAPEX
+   not yet scheduled and a quote not yet ready. The card's border follows its
+   colour, so each site binds the token once (the attention census counts). */
+.tp-amber td { color: var(--attention); }
+.tp-ready { border: 1px solid currentColor; color: var(--attention); }
+.tp-ready-head { font-weight: 500; font-size: 14px; }
+.tp-ready .tp-small { color: var(--muted); }
+/* Quote. */
+.tp-figures.tp-quote-tiles { margin-top: 20px; }
+/* A tile's label and tag never break: "DEAL / VALUE" over two lines was seen
+   at 1240 in the first build, because a label that may wrap has the min-content
+   of its longest word, so TILE_FIT's whole-tile check let five tiles squeeze.
+   Held to one line, the label is part of the tile's min-content, and the row
+   wraps into two (F3) when the five do not fit. */
+.tp-figures .tp-label, .tp-tag { white-space: nowrap; }
+/* The milestone and start-year selects read from the left, like the mockup's
+   (html/2b/Payment_CAPEX.dc.html:23): `.tp-num` comes later in this file and
+   right-aligns, so the compound selector is needed (as .tp-num.tp-pct2). */
+.tp-num.tp-select { text-align: left; }
+
 @media (max-width: 1599px) {
   .tp-figures > div { padding: 12px 10px; }
   /* TILE_FIT retired `.tp-v { 14px }` and `.tp-lead { 16px }` here: the size
