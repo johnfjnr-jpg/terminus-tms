@@ -70,7 +70,10 @@ try {
     }
     await page.evaluate(() => window.navigate('term-pricing'))
     await page.waitForFunction(() => document.querySelector('[data-testid="tp-ladder"]'), { timeout: 15000 })
-    await page.click('[data-testid="tp-settings-toggle"]')
+    // RE-POINTED by TP_TABS: the Split WHT and Gross up controls are on the
+    // Payment terms tab, so that is the state photographed.
+    await page.click('[data-testid="tp-tab-payment"]')
+    await page.waitForSelector('[data-testid="tp-panel-payment"]')
     await page.click('[data-testid="tp-wht-split"]')
     await page.click('[data-testid="tp-wht-grossup"]')
     await shoot('term-pricing', '#view-term-pricing')

@@ -938,6 +938,29 @@ in the same voice: here an intention and a RECORD sound the same in the moment
 they are spoken.
 
 
+### ONE PAYMENT-TERMS PATTERN FOR TMS: Commercials convergence (queued by TP_TABS, John 2026-10-11)
+
+**Queued, not built.** TP_TABS (T-7) gave Term Pricing a Payment terms tab:
+Payment basis OPEX | CAPEX; under CAPEX the amount (Hardware | Custom), how it is
+paid (Monthly instalments | Milestones, the term-pricing labels for the engine's
+Two-phase and Hybrid), the subscription and a monthly breakdown that ties to Base
+TCV; then Annual increase and Tax. Milestone amounts show as each share is
+typed, and an allocation below 100% is a named "not ready" rather than a refusal
+(spec v1.7, section 6.2).
+
+**Commercials pays for the same things with a different pattern**: its own
+payment structures, its own labels, its own milestone grids (they already share
+the milestone NAMES, `src/lib/milestone-vocabulary.js`, C-11). Two screens
+describing one deal's payment two ways is Verification 20 at the level of
+design.
+
+**The item is to converge them on one pattern, Commercials moving to Term
+Pricing's.** It is a Commercials round in its own right: the deal-sheet engine,
+its goldens and the payload keys are involved, and T-7 kept every one of them
+untouched. What it depends on, recorded so the round can test it (Verification
+29): that Term Pricing's Payment terms tab survives its first real use
+unchanged. If it does not, converge on whatever it becomes.
+
 ### A FULL ASSESSMENT CRITERIA REVIEW, as its own session after Round 41
 
 **Scheduled by the business 2026-08-31, Round 41, as fix-panel item 5.**

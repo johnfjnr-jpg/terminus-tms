@@ -113,12 +113,26 @@ const samples = []
 // Term Pricing, every label rendered.
 await page.evaluate(() => window.navigate('term-pricing'))
 await page.waitForFunction(() => document.querySelector('[data-testid="tp-ladder"]'), { timeout: 15000 })
+// RE-POINTED by TP_TABS: one tab renders at a time, so every tab is censused
+// in turn (Pricing with the settings open; Payment terms with WHT split and
+// Gross up on; Quote with the tax detail on), and the rules rendered are the
+// union of the three.
 await page.click('[data-testid="tp-settings-toggle"]')
+await page.evaluate(() => document.fonts.ready)
+const tpRendered = new Set()
+const tpCensus = async () => {
+  for (const s of await page.evaluate(census)) samples.push({ screen: 'term-pricing', ...s })
+  if (RULES) for (const r of await page.evaluate(whichRender, RULES)) tpRendered.add(r)
+}
+await tpCensus()
+await page.click('[data-testid="tp-tab-payment"]'); await page.waitForSelector('[data-testid="tp-panel-payment"]')
 await page.click('[data-testid="tp-wht-split"]')
 await page.click('[data-testid="tp-wht-grossup"]')
-await page.evaluate(() => document.fonts.ready)
-for (const s of await page.evaluate(census)) samples.push({ screen: 'term-pricing', ...s })
-if (RULES) rendered['term-pricing'] = await page.evaluate(whichRender, RULES)
+await tpCensus()
+await page.click('[data-testid="tp-tab-quote"]'); await page.waitForSelector('[data-testid="tp-panel-quote"]')
+await page.click('[data-testid="tp-tax-detail"]')
+await tpCensus()
+if (RULES) rendered['term-pricing'] = [...tpRendered]
 
 // Commercials tab, OPEX fixture.
 const { freshOpportunity, tearDown } = await import('../fixtures.mjs')

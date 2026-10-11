@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Term Pricing: Quote</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.r{width:1440px;height:1040px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:24px 32px}
+.m{font-family:'IBM Plex Mono',monospace}
+.card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:18px 20px}
+.h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0}
+.lab{font-size:12px;color:#b4b8c0}
+.note{font-size:12px;color:#a3a7af;line-height:1.5}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #2b2d31;margin-bottom:20px}
+.tab{padding:12px 20px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;display:flex;gap:10px;align-items:center}
+.tab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+.num{width:22px;height:22px;border-radius:11px;border:1px solid #4a4e55;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.tab.on .num{background:#86d19a;color:#0f1a12;border-color:#86d19a}
+.done .num{border-color:#86d19a;color:#86d19a}
+.tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.tile{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:14px 16px}
+.tile .v{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;margin-top:6px}
+.tile .n{font-size:12px;color:#a3a7af;margin-top:4px}
+.tag{font-size:10px;border-radius:4px;padding:2px 6px;font-weight:600;letter-spacing:.04em;margin-left:6px}
+.g{background:#22302a;color:#86d19a}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:8px 10px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+td{font-family:'IBM Plex Mono',monospace;font-size:14px;text-align:right;padding:8px 10px;border-bottom:1px solid #24262a}
+tr.tot td{font-weight:600;border-top:1px solid #3a3d42;border-bottom:0}
+.sw{display:inline-flex;align-items:center;gap:10px;font-size:13px;color:#c9ccd2;background:transparent;border:1px solid #3a3d42;border-radius:20px;padding:5px 12px 5px 6px;font-family:inherit}
+.knob{width:30px;height:18px;border-radius:9px;background:#3a3d42;position:relative;display:inline-block}
+.knob::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:7px;background:#a3a7af}
+</style>
+</helmet>
+<div class="r">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px">
+<div><div style="font-size:22px;font-weight:600">Term Pricing</div><div class="note">Demo deal · USD before tax</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Base TCV</div><div class="m" style="font-size:16px;font-weight:600">22,018,611.00</div></div>
+<div><div class="lab">Payment basis</div><div style="font-size:15px">CAPEX</div></div>
+</div>
+</div>
+<nav class="tabs"><a class="tab done"><span class="num">✓</span>Pricing</a><a class="tab done"><span class="num">✓</span>Payment terms</a><a class="tab on"><span class="num">3</span>Quote</a></nav>
+
+<div class="tiles">
+<div class="tile"><div class="lab">Base TCV<span class="tag g">APPROVAL</span></div><div class="v">22,018,611.00</div><div class="n">Margin 86.5%</div></div>
+<div class="tile"><div class="lab">Final TCV<span class="tag g">DEAL VALUE</span></div><div class="v">23,284,127.25</div><div class="n">CPI locked 3% from year 2</div></div>
+<div class="tile"><div class="lab">CAPEX</div><div class="v">1,550,000.00</div><div class="n">Contract start, month 0</div></div>
+<div class="tile"><div class="lab">Subscription (yr 1)</div><div class="v">341,143.52</div><div class="n">a month, rising 3% a year</div></div>
+<div class="tile"><div class="lab">Cash in year 1</div><div class="v">5,643,722.24</div><div class="n">OPEX would be 4,403,722.20</div></div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:20px">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div class="h">Payment schedule</div><button class="sw"><span class="knob"></span>Show tax detail</button></div>
+<table><tr><th>Months</th><th>CAPEX</th><th>Subscription</th><th>Invoice</th></tr>
+<tr><td>0</td><td>1,550,000.00</td><td>-</td><td>1,550,000.00</td></tr>
+<tr><td>1 to 12</td><td>-</td><td>341,143.52</td><td>341,143.52</td></tr>
+<tr><td>13 to 24</td><td>-</td><td>351,377.83</td><td>351,377.83</td></tr>
+<tr><td>25 to 36</td><td>-</td><td>361,919.16</td><td>361,919.16</td></tr>
+<tr><td>37 to 48</td><td>-</td><td>372,776.74</td><td>372,776.74</td></tr>
+<tr><td>49 to 59</td><td>-</td><td>383,960.04</td><td>383,960.04</td></tr>
+<tr><td>60</td><td>-</td><td>383,959.81</td><td>383,959.81</td></tr>
+<tr class="tot"><td>Total</td><td>1,550,000.00</td><td>21,734,127.25</td><td>23,284,127.25</td></tr>
+</table>
+<div class="note" style="margin-top:10px">Tax detail adds GST, WHT and the amount received per invoice as extra columns.</div>
+</div>
+
+<div class="card">
+<div class="h" style="margin-bottom:12px">Profit (on Base TCV)</div>
+<table><tr><th>Product</th><th>Base TCV</th><th>Margin</th></tr>
+<tr><td>SafeSight</td><td>17,389,126.20</td><td>86.2%</td></tr>
+<tr><td>Air Quality</td><td>2,245,484.40</td><td>85.7%</td></tr>
+<tr><td>HEMIR</td><td>2,384,000.40</td><td>89.1%</td></tr>
+<tr class="tot"><td>Deal</td><td>22,018,611.00</td><td>86.5%</td></tr>
+</table>
+<div style="display:flex;justify-content:space-between;margin-top:14px"><span class="lab">Gross profit</span><span class="m">19,038,611.00</span></div>
+<div style="display:flex;justify-content:space-between;margin-top:8px"><span class="lab">CPI uplift (not in approval)</span><span class="m">1,265,516.25</span></div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

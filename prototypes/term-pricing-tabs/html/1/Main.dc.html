@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Term Pricing: Pricing tab</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.r{width:1440px;height:1340px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:24px 32px}
+.m{font-family:'IBM Plex Mono',monospace}
+.card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:18px 20px}
+.h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 12px}
+.lab{font-size:12px;color:#b4b8c0}
+.note{font-size:12px;color:#a3a7af;line-height:1.5}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:8px 10px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:8px 10px;border-bottom:1px solid #24262a}
+tr.sel td{background:#22302a;color:#d8f2df}
+.inp{display:inline-block;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:6px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e6e7ea;min-width:56px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #2b2d31;margin-bottom:20px}
+.tab{padding:12px 20px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;display:flex;gap:10px;align-items:center}
+.tab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+.num{width:22px;height:22px;border-radius:11px;border:1px solid #4a4e55;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.tab.on .num{background:#86d19a;color:#0f1a12;border-color:#86d19a}
+.big{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600}
+.tag{font-size:10px;border-radius:4px;padding:2px 6px;font-weight:600;letter-spacing:.04em;background:#22302a;color:#86d19a;margin-left:8px}
+.ok{color:#86d19a;font-size:12px}
+.bt th:nth-child(2),.bt td:nth-child(2){text-align:left}
+.bt td:first-child{font-family:'IBM Plex Sans',sans-serif}
+tr.sub td{font-weight:600;border-bottom:1px solid #3a3d42;color:#d8dade}
+tr.tot td{font-weight:600;border-bottom:0;background:#22302a;color:#d8f2df}
+</style>
+</helmet>
+<div class="r">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px">
+<div><div style="font-size:22px;font-weight:600">Term Pricing</div><div class="note">Demo deal · USD before tax</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Base TCV</div><div class="m" style="font-size:16px;font-weight:600">22,018,611.00</div></div>
+<div><div class="lab">Payment basis</div><div style="font-size:15px">OPEX</div></div>
+</div>
+</div>
+<nav class="tabs"><a class="tab on"><span class="num">1</span>Pricing</a><a class="tab"><span class="num">2</span>Payment terms</a><a class="tab"><span class="num">3</span>Quote</a></nav>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px">
+<div style="display:flex;flex-direction:column;gap:20px">
+
+
+<div class="card" style="padding:14px 20px"><div style="display:flex;gap:32px;align-items:center"><div class="h" style="margin:0">Units</div><label class="lab">SafeSight <span class="inp">120</span></label><label class="lab">Air Quality <span class="inp">40</span></label><label class="lab">HEMIR <span class="inp">2</span></label></div></div>
+<div class="card"><div class="h">Choose the term</div>
+<table><tr><th>Term</th><th>Monthly fee (yr 1)</th><th>SafeSight / cam / mo</th><th>vs 36 months</th><th>Base TCV</th><th>Margin</th></tr>
+<tr><td>12 months</td><td>1,240,333.15</td><td>8,009.44</td><td>+108.9%</td><td>14,883,997.80</td><td>89.3%</td></tr>
+<tr><td>24 months</td><td>755,291.85</td><td>4,928.89</td><td>+27.2%</td><td>18,127,004.40</td><td>89.3%</td></tr>
+<tr><td>36 months</td><td>593,611.16</td><td>3,902.04</td><td>list</td><td>21,370,001.76</td><td>89.3%</td></tr>
+<tr><td>48 months</td><td>451,964.40</td><td>2,972.74</td><td>−23.9%</td><td>21,694,291.20</td><td>87.9%</td></tr>
+<tr class="sel"><td>60 months ✓</td><td>366,976.85</td><td>2,415.16</td><td>−38.2%</td><td>22,018,611.00</td><td>86.5%</td></tr>
+<tr><td>72 months</td><td>310,318.28</td><td>2,043.44</td><td>−47.7%</td><td>22,342,916.16</td><td>85.1%</td></tr>
+<tr><td>84 months</td><td>269,847.79</td><td>1,777.92</td><td>−54.5%</td><td>22,667,214.36</td><td>83.8%</td></tr>
+<tr><td>96 months</td><td>239,494.82</td><td>1,578.79</td><td>−59.7%</td><td>22,991,502.72</td><td>82.5%</td></tr>
+<tr><td>108 months</td><td>215,887.29</td><td>1,423.90</td><td>−63.6%</td><td>23,315,827.32</td><td>81.2%</td></tr>
+<tr><td>120 months</td><td>197,000.65</td><td>1,299.99</td><td>−66.8%</td><td>23,640,078.00</td><td>80.0%</td></tr>
+</table>
+<div class="note" style="margin-top:10px">Click a row to quote it. Longer terms lower the monthly fee and raise total profit.</div></div>
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px"><div class="h" style="margin:0">Price breakdown · 60 months</div><span class="note">Each band's discount applies only to the units inside it.</span></div>
+<table class="bt">
+<tr><th>Product</th><th>Band</th><th>Discount</th><th>Units</th><th>Fee / unit / mo</th><th>Monthly</th><th>Base TCV</th><th>Margin</th></tr>
+<tr><td>SafeSight</td><td>1 to 9</td><td>0%</td><td>9</td><td>2,613.33</td><td>23,519.97</td><td>1,411,198.20</td><td>87.2%</td></tr>
+<tr><td></td><td>10 to 49</td><td>5%</td><td>40</td><td>2,482.67</td><td>99,306.80</td><td>5,958,408.00</td><td>86.6%</td></tr>
+<tr><td></td><td>50 to 199</td><td>10%</td><td>71</td><td>2,352.00</td><td>166,992.00</td><td>10,019,520.00</td><td>85.8%</td></tr>
+<tr class="sub"><td>SafeSight total</td><td></td><td></td><td>120</td><td></td><td>289,818.77</td><td>17,389,126.20</td><td>86.2%</td></tr>
+<tr><td>Air Quality</td><td>1 to 9</td><td>0%</td><td>9</td><td>973.33</td><td>8,759.97</td><td>525,598.20</td><td>86.3%</td></tr>
+<tr><td></td><td>10 to 49</td><td>5%</td><td>31</td><td>924.67</td><td>28,664.77</td><td>1,719,886.20</td><td>85.6%</td></tr>
+<tr class="sub"><td>Air Quality total</td><td></td><td></td><td>40</td><td></td><td>37,424.74</td><td>2,245,484.40</td><td>85.7%</td></tr>
+<tr><td>HEMIR</td><td>1 to 9</td><td>0%</td><td>2</td><td>19,866.67</td><td>39,733.34</td><td>2,384,000.40</td><td>89.1%</td></tr>
+<tr class="sub"><td>HEMIR total</td><td></td><td></td><td>2</td><td></td><td>39,733.34</td><td>2,384,000.40</td><td>89.1%</td></tr>
+<tr class="tot"><td>Deal</td><td></td><td></td><td>162</td><td></td><td>366,976.85</td><td>22,018,611.00</td><td>86.5%</td></tr>
+</table></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div class="card" style="border-color:#2f5a3a"><div class="h">The price<span class="tag">APPROVAL</span></div>
+<div class="lab">Base TCV</div><div class="big">22,018,611.00</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">
+<div><div class="lab">Monthly fee (yr 1)</div><div class="m" style="font-size:16px">366,976.85</div></div>
+<div><div class="lab">Term</div><div class="m" style="font-size:16px">60 months</div></div>
+<div><div class="lab">Gross profit</div><div class="m" style="font-size:16px">19,038,611.00</div></div>
+<div><div class="lab">Margin on price</div><div class="m" style="font-size:16px">86.5%</div></div>
+</div>
+<div class="ok" style="margin-top:14px">✓ Above the 25% margin floor</div>
+<div class="note" style="margin-top:12px">This is the figure the deal is approved on. Payment terms change when the client pays, never this price.</div>
+</div>
+<a class="card" style="display:block;text-decoration:none;color:#e6e7ea;text-align:center;font-weight:600;background:#86d19a;color:#0f1a12;border-color:#86d19a">Next: Payment terms →</a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1340}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

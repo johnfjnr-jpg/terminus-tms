@@ -209,6 +209,15 @@ const AMBER_FAMILY = [
   // TP_CAPEX (C-9): the CAPEX warnings, "Terminus funds X of hardware" and the
   // subscription below hosting. Shown, never refused: the estate's one meaning.
   '.tp-warn',
+  // ── TP_TABS (T-4, T-3), 2026-10-11 ─────────────────────────────────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT: 29 bindings against 27. Two sites, one
+  // meaning. CAPEX not yet given a milestone ("Still to allocate", "Not yet
+  // scheduled", over 100%) and a quote that is not ready yet: neither is an
+  // error, both need the eye. The card's border follows its colour, so it
+  // binds the token once.
+  '.tp-amber td',
+  '.tp-ready',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

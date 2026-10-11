@@ -15,6 +15,9 @@ import {
   priceQuote, unitEconomics, termLadder, normaliseParams,
   formatMoney, formatPct, TermPricingError, articleFor,
 } from '../../src/lib/term-pricing.js'
+// v1.7 (TP_TABS): read through the namespace so that, before the engine has
+// the export, only the tests that need it fail, not the whole file.
+import * as ENGINE from '../../src/lib/term-pricing.js'
 
 // Spec section 3, as written. Costs: SafeSight at the reference figures of
 // section 10, and TEST-B, the section 11 fixture (NOT a real product).
@@ -982,3 +985,199 @@ test('v1.6 (Verification 24): a recovery period other than the default 12 is use
   assert.deepEqual([d.schedule[1].fromMonth, money(d.schedule[1].capexCents)], [12, '129,166.63'])
 })
 
+
+// ── v1.7 (TP_TABS): per-band totals (C1) and the allocation preview (T-4) ──
+//
+// B-1 to B-6 and T4-G1 are COPIED from spec v1.7 section 11.3 (issued in the
+// rulings), never computed here. Every other expectation is a RELATION the
+// spec states (a sum, a tie, a difference), never a figure typed by hand.
+
+const bandRow = (q, product, from) => {
+  const b = q.lines.find((l) => l.product === product).bands.find((x) => x.from === from)
+  return [b.units, money(b.feeByYear[0]), money(b.monthlyCents), money(b.tcvNetCents), pct(b.grossMargin)]
+}
+
+test('B-1 to B-6 per band, demo deal, 60 months, spec settings', () => {
+  const q = quote(DEMO, 60, {}, CATALOG)
+  assert.deepEqual(bandRow(q, 'safesight', 1), [9, '2,613.33', '23,519.97', '1,411,198.20', '87.2'], 'B-1')
+  assert.deepEqual(bandRow(q, 'safesight', 10), [40, '2,482.67', '99,306.80', '5,958,408.00', '86.6'], 'B-2')
+  assert.deepEqual(bandRow(q, 'safesight', 50), [71, '2,352.00', '166,992.00', '10,019,520.00', '85.8'], 'B-3')
+  assert.deepEqual(bandRow(q, 'air_quality', 1), [9, '973.33', '8,759.97', '525,598.20', '86.3'], 'B-4')
+  assert.deepEqual(bandRow(q, 'air_quality', 10), [31, '924.67', '28,664.77', '1,719,886.20', '85.6'], 'B-5')
+  assert.deepEqual(bandRow(q, 'hemir', 1), [2, '19,866.67', '39,733.34', '2,384,000.40', '89.1'], 'B-6')
+})
+
+test('v1.7 (C1): every product\'s bands sum to it exactly, at every term, with and without a CPI', () => {
+  let checked = 0
+  for (const T of CATALOG.TERMS) {
+    for (const extra of [{}, LOCK('3', 2), CAPEX()]) {
+      const q = quote(DEMO, T, extra, CATALOG)
+      for (const l of q.lines) {
+        const sum = (k) => l.bands.reduce((s, b) => s + b[k], 0n)
+        assert.equal(sum('tcvNetCents'), l.tcvNetCents, `${l.product} at ${T}: band TCV`)
+        assert.equal(sum('costCents'), l.costCents, `${l.product} at ${T}: band cost`)
+        assert.equal(sum('grossProfitCents'), l.grossProfitCents, `${l.product} at ${T}: band profit`)
+        assert.equal(sum('monthlyCents'), l.monthlyByYear[0], `${l.product} at ${T}: band monthly (year 1)`)
+        for (const b of l.bands) {
+          assert.equal(b.grossProfitCents, b.tcvNetCents - b.costCents, 'profit = TCV - cost')
+          assert.equal(b.tcvNetCents, b.monthlyCents * BigInt(T), 'band TCV is Base: the year-1 monthly times T')
+          checked++
+        }
+      }
+    }
+  }
+  assert.ok(checked > 100, `a real population was walked (${checked} bands)`)
+  // T29's product figures are unchanged by v1.7.
+  assert.deepEqual(row(quote(DEMO, 60, {}, CATALOG), 'safesight'), ['17,389,126.20', '2,400,000.00', '14,989,126.20', '86.2'])
+})
+
+const ALLOC = (extra) => ENGINE.capexAllocation({ units: DEMO, termMonths: 60, paymentStructure: 'capex', ...extra }, CATALOG)
+const CUSTOM_1M = { capexAmount: 'custom', capexCustom: '1000000.00' }
+const brk = (a) => a.breakdown.map((r) => [r.fromMonth, r.toMonth, money(r.capexCents), money(r.subscriptionCents), money(r.netCents), r.keys])
+
+test('T4-G1 the allocation preview, 50% and 30% of Custom 1,000,000.00', () => {
+  const a = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '50'], ['Installation complete', 4, '30']) })
+  assert.equal(a.status, 'incomplete')
+  assert.equal(a.quote, null, 'no quote prices from an incomplete allocation')
+  assert.deepEqual(a.rows.map((r) => [r.key, r.month, money(r.cents)]), [['Contract start', 0, '500,000.00'], ['Installation complete', 4, '300,000.00']])
+  assert.deepEqual([pct(a.allocated.share), money(a.allocated.cents)], ['80.0', '800,000.00'])
+  assert.deepEqual([pct(a.unallocated.share), money(a.unallocated.cents)], ['20.0', '200,000.00'])
+  assert.deepEqual([money(a.baseFeeCents), money(a.lastBaseFeeCents)], ['350,310.18', '350,310.38'])
+  const m0 = a.breakdown.find((r) => r.fromMonth === 0), m4 = a.breakdown.find((r) => r.fromMonth === 4)
+  assert.deepEqual([m0.toMonth, money(m0.netCents), m0.keys], [0, '500,000.00', ['Contract start']])
+  assert.deepEqual([m4.toMonth, money(m4.netCents), m4.keys], [4, '650,310.18', ['Installation complete']])
+  assert.equal(money(a.unscheduledCents), '200,000.00')
+  assert.equal(a.excess, null)
+})
+
+test('v1.7 (T-4): the incomplete breakdown ties to Base TCV to the cent, through the unscheduled row', () => {
+  for (const shares of [['50', '30'], ['10', '0.01'], ['99.99', null], ['33.3', '33.3']]) {
+    const a = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, shares[0]], ['Go live', 9, shares[1]]) })
+    assert.equal(a.status, 'incomplete', JSON.stringify(shares))
+    const net = a.breakdown.reduce((s, r) => s + r.netCents * BigInt(r.toMonth - r.fromMonth + 1), 0n)
+    assert.equal(net + a.unscheduledCents, a.baseTcvCents, `ties: ${JSON.stringify(shares)}`)
+    assert.equal(a.baseTcvCents, quote(DEMO, 60, {}, CATALOG).tcvNetCents, 'Base TCV is the quote\'s own')
+    assert.equal(a.unallocated.cents, a.capexCents - a.rows.reduce((s, r) => s + (r.cents ?? 0n), 0n), 'unallocated = CAPEX - rows')
+    assert.equal(a.unscheduledCents, a.unallocated.cents, 'the unscheduled row carries the unallocated amount')
+  }
+})
+
+test('v1.7 (T-4): unallocated is CAPEX minus the rows, not the unallocated share rounded (they differ here by a cent)', () => {
+  // CAPEX 10.01, two rows of 33.3%: each round_half_up(3.33333) = 3.33.
+  const a = ALLOC({ capexAmount: 'custom', capexCustom: '10.01', ...HYBRID(['Contract start', 0, '33.3'], ['Go live', 9, '33.3']) })
+  const rowsCents = a.rows.reduce((s, r) => s + r.cents, 0n)
+  assert.equal(a.unallocated.cents, a.capexCents - rowsCents)
+  const byShare = ENGINE.roundHalfUp({ n: a.capexCents * a.unallocated.share.n, d: 100n * a.unallocated.share.d }, 2)
+  assert.notEqual(a.unallocated.cents, byShare, 'the two definitions differ on this input, so the test discriminates')
+})
+
+test('v1.7 (T-4): every row is rounded on its own while incomplete; the last row carries the rounding only when complete', () => {
+  const inc = ALLOC({ capexAmount: 'custom', capexCustom: '10.01', ...HYBRID(['Contract start', 0, '33.3'], ['Go live', 9, '33.3']) })
+  assert.equal(inc.rows[0].cents, inc.rows[1].cents, 'equal shares, equal amounts: no carry while incomplete')
+  const done = ALLOC({ capexAmount: 'custom', capexCustom: '10.01', ...HYBRID(['Contract start', 0, '33.3'], ['Go live', 9, '66.7']) })
+  assert.equal(done.status, 'complete')
+  assert.equal(done.rows[1].cents, done.capexCents - done.rows[0].cents, 'complete: the last row carries the rounding')
+})
+
+test('v1.7 (T-4): a row with no share yet has no amount, counts 0%, and leaves the status incomplete', () => {
+  for (const blank of [null, '', '  ']) {
+    const a = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '50'], ['Go live', 9, blank]) })
+    assert.equal(a.status, 'incomplete', JSON.stringify(blank))
+    assert.equal(a.rows[1].cents, null)
+    assert.equal(money(a.rows[0].cents), '500,000.00', 'the other row keeps its amount')
+    assert.equal(pct(a.allocated.share), '50.0')
+  }
+  // Even when the typed shares already make 100%, a row still waiting for its
+  // share keeps the schedule incomplete, with nothing left to allocate.
+  const full = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '100'], ['Go live', 9, '']) })
+  assert.equal(full.status, 'incomplete')
+  assert.equal(full.unallocated.cents, 0n)
+  assert.throws(() => quote(DEMO, 60, CAPEX({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '100'], ['Go live', 9, '']) }), CATALOG),
+    (e) => e.code === 'MILESTONE_SHARE', 'the quote itself still refuses a blank share')
+})
+
+test('v1.7 (T-4): over 100%, the rows keep their amounts, the excess is named, and nothing prices', () => {
+  const rows = HYBRID(['Contract start', 0, '70'], ['Go live', 9, '50'])
+  const a = ALLOC({ ...CUSTOM_1M, ...rows })
+  assert.equal(a.status, 'over')
+  assert.equal(a.quote, null)
+  assert.equal(a.breakdown, null, 'no breakdown: it could not tie')
+  assert.equal(a.excess.cents, a.rows.reduce((s, r) => s + r.cents, 0n) - a.capexCents, 'excess = rows - CAPEX')
+  assert.deepEqual([pct(a.excess.share), money(a.excess.cents)], ['20.0', money(a.rows[0].cents + a.rows[1].cents - a.capexCents)])
+  assert.throws(() => quote(DEMO, 60, CAPEX({ ...CUSTOM_1M, ...rows }), CATALOG),
+    (e) => e.code === 'SHARES_TOTAL' && e.message === `The milestone shares total 120%, 20% (${money(a.excess.cents)}) over. They must total exactly 100%.`,
+    'the quote\'s refusal names the excess (C5)')
+  // Below 100% the quote's refusal is unchanged.
+  assert.throws(() => quote(DEMO, 60, CAPEX({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '80']) }), CATALOG),
+    (e) => e.code === 'SHARES_TOTAL' && e.message === 'The milestone shares total 80%. They must total exactly 100%.')
+})
+
+test('v1.7 (T-4): a complete allocation IS the quote, and its breakdown is the Base schedule', () => {
+  const extra = { ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '30'], ['Hardware delivered to site', 3, '40'], ['Commissioning', 6, '30']) }
+  const a = ALLOC(extra)
+  const q = quote(DEMO, 60, CAPEX(extra), CATALOG)
+  assert.equal(a.status, 'complete')
+  assert.deepEqual(a.quote.capex, q.capex, 'the quote\'s own plan')
+  assert.deepEqual(a.rows.map((r) => r.cents), q.capex.payments.map((p) => p.cents))
+  assert.deepEqual([a.unallocated.cents, a.excess, a.unscheduledCents], [0n, null, 0n])
+  assert.deepEqual(brk(a).map((r) => r.slice(0, 5)), q.base.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.capexCents), money(r.subscriptionCents), money(r.netCents)]))
+  assert.deepEqual(brk(a).filter((r) => r[5].length).map((r) => [r[0], r[5]]),
+    [[0, ['Contract start']], [3, ['Hardware delivered to site']], [6, ['Commissioning']]], 'milestone rows carry their keys')
+  // With a CPI the breakdown stays Base (C4), while the quote's schedule is Final.
+  const c = ALLOC({ ...extra, ...LOCK('3', 2) })
+  const net = c.breakdown.reduce((s, r) => s + r.netCents * BigInt(r.toMonth - r.fromMonth + 1), 0n)
+  assert.equal(net, c.baseTcvCents, 'the breakdown ties to Base TCV under a CPI')
+  assert.ok(c.quote.finalTcvCents > c.baseTcvCents, 'and the quote is Final')
+  // Two-phase and the default Hybrid row are complete by construction.
+  assert.equal(ALLOC({ capexStructure: 'two_phase', recoveryMonths: 12 }).status, 'complete')
+  assert.equal(ALLOC({}).status, 'complete')
+})
+
+test('v1.7 (T-4): the breakdown carries its own Total row, so the screen sums nothing', () => {
+  const inc = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '50'], ['Installation complete', 4, '30']) })
+  const sum = (a, k) => a.breakdown.reduce((s, r) => s + r[k] * BigInt(r.toMonth - r.fromMonth + 1), 0n)
+  // The approved picture's Total row (state 2b): CAPEX with the unscheduled
+  // amount, the subscription, and the invoices with it, tying to Base TCV.
+  assert.deepEqual(inc.breakdownTotals, {
+    capexCents: sum(inc, 'capexCents') + inc.unscheduledCents,
+    subscriptionCents: sum(inc, 'subscriptionCents'),
+    netCents: sum(inc, 'netCents') + inc.unscheduledCents,
+  })
+  assert.deepEqual([inc.breakdownTotals.capexCents, inc.breakdownTotals.netCents], [inc.capexCents, inc.baseTcvCents])
+  // Complete: the Base schedule's own totals (state 2c, G-C3).
+  const g3 = ALLOC({ capexStructure: 'two_phase', recoveryMonths: 12 })
+  const q = quote(DEMO, 60, CAPEX({ capexStructure: 'two_phase', recoveryMonths: 12 }), CATALOG)
+  assert.deepEqual(g3.breakdownTotals, { capexCents: q.base.tax.capexCents, subscriptionCents: q.base.tax.subscriptionCents, netCents: q.base.tax.netCents })
+  assert.equal(ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '70'], ['Go live', 9, '50']) }).breakdownTotals, null, 'over: no breakdown, no totals')
+})
+
+test('v1.7 (T-4): consecutive milestone months with equal amounts stay separate rows, each with its key', () => {
+  const a = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 3, '20'], ['Go live', 4, '20']) })
+  const named = brk(a).filter((r) => r[5].length)
+  assert.deepEqual(named.map((r) => [r[0], r[1], r[5]]), [[3, 3, ['Contract start']], [4, 4, ['Go live']]])
+})
+
+test('v1.7 (T-4): every v1.6 refusal still holds through the preview', () => {
+  const refuses = (extra, code, what) => assert.throws(() => ALLOC(extra),
+    (e) => e instanceof TermPricingError && e.code === code, `${what}: expected ${code}`)
+  // A complete allocation: the quote's own refusals (G-C4).
+  refuses({ capexAmount: 'custom', capexCustom: '0' }, 'CAPEX_RANGE', 'CAPEX 0')
+  refuses({ capexAmount: 'custom', capexCustom: '22018611.00' }, 'CAPEX_RANGE', 'CAPEX = Base TCV')
+  refuses({ capexAmount: 'custom', capexCustom: '1.234' }, 'CAPEX_CUSTOM', 'three decimals')
+  refuses(HYBRID(['Go live', 0, '50'], ['Go live', 6, '50']), 'DUPLICATE_MILESTONE', 'duplicate milestone')
+  refuses(HYBRID(['Contract start', 61, '100']), 'MILESTONE_MONTH', 'month > T')
+  refuses(HYBRID(['Contract start', 6, '50'], ['Go live', 3, '50']), 'MILESTONE_ORDER', 'months decreasing')
+  refuses({ capexStructure: 'two_phase', recoveryMonths: 0 }, 'RECOVERY_MONTHS', 'R = 0')
+  refuses({ capexStructure: 'two_phase', recoveryMonths: 61 }, 'RECOVERY_MONTHS', 'R > T')
+  refuses({ capexStructure: 'hybrid', milestones: [] }, 'MILESTONE_COUNT', 'no rows')
+  // And while incomplete, every per-row refusal applies as the row is entered.
+  refuses(HYBRID(['Go live', 0, '20'], ['Go live', 6, '20']), 'DUPLICATE_MILESTONE', 'duplicate, incomplete')
+  refuses(HYBRID(['Contract start', 61, '20']), 'MILESTONE_MONTH', 'month > T, incomplete')
+  refuses(HYBRID(['Contract start', 6, '20'], ['Go live', 3, '20']), 'MILESTONE_ORDER', 'decreasing, incomplete')
+  refuses(HYBRID(['Contract start', 0, 'abc']), 'MILESTONE_SHARE', 'not a percentage')
+  refuses(HYBRID(['Contract start', 0, '0']), 'MILESTONE_SHARE', 'share 0')
+  refuses(HYBRID(['Contract start', 0, '101']), 'MILESTONE_SHARE', 'share above 100')
+  refuses(HYBRID([' ', 0, '20']), 'MILESTONE_KEY', 'no milestone chosen')
+  assert.throws(() => ENGINE.capexAllocation({ units: DEMO, termMonths: 60, paymentStructure: 'opex' }, CATALOG),
+    (e) => e.code === 'NOT_CAPEX', 'the preview is for CAPEX')
+})
