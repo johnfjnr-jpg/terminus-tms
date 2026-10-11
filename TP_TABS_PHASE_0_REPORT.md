@@ -7,14 +7,33 @@ waiting for rulings.
 ## 0. Not done, and one departure
 
 - **Nothing is built.** That is by design, since Phase 0 only reports.
-- **Departure: the mockup is five images, not an HTML file.**
-  - The brief names `prototypes/term-pricing-tabs.html`. You supplied five PNG exports instead,
-    one per state (2026-10-11).
-  - They are committed unchanged, under your file names, in `prototypes/term-pricing-tabs/`. That
-    folder follows the other mockups' convention (`term-pricing-quote/`, `term-pricing-tiles/`).
-  - **What this costs:** there is no markup to cite by line. Every label below was read off the
-    images. Where a label matters (button text, column heads), the probes will assert the words
-    as they appear in the image.
+- **The mockup is five states, each an image plus an HTML export, not one HTML file.**
+  - The brief names `prototypes/term-pricing-tabs.html`. You supplied five PNGs first, then five
+    zips of HTML exports (2026-10-11). Everything is in `prototypes/term-pricing-tabs/`, which
+    follows the other mockups' convention (`term-pricing-quote/`, `term-pricing-tiles/`).
+  - The images and the zips are committed unchanged, under your file names.
+  - Each zip holds one `.dc.html` artboard, a README, and the design tool's runtime
+    (`support.js` and two React vendor files, identical across all five zips).
+  - **The artboards and READMEs are also extracted to `html/<state>/` so they can be cited by
+    line.** Each was compared byte for byte with its zip entry. The runtime is left inside the
+    zips: it is "not part of the design" (the README's words), and loose vendor JavaScript under
+    `prototypes/` would be read by the source scans that walk that folder.
+  - **The HTML adds no state the images lack.** It is static markup with hard-coded figures (the
+    logic class is empty). So sections 1 to 5 stand as written from the images.
+  - **HTML against PNG, measured, not read:**
+    - each state's text tokens (every figure and every word of three letters or more) were
+      compared with an OCR of its PNG (macOS Vision, `scratchpad/ocr.swift`);
+    - **all words agree in both directions in all five states;**
+    - the only number residues are OCR artefacts, which the same comparison of a Chrome render of
+      the HTML reproduces exactly:
+      - two figures split in two by OCR (`310,` `318.28`; `21,734,` `127.25`);
+      - single digits inside the tab circles and inputs that OCR skips;
+    - **calibrated:** a copy of state 2b with one figure changed (350,310.18 to 350,310.19) and one
+      label changed (Allocated to Assigned) was reported on both counts;
+    - a pixel diff was tried first and abandoned. It differs on every row from small vertical
+      offsets alone, so it cannot tell a changed label from a shifted one. Labels are cited to the HTML from here on, for example
+    T-2's ladder head at `html/1/Main.dc.html:58` and T-4's amber rows at
+    `html/2b/Payment_CAPEX.dc.html:25-26` and `:41`.
 
 ## 1. The mockup's figures, against today's engine
 
@@ -185,6 +204,7 @@ beside it.** Its input has the same shape as `priceQuote`'s. It returns:
 | C10 | images vs spec 6.2 on the default payment | image 2c shows Monthly instalments selected. Spec 6.2 makes Hybrid (Milestones) the default | Milestones stays the default; 2c is a state |
 | C11 | quick picks vs a short term | 18, 24 and 36 exceed T at 12 months | picks above T are disabled. The months input says "(1 to T)" |
 | C12 | CLAUDE.md "no hard-coded parameters" | the picks 6, 12, 18, 24 and 36 are screen shortcuts, not pricing parameters; the default 12 is the spec's | no conflict, recorded for the reviewer |
+| C13 | the export README vs TP_CAPEX's C-13 precedent | each README says to "replicate faithfully" the inline colours, font sizes, spacing and radii. The artboards use IBM Plex Sans and Mono and their own hex colours (for example green `#86d19a`, amber `#e9c46a`, a 380px right column). The estate uses Satoshi and JetBrains Mono (`frontend/style.css:130-131`) and its own tokens, including the single `--attention` amber the attention census enforces. For TP_CAPEX you ruled "content and behaviour binding, the visual language this screen's own". The README is the design tool's export text, not a ruling | **as C-13: content, structure, order, labels and behaviour binding; type and colour from the estate's tokens.** Copying the hex values would add a second amber and a second green beside the tokens. No guard would stop that: `attention-token.test.mjs` refuses only the one retired literal (`R-V7 12`), so this is a judgement, not an enforced rule |
 
 **`DESIGN_PRINCIPLES.md`** records no term pricing layout decisions (searched for "term pricing",
 TILE_FIT, QUOTE_PANEL, TP_INPUTS and TP_CAPEX). Those rulings live in the briefs and in the
@@ -203,6 +223,8 @@ deleted:
    - drop per-product cost and gross profit from the Quote profit card (recommended);
    - keep the WHT-borne and after-WHT rows (recommended).
 4. **N10:** retire the Rules card (recommended)?
+5. **C13:** is the visual treatment the estate's own, as under C-13 (recommended), or the
+   artboards' exact values?
 
 Everything else above is a position under the standing delegation, and each can be changed in one
 line. On your rulings: I append them to the brief, then spec v1.7, then the tests (which must fail

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Term Pricing: CAPEX monthly instalments</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.r{width:1440px;height:1180px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:24px 32px}
+.m{font-family:'IBM Plex Mono',monospace}
+.card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:18px 20px}
+.h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 12px}
+.lab{font-size:12px;color:#b4b8c0}
+.note{font-size:12px;color:#a3a7af;line-height:1.5}
+.inp{display:inline-block;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:6px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e6e7ea;min-width:56px}
+.dd{display:inline-flex;justify-content:space-between;gap:10px;min-width:220px;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:6px 10px;color:#e6e7ea}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #2b2d31;margin-bottom:20px}
+.tab{padding:12px 20px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;display:flex;gap:10px;align-items:center}
+.tab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+.num{width:22px;height:22px;border-radius:11px;border:1px solid #4a4e55;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.tab.on .num{background:#86d19a;color:#0f1a12;border-color:#86d19a}
+.done .num{border-color:#86d19a;color:#86d19a}
+.seg{display:inline-flex;border:1px solid #3a3d42;border-radius:8px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:9px 18px;font:inherit;font-size:13px;color:#a3a7af}
+.seg button.on{background:#86d19a;color:#0f1a12;font-weight:600}
+.sec{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;padding:16px 0;border-bottom:1px solid #26282c}
+.st{font-size:15px;font-weight:600}
+.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:7px 8px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:7px 8px;border-bottom:1px solid #24262a}
+.amber{color:#e9c46a}
+.warn{background:#2a2617;border:1px solid #5a4e24;color:#e9d9a6;border-radius:6px;padding:8px 12px;font-size:12px}
+.line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #24262a}
+.line .m{font-size:14px}
+.btn{background:transparent;border:1px dashed #4a4e55;border-radius:6px;padding:7px 12px;font:inherit;font-size:12px;color:#c9ccd2}
+</style>
+</helmet>
+<div class="r">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px">
+<div><div style="font-size:22px;font-weight:600">Term Pricing</div><div class="note">Demo deal · USD before tax</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Base TCV</div><div class="m" style="font-size:16px;font-weight:600">22,018,611.00</div></div>
+<div><div class="lab">Payment basis</div><div style="font-size:15px">CAPEX</div></div>
+</div>
+</div>
+<nav class="tabs"><a class="tab done"><span class="num">✓</span>Pricing</a><a class="tab on"><span class="num">2</span>Payment terms</a><a class="tab"><span class="num">3</span>Quote</a></nav>
+
+<div style="display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px">
+<div class="card" style="padding:4px 24px">
+<div class="sec"><div><div class="st">Payment basis</div></div>
+<div class="row"><div class="seg"><button>OPEX</button><button class="on">CAPEX</button></div><span class="note">Part of the price paid earlier from a capital budget; the rest monthly.</span></div></div>
+
+<div class="sec"><div><div class="st">CAPEX amount</div><div class="note">Default is the hardware value.</div></div>
+<div class="row"><div class="seg"><button class="on">Hardware 1,550,000.00</button><button>Custom</button></div></div></div>
+
+<div class="sec"><div><div class="st">How CAPEX is paid</div><div class="note">Spread over a set number of months, alongside the subscription.</div></div>
+<div><div class="row" style="margin-bottom:12px"><div class="seg"><button class="on">Monthly instalments</button><button>Milestones</button></div></div>
+<div class="row"><label class="lab" style="width:120px">Spread over</label><div class="seg"><button>6</button><button class="on">12</button><button>18</button><button>24</button><button>36</button></div><span class="inp">12</span><span class="note">months (1 to 60)</span></div>
+<div class="row" style="margin-top:10px"><span class="m" style="font-size:18px;font-weight:600">129,166.67</span><span class="note">a month for months 1 to 11 · month 12 is 129,166.63 (carries the rounding)</span></div>
+</div></div>
+
+<div class="sec"><div><div class="st">Monthly subscription</div><div class="note">Calculated: the rest of the price.</div></div>
+<div class="row"><span class="m" style="font-size:18px;font-weight:600">341,143.52</span><span class="note">(22,018,611.00 − 1,550,000.00) ÷ 60 months · month 60 is 341,143.32</span></div></div>
+
+<div class="sec"><div><div class="st">Monthly breakdown</div><div class="note">What the client is invoiced each month.</div></div>
+<table><tr><th>Months</th><th>CAPEX instalment</th><th>Subscription</th><th>Monthly invoice</th></tr>
+<tr><td>1 to 11</td><td>129,166.67</td><td>341,143.52</td><td>470,310.19</td></tr>
+<tr><td>12</td><td>129,166.63</td><td>341,143.52</td><td>470,310.15</td></tr>
+<tr><td>13 to 59</td><td>-</td><td>341,143.52</td><td>341,143.52</td></tr>
+<tr><td>60</td><td>-</td><td>341,143.32</td><td>341,143.32</td></tr>
+<tr><td style="font-weight:600">Total</td><td style="font-weight:600">1,550,000.00</td><td style="font-weight:600">20,468,611.00</td><td style="font-weight:600">22,018,611.00</td></tr>
+</table></div>
+
+<div class="sec"><div><div class="st">Annual increase</div></div>
+<div class="row"><div class="seg"><button class="on">None</button><button>Published CPI</button><button>Locked rate</button></div><span class="note">Applies to the subscription only.</span></div></div>
+
+<div class="sec" style="border-bottom:0"><div><div class="st">Tax</div></div>
+<div class="row"><label class="lab">GST</label><span class="inp">0</span><span class="note">%</span><label class="lab" style="margin-left:18px">Withholding tax</label><div class="seg"><button class="on">None</button><button>Single rate</button><button>Split</button></div></div></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div class="card"><div class="h">What the client pays</div>
+<div class="line"><span class="lab">CAPEX</span><span class="m">129,166.67 × 12</span></div>
+<div class="line"><span class="lab">Subscription</span><span class="m">341,143.52 × 60</span></div>
+<div class="line"><span class="lab">Months 1 to 12</span><span class="m">470,310.19</span></div>
+<div class="line"><span class="lab">From month 13</span><span class="m">341,143.52</span></div>
+<div class="line" style="border-bottom:0;padding-top:12px"><span style="font-weight:600">Total</span><span class="m" style="font-weight:600;font-size:18px">22,018,611.00</span></div>
+<div class="note" style="margin-top:8px">Equals Base TCV: no annual increase applied.</div>
+</div>
+
+<a class="card" style="display:block;text-decoration:none;text-align:center;font-weight:600;background:#86d19a;color:#0f1a12;border-color:#86d19a">Next: Quote →</a>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>
