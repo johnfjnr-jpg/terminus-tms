@@ -1133,6 +1133,24 @@ test('v1.7 (T-4): a complete allocation IS the quote, and its breakdown is the B
   assert.equal(ALLOC({}).status, 'complete')
 })
 
+test('v1.7 (T-4): the breakdown carries its own Total row, so the screen sums nothing', () => {
+  const inc = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '50'], ['Installation complete', 4, '30']) })
+  const sum = (a, k) => a.breakdown.reduce((s, r) => s + r[k] * BigInt(r.toMonth - r.fromMonth + 1), 0n)
+  // The approved picture's Total row (state 2b): CAPEX with the unscheduled
+  // amount, the subscription, and the invoices with it, tying to Base TCV.
+  assert.deepEqual(inc.breakdownTotals, {
+    capexCents: sum(inc, 'capexCents') + inc.unscheduledCents,
+    subscriptionCents: sum(inc, 'subscriptionCents'),
+    netCents: sum(inc, 'netCents') + inc.unscheduledCents,
+  })
+  assert.deepEqual([inc.breakdownTotals.capexCents, inc.breakdownTotals.netCents], [inc.capexCents, inc.baseTcvCents])
+  // Complete: the Base schedule's own totals (state 2c, G-C3).
+  const g3 = ALLOC({ capexStructure: 'two_phase', recoveryMonths: 12 })
+  const q = quote(DEMO, 60, CAPEX({ capexStructure: 'two_phase', recoveryMonths: 12 }), CATALOG)
+  assert.deepEqual(g3.breakdownTotals, { capexCents: q.base.tax.capexCents, subscriptionCents: q.base.tax.subscriptionCents, netCents: q.base.tax.netCents })
+  assert.equal(ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 0, '70'], ['Go live', 9, '50']) }).breakdownTotals, null, 'over: no breakdown, no totals')
+})
+
 test('v1.7 (T-4): consecutive milestone months with equal amounts stay separate rows, each with its key', () => {
   const a = ALLOC({ ...CUSTOM_1M, ...HYBRID(['Contract start', 3, '20'], ['Go live', 4, '20']) })
   const named = brk(a).filter((r) => r[5].length)

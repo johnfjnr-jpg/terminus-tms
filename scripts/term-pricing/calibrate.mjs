@@ -159,6 +159,9 @@ const INJECTIONS = [
   { id: 'X13', file: ENGINE, why: 'the preview answers for an OPEX basis (T-4)',
     find: "if ((input?.paymentStructure ?? 'opex') !== 'capex') {", put: 'if (false) {',
     expect: 'v1.7 (T-4): every v1.6 refusal still holds' },
+  { id: 'X14', file: ENGINE, why: 'the breakdown\'s CAPEX total leaves out the unscheduled amount (T-4)',
+    find: "capexCents: total('capexCents') + unscheduledCents,", put: "capexCents: total('capexCents'),",
+    expect: 'v1.7 (T-4): the breakdown carries its own Total row' },
   // ── TERM_PRICING_2, spec v1.3 (M4: injections only for the new claims) ──
   { id: 'J21', file: ENGINE, why: 'the escalator start year is ignored (B6)',
     find: '(k < startYear ? ONE : pow(add(ONE, escalator), k - startYear + 1))', put: 'pow(add(ONE, escalator), k - 1)',

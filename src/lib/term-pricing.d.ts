@@ -119,6 +119,8 @@ export interface AllocationPreview extends Allocation {
   warnings: CapexPlan['warnings']
   /** The Base schedule (no CPI), with milestone keys; null when over 100%. */
   breakdown: BreakdownRow[] | null
+  /** The breakdown's Total row, the unscheduled amount included; null when over. */
+  breakdownTotals: { capexCents: bigint; subscriptionCents: bigint; netCents: bigint } | null
   /** The "not yet scheduled" amount: 0 when complete, null when over. */
   unscheduledCents: bigint | null
   /** priceQuote's own result when complete, otherwise null. */

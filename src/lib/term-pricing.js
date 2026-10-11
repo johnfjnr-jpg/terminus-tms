@@ -515,13 +515,21 @@ function quoteCore(input, params, preview) {
     const a = capex.allocation
     let breakdown = null
     let unscheduledCents = null
+    let breakdownTotals = null
     if (a.status !== 'over') {
       breakdown = capexRows(() => ONE, true).map(({ fromMonth, toMonth, keys, capexCents, subscriptionCents, netCents }) =>
         ({ fromMonth, toMonth, keys, capexCents, subscriptionCents, netCents }))
       unscheduledCents = a.unallocated.cents
-      const net = breakdown.reduce((s, r) => s + r.netCents * BigInt(r.toMonth - r.fromMonth + 1), 0n)
-      if (net + unscheduledCents !== tcvNetCents) {
-        throw new TermPricingError('TIE_BROKEN', `The breakdown (${formatMoney(net)}) and the unscheduled amount (${formatMoney(unscheduledCents)}) do not tie to Base TCV (${formatMoney(tcvNetCents)}).`)
+      // The Total row: the unscheduled amount is CAPEX not yet given a month,
+      // so it counts in the CAPEX and invoice columns and not the subscription.
+      const total = (k) => breakdown.reduce((s, r) => s + r[k] * BigInt(r.toMonth - r.fromMonth + 1), 0n)
+      breakdownTotals = {
+        capexCents: total('capexCents') + unscheduledCents,
+        subscriptionCents: total('subscriptionCents'),
+        netCents: total('netCents') + unscheduledCents,
+      }
+      if (breakdownTotals.netCents !== tcvNetCents) {
+        throw new TermPricingError('TIE_BROKEN', `The breakdown and the unscheduled amount (${formatMoney(breakdownTotals.netCents)}) do not tie to Base TCV (${formatMoney(tcvNetCents)}).`)
       }
     }
     return {
@@ -540,6 +548,7 @@ function quoteCore(input, params, preview) {
       lastBaseFeeCents: capex.lastBaseFeeCents,
       warnings: capex.warnings,
       breakdown,
+      breakdownTotals,
       unscheduledCents,
       quote,
     }
