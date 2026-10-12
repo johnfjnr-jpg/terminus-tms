@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.8
+# Terminus Term Pricing: Specification v1.9
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -11,6 +11,7 @@
 **Amended (v1.6, John, 10 Oct 2026, TP_CAPEX, rulings C-1 to C-13 and Q1 to Q14):** OPEX sets the price; CAPEX is a way of paying part of it earlier, against a client CAPEX budget, and the remainder is a monthly subscription; CPI is an uplift on the subscription, never on CAPEX. Two TCVs: **Base TCV** (no CPI) carries approval, margin, the margin floor, the profit table and the volume discount; **Final TCV** (with CPI) is what the client is invoiced (section 4.3). A CPI mode (section 7). The CAPEX amount, Two-phase and Hybrid payment, and the subscription (section 6). Split WHT on CAPEX payments (section 8.1). Cash in year 1 (section 9). Warnings (section 6.4). Under CAPEX the ladder shows the OPEX per-camera fee only (section 4.5). **Figures that move:** T16, T22, T27, T28 and T30 now report Base and Final separately (section 11); every other earlier figure is unchanged. Test cases G-C1 to G-C6 and the L1 pair (section 11.1).
 **Amended (v1.7, John, 11 Oct 2026, TP_TABS, rulings T-4, C1 and C2):** per-band totals in section 4.3 (each band's Base TCV, cost, gross profit and margin, summing exactly to its product) (C1); the term ladder shows every column whatever the payment basis (section 4.5) (C2); the milestone allocation preview, which reports a Hybrid schedule whose shares are still being entered, and the excess named when they total above 100% (section 6.2) (T-4); test cases T4-G1 and B-1 to B-6 (section 11.3). **Every earlier figure is unchanged.**
 **Amended (v1.8, John, 12 Oct 2026, TP_BANDS, rulings TB-1 to TB-9):** volume bands are configured **per product**, 2 to 6 bands each, as a start and a discount, with "To" derived (section 3.1) (TB-1 to TB-5); the rules a band set must meet and the wording that refuses a broken one, shared by the editor and the server (section 3.2) (TB-6); the margin check, every band at every term, flagged against the floor and never refusing (section 10.4) (TB-7); test cases BG-1 to BG-5 (section 11.4). The rulings are cited TB-1 to TB-9 so they do not collide with test cases B-1 to B-6 of v1.7. **Every product is seeded with the v1.7 bands, so every earlier figure is unchanged** (BG-5).
+**Amended (v1.9, John, 12 Oct 2026, TP_MANUAL, rulings M-1 to M-9 and C1 to C11):** a manual ladder comparison, SafeSight per camera: the user types a monthly price for each term and sees it against the calculated one-camera fee, with margin, profit, client total and three checks (section 4.6); test cases MG-1 to MG-4 (section 11.5). **Comparison only: it never prices a quote, changes no setting and stores nothing, so every earlier figure is unchanged.**
 
 
 
@@ -195,6 +196,34 @@ Shown as "-" when `units[SafeSight]` is 0. Display only: it is never invoiced an
 **Whatever the payment basis (v1.7, C2):** the ladder shows every column (the term, the year-1 monthly fee, this per-camera fee, the saving or premium against the anchor term, Base TCV and the margin), the same figures under `opex` and `capex`. The ladder prices every term as OPEX, Base, no CPI, so the price is chosen before, and apart from, how it is paid. There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. Display only: no figure moves (T31 unchanged).
 
 SUPERSEDED by v1.7, left visible: ~~**Under `capex` (v1.6, C-10):** the ladder shows the term and this OPEX per-camera fee only, the same figure as under `opex` (T31 unchanged). There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. The ladder prices every term as OPEX, Base, no CPI, so a CAPEX amount or schedule that suits one term cannot refuse the ladder.~~ And v1.5 before it read "Under `capex` the column is not shown (not yet decided; section 13)."
+
+### 4.6 Manual ladder comparison (v1.9, TP_MANUAL)
+
+A comparison only. It never prices a quote, never changes a setting and stores nothing (M-2). One product, named by the screen (C1; SafeSight today, M-1), one unit, Base figures, no CPI.
+
+For each term `T` in `TERMS` with a typed price `P(T)`:
+
+```
+calculated(T)  = per_camera(T) of section 4.5 with units[product] = 1     (cents; the first band's fee)
+total(T)       = P(T) × T
+cost(T)        = HW_COST + HOSTING_MONTHLY × T
+profit(T)      = total(T) − cost(T)
+margin(T)      = profit(T) / total(T)
+difference(T)  = P(T) / calculated(T) − 1
+vs_anchor(T)   = P(T) / P(ANCHOR_TERM) − 1     ("list" at ANCHOR_TERM; "-" when P(ANCHOR_TERM) is not entered)
+```
+
+A price is a positive amount with at most 2 decimals; commas are ignored. A blank price skips its term: no figures, and no check against it. A price that is not valid is refused for its term ("Enter a monthly price above 0, to the cent.") and is treated as blank (M-7, C9).
+
+**Checks, in this order, each row against the PREVIOUS row with a price (M-6, C2):**
+
+1. "Below the floor" when `margin(T) < MARGIN_FLOOR`, an exact comparison;
+2. "Client total below {n} months" when `total(T)` is below the previous row's;
+3. "Profit below {n} months" when `profit(T)` is below the previous row's.
+
+Equal is not a fall. **Summary**, shown once a price is entered (C3, C11): "At or above the {floor}% floor at every priced term" or "Below the {floor}% floor at {n} term(s) ({terms})"; "Client total never falls with a longer term" or "Client total falls at {n} term(s) ({terms})"; "Profit never falls with a longer term" or "Profit falls at {n} term(s) ({terms})".
+
+Percentages are shown to one decimal, half-up, with "+" and "−" (U+2212); money to cents (M-9, C10).
 
 ## 5. Money handling
 
@@ -509,6 +538,33 @@ The settings of section 3, anchor margin 90%, catalog costs. Copied from the TP_
 | BG-3 | The margin check, SafeSight 30% band (worst case) | 12 months fee 6,066.67, margin 85.7%; 36: 2,955.56, 85.7%; 60: 1,829.33, 81.8%; 120: 984.67, 72.9% | Section 10.4 (TB-7) |
 | BG-4 | Refusals, server and editor | band 1 start not 1; a start not above the previous; 1 band; 7 bands; a falling discount; a discount of 100 or more; a non-whole start | Each refused with its 3.2 wording (TB-6) |
 | BG-5 | The seed (3.1) on every product | every v1.7 figure (sections 10, 11, 11.1 to 11.3) unchanged | Nothing moved (TB-1) |
+
+### 11.5 v1.9 cases (TP_MANUAL)
+
+The settings of section 3, anchor margin 90%, `PROFIT_STEP` 0, SafeSight catalog costs (8,000.00 hardware, 200.00 a month hosting). Copied from the TP_MANUAL brief, with MG-4 as corrected by ruling C2; never computed by the code under test.
+
+**MG-1.** Prices 12: 2,500.00; 24: 1,500.00; 36: 1,100.00; 48: 900.00; 60: 800.00; 72: 700.00; 84: 620.00; 96: 560.00; 108: 520.00; 120: 500.00.
+
+| Term | Calculated | Difference | vs 36 | Margin | Profit | Client total | Check |
+|---|---|---|---|---|---|---|---|
+| 12 | 8,666.67 | −71.2% | +127.3% | 65.3% | 19,600.00 | 30,000.00 | ok |
+| 24 | 5,333.33 | −71.9% | +36.4% | 64.4% | 23,200.00 | 36,000.00 | ok |
+| 36 | 4,222.22 | −73.9% | list | 61.6% | 24,400.00 | 39,600.00 | ok |
+| 48 | 3,216.67 | −72.0% | −18.2% | 59.3% | 25,600.00 | 43,200.00 | ok |
+| 60 | 2,613.33 | −69.4% | −27.3% | 58.3% | 28,000.00 | 48,000.00 | ok |
+| 72 | 2,211.11 | −68.3% | −36.4% | 55.6% | 28,000.00 | 50,400.00 | ok |
+| 84 | 1,923.81 | −67.8% | −43.6% | 52.4% | 27,280.00 | 52,080.00 | Profit below 72 months |
+| 96 | 1,708.33 | −67.2% | −49.1% | 49.4% | 26,560.00 | 53,760.00 | Profit below 84 months |
+| 108 | 1,540.74 | −66.2% | −52.7% | 47.3% | 26,560.00 | 56,160.00 | ok (equal is not a fall) |
+| 120 | 1,406.67 | −64.5% | −54.5% | 46.7% | 28,000.00 | 60,000.00 | ok |
+
+Summary: floor ok; client total ok; profit falls at 84, 96.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| MG-2 | MG-1 with 72 blank | the 84 row compares against 60: profit 27,280.00 below 28,000.00, flagged "Profit below 60 months" | The previous row WITH a price |
+| MG-3 | MG-1 with 36 blank | every vs 36 shows "-" | No anchor price |
+| MG-4 | MG-1 with 120 at 300.00 | client total 36,000.00, profit 4,000.00, margin 11.1%; flags, in order, "Below the floor", "Client total below 108 months", "Profit below 108 months" | All three checks on one row (C2) |
 
 ## 12. Implementing in the TMS prototype
 

@@ -201,5 +201,30 @@ export function termLadder(input: Omit<QuoteInput, 'termMonths'> & { termMonths?
 export function validateBands(bands: unknown): BandValidation
 /** v1.8 (spec 10.4, TB-7): the margin check on the bands as typed. */
 export function bandMarginGrid(product: string, bands: unknown, params: EngineParamsInput | NormalisedParams): BandGrid
+/** v1.9 (spec 4.6, TP_MANUAL): a check on one priced row, in the order floor, total, profit. */
+export interface ManualFlag { kind: 'floor' | 'total' | 'profit'; against?: number; message: string }
+export interface ManualRow {
+  termMonths: number
+  /** termLadder's per-camera fee at one unit (M-8). */
+  calculatedCents: bigint | null
+  status: 'blank' | 'invalid' | 'priced'
+  /** 'invalid' only: the field error (C9). */
+  message?: string
+  priceCents?: bigint; totalCents?: bigint; costCents?: bigint; profitCents?: bigint
+  difference?: Fraction
+  /** 'list' at ANCHOR_TERM; null when the anchor term has no price (MG-3). */
+  vsAnchor?: Fraction | 'list' | null
+  margin?: Fraction
+  flags?: ManualFlag[]
+}
+export interface ManualCheck { ok: boolean; terms: number[]; text: string }
+export interface ManualLadder {
+  product: string; anchorTerm: number; floor: Fraction
+  hwCostCents: bigint; hostingMonthlyCents: bigint; firstBandDiscountPct: string
+  rows: ManualRow[]
+  summary: { priced: number; floor: ManualCheck; total: ManualCheck; profit: ManualCheck }
+}
+/** v1.9 (spec 4.6): comparison only; it prices nothing and changes nothing. */
+export function manualLadder(input: { product: string; prices: Record<number, string | undefined> }, params: EngineParamsInput | NormalisedParams): ManualLadder
 export function formatMoney(cents: bigint): string
 export function formatPct(ratio: Fraction, places?: number): string

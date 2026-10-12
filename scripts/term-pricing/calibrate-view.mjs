@@ -37,6 +37,7 @@ const probe = (mode, script = 'probe-screen.mjs') => spawnSync('node', ['--env-f
   ...(script === 'probe-screen.mjs' ? ['--spec'] : []), '--out', `${SP}/calshots`],
   { cwd: ROOT, encoding: 'utf8', env: { ...process.env, PUPPETEER_PATH: '/tmp/tms-probe/node_modules/puppeteer', TP_RUN: 'cal' } })
 const BANDS = 'probe-bands.mjs'
+const MANUAL = 'probe-manual.mjs'
 const verdictOf = (r) => { const out = (r.stdout ?? '') + (r.stderr ?? ''); const sum = /ALL PASS|\d+ FAILED/.test(r.stdout ?? ''); return { out, sum } }
 const INJ = [
   // ── W1 to W4, RE-POINTED ──
@@ -138,6 +139,45 @@ const INJ = [
   { id: 'B15', script: BANDS, mode: '--admin', why: 'a server refusal is not shown (TB-6: the server is the authority)',
     find: "const shownErrors = message?.kind === 'error' ? (message.problems?.length ? message.problems : [message.text]) : v.problems.map((p) => p.message)",
     put: 'const shownErrors = v.problems.map((p) => p.message)', expect: 'TB-6: the server\'s sentence is shown' },
+  // ── TP_MANUAL: one per probe-manual.mjs claim the view owns (M4). The engine's
+  // claims (the checks, the anchor, the note's figures) are Z1 to Z14 in
+  // calibrate.mjs. Not injected here, and why: "vs {ANCHOR_TERM}" (the probe
+  // runs at the anchor 36, so a hard-coded 36 cannot differ; Z7 owns it) and
+  // Calculated at one camera (the probe's units are 1; Z1 owns it).
+  { id: 'M1', script: MANUAL, mode: '', why: 'a return to Term Pricing keeps the prices (M-2, C5)',
+    find: 'const manualPrices = manualState.token === navToken ? manualState.prices : NO_PRICES',
+    put: 'const manualPrices = manualState.prices', expect: 'M-2, C5: a return to Term Pricing finds every price cleared' },
+  { id: 'M2', script: MANUAL, mode: '', why: 'a switch of tab clears the prices (M-2)',
+    find: "    if (t === 'quote' && !ready) return\n", put: "    if (t === 'quote' && !ready) return\n    setManualState({ token: navToken, prices: {} })\n",
+    expect: 'M-2: a switch of tab keeps every price' },
+  { id: 'M3', script: MANUAL, mode: '', why: 'the chips show before any price is entered (C11)',
+    find: '{s.priced > 0 && (', put: '{s.priced >= 0 && (', expect: 'C11: no chips until a price is entered' },
+  { id: 'M4', script: MANUAL, mode: '', why: 'Fill copies nothing (M-4)',
+    find: "r.calculatedCents === null ? '' : money(r.calculatedCents)])))}", put: "''])))}", expect: "M-4: Fill copies each term's Calculated" },
+  { id: 'M5', script: MANUAL, mode: '', why: 'Clear clears nothing (M-4)',
+    find: 'onClear={() => setManualPrices({})}', put: 'onClear={() => {}}', expect: 'M-4: Clear empties every input' },
+  { id: 'M6', script: MANUAL, mode: '', why: 'the flags share one line (C2)',
+    find: 'flags.map((f) => <div key={f.kind} className="tp-manual-flag">⚠ {f.message}</div>)',
+    put: '<div className="tp-manual-flag">⚠ {flags.map((f) => f.message).join(\'; \')}</div>', expect: 'MG-4, C2: three flags, one per line' },
+  { id: 'M7', script: MANUAL, mode: '', why: 'a flagged row is not tinted (M-6)',
+    find: "className={flags.length ? 'tp-manual-flagged' : undefined}", put: 'className={undefined}', expect: 'M-6: flagged rows (84, 96) are tinted' },
+  { id: 'M8', script: MANUAL, mode: '', why: 'a typed price never takes money format (M-5)',
+    find: "onBlur={() => { if (r.status === 'priced' && r.priceCents !== undefined && money(r.priceCents) !== prices[t]) onPrice(t, money(r.priceCents)) }} />",
+    put: 'onBlur={() => {}} />', expect: 'M-5: a price typed without commas reads in money format' },
+  { id: 'M9', script: MANUAL, mode: '', why: 'a refused price shows no field error (M-7, C9)',
+    find: "{r.status === 'invalid' && <div className=\"tp-error tp-manual-err\"", put: "{false && <div className=\"tp-error tp-manual-err\"",
+    expect: 'M-7, C9: three decimals are refused' },
+  { id: 'M10', script: MANUAL, mode: '', why: 'a refused price is not marked invalid (C9)',
+    find: "aria-invalid={r.status === 'invalid' || undefined}", put: 'aria-invalid={undefined}', expect: 'M-7, C9: three decimals are refused' },
+  { id: 'M11', script: MANUAL, mode: '', why: 'the card sends a request (M-2: comparison only). A POST to a path that does not exist: 404, nothing written',
+    find: 'onClear={() => setManualPrices({})}', put: "onClear={() => { void shell.api('POST', '/api/term-pricing/manual-calibration', {}); setManualPrices({}) }}",
+    expect: 'M-2: the card sent no write request' },
+  { id: 'M12', script: MANUAL, mode: '', why: 'a zero difference carries a sign (C10)',
+    find: "  if (s === '0.0' || s === '-0.0') return '0.0%'\n", put: '', expect: 'M-4: and every Difference then reads 0.0%' },
+  { id: 'M13', script: MANUAL, mode: '', why: 'the Calculated column is headed as the ladder\'s (C6)',
+    find: '<th>Calculated, 1 camera</th>', put: '<th>Calculated / mo</th>', expect: 'M-5, C4, C6: the columns' },
+  { id: 'M14', script: MANUAL, mode: '', why: 'the empty state shows figures (C11): an unpriced row shows its check',
+    find: "{!priced ? '' : flags.length", put: "{!priced ? '✓' : flags.length", expect: 'C11: every term shows Calculated' },
 ].filter((j) => !ONLY.length || ONLY.includes(j.id))
 const results = []
 try {

@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Term Pricing manual ladder comparison (approved 2026-10-12)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+
+.r{width:1440px;height:1080px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:24px 32px}
+.m{font-family:'IBM Plex Mono',monospace}
+.card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:18px 20px}
+.h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0}
+.lab{font-size:12px;color:#b4b8c0}
+.note{font-size:12px;color:#a3a7af;line-height:1.5}
+.inp{display:inline-block;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:5px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e6e7ea;min-width:96px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid #2b2d31;margin-bottom:20px}
+.tab{padding:12px 20px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;display:flex;gap:10px;align-items:center}
+.tab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+.num{width:22px;height:22px;border-radius:11px;border:1px solid #4a4e55;font-size:12px;display:inline-flex;align-items:center;justify-content:center}
+.tab.on .num{background:#86d19a;color:#0f1a12;border-color:#86d19a}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:8px 10px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child,th:last-child,td:last-child{text-align:left}
+td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:7px 10px;border-bottom:1px solid #24262a}
+td:first-child,td:last-child{font-family:'IBM Plex Sans',sans-serif}
+.x{color:#8a8e96}
+.ok{color:#86d19a}
+.amb{color:#e9c46a}
+tr.flag td{background:#2a2617}
+.chip{display:inline-flex;gap:8px;align-items:center;border:1px solid #2b2d31;border-radius:20px;padding:6px 12px;font-size:12px}
+.btn{background:transparent;border:1px solid #3a3d42;border-radius:6px;padding:7px 14px;font:inherit;font-size:12px;color:#c9ccd2}
+ body{margin:0;background:#0f1012;padding:24px}</style></head><body>
+<p style="color:#b4b8c0;font-family:'IBM Plex Sans',sans-serif">Approved by John 2026-10-12. Manual ladder comparison panel, Pricing tab, SafeSight per camera. Content and behaviour binding; visual language follows the existing screen.</p>
+<div class="r">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px">
+<div><div style="font-size:22px;font-weight:600">Term Pricing</div><div class="note">USD before tax</div></div>
+</div>
+<nav class="tabs"><a class="tab on"><span class="num">1</span>Pricing</a><a class="tab"><span class="num">2</span>Payment terms</a><a class="tab"><span class="num">3</span>Quote</a></nav>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+<div><div class="h">Compare a manual ladder · SafeSight per camera</div>
+<div class="note" style="margin-top:6px">Type a monthly price for each term to see how it performs. Comparison only: it does not price quotes and is cleared when you leave the screen.</div></div>
+<div style="display:flex;gap:8px"><button class="btn">Fill from calculated</button><button class="btn">Clear</button></div>
+</div>
+
+<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+<span class="chip"><span class="ok">✓</span> Above the 25% floor at every term</span>
+<span class="chip"><span class="ok">✓</span> Client total rises with every longer term</span>
+<span class="chip" style="border-color:#5a4e24"><span class="amb">⚠</span> Profit falls at 2 terms (84, 96)</span>
+</div>
+
+<table>
+<tr><th>Term</th><th>Your price / mo</th><th>Calculated / mo</th><th>Difference</th><th>vs 36</th><th>Margin</th><th>Profit / camera</th><th>Client total</th><th>Check</th></tr>
+<tr><td>12 months</td><td><span class="inp">2,500.00</span></td><td class="x">8,666.67</td><td>−71.2%</td><td>+127.3%</td><td>65.3%</td><td>19,600.00</td><td>30,000.00</td><td class="ok">✓</td></tr>
+<tr><td>24 months</td><td><span class="inp">1,500.00</span></td><td class="x">5,333.33</td><td>−71.9%</td><td>+36.4%</td><td>64.4%</td><td>23,200.00</td><td>36,000.00</td><td class="ok">✓</td></tr>
+<tr><td>36 months</td><td><span class="inp">1,100.00</span></td><td class="x">4,222.22</td><td>−73.9%</td><td>list</td><td>61.6%</td><td>24,400.00</td><td>39,600.00</td><td class="ok">✓</td></tr>
+<tr><td>48 months</td><td><span class="inp">900.00</span></td><td class="x">3,216.67</td><td>−72.0%</td><td>−18.2%</td><td>59.3%</td><td>25,600.00</td><td>43,200.00</td><td class="ok">✓</td></tr>
+<tr><td>60 months</td><td><span class="inp">800.00</span></td><td class="x">2,613.33</td><td>−69.4%</td><td>−27.3%</td><td>58.3%</td><td>28,000.00</td><td>48,000.00</td><td class="ok">✓</td></tr>
+<tr><td>72 months</td><td><span class="inp">700.00</span></td><td class="x">2,211.11</td><td>−68.3%</td><td>−36.4%</td><td>55.6%</td><td>28,000.00</td><td>50,400.00</td><td class="ok">✓</td></tr>
+<tr class="flag"><td>84 months</td><td><span class="inp">620.00</span></td><td class="x">1,923.81</td><td>−67.8%</td><td>−43.6%</td><td>52.4%</td><td>27,280.00</td><td>52,080.00</td><td class="amb">⚠ Profit below 72 months</td></tr>
+<tr class="flag"><td>96 months</td><td><span class="inp">560.00</span></td><td class="x">1,708.33</td><td>−67.2%</td><td>−49.1%</td><td>49.4%</td><td>26,560.00</td><td>53,760.00</td><td class="amb">⚠ Profit below 84 months</td></tr>
+<tr><td>108 months</td><td><span class="inp">520.00</span></td><td class="x">1,540.74</td><td>−66.2%</td><td>−52.7%</td><td>47.3%</td><td>26,560.00</td><td>56,160.00</td><td class="ok">✓</td></tr>
+<tr><td>120 months</td><td><span class="inp">500.00</span></td><td class="x">1,406.67</td><td>−64.5%</td><td>−54.5%</td><td>46.7%</td><td>28,000.00</td><td>60,000.00</td><td class="ok">✓</td></tr>
+</table>
+<div class="note" style="margin-top:12px">One SafeSight camera, first volume band (0%), Base figures with no CPI. Cost per camera = 8,000 hardware + 200 a month hosting. "Calculated" uses the live settings. A blank price skips that term.</div>
+</div>
+</div>
+</body></html>

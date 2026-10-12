@@ -9472,6 +9472,29 @@ select:autofill {
 .tp-num.tp-ms-key { width: 230px; }
 .tp-num.tp-ms-month { width: 64px; text-align: right; }
 .tp-num.tp-ms-share { width: 72px; text-align: right; }
+/* TP_MANUAL (spec 4.6): the manual ladder comparison. A flagged row is tinted
+   with the ONE amber (--attention), mixed as .btn-attention:hover is, so there
+   is no second amber to drift (M-6). */
+.tp-manual-actions { display: flex; gap: 8px; }
+.tp-manual-intro { margin: 0 0 12px; }
+.tp-manual-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.tp-manual-chip { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--hairline-strong); border-radius: 999px; padding: 5px 12px; font-size: 12px; color: var(--white); }
+.tp-manual-chip .tp-manual-mark { color: var(--green); }
+.tp-manual-chip.is-warn { border-color: color-mix(in srgb, var(--attention) 50%, transparent); }
+.tp-manual-chip.is-warn .tp-manual-mark { color: var(--attention); }
+/* Nine columns in the main column: 876px of table in an 838px card at 1240,
+   measured, so the cells take the schedule's tighter padding. */
+.tp-table.tp-manual-table th, .tp-table.tp-manual-table td { padding-left: 6px; padding-right: 6px; }
+.tp-table.tp-manual-table td { vertical-align: top; }
+.tp-table.tp-manual-table td.tp-manual-input { padding-top: 4px; padding-bottom: 4px; }
+.tp-num.tp-manual-price { width: 96px; }
+.tp-manual-err { font-family: var(--body); font-size: 12px; white-space: normal; text-align: left; max-width: 160px; margin-top: 4px; }
+.tp-table.tp-manual-table th:last-child, .tp-table.tp-manual-table td.tp-manual-check { text-align: left; }
+/* The check can carry three flags (C2); its lines wrap rather than push the
+   table past its card, which they did at 1240. */
+.tp-table.tp-manual-table td.tp-manual-check { font-family: var(--body); font-size: 12.5px; white-space: normal; min-width: 9em; }
+.tp-manual-flag { color: var(--attention); }
+.tp-table.tp-manual-table tr.tp-manual-flagged td { background: color-mix(in srgb, var(--attention) 8%, transparent); }
 .tp-pct-field { display: inline-flex; align-items: center; gap: 6px; }
 .tp-table.tp-milestones td { vertical-align: middle; }
 .tp-table.tp-milestones td:first-child { font-family: var(--body); }

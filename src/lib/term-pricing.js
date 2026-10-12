@@ -1,6 +1,6 @@
 // ── THE TERM PRICING ENGINE ──────────────────────────────────────────────
 //
-// Implements docs/pricing-spec.md (Specification v1.7) exactly. CLAUDE.md
+// Implements docs/pricing-spec.md (Specification v1.9) exactly. CLAUDE.md
 // Architecture rule 14: no hard-coded parameters, no floats for money. That
 // rule does not govern the deal-sheet engine, and this file is not part of it.
 //
@@ -1047,6 +1047,101 @@ export function termLadder(input, params) {
   })
 }
 
+
+// ── Section 4.6: the manual ladder comparison (v1.9, TP_MANUAL) ──────────
+
+const MANUAL_PRICE = /^\d+(\.\d{1,2})?$/
+const MANUAL_REFUSAL = 'Enter a monthly price above 0, to the cent.'
+// A percentage as an admin typed it: "25", "7.5", never "25.0" (the mockup's "25%").
+const plainPct = (ratio) => formatPct(ratio, 6).replace(/\.?0+$/, '')
+const termsText = (terms) => `${terms.length} term${terms.length === 1 ? '' : 's'} (${terms.join(', ')})`
+
+/**
+ * manualLadder({ product, prices }, params): COMPARISON ONLY (M-2). It never
+ * prices a quote and changes nothing. One unit of `product` at every term in
+ * TERMS, Base, no CPI. `prices` maps a term to the monthly price as typed
+ * ("2,500.00"); blank or missing skips the term. The screen names the product
+ * (C1), as it does for termLadder.
+ *
+ * "Calculated" is termLadder's per-camera fee at ONE camera (M-8, T31's basis),
+ * not a new formula: one unit sits in the first band, so it is that band's fee.
+ *
+ * -> { product, anchorTerm, floor, hwCostCents, hostingMonthlyCents, firstBandDiscountPct,
+ *      rows: [{ termMonths, calculatedCents, status: 'blank' | 'invalid' | 'priced',
+ *               message?, priceCents?, totalCents?, costCents?, profitCents?,
+ *               difference?, vsAnchor?: Fraction | 'list' | null, margin?,
+ *               flags?: [{ kind: 'floor' | 'total' | 'profit', against?, message }] }],
+ *      summary: { priced, floor, total, profit: { ok, terms, text } } }
+ */
+export function manualLadder(input, params) {
+  const p = norm(params)
+  const product = input?.product
+  const { cost, bands } = productParams(p, product)
+  const ladder = termLadder({ units: { [product]: 1 }, perCameraProduct: product }, p)
+  const typed = input?.prices ?? {}
+
+  const rows = ladder.map((l) => {
+    const T = l.termMonths
+    const raw = String(typed[T] ?? '').replace(/,/g, '').trim()
+    if (raw === '') return { termMonths: T, calculatedCents: l.perCameraCents, status: 'blank' }
+    const price = MANUAL_PRICE.test(raw) ? parseDecimal(raw) : null
+    if (!price || cmp(price, ZERO) <= 0) {
+      return { termMonths: T, calculatedCents: l.perCameraCents, status: 'invalid', message: MANUAL_REFUSAL }
+    }
+    const priceCents = roundHalfUp(price, 2)
+    const totalCents = priceCents * BigInt(T)
+    const costCents = roundHalfUp(costAt(cost, T), 2)
+    const profitCents = totalCents - costCents
+    return {
+      termMonths: T, calculatedCents: l.perCameraCents, status: 'priced',
+      priceCents, totalCents, costCents, profitCents,
+      difference: sub(frac(priceCents, l.perCameraCents), ONE),
+      margin: frac(profitCents, totalCents),
+    }
+  })
+
+  const anchor = rows.find((r) => r.termMonths === p.anchorTerm)
+  const anchorCents = anchor?.status === 'priced' ? anchor.priceCents : null
+  let prev = null
+  for (const r of rows) {
+    if (r.status !== 'priced') continue
+    r.vsAnchor = r.termMonths === p.anchorTerm ? 'list' : anchorCents === null ? null : sub(frac(r.priceCents, anchorCents), ONE)
+    // The checks, in the order ruled (C2): floor, client total, profit. Each
+    // against the previous row WITH a price; equal is not a fall.
+    r.flags = []
+    if (cmp(r.margin, p.marginFloor) < 0) r.flags.push({ kind: 'floor', message: 'Below the floor' })
+    if (prev && r.totalCents < prev.totalCents) {
+      r.flags.push({ kind: 'total', against: prev.termMonths, message: `Client total below ${prev.termMonths} months` })
+    }
+    if (prev && r.profitCents < prev.profitCents) {
+      r.flags.push({ kind: 'profit', against: prev.termMonths, message: `Profit below ${prev.termMonths} months` })
+    }
+    prev = r
+  }
+
+  const priced = rows.filter((r) => r.status === 'priced')
+  const flagged = (kind) => priced.filter((r) => r.flags.some((f) => f.kind === kind)).map((r) => r.termMonths)
+  const floorPct = plainPct(p.marginFloor)
+  const check = (kind, okText, failText) => {
+    const terms = flagged(kind)
+    return { ok: terms.length === 0, terms, text: terms.length === 0 ? okText : `${failText} ${termsText(terms)}` }
+  }
+  return {
+    product,
+    anchorTerm: p.anchorTerm,
+    floor: p.marginFloor,
+    hwCostCents: roundHalfUp(cost.hw, 2),
+    hostingMonthlyCents: roundHalfUp(cost.hosting, 2),
+    firstBandDiscountPct: bands[0].discountPct,
+    rows,
+    summary: {
+      priced: priced.length,
+      floor: check('floor', `At or above the ${floorPct}% floor at every priced term`, `Below the ${floorPct}% floor at`),
+      total: check('total', 'Client total never falls with a longer term', 'Client total falls at'),
+      profit: check('profit', 'Profit never falls with a longer term', 'Profit falls at'),
+    },
+  }
+}
 
 // ── Formatting at the edge ───────────────────────────────────────────────
 

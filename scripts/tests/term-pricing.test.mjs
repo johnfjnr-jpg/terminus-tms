@@ -1374,3 +1374,169 @@ test('TB-1: unitEconomics reads the product\'s own bands', () => {
   assert.deepEqual(u.bands.map((b) => [b.from, b.to, money(b.feeCents)]),
     [[1, 1, '19,866.67'], [2, 4, '18,873.33'], [5, 9, '17,880.00'], [10, null, '16,886.67']])
 })
+
+// ── v1.9 (TP_MANUAL): the manual ladder comparison, section 4.6 and 11.5 ──
+//
+// Every expected figure is COPIED from the TP_MANUAL brief's MG-1 to MG-4 (MG-4
+// as corrected by ruling C2), never computed by the code under test. Read
+// through the namespace so only these tests fail before the export exists.
+
+const MG1_PRICES = Object.freeze({
+  12: '2,500.00', 24: '1,500.00', 36: '1,100.00', 48: '900.00', 60: '800.00',
+  72: '700.00', 84: '620.00', 96: '560.00', 108: '520.00', 120: '500.00',
+})
+// term, calculated, difference, vs 36, margin, profit, client total, check (one flag per line)
+const MG1 = [
+  [12, '8,666.67', '−71.2%', '+127.3%', '65.3%', '19,600.00', '30,000.00', []],
+  [24, '5,333.33', '−71.9%', '+36.4%', '64.4%', '23,200.00', '36,000.00', []],
+  [36, '4,222.22', '−73.9%', 'list', '61.6%', '24,400.00', '39,600.00', []],
+  [48, '3,216.67', '−72.0%', '−18.2%', '59.3%', '25,600.00', '43,200.00', []],
+  [60, '2,613.33', '−69.4%', '−27.3%', '58.3%', '28,000.00', '48,000.00', []],
+  [72, '2,211.11', '−68.3%', '−36.4%', '55.6%', '28,000.00', '50,400.00', []],
+  [84, '1,923.81', '−67.8%', '−43.6%', '52.4%', '27,280.00', '52,080.00', ['Profit below 72 months']],
+  [96, '1,708.33', '−67.2%', '−49.1%', '49.4%', '26,560.00', '53,760.00', ['Profit below 84 months']],
+  [108, '1,540.74', '−66.2%', '−52.7%', '47.3%', '26,560.00', '56,160.00', []],
+  [120, '1,406.67', '−64.5%', '−54.5%', '46.7%', '28,000.00', '60,000.00', []],
+]
+// A ratio as the spec prints it: "+127.3%", "−71.2%" (U+2212), "0.0%" at zero.
+const signedPct = (r) => {
+  const s = formatPct(r, 1)
+  if (s === '0.0' || s === '-0.0') return '0.0%'
+  return s.startsWith('-') ? `−${s.slice(1)}%` : `+${s}%`
+}
+const manual = (prices, params = SPEC_PARAMS, product = 'safesight') => ENGINE.manualLadder({ product, prices }, params)
+const shown = (r) => (r.status !== 'priced' ? [r.termMonths, money(r.calculatedCents), r.status] : [
+  r.termMonths, money(r.calculatedCents), signedPct(r.difference),
+  r.vsAnchor === 'list' ? 'list' : r.vsAnchor === null ? '-' : signedPct(r.vsAnchor),
+  `${formatPct(r.margin, 1)}%`, money(r.profitCents), money(r.totalCents), r.flags.map((f) => f.message),
+])
+
+test('MG-1 the manual ladder, every column at every term (4.6, M-5)', () => {
+  const m = manual(MG1_PRICES)
+  assert.equal(m.product, 'safesight')
+  assert.deepEqual(m.rows.map(shown), MG1)
+})
+
+test('MG-1 summary: floor ok, client total ok, profit falls at 84 and 96 (M-6, C3)', () => {
+  const s = manual(MG1_PRICES).summary
+  assert.equal(s.priced, 10)
+  assert.deepEqual([s.floor.ok, s.floor.terms, s.floor.text], [true, [], 'At or above the 25% floor at every priced term'])
+  assert.deepEqual([s.total.ok, s.total.terms, s.total.text], [true, [], 'Client total never falls with a longer term'])
+  assert.deepEqual([s.profit.ok, s.profit.terms, s.profit.text], [false, [84, 96], 'Profit falls at 2 terms (84, 96)'])
+})
+
+test('MG-1: Calculated is the ladder\'s one-camera per-camera fee, not a new formula (M-8)', () => {
+  const ladder = termLadder({ units: { safesight: 1 }, perCameraProduct: 'safesight' }, SPEC_PARAMS)
+  assert.deepEqual(manual({}).rows.map((r) => r.calculatedCents), ladder.map((r) => r.perCameraCents))
+})
+
+test('MG-2 a blank 72: the 84 row compares against 60, the previous row WITH a price', () => {
+  const m = manual({ ...MG1_PRICES, 72: '' })
+  const r72 = m.rows.find((r) => r.termMonths === 72)
+  assert.equal(r72.status, 'blank')
+  assert.equal(r72.priceCents, undefined, 'a blank row carries no figures')
+  assert.deepEqual(m.rows.find((r) => r.termMonths === 84).flags.map((f) => [f.kind, f.against, f.message]),
+    [['profit', 60, 'Profit below 60 months']])
+  assert.equal(m.summary.priced, 9)
+})
+
+test('MG-3 a blank 36: every vs 36 shows "-"', () => {
+  const m = manual({ ...MG1_PRICES, 36: '' })
+  for (const r of m.rows.filter((x) => x.status === 'priced')) assert.equal(r.vsAnchor, null, `${r.termMonths}`)
+  assert.equal(m.rows.filter((x) => x.status === 'priced').length, 9)
+})
+
+test('MG-4 120 at 300.00: all three flags, in the order floor, client total, profit (C2)', () => {
+  const m = manual({ ...MG1_PRICES, 120: '300.00' })
+  const r = m.rows.find((x) => x.termMonths === 120)
+  assert.deepEqual([money(r.totalCents), money(r.profitCents), `${formatPct(r.margin, 1)}%`], ['36,000.00', '4,000.00', '11.1%'])
+  assert.deepEqual(r.flags.map((f) => f.message), ['Below the floor', 'Client total below 108 months', 'Profit below 108 months'])
+  assert.deepEqual(r.flags.map((f) => f.kind), ['floor', 'total', 'profit'])
+  const s = m.summary
+  assert.equal(s.floor.text, 'Below the 25% floor at 1 term (120)')
+  assert.equal(s.total.text, 'Client total falls at 1 term (120)')
+  assert.equal(s.profit.text, 'Profit falls at 3 terms (84, 96, 120)')
+})
+
+test('4.6, M-7, C9: a price that is not a positive amount to the cent is refused for its term, and is blank to the checks', () => {
+  for (const bad of ['0', '0.00', '-5', '1.234', 'abc', '1,0.0.0', ' ']) {
+    const m = manual({ ...MG1_PRICES, 72: bad })
+    const r = m.rows.find((x) => x.termMonths === 72)
+    if (bad.trim() === '') { assert.equal(r.status, 'blank', JSON.stringify(bad)); continue }
+    assert.equal(r.status, 'invalid', JSON.stringify(bad))
+    assert.equal(r.message, 'Enter a monthly price above 0, to the cent.')
+    assert.equal(r.priceCents, undefined)
+    // Treated as blank: 84 compares against 60, as MG-2.
+    assert.deepEqual(m.rows.find((x) => x.termMonths === 84).flags.map((f) => f.message), ['Profit below 60 months'], JSON.stringify(bad))
+  }
+  // Commas are ignored, and whole or one-decimal amounts are prices.
+  for (const good of ['2500', '2,500', '2500.0', '2,500.00']) {
+    const r = manual({ 12: good }).rows[0]
+    assert.equal(r.status, 'priced', good)
+    assert.equal(money(r.totalCents), '30,000.00', good)
+  }
+})
+
+test('4.6: the floor is an EXACT comparison; a margin exactly at the floor is not below it', () => {
+  // TEST-B with a flat 9,000.00 cost: at 12 months 1,000.00 gives total 12,000.00,
+  // profit 3,000.00, margin exactly 25%; 999.99 gives 11,999.88, margin below 25%.
+  const p = { ...SPEC_PARAMS, costs: { ...SPEC_PARAMS.costs, 'TEST-B': { hwCost: '9000.00', hostingMonthly: '0.00' } } }
+  const at = manual({ 12: '1000.00' }, p, 'TEST-B').rows[0]
+  assert.deepEqual(at.flags, [])
+  assert.equal(manual({ 12: '1000.00' }, p, 'TEST-B').summary.floor.text, 'At or above the 25% floor at every priced term')
+  const below = manual({ 12: '999.99' }, p, 'TEST-B').rows[0]
+  assert.deepEqual(below.flags.map((f) => f.message), ['Below the floor'])
+})
+
+test('4.6: equal is not a fall, for client total as well as profit', () => {
+  // 12 at 1,000.00 (total 12,000.00) then 24 at 500.00 (total 12,000.00): no client total flag.
+  const m = manual({ 12: '1000.00', 24: '500.00' })
+  assert.deepEqual(m.rows[1].flags.filter((f) => f.kind === 'total'), [])
+  // 24 at 499.99: total 11,999.76, a fall.
+  assert.deepEqual(manual({ 12: '1000.00', 24: '499.99' }).rows[1].flags.filter((f) => f.kind === 'total').map((f) => f.message),
+    ['Client total below 12 months'])
+})
+
+test('4.6, C4, C11: the rows follow the live TERMS, vs follows ANCHOR_TERM, and no price means nothing priced', () => {
+  const p = { ...SPEC_PARAMS, TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 120], ANCHOR_TERM: 48 }
+  const m = manual(MG1_PRICES, p)
+  assert.deepEqual(m.rows.map((r) => r.termMonths), [12, 24, 36, 48, 60, 72, 84, 96, 120])
+  assert.equal(m.anchorTerm, 48)
+  assert.equal(m.rows.find((r) => r.termMonths === 48).vsAnchor, 'list')
+  // 36 against 48: 1,100.00 / 900.00 - 1 = +22.2%.
+  assert.equal(signedPct(m.rows.find((r) => r.termMonths === 36).vsAnchor), '+22.2%')
+  // A price for a term not offered is not a row.
+  assert.equal(m.rows.find((r) => r.termMonths === 108), undefined)
+  const empty = manual({})
+  assert.equal(empty.summary.priced, 0)
+  assert.ok(empty.rows.every((r) => r.status === 'blank' && typeof r.calculatedCents === 'bigint'))
+})
+
+test('4.6, C6, C8: the note\'s figures come from the engine: hardware, hosting and the first band\'s discount', () => {
+  const m = manual({})
+  assert.deepEqual([money(m.hwCostCents), money(m.hostingMonthlyCents), m.firstBandDiscountPct, `${formatPct(m.floor, 1)}%`],
+    ['8,000.00', '200.00', '0', '25.0%'])
+  const p = withBands(SPEC_PARAMS, 'safesight', [{ from: 1, discountPct: '7.5' }, { from: 10, discountPct: '10' }])
+  assert.equal(manual({}, p).firstBandDiscountPct, '7.5')
+})
+
+test('4.6, C3: the floor in the wording and the check is MARGIN_FLOOR, not 25 (Verification 24)', () => {
+  // 60 at 800.00: margin 58.3% (MG-1). Against a 60% floor it is below, and the
+  // summary names 60; against 7.5% every priced term is at or above it.
+  const at60 = manual({ 60: '800.00' }, { ...SPEC_PARAMS, MARGIN_FLOOR: '60' })
+  assert.deepEqual(at60.rows.find((r) => r.termMonths === 60).flags.map((f) => f.message), ['Below the floor'])
+  assert.equal(at60.summary.floor.text, 'Below the 60% floor at 1 term (60)')
+  assert.equal(manual({ 60: '800.00' }, { ...SPEC_PARAMS, MARGIN_FLOOR: '7.5' }).summary.floor.text,
+    'At or above the 7.5% floor at every priced term')
+})
+
+test('4.6: a filled row (your price = Calculated) reads exactly 0.0% difference', () => {
+  const calc = manual({}).rows
+  const filled = Object.fromEntries(calc.map((r) => [r.termMonths, formatMoney(r.calculatedCents)]))
+  for (const r of manual(filled).rows) assert.equal(signedPct(r.difference), '0.0%', `${r.termMonths}`)
+})
+
+test('4.6: comparison only; the engine refuses a product it cannot price, as the quote does', () => {
+  assert.throws(() => manual({ 12: '100.00' }, SPEC_PARAMS, 'nothing'),
+    (e) => e instanceof TermPricingError && e.code === 'NO_COST')
+})
