@@ -1287,7 +1287,7 @@ function BandEditor({ state, product, onProduct, drafts, setDrafts, onSaved }: {
                     : <input className="tp-num tp-set-narrow" aria-label={`Band ${i + 1} starts at`} data-testid={`tp-bed-from-${i + 1}`}
                         value={r.from} disabled={!admin} aria-invalid={problemAt(i, 'from') || undefined}
                         onChange={(e) => edit(i, 'from', e.target.value)} />}</td>
-                  <td><span className="tp-v tp-bands-ro" data-testid={`tp-bed-to-${i + 1}`}>{to === null ? 'and above' : String(to ?? '?')}</span></td>
+                  <td><span className="tp-v tp-bands-ro" data-testid={`tp-bed-to-${i + 1}`}>{to === null ? 'and above' : String(to)}</span></td>
                   <td><span className="tp-pct-field">
                     <input className="tp-num tp-set-narrow" aria-label={`Band ${i + 1} discount`} data-testid={`tp-bed-disc-${i + 1}`}
                       value={r.discountPct} disabled={!admin} aria-invalid={problemAt(i, 'discountPct') || undefined}

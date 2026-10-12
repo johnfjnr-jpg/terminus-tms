@@ -34,6 +34,10 @@
 //
 // Artefacts are named after the run (Verification 44): bands-<mode>-<width>.
 //
+// A thrown run still prints a verdict, and a missing row FAILS its own claim
+// rather than crashing: calibration B8 first killed this probe at a row read,
+// and the harness rightly stopped rather than counting that as silence.
+//
 // UNWIRED: needs a browser, a live server and a session.
 
 import { readFileSync, mkdirSync } from 'node:fs'
@@ -54,6 +58,13 @@ const ref = new URL(process.env.SUPABASE_URL).hostname.split('.')[0]
 mkdirSync(OUT, { recursive: true })
 
 let failures = 0
+// A run that throws still ends with a verdict, so a harness reads it as a
+// failure with its cause rather than as a run that produced nothing.
+process.on('uncaughtException', (e) => {
+  console.log(`FAIL  the probe ran to its end  [${e.message}]`)
+  console.log(`\n${failures + 1} FAILED (${process.argv.includes('--admin') ? 'admin' : 'reader'})`)
+  process.exit(1)
+})
 const check = (ok, claim, detail = '') => {
   if (!ok) failures++
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${claim}${detail ? `  [${detail}]` : ''}`)
@@ -174,7 +185,8 @@ if (!ADMIN) {
     'TB-1, 3.1: SafeSight reads the seed bands, To derived')
   // 10.3, copied: the 0% and 15% columns at 36, 60, 84 and 120.
   const g = await rows('tp-bands-grid')
-  const at = (r, T) => g[r][1 + [12, 24, 36, 48, 60, 72, 84, 96, 108, 120].indexOf(T)]
+  // A missing row is a FAIL on its own claim, never a crash (Verification 9).
+  const at = (r, T) => g[r]?.[1 + [12, 24, 36, 48, 60, 72, 84, 96, 108, 120].indexOf(T)] ?? null
   want([36, 60, 84, 120].map((T) => at(0, T)), ['90.0', '87.2', '84.7', '81.0'], '10.4 = 10.3: band 1 (0%) worst-case margins')
   want([36, 60, 84, 120].map((T) => at(3, T)), ['88.2', '85.0', '81.9', '77.7'], '10.4 = 10.3: band 4 (15%) worst-case margins')
   want(await head('tp-bands-grid'), ['Band', '12', '24', '36', '48', '60', '72', '84', '96', '108', '120'], 'TB-7: every term in TERMS')
@@ -229,11 +241,11 @@ if (!ADMIN) {
   want([await text('tp-bands-add'), await disabled('tp-bands-add')], ['+ Add band (6 of 6)', true], '4a, TB-2: Add is disabled at 6')
   // BG-3, copied: band 6 (30%) at 12, 36, 60 and 120.
   const g = await rows('tp-bands-grid')
-  const at = (T) => g[5][1 + [12, 24, 36, 48, 60, 72, 84, 96, 108, 120].indexOf(T)]
+  const at = (T) => g[5]?.[1 + [12, 24, 36, 48, 60, 72, 84, 96, 108, 120].indexOf(T)] ?? null
   want([12, 36, 60, 120].map(at), ['85.7', '85.7', '81.8', '72.9'], 'BG-3: band 6 margins, from the click')
   want((await rows('tp-bands-fee-table')).map((r) => r[0]), ['1 · 0%', '2 · 5%', '3 · 10%', '4 · 15%', '5 · 20%', '6 · 30%'], '0.3: the fee table shows all six bands')
   // The 84-month fee for the 30% band is not printed in the spec; 36, 60 and 120 are (BG-3).
-  const fee6 = (await rows('tp-bands-fee-table'))[5]
+  const fee6 = (await rows('tp-bands-fee-table'))[5] ?? []
   want([fee6[1], fee6[2], fee6[4]], ['2,955.56', '1,829.33', '984.67'], 'BG-3: band 6 fees at 36, 60 and 120, from the click')
   // 10.4 at a 73% floor (passed in test): exactly one cell flagged, and the ruled warning.
   const flagged = await page.$$eval(`${V} [data-testid="tp-bands-grid"] td[data-below="true"]`, (ts) => ts.map((t) => t.dataset.testid))

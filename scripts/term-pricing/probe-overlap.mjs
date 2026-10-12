@@ -11,6 +11,8 @@
 // sweep covers every tab in every state:
 //   Pricing        OPEX and CAPEX, Settings collapsed and expanded, as a
 //                  non-admin and as an admin (the only tab an admin changes);
+//                  TP_BANDS adds the band editor as an admin at 6 bands (4a,
+//                  with its floor warning), with a rule broken (4b), and at 2;
 //   Payment terms  WHT off, split (5% / 10%, grossed up, CPI published 3% from
 //                  year 3) and borne (10%), each under OPEX and four CAPEX
 //                  shapes: the default, Monthly instalments over 12, G-C2's
@@ -83,9 +85,16 @@ const INJECTIONS = {
   // TP_TABS: the summary column forced beside the work at every width must
   // fire where the view cannot hold both (the container query's reason).
   'side-by-side': '.tp-grid { grid-template-columns: minmax(0, 1fr) 360px !important; grid-template-areas: "main side" "main next" !important; }',
+  // TP_BANDS: the floor warning pulled up over the margin grid must fire the
+  // overprint detector; the margin check squeezed narrower than its table
+  // must fire the band fit check; band 1's fixed start pulled left over its
+  // label column must fire the overprint detector at 2 bands too.
+  'bands-warn-up': '[data-testid="tp-bands-warn"] { margin-top: -70px !important; }',
+  'bands-squeeze': '.tp-bands-grid > .tp-bands-check { flex: 0 0 240px !important; max-width: 240px !important; }',
+  'bands-ro-over': '[data-testid="tp-bed-from-1"] { position: relative; left: -170px; }',
 }
 
-async function signedIn(browser, { admin = false } = {}) {
+async function signedIn(browser, { admin = false, floor = null } = {}) {
   const page = await browser.newPage()
   await page.setViewport({ width: 1240, height: 1100 })
   // TERMS AS v1.3 (B1) and MARGINS AS THE SPEC (R1), IN THE BROWSER'S COPY
@@ -93,7 +102,9 @@ async function signedIn(browser, { admin = false } = {}) {
   const terms = process.argv.includes('--live-terms') ? null : [12, 24, 36, 48, 60, 72, 84, 96, 108, 120]
   const m = { safesight: '90', air_quality: '90', hemir: '90' }
   const margins = process.argv.includes('--live-margins') ? null : { ANCHOR_MARGIN: m, SHORT_TERM_MARGIN: m }
-  await page.evaluateOnNewDocument((admin, terms, margins) => {
+  // TP_BANDS: `floor` passes MARGIN_FLOOR in test, so 4a's floor breach and
+  // its warning are on screen at the spec's margins (73%, as probe-bands.mjs).
+  await page.evaluateOnNewDocument((admin, terms, margins, floor) => {
     const real = window.fetch
     window.fetch = async (...a) => {
       const res = await real(...a)
@@ -101,10 +112,10 @@ async function signedIn(browser, { admin = false } = {}) {
       if (!/\/api\/term-pricing(\?|$)/.test(url) || !res.ok) return res
       const body = await res.clone().json()
       const out = { ...body, ...(admin ? { isAdmin: true } : {}),
-        settings: { ...body.settings, ...(terms ? { TERMS: terms } : {}), ...(margins ?? {}) } }
+        settings: { ...body.settings, ...(terms ? { TERMS: terms } : {}), ...(margins ?? {}), ...(floor ? { MARGIN_FLOOR: floor } : {}) } }
       return new Response(JSON.stringify(out), { status: res.status, headers: res.headers })
     }
-  }, admin, terms, margins)
+  }, admin, terms, margins, floor)
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
   await page.evaluate((k, v) => localStorage.setItem(k, v), `sb-${ref}-auth-token`, JSON.stringify(session))
   await page.reload({ waitUntil: 'networkidle0' })
@@ -241,6 +252,50 @@ const layout = (p) => p.evaluate(() => {
   return { ok: tables.length === 0, sideBySide, tables }
 })
 
+// TP_BANDS: every table in the band editor fits the box it sits in.
+const bandFit = async (p, where) => {
+  const over = await p.evaluate(() => [...document.querySelectorAll('#view-term-pricing [data-testid="tp-bands"] table')]
+    .filter((t) => t.getBoundingClientRect().right > t.parentElement.getBoundingClientRect().right + 0.5 || t.scrollWidth > t.parentElement.clientWidth + 1)
+    .map((t) => t.dataset.testid ?? t.className))
+  check(over.length === 0, `${where}: every band table fits its box`, over.join(', '))
+}
+
+// TP_BANDS (brief: "including the band editor at 2 and 6 bands"): an admin, in
+// test, on Settings open. 4a at 6 bands with its floor warning, 4b with a rule
+// broken (no figures, both Fix states), and 2 bands. Each state asserts it was
+// reached before its zero counts (Verification 14).
+async function bandSweep(browser, TP) {
+  const page = await signedIn(browser, { admin: true, floor: '73' })
+  await page.evaluate(() => window.navigate('term-pricing'))
+  await page.waitForFunction(() => document.querySelector('#view-term-pricing [data-testid="tp-ladder"]'), { timeout: 15000 })
+  await page.click('[data-testid="tp-settings-toggle"]')
+  await page.waitForSelector('[data-testid="tp-bands"]', { timeout: 6000 })
+  const reached = (n, want) => async (p) => {
+    const s = await p.evaluate(() => ({
+      rows: document.querySelectorAll('#view-term-pricing [data-testid="tp-bands-editor"] tbody tr').length,
+      grid: !!document.querySelector('[data-testid="tp-bands-grid"]'),
+      fees: !!document.querySelector('[data-testid="tp-bands-fee-table"]'),
+      warn: !!document.querySelector('[data-testid="tp-bands-warn"]'),
+      problems: !!document.querySelector('[data-testid="tp-bands-problems"]'),
+    }))
+    const ok = s.rows === n && Object.entries(want).every(([k, v]) => s[k] === v)
+    return { ok, detail: JSON.stringify(s), minAtoms: 200 }
+  }
+  await page.click('[data-testid="tp-bands-add"]')
+  await typeInto(page, 'tp-bed-from-5', '500'); await typeInto(page, 'tp-bed-disc-5', '20.0')
+  await page.click('[data-testid="tp-bands-add"]')
+  await typeInto(page, 'tp-bed-from-6', '1000'); await typeInto(page, 'tp-bed-disc-6', '30.0')
+  await sweep(page, TP, 'bands admin 6 bands (4a)', reached(6, { grid: true, fees: true, warn: true, problems: false }), bandFit)
+  await page.click('[data-testid="tp-bands-product-hemir"]')
+  await page.waitForFunction(() => document.querySelector('[data-testid="tp-bands-editor"] .tp-sec-title')?.textContent.trim() === 'HEMIR bands')
+  await typeInto(page, 'tp-bed-from-2', '2'); await typeInto(page, 'tp-bed-from-3', '5'); await typeInto(page, 'tp-bed-from-4', '4')
+  await sweep(page, TP, 'bands admin rule broken (4b)', reached(4, { grid: false, fees: false, warn: false, problems: true }), bandFit)
+  await page.click('[data-testid="tp-bands-discard"]')
+  await page.click('[data-testid="tp-bed-remove-4"]'); await page.click('[data-testid="tp-bed-remove-3"]')
+  await sweep(page, TP, 'bands admin 2 bands', reached(2, { grid: true, fees: true, warn: false, problems: false }), bandFit)
+  await page.close()
+}
+
 // The Quote tab: every table fits its card, L1 on the tax detail's Total row,
 // and TILE_FIT on the tiles.
 async function quoteChecks(p, where, taxOn) {
@@ -323,8 +378,12 @@ try {
               open: !!document.querySelector('[data-testid="tp-settings-body"]'),
               adminSave: !!document.querySelector('[data-testid="tp-settings-save"]'),
               basis: document.querySelector('[data-testid="tp-head-basis"]')?.textContent.trim(),
+              // TP_BANDS: open Settings carries the band editor, read-only for a non-admin (0.7).
+              bands: !!document.querySelector('[data-testid="tp-bands"]'),
+              readOnly: !!document.querySelector('[data-testid="tp-bands-readonly"]'),
             }))
             const ok = (await panel(p, 'pricing')) && s.ladder && s.breakdown && s.price && s.open === open && (open ? s.adminSave === admin : true) && s.basis === basis.toUpperCase()
+              && s.bands === open && (open ? s.readOnly === !admin : true)
             // The floors are the single page's (200 open, 120 closed), not raised
             // to what this build happens to render.
             return { ok, detail: JSON.stringify(s), minAtoms: open ? 200 : 120 }
@@ -337,7 +396,7 @@ try {
         if (isOpen) await page.click('[data-testid="tp-settings-toggle"]')
       }
       // Payment terms and Quote do not depend on the admin flag; swept once.
-      if (admin) { await page.close(); continue }
+      if (admin) { await page.close(); await bandSweep(browser, TP); continue }
 
       // ── Payment terms and Quote: every WHT state, every payment shape. ────
       for (const w of ['off', 'split', 'borne']) {

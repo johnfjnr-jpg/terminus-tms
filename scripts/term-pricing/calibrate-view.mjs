@@ -31,8 +31,12 @@ const snap = readFileSync(VIEW), snapBundle = readFileSync(BUNDLE)
 writeFileSync(`${SP}/view.snapshot`, snap)
 if (!existsSync(`${SP}/view.snapshot`) || !readFileSync(`${SP}/view.snapshot`).equals(snap)) { console.log('STOP: no snapshot'); process.exit(2) }
 const build = () => spawnSync('npm', ['run', 'build:react'], { cwd: ROOT, encoding: 'utf8' }).status
-const probe = (mode) => spawnSync('node', ['--env-file=.env', 'scripts/term-pricing/probe-screen.mjs', ...(mode ? [mode] : []), '--spec', '--out', `${SP}/calshots`],
+// TP_BANDS: an injection may name its probe. probe-bands.mjs passes the spec's
+// margins itself, so it takes no --spec.
+const probe = (mode, script = 'probe-screen.mjs') => spawnSync('node', ['--env-file=.env', `scripts/term-pricing/${script}`, ...(mode ? [mode] : []),
+  ...(script === 'probe-screen.mjs' ? ['--spec'] : []), '--out', `${SP}/calshots`],
   { cwd: ROOT, encoding: 'utf8', env: { ...process.env, PUPPETEER_PATH: '/tmp/tms-probe/node_modules/puppeteer', TP_RUN: 'cal' } })
+const BANDS = 'probe-bands.mjs'
 const verdictOf = (r) => { const out = (r.stdout ?? '') + (r.stderr ?? ''); const sum = /ALL PASS|\d+ FAILED/.test(r.stdout ?? ''); return { out, sum } }
 const INJ = [
   // ── W1 to W4, RE-POINTED ──
@@ -90,6 +94,50 @@ const INJ = [
   { id: 'T16', mode: '--capex', why: 'over 100% the readiness card does not use the engine\'s words (C5)',
     find: "(result && 'refusal' in result && result.refusal) || 'The milestone shares total more than 100%.'", put: "'The milestone shares total more than 100%.'",
     expect: 'G-C4 100.1% is refused in the engine' },
+  // ── TP_BANDS, spec v1.8 (M4: one per new view claim), on probe-bands.mjs ──
+  { id: 'B1', script: BANDS, mode: '--admin', why: 'an admin is told only an admin can change these (0.7)',
+    find: '{!admin && <p className="tp-small tp-muted" data-testid="tp-bands-readonly">', put: '{<p className="tp-small tp-muted" data-testid="tp-bands-readonly">',
+    expect: '0.7: no read-only sentence for an admin' },
+  { id: 'B2', script: BANDS, mode: '', why: 'a non-admin can type a discount (0.7, TB-8)',
+    find: 'value={r.discountPct} disabled={!admin}', put: 'value={r.discountPct} disabled={false}', expect: '0.7: every band input is shown and disabled' },
+  { id: 'B3', script: BANDS, mode: '', why: 'a non-admin sees the admin eyebrow (0.7)',
+    find: '{admin && <div className="tp-small tp-muted" data-testid="tp-bands-eyebrow">', put: '{<div className="tp-small tp-muted" data-testid="tp-bands-eyebrow">',
+    expect: '0.7: no eyebrow for a non-admin' },
+  // RE-AIMED: first aimed at the view's `to ?? '?'`, it came back SILENT
+  // because the "?" is the ENGINE'S (validateBands, calibrated by Y11) and the
+  // fallback was dead; the fallback is removed. The view's own fault would be a
+  // second reader deriving To from the typed starts, which shows 3, not "?".
+  { id: 'B4', script: BANDS, mode: '--admin', why: 'the view derives To itself, so an invalid next start shows a number, not "?" (3.2)',
+    find: '{to === null ? \'and above\' : String(to)}', put: '{to === null ? \'and above\' : String(rows[i + 1] ? Number(rows[i + 1].from) - 1 : \'\')}',
+    expect: '4b: band 3' },
+  { id: 'B5', script: BANDS, mode: '--admin', why: 'Save bands is enabled while a rule is broken (TB-6)',
+    find: 'disabled={!dirty || !v.ok || saving}', put: 'disabled={!dirty || saving}', expect: '4b, TB-6: Save bands is disabled' },
+  { id: 'B6', script: BANDS, mode: '--admin', why: 'a floor breach blocks the save (TB-7: it warns only)',
+    find: 'disabled={!dirty || !v.ok || saving}', put: 'disabled={!dirty || !v.ok || saving || (grid.ok && grid.breaches.length > 0)}',
+    expect: 'TB-7: a breach warns and does not block' },
+  { id: 'B7', script: BANDS, mode: '--admin', why: 'the warning carries the mockup\'s false sentence (0.2)',
+    find: 'You can still save. A quote is flagged for approval only when its whole-deal margin falls below the floor.',
+    put: 'You can still save; quotes in this band and term will show the floor flag for approval.', expect: '0.2: the warning' },
+  { id: 'B8', script: BANDS, mode: '--admin', why: 'the fee table shows the mockup\'s bands 1, 4 and 6 only (0.3)',
+    find: '<tr key={r.band} data-testid={`tp-bfee-row-${r.band}`}>', put: '[1, 4, 6].includes(r.band) && <tr key={r.band} data-testid={`tp-bfee-row-${r.band}`}>',
+    expect: '0.3: the fee table shows all six bands' },
+  { id: 'B9', script: BANDS, mode: '--admin', why: 'the invalid state hides the cards\' sentence (0.4)',
+    find: '<div className="tp-small tp-muted tp-bands-fix">Fix the band rules to see the margin check.</div>', put: '<div className="tp-small tp-muted tp-bands-fix"></div>',
+    expect: '4b, 0.4' },
+  { id: 'B10', script: BANDS, mode: '--admin', why: 'the save drops the last band from the request (0.5)',
+    find: 'const bands = typed.map((b) => ({', put: 'const bands = typed.slice(0, -1).map((b) => ({', expect: '0.5: the request carries the six bands' },
+  { id: 'B11', script: BANDS, mode: '--admin', why: 'after a save the editor waits for a refetch, reading dirty (found by the probe)',
+    find: '    if (r.data?.settings) onSaved(r.data)\n', put: '', expect: 'after the save the editor is clean' },
+  { id: 'B12', script: BANDS, mode: '--admin', why: 'a switch of product throws the draft away (T-1)',
+    find: 'onChoose={(p) => { onProduct(p); setMessage(null) }}', put: 'onChoose={(p) => { onProduct(p); setMessage(null); setDrafts((d) => { const n = { ...d }; delete n[p]; return n }) }}',
+    expect: 'T-1: HEMIR\'s draft survives a switch of product' },
+  { id: 'B13', script: BANDS, mode: '--admin', why: 'Add is live at 6 bands (TB-2)',
+    find: 'disabled={rows.length >= MAX_BANDS_SHOWN}', put: 'disabled={false}', expect: '4a, TB-2: Add is disabled at 6' },
+  { id: 'B14', script: BANDS, mode: '--admin', why: 'the remove control is live at 2 bands (TB-2)',
+    find: 'disabled={rows.length <= 2}', put: 'disabled={false}', expect: 'TB-2: ✕ is disabled at 2 bands' },
+  { id: 'B15', script: BANDS, mode: '--admin', why: 'a server refusal is not shown (TB-6: the server is the authority)',
+    find: "const shownErrors = message?.kind === 'error' ? (message.problems?.length ? message.problems : [message.text]) : v.problems.map((p) => p.message)",
+    put: 'const shownErrors = v.problems.map((p) => p.message)', expect: 'TB-6: the server\'s sentence is shown' },
 ].filter((j) => !ONLY.length || ONLY.includes(j.id))
 const results = []
 try {
@@ -100,11 +148,11 @@ try {
     if (readFileSync(VIEW, 'utf8') === before) throw new Error(`${j.id}: did not land`)
     if (build() !== 0) throw new Error(`${j.id}: build failed`)
     const t0 = Date.now()
-    const { out, sum } = verdictOf(probe(j.mode))
+    const { out, sum } = verdictOf(probe(j.mode, j.script))
     if (!sum) throw new Error(`${j.id}: the probe produced no verdict (it died after ${Date.now() - t0}ms), so this is not silence: ${out.split('\n').filter((l) => /Error/.test(l)).slice(0, 2).join(' | ')}`)
     const fired = out.split('\n').some((l) => l.startsWith('FAIL') && l.includes(j.expect))
     const fails = out.split('\n').filter((l) => l.startsWith('FAIL')).length
-    console.log(`${j.id} ${fired ? 'FIRED' : 'SILENT'} fails=${fails} ${Date.now() - t0}ms ${j.why} [${j.mode || 'default'}; expects: ${j.expect}]`)
+    console.log(`${j.id} ${fired ? 'FIRED' : 'SILENT'} fails=${fails} ${Date.now() - t0}ms ${j.why} [${j.script ?? 'probe-screen.mjs'} ${j.mode || 'default'}; expects: ${j.expect}]`)
     results.push(fired)
     writeFileSync(VIEW, snap)
     if (!readFileSync(VIEW).equals(snap)) throw new Error(`${j.id}: restore not byte-identical`)
@@ -113,9 +161,10 @@ try {
   writeFileSync(VIEW, snap)
   build()
 }
-for (const mode of [...new Set(INJ.map((j) => j.mode))]) {
-  const { out } = verdictOf(probe(mode))
-  console.log(`reverted ${mode || 'default'}: probe ${out.trim().split('\n').at(-1)}`)
+for (const key of [...new Set(INJ.map((j) => `${j.script ?? 'probe-screen.mjs'}|${j.mode}`))]) {
+  const [script, mode] = key.split('|')
+  const { out } = verdictOf(probe(mode, script))
+  console.log(`reverted ${script} ${mode || 'default'}: probe ${out.trim().split('\n').at(-1)}`)
 }
 console.log(`view identical ${readFileSync(VIEW).equals(snap)}, bundle identical ${readFileSync(BUNDLE).equals(snapBundle)}`)
 console.log(`${results.filter(Boolean).length}/${results.length} FIRED`)
