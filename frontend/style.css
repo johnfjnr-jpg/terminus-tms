@@ -9437,6 +9437,31 @@ select:autofill {
 .tp-set-wide { width: 330px; }
 .tp-set-narrow { width: 72px; }
 .tp-save-row { margin-top: 14px; text-align: right; }
+/* ── TP_BANDS (John, 2026-10-12): the per-product band editor ────────────
+   Built to prototypes/term-pricing-bands/term-pricing-bands.html (4a, 4b) in
+   this screen's own tokens (C13). It sits in the Settings card below Save
+   settings, ruled off from it, with its own Save bands (ruling 0.5). The
+   editor and the margin check share a row only where both fit, by the same
+   wrapping flex as the settings grid above. A flagged margin cell wears the
+   existing .tp-chip.tp-flag, so no new --attention binding is minted. */
+.tp-bands { border-top: 1px solid var(--hairline); margin-top: 22px; padding-top: 4px; }
+.tp-bands-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; margin: 14px 0 12px; }
+.tp-bands-actions { display: flex; gap: 10px; }
+.tp-bands-product { margin-bottom: 4px; }
+.tp-bands-grid { gap: 24px; }
+.tp-bands-table td { vertical-align: middle; }
+.tp-v.tp-bands-ro { display: inline-block; font-size: 13px; min-width: 64px; margin: 0; }
+.tp-bands-problems { margin-top: 10px; }
+.tp-bands-problems .tp-error + .tp-error { margin-top: 4px; }
+.tp-bands-rules { margin-top: 14px; line-height: 1.7; }
+.tp-bands-check { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.tp-bands-check-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
+.tp-bands-fix { padding: 32px 0; text-align: center; }
+.tp-bands-margins th, .tp-bands-margins td { padding-left: 6px; padding-right: 6px; }
+.tp-chip.tp-bands-cell { margin-top: 0; padding: 1px 5px; }
+/* A start or discount that breaks a spec 3.2 rule. The error colour, because a
+   broken rule refuses the save; a floor breach only warns and is not shown here. */
+.tp-num[aria-invalid="true"] { border-color: var(--red); }
 /* ── TP_CAPEX (C-13): the price card, the CAPEX payment card, the CPI row ──
    Built to prototypes/term-pricing-capex.html in this screen's own visual
    language: the same cards, labels, segments, tables and figure face. */

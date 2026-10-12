@@ -76,11 +76,19 @@ const sameValue = (a, b) => canon(a) === canon(b)
 
 // ── V: the migrations ────────────────────────────────────────────────────
 const rows = await fingerprint()
-check(rows.length === 9, 'term_pricing_settings holds 9 keys', String(rows.length))
+// RE-POINTED by TP_BANDS (spec v1.8, TB-1): bands are per product, in
+// VOLUME_BANDS_BY_PRODUCT. The retired VOLUME_BANDS row stays until its
+// removal migration is applied after the push, so the table holds 10 keys
+// until then and 9 after; both are accepted, named. NOT RUN in TP_BANDS: this
+// probe writes live settings and grants a temporary admin, which ruling 0.1
+// excludes.
+check(rows.length === 10 || (rows.length === 9 && !rows.some((r) => r.key === 'VOLUME_BANDS')),
+  'term_pricing_settings holds the 9 keys (10 until VOLUME_BANDS is removed)', rows.map((r) => r.key).join(','))
 const byKey = Object.fromEntries(rows.map((r) => [r.key, r.value]))
 const decimals = [
   ...Object.values(byKey.ANCHOR_MARGIN), ...Object.values(byKey.SHORT_TERM_MARGIN),
-  byKey.PROFIT_STEP, byKey.HW_UPFRONT_MARGIN, byKey.MARGIN_FLOOR, ...byKey.VOLUME_BANDS.map((b) => b.discountPct),
+  byKey.PROFIT_STEP, byKey.HW_UPFRONT_MARGIN, byKey.MARGIN_FLOOR,
+  ...Object.values(byKey.VOLUME_BANDS_BY_PRODUCT).flatMap((list) => list.map((b) => b.discountPct)),
 ]
 check(decimals.length > 0 && decimals.every((d) => typeof d === 'string'), 'every decimal is stored as a JSON string', decimals.join(','))
 check(JSON.stringify(byKey.TERMS) === '[12,24,36,48,60,72,84,96,120]' && byKey.ANCHOR_TERM === 36, 'TERMS and ANCHOR_TERM as seeded')

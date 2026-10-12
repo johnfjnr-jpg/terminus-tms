@@ -1,7 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { resolveCurrentBatches } from '../lib/base-costs.js'
 import {
-  settingsFromRows, costsFromCatalog, mergeSettingsChange, SETTING_KEYS,
+  settingsFromRows, costsFromCatalog, mergeSettingsChange, mergeBandsChange, SETTING_KEYS,
 } from '../lib/term-pricing-settings.js'
 
 // ── TERM PRICING: settings and catalog costs for the quote calculator ────
@@ -13,6 +13,13 @@ import {
 //   GET /api/term-pricing            settings, catalog costs, and whether the
 //                                    caller is an admin
 //   PUT /api/term-pricing/settings   admin only: change one or more settings
+//   PUT /api/term-pricing/bands/:product
+//                                    admin only: one product's volume bands
+//                                    (v1.8, TP_BANDS ruling 0.5)
+//
+// `dbFor` (plugin option) is the caller's client factory. It defaults to
+// createUserClient and exists so scripts/tests/term-pricing-route.test.mjs can
+// drive this module over HTTP against a recording database (ruling 0.1).
 //
 // ── R-TP6: ADMIN ONLY, ENFORCED TWICE ────────────────────────────────────
 //
@@ -54,10 +61,31 @@ async function readState(db, userId) {
   }
 }
 
-export default async function termPricingRoutes(app) {
+// ONE statement for every changed key, so a change lands whole or not at all.
+// The admin has both the insert and the update policy, which an upsert needs.
+// Zero rows back is the RLS refusal wearing success (Verification 8).
+async function writeKeys(db, request, reply, keys, merged) {
+  const now = new Date().toISOString()
+  const rows = keys.map((k) => ({ key: k, value: merged[k], updated_at: now, updated_by: request.user.id }))
+  const { data, error } = await db.from('term_pricing_settings').upsert(rows, { onConflict: 'key' }).select('key')
+  if (error) {
+    request.log.error({ err: error }, 'term pricing: settings write failed')
+    reply.code(500).send({ error: error.message })
+    return false
+  }
+  if ((data ?? []).length !== rows.length) {
+    reply.code(403).send({ error: 'The database refused the change: no admin row for this user.' })
+    return false
+  }
+  return true
+}
+
+export default async function termPricingRoutes(app, opts = {}) {
+  const dbFor = opts.dbFor ?? createUserClient
+
   app.get('/term-pricing', async (request, reply) => {
     try {
-      return await readState(createUserClient(request.jwt), request.user.id)
+      return await readState(dbFor(request.jwt), request.user.id)
     } catch (err) {
       request.log.error({ err }, 'term pricing: read failed')
       return reply.code(err.status ?? 500).send({ error: err.message })
@@ -65,7 +93,7 @@ export default async function termPricingRoutes(app) {
   })
 
   app.put('/term-pricing/settings', async (request, reply) => {
-    const db = createUserClient(request.jwt)
+    const db = dbFor(request.jwt)
     let state
     try {
       state = await readState(db, request.user.id)
@@ -86,23 +114,40 @@ export default async function termPricingRoutes(app) {
       return reply.code(400).send({ error: err.message, code: err.code })
     }
 
-    // ONE statement for every changed key, so a change lands whole or not at
-    // all. The admin has both the insert and the update policy, which an
-    // upsert needs.
-    const now = new Date().toISOString()
-    const rows = Object.keys(patch)
-      .filter((k) => SETTING_KEYS.includes(k))
-      .map((k) => ({ key: k, value: merged[k], updated_at: now, updated_by: request.user.id }))
-    const { data, error } = await db.from('term_pricing_settings').upsert(rows, { onConflict: 'key' }).select('key')
-    if (error) {
-      request.log.error({ err: error }, 'term pricing: settings write failed')
-      return reply.code(500).send({ error: error.message })
-    }
-    // Zero rows back is the RLS refusal wearing success (Verification 8).
-    if ((data ?? []).length !== rows.length) {
-      return reply.code(403).send({ error: 'The database refused the change: no admin row for this user.' })
+    if (!await writeKeys(db, request, reply, Object.keys(patch).filter((k) => SETTING_KEYS.includes(k)), merged)) return reply
+    return await readState(db, request.user.id)
+  })
+
+  // v1.8 (TP_BANDS, rulings 0.5 and TB-6): one product's bands, and only that
+  // product's. The set is validated by the engine's own validateBands, so a
+  // refusal carries the sentence the editor showed, and EVERY problem.
+  //
+  // Read-merge-write of the one jsonb row: two admins saving DIFFERENT
+  // products in the same instant could lose one save. Recorded, not guarded:
+  // there is one admin today, and the Settings card's own save has the same
+  // shape.
+  app.put('/term-pricing/bands/:product', async (request, reply) => {
+    const db = dbFor(request.jwt)
+    let state
+    try {
+      state = await readState(db, request.user.id)
+    } catch (err) {
+      request.log.error({ err }, 'term pricing: read before bands write failed')
+      return reply.code(err.status ?? 500).send({ error: err.message })
     }
 
+    if (!state.isAdmin) {
+      return reply.code(403).send({ error: 'Only an admin can change term pricing settings.' })
+    }
+
+    let merged
+    try {
+      merged = mergeBandsChange(state.settings, request.params.product, request.body?.bands, state.costs)
+    } catch (err) {
+      return reply.code(400).send({ error: err.message, code: err.code, problems: err.problems ?? [] })
+    }
+
+    if (!await writeKeys(db, request, reply, ['VOLUME_BANDS_BY_PRODUCT'], merged)) return reply
     return await readState(db, request.user.id)
   })
 }

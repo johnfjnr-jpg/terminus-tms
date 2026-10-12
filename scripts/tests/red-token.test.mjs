@@ -76,6 +76,8 @@ const RED_FAMILY = [
   '.new-lead-table select[aria-invalid="true"]',
   '.tb-doc-feedback.err',
   '.stat-value--overdue',
+  // TP_BANDS (2026-10-12): a band start or discount breaking a spec 3.2 rule.
+  '.tp-num[aria-invalid="true"]',
 ]
 // `.stat-value--overdue` binds twice, colour and border. The select rule also
 // carried a `border-bottom: 1px solid var(--red)` BEFORE this round, which is

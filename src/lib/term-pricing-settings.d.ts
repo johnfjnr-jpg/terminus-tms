@@ -8,3 +8,4 @@ export function settingsFromRows(rows: Array<{ key: string; value: unknown }>): 
 export function costsFromCatalog(current: unknown[], rawRows: unknown[]): Record<string, CatalogCost>
 export function buildParams(settings: Record<string, unknown>, costs: Record<string, CatalogCost>): EngineParamsInput
 export function mergeSettingsChange(current: Record<string, unknown>, patch: unknown, costs: Record<string, CatalogCost>): Record<string, unknown>
+export function mergeBandsChange(current: Record<string, unknown>, product: string, bands: unknown, costs: Record<string, CatalogCost>): Record<string, unknown>

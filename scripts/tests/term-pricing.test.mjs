@@ -22,18 +22,24 @@ import * as ENGINE from '../../src/lib/term-pricing.js'
 // Spec section 3, as written. Costs: SafeSight at the reference figures of
 // section 10, and TEST-B, the section 11 fixture (NOT a real product).
 // v1.3 (B1): the default TERMS runs every year to ten. 108 is new.
+// v1.8 (TP_BANDS, TB-1): bands are per product, and every product is seeded
+// with the section 3.1 bands. Every product any test here prices carries the
+// seed, so every figure below is the v1.7 figure on the seed (BG-5).
+const SEED_BANDS = Object.freeze([
+  { from: 1, discountPct: '0' },
+  { from: 10, discountPct: '5' },
+  { from: 50, discountPct: '10' },
+  { from: 200, discountPct: '15' },
+])
 const SPEC_PARAMS = Object.freeze({
   TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120],
   ANCHOR_TERM: 36,
   ANCHOR_MARGIN: { safesight: '90', 'TEST-B': '90' },
   SHORT_TERM_MARGIN: { safesight: '90', 'TEST-B': '90' },
   PROFIT_STEP: '0.00',
-  VOLUME_BANDS: [
-    { from: 1, discountPct: '0' },
-    { from: 10, discountPct: '5' },
-    { from: 50, discountPct: '10' },
-    { from: 200, discountPct: '15' },
-  ],
+  VOLUME_BANDS_BY_PRODUCT: {
+    safesight: SEED_BANDS, 'TEST-B': SEED_BANDS, air_quality: SEED_BANDS, hemir: SEED_BANDS,
+  },
   HW_UPFRONT_MARGIN: '20',
   MARGIN_FLOOR: '25',
   CURRENCY: 'USD',
@@ -396,12 +402,14 @@ test('flow: TERMS decides what is offered and where the steps fall', () => {
   assert.equal(money(quote({ safesight: 1 }, 48, {}, r).monthlyTotalCents), '3,237.50')
 })
 
-test('flow: VOLUME_BANDS change the banded fees', () => {
-  // Band 2 at 10% instead of 5%: 9 x 4,222.22 + 1 x round(4,222.222... x 0.9) = 3,800.00;
+test('flow: a product\'s bands change its banded fees, and only its own (v1.8, TB-1)', () => {
+  // SafeSight band 2 at 10% instead of 5%: 9 x 4,222.22 + 1 x round(4,222.222... x 0.9) = 3,800.00;
   // monthly 37,999.98 + 3,800.00 = 41,799.98.
-  const bands = SPEC_PARAMS.VOLUME_BANDS.map((b) => (b.from === 10 ? { ...b, discountPct: '10' } : b))
-  const q = quote({ safesight: 10 }, 36, {}, withParams({ VOLUME_BANDS: bands }))
-  assert.equal(money(q.monthlyTotalCents), '41,799.98')
+  const bands = SEED_BANDS.map((b) => (b.from === 10 ? { ...b, discountPct: '10' } : b))
+  const p = withParams({ VOLUME_BANDS_BY_PRODUCT: { ...SPEC_PARAMS.VOLUME_BANDS_BY_PRODUCT, safesight: bands } })
+  assert.equal(money(quote({ safesight: 10 }, 36, {}, p).monthlyTotalCents), '41,799.98')
+  // TEST-B keeps the seed: T13, 30 units at 60 months, is unchanged on the same params.
+  assert.equal(money(quote({ 'TEST-B': 30 }, 60, {}, p).tcvNetCents), '1,134,842.40')
 })
 
 test('flow: HW_UPFRONT_MARGIN 0 puts the CAPEX Hardware amount at cost', () => {
@@ -1180,4 +1188,189 @@ test('v1.7 (T-4): every v1.6 refusal still holds through the preview', () => {
   refuses(HYBRID([' ', 0, '20']), 'MILESTONE_KEY', 'no milestone chosen')
   assert.throws(() => ENGINE.capexAllocation({ units: DEMO, termMonths: 60, paymentStructure: 'opex' }, CATALOG),
     (e) => e.code === 'NOT_CAPEX', 'the preview is for CAPEX')
+})
+
+// ── v1.8 (TP_BANDS): per-product bands, spec 3.1, 3.2, 10.4 and 11.4 ───────
+//
+// Every figure and every sentence below is COPIED from spec v1.8 (BG-1 to
+// BG-4 and the 3.2 table), never computed by the code under test. BG-5, the
+// seed reproducing every v1.7 figure, is this whole file: SPEC_PARAMS carries
+// the seed per product and every earlier case runs on it.
+
+const bandsOf = (spec) => spec.map(([from, discountPct]) => ({ from, discountPct }))
+const BG1_BANDS = bandsOf([[1, '0'], [10, '5'], [50, '10'], [200, '15'], [500, '20'], [1000, '30']])
+const BG2_BANDS = bandsOf([[1, '0'], [2, '5'], [5, '10'], [10, '15']])
+const withBands = (base, product, bands) =>
+  ({ ...base, VOLUME_BANDS_BY_PRODUCT: { ...base.VOLUME_BANDS_BY_PRODUCT, [product]: bands } })
+
+test('BG-1 SafeSight on six bands, 1,000 units, 60 months, OPEX', () => {
+  const q = quote({ safesight: 1000 }, 60, {}, withBands(SPEC_PARAMS, 'safesight', BG1_BANDS))
+  const l = q.lines.find((x) => x.product === 'safesight')
+  assert.deepEqual(l.bands.map((b) => money(b.feeByYear[0])),
+    ['2,613.33', '2,482.67', '2,352.00', '2,221.33', '2,090.67', '1,829.33'], 'band fees')
+  assert.deepEqual(l.bands.map((b) => b.units), [9, 40, 150, 300, 500, 1], 'units per band')
+  assert.equal(money(q.monthlyTotalCents), '2,189,190.10')
+  assert.equal(money(q.tcvNetCents), '131,351,406.00')
+  assert.equal(pct(q.grossMargin), '84.8')
+})
+
+test('BG-2 HEMIR on its own bands, 2 units, 60 months', () => {
+  const q = quote({ hemir: 2 }, 60, {}, withBands(CATALOG, 'hemir', BG2_BANDS))
+  const l = q.lines.find((x) => x.product === 'hemir')
+  assert.deepEqual(l.bands.map((b) => [money(b.feeByYear[0]), b.units]), [['19,866.67', 1], ['18,873.33', 1]])
+  assert.equal(money(q.monthlyTotalCents), '38,740.00')
+  assert.equal(money(q.tcvNetCents), '2,324,400.00')
+  assert.equal(pct(q.grossMargin), '88.8')
+})
+
+test('BG-1 and BG-2 together: each product prices on its own bands in one deal (TB-1)', () => {
+  // SafeSight on six bands, HEMIR on 1/2/5/10, one deal: each line equals its own case.
+  const p = withBands(withBands(CATALOG, 'safesight', BG1_BANDS), 'hemir', BG2_BANDS)
+  const q = quote({ safesight: 1000, hemir: 2 }, 60, {}, p)
+  assert.equal(money(q.lines.find((x) => x.product === 'safesight').tcvNetCents), '131,351,406.00')
+  assert.equal(money(q.lines.find((x) => x.product === 'hemir').tcvNetCents), '2,324,400.00')
+})
+
+test('BG-3 the margin check: SafeSight\'s 30% band, every unit at that band\'s fee', () => {
+  const g = ENGINE.bandMarginGrid('safesight', BG1_BANDS, SPEC_PARAMS)
+  assert.equal(g.ok, true)
+  const row = g.rows.find((r) => r.discountPct === '30')
+  assert.ok(row, 'the 30% band is a row')
+  const at = (T) => { const c = row.cells.find((x) => x.termMonths === T); return [money(c.feeCents), pct(c.margin)] }
+  assert.deepEqual(at(12), ['6,066.67', '85.7'])
+  assert.deepEqual(at(36), ['2,955.56', '85.7'])
+  assert.deepEqual(at(60), ['1,829.33', '81.8'])
+  assert.deepEqual(at(120), ['984.67', '72.9'])
+  // Every band at every term in TERMS (10.4), and band 1's cells are table 10.3's 0% column.
+  assert.equal(g.rows.length, 6)
+  for (const r of g.rows) assert.deepEqual(r.cells.map((c) => c.termMonths), SPEC_PARAMS.TERMS)
+  assert.deepEqual([36, 60, 84, 120].map((T) => pct(g.rows[0].cells.find((c) => c.termMonths === T).margin)),
+    ['90.0', '87.2', '84.7', '81.0'])
+  // "To" is derived (TB-3): the next start less 1, the last "and above".
+  assert.deepEqual(g.rows.map((r) => [r.band, r.from, r.to]),
+    [[1, 1, 9], [2, 10, 49], [3, 50, 199], [4, 200, 499], [5, 500, 999], [6, 1000, null]])
+})
+
+test('10.4: a cell is flagged by EXACT comparison with the floor, and a breach never refuses', () => {
+  // Band 6 at 120 months: 86,160.40 / 118,160.40 = 72.918...%, shown 72.9%.
+  // At a floor of 72.92% it is below; at 72.91% it is not. Both read "72.9".
+  const flagged = ENGINE.bandMarginGrid('safesight', BG1_BANDS, withParams({ MARGIN_FLOOR: '72.92' }))
+  const clear = ENGINE.bandMarginGrid('safesight', BG1_BANDS, withParams({ MARGIN_FLOOR: '72.91' }))
+  const cell = (g) => g.rows[5].cells.find((c) => c.termMonths === 120)
+  assert.equal(pct(cell(flagged).margin), '72.9')
+  assert.equal(cell(flagged).belowFloor, true)
+  assert.equal(cell(clear).belowFloor, false)
+  assert.deepEqual(flagged.breaches.map((b) => [b.band, b.termMonths]), [[6, 120]])
+  assert.deepEqual(clear.breaches, [])
+  assert.equal(pct(flagged.floor), '72.9')
+  // A breach is a warning: the same bands still price a quote, and still validate.
+  assert.equal(ENGINE.validateBands(BG1_BANDS).ok, true)
+  const priced = quote({ safesight: 1000 }, 120, {}, withBands(withParams({ MARGIN_FLOOR: '72.92' }), 'safesight', BG1_BANDS))
+  assert.ok(priced.tcvNetCents > 0n, 'the quote prices on bands whose worst case breaches the floor')
+})
+
+test('10.4: the fee table terms are 36, 60, 84 and 120, less any not in TERMS', () => {
+  assert.deepEqual(ENGINE.bandMarginGrid('safesight', SEED_BANDS, SPEC_PARAMS).feeTerms, [36, 60, 84, 120])
+  const p = withParams({ TERMS: [12, 24, 36, 48, 60, 72, 96, 108, 120] })
+  assert.deepEqual(ENGINE.bandMarginGrid('safesight', SEED_BANDS, p).feeTerms, [36, 60, 120])
+})
+
+test('10.4: while the set breaks a rule, the grid has no figures, only the problems', () => {
+  const g = ENGINE.bandMarginGrid('hemir', bandsOf([[1, '0'], [2, '5'], [5, '10'], [4, '15']]), CATALOG)
+  assert.equal(g.ok, false)
+  assert.equal(g.rows, undefined)
+  assert.deepEqual(g.problems.map((x) => x.message),
+    ['Band 4 must start above 5, where band 3 starts. Bands cannot overlap. Fix this to save.'])
+})
+
+// BG-4 and the 3.2 table: the sentence each rule refuses with, verbatim.
+const REFUSALS = [
+  ['band 1 start not 1', [[2, '0'], [10, '5']],
+    'Band 1 always starts at 1. Fix this to save.'],
+  ['a start not above the previous (mockup 4b)', [[1, '0'], [2, '5'], [5, '10'], [4, '15']],
+    'Band 4 must start above 5, where band 3 starts. Bands cannot overlap. Fix this to save.'],
+  ['a start equal to the previous', [[1, '0'], [10, '5'], [10, '10']],
+    'Band 3 must start above 10, where band 2 starts. Bands cannot overlap. Fix this to save.'],
+  ['1 band', [[1, '0']],
+    'A product needs at least 2 bands. Add a band to save.'],
+  ['7 bands', [[1, '0'], [2, '1'], [3, '2'], [4, '3'], [5, '4'], [6, '5'], [7, '6']],
+    'A product can have at most 6 bands. Remove a band to save.'],
+  ['a falling discount', [[1, '0'], [10, '5'], [50, '10'], [200, '8']],
+    'Band 4\'s discount must be at least 10.0%, band 3\'s. Discounts never fall as volume rises. Fix this to save.'],
+  ['a discount of 100', [[1, '0'], [10, '5'], [50, '10'], [200, '15'], [500, '20'], [1000, '100']],
+    'Band 6\'s discount must be below 100%. Fix this to save.'],
+  ['a discount above 100', [[1, '0'], [10, '150']],
+    'Band 2\'s discount must be below 100%. Fix this to save.'],
+  ['a non-whole start', [[1, '0'], [10, '5'], [50.5, '10']],
+    'Band 3 must start at a whole number of units. Fix this to save.'],
+  ['a start typed as text', [[1, '0'], [10, '5'], ['abc', '10']],
+    'Band 3 must start at a whole number of units. Fix this to save.'],
+  ['two decimal places', [[1, '0'], [10, '5.25']],
+    'Band 2\'s discount must be a number from 0 to below 100, with at most one decimal place. Fix this to save.'],
+  ['a blank discount', [[1, '0'], [10, '']],
+    'Band 2\'s discount must be a number from 0 to below 100, with at most one decimal place. Fix this to save.'],
+  ['a negative discount', [[1, '0'], [10, '-1']],
+    'Band 2\'s discount must be a number from 0 to below 100, with at most one decimal place. Fix this to save.'],
+]
+
+for (const [what, spec, message] of REFUSALS) {
+  test(`BG-4 refused, editor and server, with the 3.2 wording: ${what}`, () => {
+    const v = ENGINE.validateBands(bandsOf(spec))
+    assert.equal(v.ok, false)
+    assert.deepEqual(v.problems.map((x) => x.message), [message])
+    // The server's path: the engine refuses the same set with the same sentence.
+    assert.throws(() => normaliseParams(withBands(SPEC_PARAMS, 'safesight', bandsOf(spec))),
+      (e) => e instanceof TermPricingError && e.code === 'BAD_PARAM' && e.message === message)
+  })
+}
+
+test('3.2: every broken rule is reported, one line each, in band order', () => {
+  const v = ENGINE.validateBands(bandsOf([[3, '0'], [10, '5.55'], [8, '1'], [20, '100']]))
+  assert.deepEqual(v.problems.map((x) => [x.band, x.message]), [
+    [1, 'Band 1 always starts at 1. Fix this to save.'],
+    [2, 'Band 2\'s discount must be a number from 0 to below 100, with at most one decimal place. Fix this to save.'],
+    [3, 'Band 3 must start above 10, where band 2 starts. Bands cannot overlap. Fix this to save.'],
+    [4, 'Band 4\'s discount must be below 100%. Fix this to save.'],
+  ])
+})
+
+test('3.2: validateBands never throws, whatever it is handed', () => {
+  for (const junk of [null, undefined, 'bands', 42, {}, [null], [{}], [{ from: 1 }]]) {
+    const v = ENGINE.validateBands(junk)
+    assert.equal(v.ok, false, JSON.stringify(junk))
+    assert.ok(v.problems.length >= 1)
+  }
+})
+
+test('3.2: equal discounts are allowed, and 2 and 6 bands are the limits, not refusals', () => {
+  assert.equal(ENGINE.validateBands(bandsOf([[1, '5'], [10, '5']])).ok, true)
+  assert.equal(ENGINE.validateBands(BG1_BANDS).ok, true)
+  assert.equal(ENGINE.validateBands(bandsOf([[1, '0'], [10, '99.9']])).ok, true)
+  assert.equal(ENGINE.validateBands(bandsOf([[1, '0'], [10, '0.5']])).ok, true)
+})
+
+test('3.2: a band whose start is invalid shows "?" as the previous band\'s To', () => {
+  const v = ENGINE.validateBands(bandsOf([[1, '0'], [2, '5'], [5, '10'], [4, '15']]))
+  assert.deepEqual(v.rows.map((r) => [r.band, r.from, r.to]), [[1, 1, 1], [2, 2, 4], [3, 5, '?'], [4, 4, null]])
+  const ok = ENGINE.validateBands(BG2_BANDS)
+  assert.deepEqual(ok.rows.map((r) => r.to), [1, 4, 9, null])
+})
+
+test('TB-1: a product priced with no bands is refused, and the old single list is not read', () => {
+  const p = { ...SPEC_PARAMS, VOLUME_BANDS_BY_PRODUCT: { 'TEST-B': SEED_BANDS } }
+  assert.throws(() => quote({ safesight: 1 }, 36, {}, p),
+    (e) => e instanceof TermPricingError && e.code === 'NO_PARAM' && /safesight/.test(e.message))
+  const old = { ...SPEC_PARAMS, VOLUME_BANDS: SEED_BANDS }
+  delete old.VOLUME_BANDS_BY_PRODUCT
+  assert.throws(() => quote({ safesight: 1 }, 36, {}, old),
+    (e) => e instanceof TermPricingError && e.code === 'NO_PARAM')
+})
+
+test('TB-1: unitEconomics reads the product\'s own bands', () => {
+  // Spec 4.1 and 4.2 on HEMIR (100,000.00 / 500.00, 90%): cost(36) 118,000; anchor profit
+  // 118,000 x 0.9 / 0.1 = 1,062,000; price(60) 130,000 + 1,062,000 = 1,192,000; list fee
+  // 19,866.666...; x 0.95 = 18,873.33; x 0.90 = 17,880.00; x 0.85 = 16,886.666..., 16,886.67.
+  const u = unitEconomics('hemir', 60, withBands(CATALOG, 'hemir', BG2_BANDS))
+  assert.deepEqual(u.bands.map((b) => [b.from, b.to, money(b.feeCents)]),
+    [[1, 1, '19,866.67'], [2, 4, '18,873.33'], [5, 9, '17,880.00'], [10, null, '16,886.67']])
 })

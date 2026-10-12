@@ -31,8 +31,13 @@ const NAME = ['term', 'pricing'].join('-')
 const ENGINE = `src/lib/${NAME}.js`
 const DEALCALC = 'src/lib/deal-calculator.js'
 const DEALINPUTS = 'src/lib/deal-inputs.js'
-const TESTS = [`scripts/tests/${NAME}.test.mjs`, `scripts/tests/${NAME}-isolation.test.mjs`]
-const TOUCHED = [ENGINE, DEALCALC, DEALINPUTS]
+// TP_BANDS: the settings module and the route carry new claims (rulings 0.1,
+// 0.5, TB-1, TB-6), so they and their two suites join the harness.
+const SETTINGS = `src/lib/${NAME}-settings.js`
+const ROUTE = `src/routes/${NAME}.js`
+const TESTS = [`scripts/tests/${NAME}.test.mjs`, `scripts/tests/${NAME}-isolation.test.mjs`,
+  `scripts/tests/${NAME}-settings.test.mjs`, `scripts/tests/${NAME}-route.test.mjs`]
+const TOUCHED = [ENGINE, DEALCALC, DEALINPUTS, SETTINGS, ROUTE]
 
 const SNAP = join(process.env.TP_CALIBRATE_DIR || join(tmpdir(), 'tp-calibrate'))
 const MARKER = join(SNAP, 'IN_FLIGHT')
@@ -84,9 +89,10 @@ const INJECTIONS = [
     expect: 'flow: SHORT_TERM_MARGIN per product' },
   { id: 'J13', file: ENGINE, why: 'PROFIT_STEP ignored',
     find: 'mul(p.profitStep, fromInt(stepsAbove))', put: 'ZERO', expect: 'flow: PROFIT_STEP' },
+  // RE-ANCHORED by TP_BANDS: splitIntoBands takes the product's own bands (TB-1).
   { id: 'J14', file: ENGINE, why: 'bands pooled across product lines',
-    find: 'splitIntoBands(p, units).filter',
-    put: 'splitIntoBands(p, units + (product === \'TEST-B\' ? 120 : 0)).filter',
+    find: 'splitIntoBands(productBands, units).filter',
+    put: 'splitIntoBands(productBands, units + (product === \'TEST-B\' ? 120 : 0)).filter',
     expect: 'T14 T6 + T13 on one deal' },
   // ── Phase 2 rulings (M4: injections only for the new claims) ──
   // RE-ANCHORED by TP_CAPEX (v1.6, Q2): the CAPEX subscription replaces the
@@ -277,6 +283,77 @@ const INJECTIONS = [
     expect: 'v1.6: per camera is null' },
   { id: 'V24', file: ENGINE, why: 'a negative last month is invoiced (POSITION)',
     find: 'if (lastBaseFeeCents < 0n) {', put: 'if (false) {', expect: 'v1.6 (POSITION): a last instalment' },
+  // ── TP_BANDS, spec v1.8 (M4: one injection per new claim) ──
+  { id: 'Y1', file: ENGINE, why: 'every product prices on SafeSight\'s bands (TB-1)',
+    find: 'const bands = p.bandsByProduct[product]', put: 'const bands = p.bandsByProduct.safesight ?? p.bandsByProduct[product]',
+    expect: 'BG-2 HEMIR' },
+  { id: 'Y2', file: ENGINE, why: 'an overlapping start is accepted (TB-3)',
+    find: '} else if (lastStart && from <= lastStart.from) {', put: '} else if (false) {',
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: a start not above the previous' },
+  { id: 'Y3', file: ENGINE, why: 'a start equal to the previous is accepted (TB-3)',
+    find: '} else if (lastStart && from <= lastStart.from) {', put: '} else if (lastStart && from < lastStart.from) {',
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: a start equal to the previous' },
+  { id: 'Y4', file: ENGINE, why: 'a falling discount is accepted (TB-4)',
+    find: 'if (lastDiscount && cmp(value, lastDiscount.value) < 0) {', put: 'if (false) {',
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: a falling discount' },
+  { id: 'Y5', file: ENGINE, why: 'an equal discount is refused (TB-4: equal is allowed)',
+    find: 'if (lastDiscount && cmp(value, lastDiscount.value) < 0) {', put: 'if (lastDiscount && cmp(value, lastDiscount.value) <= 0) {',
+    expect: '3.2: equal discounts are allowed' },
+  { id: 'Y6', file: ENGINE, why: 'seven bands are accepted (TB-2)',
+    find: 'const MAX_BANDS = 6', put: 'const MAX_BANDS = 7',
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: 7 bands' },
+  { id: 'Y7', file: ENGINE, why: 'one band is accepted (TB-2)',
+    find: 'const MIN_BANDS = 2', put: 'const MIN_BANDS = 1',
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: 1 band' },
+  { id: 'Y8', file: ENGINE, why: 'only the first problem is reported (TB-6, 3.2)',
+    find: 'return { ok, problems, rows,', put: 'return { ok, problems: problems.slice(0, 1), rows,',
+    expect: '3.2: every broken rule is reported' },
+  { id: 'Y9', file: ENGINE, why: 'a discount of exactly 100% is accepted (TB-3)',
+    find: 'cmp(parseDecimal(text), HUNDRED) >= 0', put: 'cmp(parseDecimal(text), HUNDRED) > 0',
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: a discount of 100' },
+  { id: 'Y10', file: ENGINE, why: 'two decimal places are accepted (TB-3)',
+    find: String.raw`} else if (!/^\d+(\.\d)?$/.test(text)) {`, put: String.raw`} else if (!/^\d+(\.\d+)?$/.test(text)) {`,
+    expect: 'BG-4 refused, editor and server, with the 3.2 wording: two decimal places' },
+  { id: 'Y11', file: ENGINE, why: 'To is computed from an invalid start instead of "?" (3.2)',
+    find: "to: starts[i + 1] === null ? '?' : starts[i + 1] - 1", put: 'to: (wholeStart(list[i + 1]?.from) ?? 0) - 1',
+    expect: '3.2: a band whose start is invalid' },
+  { id: 'Y12', file: ENGINE, why: 'the engine prices a set the editor would refuse: the server is not the authority (TB-6)',
+    find: "    if (!v.ok) throw Object.assign(new TermPricingError('BAD_PARAM', v.problems[0].message), { product: k, problems: v.problems })\n    bandsByProduct[k] = engineBands(v.bands, k)\n",
+    put: '    bandsByProduct[k] = engineBands((Array.isArray(list) ? list : []).map((b) => ({ from: Number(b.from), discountPct: String(b.discountPct) })), k)\n',
+    expect: 'BG-4 refused' },
+  { id: 'Y13', file: ENGINE, why: 'the floor is compared on the margin rounded for display (10.4)',
+    find: 'belowFloor: cmp(u.margin, p.marginFloor) < 0', put: 'belowFloor: cmp(frac(roundHalfUp(mul(u.margin, HUNDRED), 1), 1000n), p.marginFloor) < 0',
+    expect: '10.4: a cell is flagged by EXACT' },
+  { id: 'Y14', file: ENGINE, why: 'breaches are never listed, so the warning never shows (10.4)',
+    find: 'const breaches = rows.flatMap(', put: 'const breaches = rows.slice(0, 0).flatMap(',
+    expect: '10.4: a cell is flagged by EXACT' },
+  { id: 'Y15', file: ENGINE, why: 'the fee table shows a term an admin removed from TERMS (10.4)',
+    find: 'feeTerms: FEE_TABLE_TERMS.filter((t) => p.terms.includes(t)),', put: 'feeTerms: FEE_TABLE_TERMS,',
+    expect: '10.4: the fee table terms' },
+  { id: 'Y16', file: ENGINE, why: 'the grid reads the STORED bands, not the bands as typed (10.4)',
+    find: '[product]: engineBands(v.bands, product) } }', put: '[product]: base.bandsByProduct[product] } }',
+    expect: 'BG-3 the margin check' },
+  { id: 'Y17', file: SETTINGS, why: 'saving one product\'s bands drops the others (0.5)',
+    find: 'VOLUME_BANDS_BY_PRODUCT: { ...current.VOLUME_BANDS_BY_PRODUCT, [product]: v.bands },',
+    put: 'VOLUME_BANDS_BY_PRODUCT: { [product]: v.bands },', expect: 'TB-8, 0.5' },
+  { id: 'Y18', file: SETTINGS, why: 'the retired single list still reaches the engine (TB-1)',
+    find: '    VOLUME_BANDS_BY_PRODUCT: settings.VOLUME_BANDS_BY_PRODUCT,\n',
+    put: '    VOLUME_BANDS_BY_PRODUCT: settings.VOLUME_BANDS_BY_PRODUCT,\n    VOLUME_BANDS: settings.VOLUME_BANDS,\n',
+    expect: 'TB-1: the settings carry bands per product' },
+  { id: 'Y19', file: SETTINGS, why: 'a typed start is stored as text (TB-3)',
+    find: '[product]: v.bands },', put: '[product]: bands },', expect: 'TB-3: a start the editor sent as text' },
+  { id: 'Y20', file: ROUTE, why: 'a non-admin may save bands (TB-8)',
+    find: "    if (!state.isAdmin) {\n      return reply.code(403).send({ error: 'Only an admin can change term pricing settings.' })\n    }\n\n    let merged\n    try {\n      merged = mergeBandsChange",
+    put: '    let merged\n    try {\n      merged = mergeBandsChange',
+    expect: '0.1 refusal: a non-admin' },
+  { id: 'Y21', file: ROUTE, why: 'the bands save rewrites every key (0.5)',
+    find: "['VOLUME_BANDS_BY_PRODUCT'], merged)", put: 'SETTING_KEYS, merged)', expect: '0.1 success' },
+  { id: 'Y22', file: ROUTE, why: 'the refusal carries only the first problem (TB-6)',
+    find: 'problems: err.problems ?? [] })', put: 'problems: [] })', expect: '0.1 refusal, TB-6' },
+  { id: 'Y23', file: ROUTE, why: 'RLS refusing the write reads as success (Verification 8)',
+    find: '  if ((data ?? []).length !== rows.length) {', put: '  if (false) {', expect: '0.1 refusal: RLS' },
+  { id: 'Y24', file: ROUTE, why: 'the writer is taken from the request body (Architecture 12)',
+    find: 'updated_by: request.user.id }))', put: 'updated_by: request.body?.updatedBy ?? null }))', expect: '0.1 success' },
   // ── R-TP1, one import each way, as the brief requires ──
   { id: 'K1', file: ENGINE, why: 'the engine imports the deal-sheet engine',
     prepend: IMPORT('calculateTax', './deal-calculator.js'), expect: 'R-TP1 (1)' },

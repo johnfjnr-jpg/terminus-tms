@@ -11,6 +11,11 @@ import assert from 'node:assert/strict'
 import {
   settingsFromRows, costsFromCatalog, buildParams, mergeSettingsChange, SETTING_KEYS,
 } from '../../src/lib/term-pricing-settings.js'
+// v1.8 (TP_BANDS): through the namespace, so before the export exists only the
+// tests that need it fail.
+import * as SETTINGS from '../../src/lib/term-pricing-settings.js'
+const PER_PRODUCT_KEYS = SETTINGS.PER_PRODUCT_KEYS
+const mergeBandsChange = (...a) => SETTINGS.mergeBandsChange(...a)
 import { priceQuote, formatMoney, TermPricingError } from '../../src/lib/term-pricing.js'
 
 const SEED_ROWS = [
@@ -19,7 +24,15 @@ const SEED_ROWS = [
   { key: 'ANCHOR_MARGIN', value: { safesight: '90', air_quality: '90', hemir: '90' } },
   { key: 'SHORT_TERM_MARGIN', value: { safesight: '90', air_quality: '90', hemir: '90' } },
   { key: 'PROFIT_STEP', value: '0.00' },
+  // The retired single list, still a row until the removal migration after the push (TB-1).
+  // It is read by nothing: settingsFromRows carries it and buildParams does not pass it on.
   { key: 'VOLUME_BANDS', value: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' }] },
+  // 20261012000001's seed, as written in the migration: every product on the v1.7 bands.
+  { key: 'VOLUME_BANDS_BY_PRODUCT', value: {
+    safesight: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' }],
+    air_quality: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' }],
+    hemir: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' }],
+  } },
   { key: 'HW_UPFRONT_MARGIN', value: '20' },
   { key: 'MARGIN_FLOOR', value: '25' },
   { key: 'CURRENCY', value: 'USD' },
@@ -73,4 +86,57 @@ test('an invalid change is refused with a message fit to show', () => {
   bad({ TERMS: [12, 24, 48] }, /ANCHOR_TERM must be one of TERMS/)
   bad({ TERMS: [24, 12, 36] }, /ascending/)
   bad({ CURRENCY: 'usd' }, /three-letter/)
+})
+
+// ── v1.8 (TP_BANDS) ─────────────────────────────────────────────────────
+
+const SIX = [[1, '0'], [10, '5'], [50, '10'], [200, '15'], [500, '20'], [1000, '30']].map(([from, discountPct]) => ({ from, discountPct }))
+
+test('TB-1: the settings carry bands per product, and the single list is retired from the keys', () => {
+  assert.ok(SETTING_KEYS.includes('VOLUME_BANDS_BY_PRODUCT'))
+  assert.ok(!SETTING_KEYS.includes('VOLUME_BANDS'))
+  assert.ok(PER_PRODUCT_KEYS.includes('VOLUME_BANDS_BY_PRODUCT'))
+  const p = buildParams(settings(), costs())
+  assert.equal(p.VOLUME_BANDS, undefined, 'the old key does not reach the engine')
+  assert.deepEqual(Object.keys(p.VOLUME_BANDS_BY_PRODUCT).sort(), ['air_quality', 'hemir', 'safesight'])
+  // A change naming the retired key is refused as unknown.
+  assert.throws(() => mergeSettingsChange(settings(), { VOLUME_BANDS: SIX }, costs()),
+    (e) => e instanceof TermPricingError && /unknown setting: VOLUME_BANDS/.test(e.message))
+})
+
+test('TB-1: every catalog product must have bands', () => {
+  const s = settings()
+  const { hemir, ...rest } = s.VOLUME_BANDS_BY_PRODUCT
+  assert.ok(hemir)
+  assert.throws(() => mergeSettingsChange(s, { VOLUME_BANDS_BY_PRODUCT: rest }, costs()),
+    (e) => e instanceof TermPricingError && /VOLUME_BANDS_BY_PRODUCT needs a value for: hemir/.test(e.message))
+})
+
+test('TB-8, 0.5: saving one product\'s bands changes that product only', () => {
+  const before = settings()
+  const merged = mergeBandsChange(before, 'safesight', SIX, costs())
+  assert.deepEqual(merged.VOLUME_BANDS_BY_PRODUCT.safesight, SIX)
+  assert.deepEqual(merged.VOLUME_BANDS_BY_PRODUCT.hemir, before.VOLUME_BANDS_BY_PRODUCT.hemir)
+  assert.deepEqual(merged.VOLUME_BANDS_BY_PRODUCT.air_quality, before.VOLUME_BANDS_BY_PRODUCT.air_quality)
+  // Every other key is untouched.
+  for (const k of SETTING_KEYS.filter((x) => x !== 'VOLUME_BANDS_BY_PRODUCT')) assert.deepEqual(merged[k], before[k], k)
+  // BG-1 through the stored shape: 1,000 SafeSight units at 60 months.
+  const q = priceQuote({ units: { safesight: 1000 }, termMonths: 60, paymentStructure: 'opex' }, buildParams(merged, costs()))
+  assert.equal(formatMoney(q.tcvNetCents), '131,351,406.00')
+})
+
+test('TB-6: an invalid band set is refused with every problem, in the 3.2 wording', () => {
+  const overlap = [[1, '0'], [2, '5'], [5, '10'], [4, '15']].map(([from, discountPct]) => ({ from, discountPct }))
+  assert.throws(() => mergeBandsChange(settings(), 'hemir', overlap, costs()), (e) =>
+    e instanceof TermPricingError && e.code === 'BAD_BANDS'
+    && e.message === 'Band 4 must start above 5, where band 3 starts. Bands cannot overlap. Fix this to save.'
+    && Array.isArray(e.problems) && e.problems.length === 1)
+  assert.throws(() => mergeBandsChange(settings(), 'not_a_product', SIX, costs()),
+    (e) => e instanceof TermPricingError && e.code === 'BAD_PRODUCT')
+})
+
+test('TB-3: a start the editor sent as text is stored as a whole number', () => {
+  const typed = [{ from: '1', discountPct: '0' }, { from: '25', discountPct: '7.5' }]
+  const merged = mergeBandsChange(settings(), 'air_quality', typed, costs())
+  assert.deepEqual(merged.VOLUME_BANDS_BY_PRODUCT.air_quality, [{ from: 1, discountPct: '0' }, { from: 25, discountPct: '7.5' }])
 })

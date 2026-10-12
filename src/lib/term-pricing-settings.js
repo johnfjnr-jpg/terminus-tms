@@ -13,16 +13,23 @@
 // Allowlisted as an importer of the engine in
 // scripts/tests/term-pricing-isolation.test.mjs.
 
-import { normaliseParams, TermPricingError } from './term-pricing.js'
+import { normaliseParams, validateBands, TermPricingError } from './term-pricing.js'
 
-/** The spec section 3 keys held in term_pricing_settings, in display order. */
+/**
+ * The spec section 3 keys held in term_pricing_settings, in display order.
+ *
+ * v1.8 (TP_BANDS, TB-1): VOLUME_BANDS_BY_PRODUCT replaces VOLUME_BANDS. The
+ * old row stays in the table until the removal migration applied after the
+ * push, because the code deployed until then still reads it; nothing here
+ * reads it, and a change naming it is refused as unknown.
+ */
 export const SETTING_KEYS = [
   'TERMS', 'ANCHOR_TERM', 'ANCHOR_MARGIN', 'SHORT_TERM_MARGIN', 'PROFIT_STEP',
-  'VOLUME_BANDS', 'HW_UPFRONT_MARGIN', 'MARGIN_FLOOR', 'CURRENCY',
+  'VOLUME_BANDS_BY_PRODUCT', 'HW_UPFRONT_MARGIN', 'MARGIN_FLOOR', 'CURRENCY',
 ]
 
 /** The keys whose value is one value per catalog product. */
-export const PER_PRODUCT_KEYS = ['ANCHOR_MARGIN', 'SHORT_TERM_MARGIN']
+export const PER_PRODUCT_KEYS = ['ANCHOR_MARGIN', 'SHORT_TERM_MARGIN', 'VOLUME_BANDS_BY_PRODUCT']
 
 /** term_pricing_settings rows to { KEY: value }. Every key must be present. */
 export function settingsFromRows(rows) {
@@ -67,7 +74,7 @@ export function buildParams(settings, costs) {
     ANCHOR_MARGIN: settings.ANCHOR_MARGIN,
     SHORT_TERM_MARGIN: settings.SHORT_TERM_MARGIN,
     PROFIT_STEP: settings.PROFIT_STEP,
-    VOLUME_BANDS: settings.VOLUME_BANDS,
+    VOLUME_BANDS_BY_PRODUCT: settings.VOLUME_BANDS_BY_PRODUCT,
     HW_UPFRONT_MARGIN: settings.HW_UPFRONT_MARGIN,
     MARGIN_FLOOR: settings.MARGIN_FLOOR,
     CURRENCY: settings.CURRENCY,
@@ -81,8 +88,10 @@ export function buildParams(settings, costs) {
  *
  * - only the nine keys, and at least one;
  * - the merged result must normalise in the ENGINE (decimals as strings,
- *   ascending terms containing the anchor, margins below 100%, bands from 1);
- * - per-product margins must cover every product the catalog prices.
+ *   ascending terms containing the anchor, margins below 100%, every
+ *   product's bands meeting spec 3.2);
+ * - per-product keys (margins, and v1.8's bands) must cover every product
+ *   the catalog prices.
  */
 export function mergeSettingsChange(current, patch, costs) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
@@ -100,6 +109,29 @@ export function mergeSettingsChange(current, patch, costs) {
   for (const k of PER_PRODUCT_KEYS) {
     const missing = Object.keys(costs).filter((p) => !(merged[k] && p in merged[k]))
     if (missing.length) throw new TermPricingError('BAD_PARAM', `${k} needs a value for: ${missing.join(', ')}`)
+  }
+  normaliseParams(buildParams(merged, costs))
+  return merged
+}
+
+/**
+ * v1.8 (TP_BANDS, ruling 0.5): an admin saves ONE product's bands. Returns the
+ * merged settings with only that product's list changed, in the stored shape
+ * (a start the editor sent as text becomes a whole number), or throws:
+ *
+ * - BAD_PRODUCT for a product the catalog does not price;
+ * - BAD_BANDS for a set breaking a spec 3.2 rule, its message the FIRST
+ *   problem and `problems` every one, in the editor's own wording (TB-6).
+ */
+export function mergeBandsChange(current, product, bands, costs) {
+  if (typeof product !== 'string' || !(product in costs)) {
+    throw new TermPricingError('BAD_PRODUCT', `No catalog product ${JSON.stringify(product)} to set bands for.`)
+  }
+  const v = validateBands(bands)
+  if (!v.ok) throw Object.assign(new TermPricingError('BAD_BANDS', v.problems[0].message), { problems: v.problems })
+  const merged = {
+    ...current,
+    VOLUME_BANDS_BY_PRODUCT: { ...current.VOLUME_BANDS_BY_PRODUCT, [product]: v.bands },
   }
   normaliseParams(buildParams(merged, costs))
   return merged

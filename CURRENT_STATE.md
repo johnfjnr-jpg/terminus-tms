@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-10-11T12:53:45.102Z`
-- Git commit: `84c6fdcb4699ab66e1c6b98a5a9525ab6dcc03ae`
+- Generated at: `2026-10-12T03:36:55.089Z`
+- Git commit: `4fb7ebe9a94216830e06c620202871e36642a2c0`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 577,029 bytes
-- sha256: `804e89964980624d1ba805caf5064a0ae6cc9c42021189661a798033a3f49279`
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 588,586 bytes
+- sha256: `4835a1feec7863d89e3c897be230687f77c09bb8b4f77d9da91c868052648984`
 - React suite: 1457/1457 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1116 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1087 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1129 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1100 | yes |
 
 ## `stage_definitions`
 
@@ -407,7 +407,7 @@ _None._
 
 ## `term_pricing_settings`
 
-9 rows. The LIVE values the Term Pricing screen prices with; docs/pricing-spec.md section 3 prints the spec's defaults, which differ where an admin has changed one.
+10 rows. The LIVE values the Term Pricing screen prices with; docs/pricing-spec.md section 3 prints the spec's defaults, which differ where an admin has changed one.
 
 | key | value | updated_at |
 |---|---|---|
@@ -420,39 +420,40 @@ _None._
 | SHORT_TERM_MARGIN | `{"air_quality":"90","hemir":"90","safesight":"90"}` | 2026-10-06T14:31:48.932+00:00 |
 | TERMS | `[12,24,36,48,60,72,84,96,108,120]` | 2026-10-03T10:36:17.431+00:00 |
 | VOLUME_BANDS | `[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}]` | 2026-10-02T14:06:47.232224+00:00 |
+| VOLUME_BANDS_BY_PRODUCT | `{"air_quality":[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}],"hemir":[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}],"safesight":[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}]}` | 2026-10-12T02:35:08.847153+00:00 |
 
 ## Record counts by type and status
 
-134 live, 119049 soft deleted, 119183 rows in total.
+134 live, 120220 soft deleted, 120354 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1714 |
-| contact | Active | 0 | 3435 |
+| account | active | 7 | 1720 |
+| contact | Active | 0 | 3474 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 12708 |
+| contact | Qualified | 12 | 12849 |
 | contact | Unqualified | 5 | 767 |
-| document | approved | 65 | 5742 |
+| document | approved | 65 | 5794 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 313 |
+| opportunity | Evaluation | 0 | 316 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1912 |
-| opportunity | Qualification | 6 | 11084 |
-| opportunity | Solution Alignment | 7 | 1456 |
+| opportunity | Proposal | 3 | 1929 |
+| opportunity | Qualification | 6 | 11219 |
+| opportunity | Solution Alignment | 7 | 1468 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1534 |
+| test_bed | Qualification | 4 | 1540 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 22412 |
+| unit | Planned | 9 | 22639 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -463,20 +464,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 6882 | 0 | 55731 |
+| 6947 | 0 | 56264 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5141 rows, of which 3 carry a null `stage`.
+5180 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2504 | 0 |
-| approved | Legal | 1452 | 1 |
+| approved | Commercial | 2522 | 0 |
+| approved | Legal | 1464 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1176 | 0 |
+| approved | Technical | 1185 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -518,7 +519,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Registered routes
 
-80 routes. Prefixes parsed from `src/server.js`, paths from each route module.
+81 routes. Prefixes parsed from `src/server.js`, paths from each route module.
 
 | method | path | auth | source |
 |---|---|---|---|
@@ -576,6 +577,7 @@ than written as a literal list, so its members are not enumerable here.
 | GET | `/api/scoring-lenses` | authenticated | `src/routes/scoring.js` |
 | GET | `/api/stage-definitions` | authenticated | `src/routes/stage-definitions.js` |
 | GET | `/api/term-pricing` | authenticated | `src/routes/term-pricing.js` |
+| PUT | `/api/term-pricing/bands/:product` | authenticated | `src/routes/term-pricing.js` |
 | PUT | `/api/term-pricing/settings` | authenticated | `src/routes/term-pricing.js` |
 | GET | `/api/terminus-staff` | authenticated | `src/routes/terminus-staff.js` |
 | GET | `/api/test-beds` | authenticated | `src/routes/test-beds.js` |
@@ -605,7 +607,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-126 files in `supabase/migrations/`.
+128 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -733,6 +735,8 @@ than written as a literal list, so its members are not enumerable here.
 124. `20260918000001_approvers_named_before_advancing.sql`
 125. `20261001000001_system_roles.sql`
 126. `20261001000002_term_pricing_settings.sql`
+127. `20261012000001_term_pricing_bands_per_product.sql`
+128. `20261012000002_term_pricing_remove_volume_bands.sql`
 
 ## Seed files, in application order
 

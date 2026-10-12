@@ -1,0 +1,158 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Term Pricing volume discount bands (approved 2026-10-12)</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0f1012;padding:24px}.bt{color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:16px;margin:28px 0 10px}</style></head><body>
+<p style="color:#b4b8c0;font-family:'IBM Plex Sans',sans-serif">Approved by John 2026-10-12. Admin band editor, two states. Content, rules and behaviour are binding. The margin figures on 4a are illustrated at a 64.8% SafeSight anchor; the built screen uses the live settings.</p>
+<style>
+#Bands_SafeSight .r{width:1440px;height:1120px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:24px 32px}
+#Bands_SafeSight .m{font-family:'IBM Plex Mono',monospace}
+#Bands_SafeSight .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:18px 20px}
+#Bands_SafeSight .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 12px}
+#Bands_SafeSight .lab{font-size:12px;color:#b4b8c0}
+#Bands_SafeSight .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#Bands_SafeSight .inp{display:inline-block;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:6px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e6e7ea;min-width:64px}
+#Bands_SafeSight .ro{display:inline-block;padding:6px 10px;font-family:'IBM Plex Mono',monospace;color:#a3a7af;min-width:64px;text-align:right}
+#Bands_SafeSight .seg{display:inline-flex;border:1px solid #3a3d42;border-radius:8px;overflow:hidden}
+#Bands_SafeSight .seg button{background:transparent;border:0;padding:9px 18px;font:inherit;font-size:13px;color:#a3a7af}
+#Bands_SafeSight .seg button.on{background:#86d19a;color:#0f1a12;font-weight:600}
+#Bands_SafeSight table{width:100%;border-collapse:collapse}
+#Bands_SafeSight th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:8px 10px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+#Bands_SafeSight th:first-child,#Bands_SafeSight td:first-child{text-align:left}
+#Bands_SafeSight td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:8px 10px;border-bottom:1px solid #24262a}
+#Bands_SafeSight td.bad{background:#3a1f1f;color:#f2b8b8;font-weight:600}
+#Bands_SafeSight .btn{background:transparent;border:1px dashed #4a4e55;border-radius:6px;padding:7px 12px;font:inherit;font-size:12px;color:#c9ccd2}
+#Bands_SafeSight .save{background:#86d19a;border:0;border-radius:8px;padding:10px 20px;font:inherit;font-weight:600;color:#0f1a12}
+#Bands_SafeSight .ghost{background:transparent;border:1px solid #3a3d42;border-radius:8px;padding:10px 20px;font:inherit;color:#c9ccd2}
+#Bands_SafeSight .warn{background:#2a2617;border:1px solid #5a4e24;color:#e9d9a6;border-radius:6px;padding:10px 14px;font-size:12px;line-height:1.5}
+#Bands_SafeSight .ok{color:#86d19a;font-size:12px}
+#Bands_SafeSight .x{color:#7d8189}
+</style><h2 class="bt">4a · Settings: volume discount bands, SafeSight (6 bands, one floor breach)</h2><section id="Bands_SafeSight"><div class="r">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px">
+<div><div class="note">Term Pricing · Settings · Admin only</div><div style="font-size:22px;font-weight:600">Volume discount bands</div></div>
+<div style="display:flex;gap:10px"><button class="ghost">Discard</button><button class="save">Save bands</button></div>
+</div>
+
+<div style="display:flex;gap:16px;align-items:center;margin-bottom:18px">
+<span class="lab">Product</span>
+<div class="seg"><button class="on">SafeSight</button><button>Air Quality</button><button>HEMIR</button></div>
+<span class="note">Each product has its own bands. A band's discount applies only to the units inside it.</span>
+</div>
+
+<div style="display:grid;grid-template-columns:560px minmax(0,1fr);gap:20px">
+<div class="card">
+<div class="h">SafeSight bands</div>
+<table>
+<tr><th>Band</th><th>From</th><th>To</th><th>Discount</th><th></th></tr>
+<tr><td>1</td><td><span class="ro">1</span></td><td><span class="ro">9</span></td><td><span class="inp">0.0</span> %</td><td class="x"></td></tr>
+<tr><td>2</td><td><span class="inp">10</span></td><td><span class="ro">49</span></td><td><span class="inp">5.0</span> %</td><td class="x">✕</td></tr>
+<tr><td>3</td><td><span class="inp">50</span></td><td><span class="ro">199</span></td><td><span class="inp">10.0</span> %</td><td class="x">✕</td></tr>
+<tr><td>4</td><td><span class="inp">200</span></td><td><span class="ro">499</span></td><td><span class="inp">15.0</span> %</td><td class="x">✕</td></tr>
+<tr><td>5</td><td><span class="inp">500</span></td><td><span class="ro">999</span></td><td><span class="inp">20.0</span> %</td><td class="x">✕</td></tr>
+<tr><td>6</td><td><span class="inp">1000</span></td><td><span class="ro">and above</span></td><td><span class="inp" style="border-color:#c86a6a">30.0</span> %</td><td class="x">✕</td></tr>
+</table>
+<div style="display:flex;gap:14px;align-items:center;margin-top:12px"><button class="btn" disabled>+ Add band (6 of 6)</button><span class="note">You type where each band starts; "To" fills itself in.</span></div>
+<div class="note" style="margin-top:16px;line-height:1.7">
+Rules checked as you type:<br>
+· Band 1 always starts at 1.<br>
+· Each band starts above the one before it: no gaps, no overlaps.<br>
+· The last band runs to "and above".<br>
+· Discounts never fall as volume rises.<br>
+· 2 to 6 bands.
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px"><div class="h" style="margin:0">Margin check · worst case per band</div><span class="note">Every unit at that band's fee · floor 25%</span></div>
+<table>
+<tr><th>Band</th><th>12</th><th>24</th><th>36</th><th>48</th><th>60</th><th>72</th><th>84</th><th>96</th><th>108</th><th>120</th></tr>
+<tr><td>1 · 0%</td><td>64.8</td><td>64.8</td><td>64.8</td><td>61.4</td><td>58.3</td><td>55.6</td><td>53.0</td><td>50.7</td><td>48.6</td><td>46.7</td></tr>
+<tr><td>2 · 5%</td><td>63.0</td><td>63.0</td><td>63.0</td><td>59.4</td><td>56.1</td><td>53.2</td><td>50.6</td><td>48.1</td><td>45.9</td><td>43.9</td></tr>
+<tr><td>3 · 10%</td><td>60.9</td><td>60.9</td><td>60.9</td><td>57.1</td><td>53.7</td><td>50.6</td><td>47.8</td><td>45.2</td><td>42.9</td><td>40.7</td></tr>
+<tr><td>4 · 15%</td><td>58.6</td><td>58.6</td><td>58.6</td><td>54.6</td><td>51.0</td><td>47.7</td><td>44.7</td><td>42.0</td><td>39.5</td><td>37.3</td></tr>
+<tr><td>5 · 20%</td><td>56.0</td><td>56.0</td><td>56.0</td><td>51.8</td><td>47.9</td><td>44.4</td><td>41.3</td><td>38.4</td><td>35.8</td><td>33.3</td></tr>
+<tr><td>6 · 30%</td><td>49.7</td><td>49.7</td><td>49.7</td><td>44.9</td><td>40.5</td><td>36.5</td><td>32.9</td><td>29.6</td><td>26.6</td><td class="bad">23.8</td></tr>
+</table>
+<div class="note" style="margin-top:10px">Margin on price, %, by term in months. Illustrated at the 500-a-month ladder (SafeSight anchor 64.8%).</div>
+</div>
+<div class="warn"><b>1 term breaches the 25% floor.</b> Band 6 (1,000 units and above, 30%) at 120 months: fee 350.00, margin 23.8%. You can still save; quotes in this band and term will show the floor flag for approval.</div>
+<div class="card">
+<div class="h">Fee per unit per month · SafeSight</div>
+<table>
+<tr><th>Band</th><th>36</th><th>60</th><th>84</th><th>120</th></tr>
+<tr><td>1 · 0%</td><td>1,200.00</td><td>800.00</td><td>628.57</td><td>500.00</td></tr>
+<tr><td>4 · 15%</td><td>1,020.00</td><td>680.00</td><td>534.29</td><td>425.00</td></tr>
+<tr><td>6 · 30%</td><td>840.00</td><td>560.00</td><td>440.00</td><td>350.00</td></tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+</section>
+<style>
+#Bands_HEMIR .r{width:1440px;height:1120px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;padding:24px 32px}
+#Bands_HEMIR .m{font-family:'IBM Plex Mono',monospace}
+#Bands_HEMIR .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:18px 20px}
+#Bands_HEMIR .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 12px}
+#Bands_HEMIR .lab{font-size:12px;color:#b4b8c0}
+#Bands_HEMIR .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#Bands_HEMIR .inp{display:inline-block;background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:6px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e6e7ea;min-width:64px}
+#Bands_HEMIR .ro{display:inline-block;padding:6px 10px;font-family:'IBM Plex Mono',monospace;color:#a3a7af;min-width:64px;text-align:right}
+#Bands_HEMIR .seg{display:inline-flex;border:1px solid #3a3d42;border-radius:8px;overflow:hidden}
+#Bands_HEMIR .seg button{background:transparent;border:0;padding:9px 18px;font:inherit;font-size:13px;color:#a3a7af}
+#Bands_HEMIR .seg button.on{background:#86d19a;color:#0f1a12;font-weight:600}
+#Bands_HEMIR table{width:100%;border-collapse:collapse}
+#Bands_HEMIR th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:8px 10px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+#Bands_HEMIR th:first-child,#Bands_HEMIR td:first-child{text-align:left}
+#Bands_HEMIR td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:8px 10px;border-bottom:1px solid #24262a}
+#Bands_HEMIR td.bad{background:#3a1f1f;color:#f2b8b8;font-weight:600}
+#Bands_HEMIR .btn{background:transparent;border:1px dashed #4a4e55;border-radius:6px;padding:7px 12px;font:inherit;font-size:12px;color:#c9ccd2}
+#Bands_HEMIR .save{background:#86d19a;border:0;border-radius:8px;padding:10px 20px;font:inherit;font-weight:600;color:#0f1a12}
+#Bands_HEMIR .ghost{background:transparent;border:1px solid #3a3d42;border-radius:8px;padding:10px 20px;font:inherit;color:#c9ccd2}
+#Bands_HEMIR .warn{background:#2a2617;border:1px solid #5a4e24;color:#e9d9a6;border-radius:6px;padding:10px 14px;font-size:12px;line-height:1.5}
+#Bands_HEMIR .ok{color:#86d19a;font-size:12px}
+#Bands_HEMIR .x{color:#7d8189}
+</style><h2 class="bt">4b · Settings: volume discount bands, HEMIR (own bands, rule broken while typing)</h2><section id="Bands_HEMIR"><div class="r">
+<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px">
+<div><div class="note">Term Pricing · Settings · Admin only</div><div style="font-size:22px;font-weight:600">Volume discount bands</div></div>
+<div style="display:flex;gap:10px"><button class="ghost">Discard</button><button class="save" disabled style="opacity:.4">Save bands</button></div>
+</div>
+
+<div style="display:flex;gap:16px;align-items:center;margin-bottom:18px">
+<span class="lab">Product</span>
+<div class="seg"><button>SafeSight</button><button>Air Quality</button><button class="on">HEMIR</button></div>
+<span class="note">Each product has its own bands. A band's discount applies only to the units inside it.</span>
+</div>
+
+<div style="display:grid;grid-template-columns:560px minmax(0,1fr);gap:20px">
+<div class="card">
+<div class="h">HEMIR bands</div>
+<table>
+<tr><th>Band</th><th>From</th><th>To</th><th>Discount</th><th></th></tr>
+<tr><td>1</td><td><span class="ro">1</span></td><td><span class="ro">1</span></td><td><span class="inp">0.0</span> %</td><td class="x"></td></tr>
+<tr><td>2</td><td><span class="inp">2</span></td><td><span class="ro">4</span></td><td><span class="inp">5.0</span> %</td><td class="x">✕</td></tr>
+<tr><td>3</td><td><span class="inp">5</span></td><td><span class="ro">?</span></td><td><span class="inp">10.0</span> %</td><td class="x">✕</td></tr>
+<tr><td>4</td><td><span class="inp" style="border-color:#c86a6a;color:#f2b8b8">4</span></td><td><span class="ro">and above</span></td><td><span class="inp">15.0</span> %</td><td class="x">✕</td></tr>
+</table>
+<div class="err" style="margin-top:12px;background:#3a1f1f;border:1px solid #6a3434;color:#f2b8b8;border-radius:6px;padding:10px 14px;font-size:12px;line-height:1.5"><b>Band 4 must start above 5,</b> where band 3 starts. Bands cannot overlap. Fix this to save.</div>
+<div style="display:flex;gap:14px;align-items:center;margin-top:12px"><button class="btn">+ Add band (4 of 6)</button><span class="note">HEMIR sells in ones and twos, so its bands are small.</span></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div class="card" style="opacity:.55">
+<div class="h">Margin check · worst case per band</div>
+<div class="note" style="padding:40px 0;text-align:center">Fix the band rules to see the margin check.</div>
+</div>
+<div class="card">
+<div class="h">How bands differ by product (example)</div>
+<table>
+<tr><th>Product</th><th>Typical deal</th><th>Bands</th></tr>
+<tr><td>SafeSight</td><td>50 to 500 cameras</td><td>1 · 10 · 50 · 200 · 500 · 1,000+</td></tr>
+<tr><td>Air Quality</td><td>10 to 100 sensors</td><td>1 · 10 · 50+</td></tr>
+<tr><td>HEMIR</td><td>1 to 5 units</td><td>1 · 2 · 5 · 10+</td></tr>
+</table>
+<div class="note" style="margin-top:10px">Example band starts only. Admin sets the real ones.</div>
+</div>
+</div>
+</div>
+</div>
+</section></body></html>
