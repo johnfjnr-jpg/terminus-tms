@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.7
+# Terminus Term Pricing: Specification v1.8
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -10,6 +10,8 @@
 **Amended (v1.5, John, 10 Oct 2026, PER_CAMERA_AND_CAPEX_P0):** the term ladder's OPEX per-camera fee (section 4.5); test case T31. Every earlier figure is unchanged.
 **Amended (v1.6, John, 10 Oct 2026, TP_CAPEX, rulings C-1 to C-13 and Q1 to Q14):** OPEX sets the price; CAPEX is a way of paying part of it earlier, against a client CAPEX budget, and the remainder is a monthly subscription; CPI is an uplift on the subscription, never on CAPEX. Two TCVs: **Base TCV** (no CPI) carries approval, margin, the margin floor, the profit table and the volume discount; **Final TCV** (with CPI) is what the client is invoiced (section 4.3). A CPI mode (section 7). The CAPEX amount, Two-phase and Hybrid payment, and the subscription (section 6). Split WHT on CAPEX payments (section 8.1). Cash in year 1 (section 9). Warnings (section 6.4). Under CAPEX the ladder shows the OPEX per-camera fee only (section 4.5). **Figures that move:** T16, T22, T27, T28 and T30 now report Base and Final separately (section 11); every other earlier figure is unchanged. Test cases G-C1 to G-C6 and the L1 pair (section 11.1).
 **Amended (v1.7, John, 11 Oct 2026, TP_TABS, rulings T-4, C1 and C2):** per-band totals in section 4.3 (each band's Base TCV, cost, gross profit and margin, summing exactly to its product) (C1); the term ladder shows every column whatever the payment basis (section 4.5) (C2); the milestone allocation preview, which reports a Hybrid schedule whose shares are still being entered, and the excess named when they total above 100% (section 6.2) (T-4); test cases T4-G1 and B-1 to B-6 (section 11.3). **Every earlier figure is unchanged.**
+**Amended (v1.8, John, 12 Oct 2026, TP_BANDS, rulings TB-1 to TB-9):** volume bands are configured **per product**, 2 to 6 bands each, as a start and a discount, with "To" derived (section 3.1) (TB-1 to TB-5); the rules a band set must meet and the wording that refuses a broken one, shared by the editor and the server (section 3.2) (TB-6); the margin check, every band at every term, flagged against the floor and never refusing (section 10.4) (TB-7); test cases BG-1 to BG-5 (section 11.4). The rulings are cited TB-1 to TB-9 so they do not collide with test cases B-1 to B-6 of v1.7. **Every product is seeded with the v1.7 bands, so every earlier figure is unchanged** (BG-5).
+
 
 
 **Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
@@ -58,7 +60,7 @@
 | `ANCHOR_MARGIN[product]` | 90% each product | Margin on price at the anchor term, per product |
 | `SHORT_TERM_MARGIN[product]` | 90% each product | Margin on price for terms below the anchor, per product |
 | `PROFIT_STEP` | 0.00 USD per unit per term step | Extra profit per step above 36 months. 0 = level profit |
-| `VOLUME_BANDS` | see 3.1 | Banded discount on the monthly fee |
+| `VOLUME_BANDS[product]` | see 3.1 | Banded discount on the monthly fee, per product (v1.8, TB-1). Stored as `VOLUME_BANDS_BY_PRODUCT` |
 | `HW_UPFRONT_MARGIN` | 20% | Margin on the hardware price in the CAPEX option. 0 = at cost |
 | `MARGIN_FLOOR` | 25% | Whole-deal margin below this shows a flag; it never refuses |
 | `CURRENCY` | USD | |
@@ -67,6 +69,8 @@
 
 ### 3.1 Volume bands (banded, like tax bands)
 
+**Per product (v1.8, TB-1).** Each product has its own bands. Every product starts on these (the seed, and the bands every figure in sections 10 and 11 uses unless a case says otherwise):
+
 | Units of a product in the band | Discount on those units' monthly fee |
 |---|---|
 | 1 to 9 | 0% |
@@ -74,7 +78,26 @@
 | 50 to 199 | 10% |
 | 200 and above | 15% |
 
-Bands count units **per product line**. A 60-unit SafeSight line prices units 1 to 9 at 0%, 10 to 49 at 5% and 50 to 60 at 10%.
+Bands count units **per product line**, on that product's own bands. A 60-unit SafeSight line prices units 1 to 9 at 0%, 10 to 49 at 5% and 50 to 60 at 10%.
+
+**A band is a start and a discount (TB-3).** Band 1 starts at 1. A band's "To" is the next band's start less 1, and the last band runs "and above"; "To" is derived and never stored. A product has 2 to 6 bands (TB-2). Each band's discount applies to the units inside it, and only to them (TB-5, unchanged).
+
+### 3.2 The rules a band set must meet (v1.8, TB-3, TB-4, TB-6)
+
+The editor checks as an admin types and the server checks again before it saves; the server is the authority. Both use one function, so the wording is the same in both places. Every broken rule is reported, one line each, in band order; while any is broken the set is not saved, and a band whose start is invalid shows "?" as the previous band's "To".
+
+| Rule | Refused with |
+|---|---|
+| Band 1 starts at 1 | Band 1 always starts at 1. Fix this to save. |
+| Each later start is above the previous start | Band 4 must start above 5, where band 3 starts. Bands cannot overlap. Fix this to save. |
+| A start is a whole number | Band 3 must start at a whole number of units. Fix this to save. |
+| At least 2 bands | A product needs at least 2 bands. Add a band to save. |
+| At most 6 bands | A product can have at most 6 bands. Remove a band to save. |
+| Discounts never fall as volume rises; equal is allowed | Band 4's discount must be at least 10.0%, band 3's. Discounts never fall as volume rises. Fix this to save. |
+| A discount is below 100% | Band 6's discount must be below 100%. Fix this to save. |
+| A discount is a number from 0, to one decimal place | Band 2's discount must be a number from 0 to below 100, with at most one decimal place. Fix this to save. |
+
+The band numbers and figures in each message are the ones the set in hand breaks. Only an admin may change bands (TB-8); everyone can read them.
 
 ## 4. Calculation rules (per product line)
 
@@ -378,6 +401,21 @@ Profit varies by cents only, from fee rounding.
 | 84 | 84.7% | 83.8% | 82.9% | 81.9% |
 | 120 | 81.0% | 80.0% | 78.9% | 77.7% |
 
+### 10.4 The margin check (v1.8, TB-7)
+
+Beside the band editor, for the product shown and the bands as typed: every band at every term in `TERMS`, each cell the 10.3 worst case (every unit at that band's fee, margin on price):
+
+```
+band_fee(T, band)   as 4.2, on the candidate bands
+cost(T)             = HW_COST + HOSTING_MONTHLY × T
+margin(T, band)     = ( band_fee × T − cost(T) ) / ( band_fee × T ) × 100
+flagged             margin(T, band) < MARGIN_FLOOR, compared exactly (a cell shown as 25.0% that is 24.96% is flagged)
+```
+
+A flagged cell **warns and never refuses**: the bands still save. The warning names the count and each breach, then says: "You can still save. A quote is flagged for approval only when its whole-deal margin falls below the floor." (the flag of 4.4 is on the whole deal, so a band's worst case below the floor does not by itself flag any quote).
+
+Below the grid, the fee per unit per month for every band at 36, 60, 84 and 120 months, from the same figures (a term not in `TERMS` is not shown). While the set breaks a rule of 3.2, neither the grid nor the fee table shows figures; each reads "Fix the band rules to see the margin check."
+
 ## 11. Test cases (must pass)
 
 SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, not a real product**: `HW_COST` 2,000.00, `HOSTING_MONTHLY` 50.00.
@@ -459,6 +497,18 @@ The demo deal of 11.1, 60 months, the settings of section 3. No CPI.
 | B-6 | as B-1 | HEMIR 1-9: 2 units, 19,866.67, 39,733.34, 2,384,000.40, 89.1% | |
 
 Each product's bands sum to its v1.4 figures (T29), unchanged.
+
+### 11.4 v1.8 cases (TP_BANDS)
+
+The settings of section 3, anchor margin 90%, catalog costs. Copied from the TP_BANDS brief; never computed by the code under test.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| BG-1 | SafeSight bands 1/10/50/200/500/1000 at 0/5/10/15/20/30%; 1,000 units; 60 months, `opex` | band fees 2,613.33 / 2,482.67 / 2,352.00 / 2,221.33 / 2,090.67 / 1,829.33; units 9 / 40 / 150 / 300 / 500 / 1; monthly 2,189,190.10; Base TCV 131,351,406.00; margin 84.8% | Six configured bands (TB-1, TB-2, TB-9) |
+| BG-2 | HEMIR bands 1/2/5/10 at 0/5/10/15%; 2 units; 60 months | fees 19,866.67 (1 unit) and 18,873.33 (1 unit); monthly 38,740.00; Base TCV 2,324,400.00; margin 88.8% | A product's own bands (TB-1) |
+| BG-3 | The margin check, SafeSight 30% band (worst case) | 12 months fee 6,066.67, margin 85.7%; 36: 2,955.56, 85.7%; 60: 1,829.33, 81.8%; 120: 984.67, 72.9% | Section 10.4 (TB-7) |
+| BG-4 | Refusals, server and editor | band 1 start not 1; a start not above the previous; 1 band; 7 bands; a falling discount; a discount of 100 or more; a non-whole start | Each refused with its 3.2 wording (TB-6) |
+| BG-5 | The seed (3.1) on every product | every v1.7 figure (sections 10, 11, 11.1 to 11.3) unchanged | Nothing moved (TB-1) |
 
 ## 12. Implementing in the TMS prototype
 
