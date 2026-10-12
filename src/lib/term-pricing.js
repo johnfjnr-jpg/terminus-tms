@@ -101,6 +101,107 @@ function safeInt(v, what) {
   return v
 }
 
+// ── Volume bands: the rules a set must meet (spec 3.2, v1.8) ─────────────
+//
+// ONE FUNCTION FOR THE EDITOR AND THE SERVER (TB-6). The editor runs it as an
+// admin types; normaliseParams runs it for every product, so the route's 400
+// carries the sentence the editor showed. It never throws: it reports EVERY
+// broken rule, one line each, in band order, each naming the fix.
+//
+// 2 and 6 are rulings (TB-2), not pricing parameters, so they are constants
+// here rather than settings.
+
+const MIN_BANDS = 2
+const MAX_BANDS = 6
+
+/** A start as a whole number of units, or null. The editor may send text. */
+function wholeStart(v) {
+  if (typeof v === 'number') return Number.isSafeInteger(v) && v >= 0 ? v : null
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) {
+    const n = Number(v.trim())
+    return Number.isSafeInteger(n) ? n : null
+  }
+  return null
+}
+
+/** "10" -> "10.0", "7.5" -> "7.5": a discount as the 3.2 messages print it. */
+function oneDecimal(text) {
+  const [whole, part = ''] = text.split('.')
+  return `${BigInt(whole)}.${(part + '0')[0]}`
+}
+
+/**
+ * validateBands(bands) -> { ok, problems: [{ band, field, message }], rows, bands }
+ *
+ * `rows` is one entry per band as typed: { band, from, to }, where `to` is the
+ * next band's start less 1, null for the last band ("and above"), and "?"
+ * while the next band's start is invalid (3.2). `bands` is the set in its
+ * stored shape ({ from: number, discountPct: string }) when ok, else null.
+ */
+export function validateBands(bands) {
+  const list = Array.isArray(bands) ? bands : []
+  const problems = []
+  const say = (band, field, message) => problems.push({ band, field, message })
+  if (list.length < MIN_BANDS) say(null, 'count', `A product needs at least ${MIN_BANDS} bands. Add a band to save.`)
+  if (list.length > MAX_BANDS) say(null, 'count', `A product can have at most ${MAX_BANDS} bands. Remove a band to save.`)
+
+  const starts = []
+  const texts = []
+  let lastStart = null
+  let lastDiscount = null
+  list.forEach((b, i) => {
+    const n = i + 1
+    const from = wholeStart(b?.from)
+    let startOk = false
+    if (i === 0) {
+      if (from === 1) startOk = true
+      else say(n, 'from', 'Band 1 always starts at 1. Fix this to save.')
+    } else if (from === null) {
+      say(n, 'from', `Band ${n} must start at a whole number of units. Fix this to save.`)
+    } else if (lastStart && from <= lastStart.from) {
+      say(n, 'from', `Band ${n} must start above ${lastStart.from}, where band ${lastStart.band} starts. Bands cannot overlap. Fix this to save.`)
+    } else {
+      startOk = true
+    }
+    if (startOk) lastStart = { band: n, from }
+    starts.push(startOk ? from : null)
+
+    const raw = b?.discountPct
+    const text = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw.trim() : ''
+    texts.push(text)
+    if (/^\d+(\.\d+)?$/.test(text) && cmp(parseDecimal(text), HUNDRED) >= 0) {
+      say(n, 'discountPct', `Band ${n}'s discount must be below 100%. Fix this to save.`)
+    } else if (!/^\d+(\.\d)?$/.test(text)) {
+      say(n, 'discountPct', `Band ${n}'s discount must be a number from 0 to below 100, with at most one decimal place. Fix this to save.`)
+    } else {
+      const value = parseDecimal(text)
+      if (lastDiscount && cmp(value, lastDiscount.value) < 0) {
+        say(n, 'discountPct', `Band ${n}'s discount must be at least ${oneDecimal(lastDiscount.text)}%, band ${lastDiscount.band}'s. Discounts never fall as volume rises. Fix this to save.`)
+      } else {
+        lastDiscount = { band: n, value, text }
+      }
+    }
+  })
+
+  const rows = list.map((b, i) => {
+    const from = wholeStart(b?.from) ?? b?.from
+    if (i + 1 >= list.length) return { band: i + 1, from, to: null }
+    return { band: i + 1, from, to: starts[i + 1] === null ? '?' : starts[i + 1] - 1 }
+  })
+  const ok = problems.length === 0
+  return { ok, problems, rows, bands: ok ? list.map((_, i) => ({ from: starts[i], discountPct: texts[i] })) : null }
+}
+
+/** A validated set, in the stored shape, to the engine's bands with "To" derived. */
+function engineBands(stored, product) {
+  return stored.map((b, i, a) => ({
+    from: b.from,
+    to: i + 1 < a.length ? a[i + 1].from - 1 : null,
+    discount: pctToRatio(b.discountPct, `VOLUME_BANDS_BY_PRODUCT[${product}][${i}].discountPct`),
+    discountPct: b.discountPct,
+  }))
+}
+
 // ── Parameters (spec section 3) ──────────────────────────────────────────
 
 /**
@@ -110,7 +211,7 @@ function safeInt(v, what) {
  *   TERMS: [12, 24, ...], ANCHOR_TERM: 36,
  *   ANCHOR_MARGIN: { safesight: '90', ... }, SHORT_TERM_MARGIN: { ... },
  *   PROFIT_STEP: '0.00',
- *   VOLUME_BANDS: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, ...],
+ *   VOLUME_BANDS_BY_PRODUCT: { safesight: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, ...], ... },
  *   HW_UPFRONT_MARGIN: '20', MARGIN_FLOOR: '25', CURRENCY: 'USD',
  *   costs: { safesight: { hwCost: '8000.00', hostingMonthly: '200.00' }, ... },
  * }
@@ -138,16 +239,17 @@ export function normaliseParams(params) {
     return out
   }
 
-  const bands = (params.VOLUME_BANDS ?? []).map((b, i) => ({
-    from: safeInt(b.from, `VOLUME_BANDS[${i}].from`),
-    discount: pctToRatio(b.discountPct, `VOLUME_BANDS[${i}].discountPct`),
-    discountPct: b.discountPct,
-  }))
-  if (!bands.length || bands[0].from !== 1) throw new TermPricingError('BAD_PARAM', 'VOLUME_BANDS must start at unit 1')
-  for (let i = 1; i < bands.length; i++) {
-    if (bands[i].from <= bands[i - 1].from) throw new TermPricingError('BAD_PARAM', 'VOLUME_BANDS must be ascending')
+  // v1.8 (TP_BANDS, TB-1): bands are PER PRODUCT. Each product's list is held
+  // to the 3.2 rules by the same validator the editor runs, so the server
+  // refuses with the editor's sentence (TB-6). SUPERSEDED, left visible: v1.7
+  // read one list, VOLUME_BANDS, for every product, checked only that it began
+  // at 1 and ascended.
+  const bandsByProduct = {}
+  for (const [k, list] of Object.entries(params.VOLUME_BANDS_BY_PRODUCT ?? {})) {
+    const v = validateBands(list)
+    if (!v.ok) throw Object.assign(new TermPricingError('BAD_PARAM', v.problems[0].message), { product: k, problems: v.problems })
+    bandsByProduct[k] = engineBands(v.bands, k)
   }
-  bands.forEach((b, i) => { b.to = i + 1 < bands.length ? bands[i + 1].from - 1 : null })
 
   const costs = {}
   for (const [k, c] of Object.entries(params.costs ?? {})) {
@@ -166,7 +268,7 @@ export function normaliseParams(params) {
     anchorMargin: margins(params.ANCHOR_MARGIN, 'ANCHOR_MARGIN'),
     shortTermMargin: margins(params.SHORT_TERM_MARGIN, 'SHORT_TERM_MARGIN'),
     profitStep: parseDecimal(params.PROFIT_STEP, 'PROFIT_STEP'),
-    bands,
+    bandsByProduct,
     hwUpfrontMargin: hwUpfront,
     marginFloor: pctToRatio(params.MARGIN_FLOOR, 'MARGIN_FLOOR'),
     currency: params.CURRENCY,
@@ -174,7 +276,7 @@ export function normaliseParams(params) {
   }
 }
 
-const isNormalised = (p) => p && Array.isArray(p.terms) && Array.isArray(p.bands)
+const isNormalised = (p) => p && Array.isArray(p.terms) && p.bandsByProduct && typeof p.bandsByProduct === 'object'
 const norm = (p) => (isNormalised(p) ? p : normaliseParams(p))
 
 /**
@@ -203,7 +305,11 @@ function productParams(p, product) {
   const sm = p.shortTermMargin[product]
   if (!am) throw new TermPricingError('NO_PARAM', `No ANCHOR_MARGIN for ${product}`)
   if (!sm) throw new TermPricingError('NO_PARAM', `No SHORT_TERM_MARGIN for ${product}`)
-  return { cost, am, sm }
+  // v1.8 (TB-1): the product's own bands. A product with none is refused, as a
+  // missing margin is, rather than borrowing another product's.
+  const bands = p.bandsByProduct[product]
+  if (!bands) throw new TermPricingError('NO_PARAM', `No volume bands for ${product}`)
+  return { cost, am, sm, bands }
 }
 
 // ── Section 4.1: the list fee per unit, full precision ───────────────────
@@ -224,8 +330,8 @@ const listFeeAt = (p, product, T) => div(priceAt(p, product, T), fromInt(T))
 
 const bandFeeCents = (listFee, band) => roundHalfUp(mul(listFee, sub(ONE, band.discount)), 2)
 
-function splitIntoBands(p, units) {
-  return p.bands.map((b) => {
+function splitIntoBands(bands, units) {
+  return bands.map((b) => {
     const top = b.to === null ? units : Math.min(units, b.to)
     return { band: b, units: Math.max(0, top - b.from + 1) }
   })
@@ -239,7 +345,7 @@ export function unitEconomics(product, termMonths, params) {
   const p = norm(params)
   const T = safeInt(termMonths, 'term_months')
   requireTerm(p, T)
-  const { cost } = productParams(p, product)
+  const { cost, bands } = productParams(p, product)
   const listFee = listFeeAt(p, product, T)
   const costCents = roundHalfUp(costAt(cost, T), 2)
   return {
@@ -248,7 +354,7 @@ export function unitEconomics(product, termMonths, params) {
     listFee,
     costCents,
     savingVsAnchor: sub(ONE, div(listFee, listFeeAt(p, product, p.anchorTerm))),
-    bands: p.bands.map((b) => {
+    bands: bands.map((b) => {
       const feeCents = bandFeeCents(listFee, b)
       const tcvCents = feeCents * BigInt(T)
       const profitCents = tcvCents - costCents
@@ -258,6 +364,45 @@ export function unitEconomics(product, termMonths, params) {
         margin: tcvCents === 0n ? ZERO : frac(profitCents, tcvCents),
       }
     }),
+  }
+}
+
+// ── The margin check (spec 10.4, v1.8, TB-7) ─────────────────────────────
+
+// The fee table's terms, as ruled (TB-7). A term an admin has removed from
+// TERMS is not shown.
+const FEE_TABLE_TERMS = [36, 60, 84, 120]
+
+/**
+ * bandMarginGrid(product, bands, params): the margin check for one product on
+ * the bands AS TYPED. Every band at every term in TERMS, each cell the 10.3
+ * worst case (every unit at that band's fee), flagged by an EXACT comparison
+ * with MARGIN_FLOOR. A breach warns; nothing here refuses.
+ *
+ * -> { ok: true, floor, terms, feeTerms, rows: [{ band, from, to, discountPct,
+ *        cells: [{ termMonths, feeCents, margin, belowFloor }] }],
+ *      breaches: [{ band, termMonths, feeCents, margin }] }
+ * -> { ok: false, problems } while the set breaks a 3.2 rule: no figures.
+ */
+export function bandMarginGrid(product, bands, params) {
+  const v = validateBands(bands)
+  if (!v.ok) return { ok: false, problems: v.problems }
+  const base = norm(params)
+  const p = { ...base, bandsByProduct: { ...base.bandsByProduct, [product]: engineBands(v.bands, product) } }
+  const rows = p.bandsByProduct[product].map((b, i) => ({
+    band: i + 1, from: b.from, to: b.to, discountPct: b.discountPct, cells: [],
+  }))
+  for (const T of p.terms) {
+    unitEconomics(product, T, p).bands.forEach((u, i) => {
+      rows[i].cells.push({ termMonths: T, feeCents: u.feeCents, margin: u.margin, belowFloor: cmp(u.margin, p.marginFloor) < 0 })
+    })
+  }
+  const breaches = rows.flatMap((r) => r.cells.filter((c) => c.belowFloor)
+    .map((c) => ({ band: r.band, termMonths: c.termMonths, feeCents: c.feeCents, margin: c.margin })))
+  return {
+    ok: true, floor: p.marginFloor, terms: p.terms,
+    feeTerms: FEE_TABLE_TERMS.filter((t) => p.terms.includes(t)),
+    rows, breaches,
   }
 }
 
@@ -367,10 +512,10 @@ function quoteCore(input, params, preview) {
   // Per line, per band: the year-1 fee, then each contract year's fee from it
   // (section 7: compounded from year 1 and rounded per band, never chained).
   const lines = entries.filter(([, n]) => n >= 1).map(([product, units]) => {
-    const { cost } = productParams(p, product)
+    const { cost, bands: productBands } = productParams(p, product)
     const listFee = listFeeAt(p, product, T)
     const costPerUnitCents = roundHalfUp(costAt(cost, T), 2)
-    const bands = splitIntoBands(p, units).filter((x) => x.units > 0).map(({ band, units: bu }) => {
+    const bands = splitIntoBands(productBands, units).filter((x) => x.units > 0).map(({ band, units: bu }) => {
       const fee1 = bandFeeCents(listFee, band)
       const feeByYear = []
       for (let k = 1; k <= years; k++) feeByYear.push(roundHalfUp(mul(fromCents(fee1), factor(k)), 2))

@@ -14,12 +14,32 @@ export interface EngineParamsInput {
   ANCHOR_MARGIN: Record<string, string>
   SHORT_TERM_MARGIN: Record<string, string>
   PROFIT_STEP: string
-  VOLUME_BANDS: Array<{ from: number; discountPct: string }>
+  /** v1.8 (TB-1): one ordered list per product. */
+  VOLUME_BANDS_BY_PRODUCT: Record<string, StoredBand[]>
   HW_UPFRONT_MARGIN: string
   MARGIN_FLOOR: string
   CURRENCY: string
   costs: Record<string, { hwCost: string; hostingMonthly: string }>
 }
+
+/** A band as stored: a start and a discount; "To" is derived (TB-3). */
+export interface StoredBand { from: number; discountPct: string }
+
+export interface BandProblem { band: number | null; field: 'count' | 'from' | 'discountPct'; message: string }
+
+export interface BandValidation {
+  ok: boolean
+  problems: BandProblem[]
+  /** `to` is null for the last band and "?" while the next band's start is invalid. */
+  rows: Array<{ band: number; from: unknown; to: number | null | '?' }>
+  bands: StoredBand[] | null
+}
+
+export interface BandGridCell { termMonths: number; feeCents: bigint; margin: Fraction; belowFloor: boolean }
+export interface BandGridRow { band: number; from: number; to: number | null; discountPct: string; cells: BandGridCell[] }
+export type BandGrid =
+  | { ok: true; floor: Fraction; terms: number[]; feeTerms: number[]; rows: BandGridRow[]; breaches: Array<{ band: number; termMonths: number; feeCents: bigint; margin: Fraction }> }
+  | { ok: false; problems: BandProblem[] }
 
 export interface NormalisedParams {
   terms: number[]
@@ -177,5 +197,9 @@ export function unitEconomics(product: string, termMonths: number, params: Engin
 export function priceQuote(input: QuoteInput, params: EngineParamsInput | NormalisedParams): Quote
 export function capexAllocation(input: QuoteInput, params: EngineParamsInput | NormalisedParams): AllocationPreview
 export function termLadder(input: Omit<QuoteInput, 'termMonths'> & { termMonths?: number; perCameraProduct?: string }, params: EngineParamsInput | NormalisedParams): LadderRow[]
+/** v1.8 (spec 3.2, TB-6): never throws; every broken rule, in band order. */
+export function validateBands(bands: unknown): BandValidation
+/** v1.8 (spec 10.4, TB-7): the margin check on the bands as typed. */
+export function bandMarginGrid(product: string, bands: unknown, params: EngineParamsInput | NormalisedParams): BandGrid
 export function formatMoney(cents: bigint): string
 export function formatPct(ratio: Fraction, places?: number): string
