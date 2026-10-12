@@ -961,6 +961,40 @@ untouched. What it depends on, recorded so the round can test it (Verification
 29): that Term Pricing's Payment terms tab survives its first real use
 unchanged. If it does not, converge on whatever it becomes.
 
+### VOLUME BANDS ARE PER PRODUCT, CONFIGURED BY AN ADMIN (TP_BANDS, John 2026-10-12)
+
+**Decided** (rulings TB-1 to TB-9, cited TB so they do not collide with spec
+v1.7's test cases B-1 to B-6; spec v1.8). Each product has 2 to 6 bands, each a
+start and a discount; "To" is derived. Seeded with the v1.7 bands, so every
+earlier figure is unchanged. Only an admin edits; everyone reads.
+
+**Stored as a NEW key, `VOLUME_BANDS_BY_PRODUCT`, not by reshaping
+`VOLUME_BANDS`.** What that rests on (Verification 29): between John applying the
+migration and the merge being deployed, the code serving the screen reads
+`VOLUME_BANDS` as one list, so a reshape would have broken every Term Pricing
+screen for that window. The old row is removed by
+`20261012000002_term_pricing_remove_volume_bands.sql`, **applied only after the
+push**. If deployment ever becomes atomic with the migration, the two-step is no
+longer needed.
+
+**ONE VALIDATOR FOR THE EDITOR AND THE SERVER.** `validateBands` in the engine
+returns every broken rule in the spec's own wording; the editor shows it as an
+admin types, and the route refuses with it. The client check is a convenience;
+the server is the authority (TB-6). A second copy of the rules, in SQL or in the
+view, was declined as a second reader (Verification 20).
+
+**A floor breach in the margin check WARNS, and the floor flag stays
+whole-deal.** The approved mockup said quotes in a breaching band and term "will
+show the floor flag"; that was false, since the flag is on the whole deal's
+margin, and ruling 0.2 replaced the sentence. A band's worst case below the floor
+does not by itself flag any quote.
+
+**A KNOWN LIMIT, recorded and not guarded.** Saving one product's bands is a
+read-merge-write of the one jsonb row, so two admins saving DIFFERENT products in
+the same instant could lose one save. It rests on there being one admin today;
+when there are two, the save needs a precondition (Architecture 13).
+
+
 ### A FULL ASSESSMENT CRITERIA REVIEW, as its own session after Round 41
 
 **Scheduled by the business 2026-08-31, Round 41, as fix-panel item 5.**
