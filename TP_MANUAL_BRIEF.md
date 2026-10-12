@@ -73,3 +73,30 @@ Fill from calculated; Clear; blank rows; leaving and returning clears; tab switc
 calibration injections each FIRED -> overlap sweep 1240..1920 step 40 with the card empty,
 filled and flagged -> full gate -> merge --no-ff -> merged gate -> ls-remote ->
 "ready for John's push".
+
+RULINGS ON PHASE 0 (appended verbatim at the phase they launch, CLAUDE.md build discipline 7)
+
+TP_MANUAL: RULINGS ON PHASE 0 (Claude, under John's approval 2026-10-12). Resume.
+
+MOCKUP PATH: the move to the brief's path is accepted.
+C1  ACCEPTED: manualLadder({ product, prices }, params); the view passes 'safesight'.
+C2  CORRECTION OF MG-4 (Claude's omission): MG-4 raises ALL THREE flags: "Below the floor",
+    "Client total below 108 months", "Profit below 108 months". Order everywhere: floor,
+    client total, profit; one flag per line in Check.
+C3  ACCEPTED wording. OK: "At or above the {floor}% floor at every priced term"; "Client total
+    never falls with a longer term"; "Profit never falls with a longer term". Fail: "Below the
+    {floor}% floor at {n} term(s) ({terms})"; "Client total falls at {n} term(s) ({terms})";
+    "Profit falls at {n} term(s) ({terms})". {floor} from settings.
+C4  ACCEPTED: header "vs {ANCHOR_TERM} months".
+C5  ACCEPTED: prices held in the view, reset when navToken changes; nothing else changes.
+C6  KEPT AS RULED, with the card's column headed "Calculated, 1 camera" and the note
+    "One SafeSight camera, first volume band ({x}%)", derived.
+C7  ACCEPTED: the card renders whenever the settings price, in the ladder's place in the order.
+C8  ACCEPTED: hardware, hosting and first-band discount in the note come from manualLadder.
+C9  ACCEPTED: "Enter a monthly price above 0, to the cent." with aria-invalid; commas accepted.
+C10 ACCEPTED: U+2212 minus and "+" as the ladder prints them; hyphen only for an absent vs 36.
+C11 ACCEPTED: empty state as proposed; no chips until one price is entered.
+
+Continue: spec v1.9 (with MG-4 as corrected) -> tests fail first -> engine -> view -> probes ->
+calibration -> sweep -> full gate -> merge -> merged gate -> ls-remote ->
+"ready for John's push".
