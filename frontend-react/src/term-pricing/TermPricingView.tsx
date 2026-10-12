@@ -27,6 +27,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import {
   priceQuote, capexAllocation, termLadder, normaliseParams, formatMoney, formatPct,
+  validateBands, bandMarginGrid,
 } from '../../../src/lib/term-pricing.js'
 import type { CpiMode, Quote, AllocationPreview } from '../../../src/lib/term-pricing.js'
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
@@ -301,7 +302,24 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   // switch of tab (T-1).
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
-  useEffect(() => { if (data) setDraft(draftFrom(data.settings)) }, [data?.settings])
+  // TP_BANDS: a reload of the settings refreshes a draft only where it holds no
+  // unsaved change, because saving one product's bands (ruling 0.5) now reloads
+  // the settings while other edits may be open. SUPERSEDED, QUOTED NOT DELETED:
+  // `useEffect(() => { if (data) setDraft(draftFrom(data.settings)) }, [data?.settings])`.
+  const seenSettings = useRef<Settings | null>(null)
+  useEffect(() => {
+    if (!data) return
+    const prev = seenSettings.current
+    seenSettings.current = data.settings
+    setDraft((d) => (d && prev && Object.keys(changesFrom(prev, d)).length ? d : draftFrom(data.settings)))
+  }, [data?.settings])
+  // TP_BANDS (TB-8): the band editor's product tab and one draft per product,
+  // held here so they survive a switch of tab (T-1).
+  const [bandProduct, setBandProduct] = useState<string>(PRODUCTS[0].key)
+  const [bandDrafts, setBandDrafts] = useState<BandDrafts>({})
+  useEffect(() => {
+    if (data) setBandDrafts((d) => refreshBandDrafts(d, data.settings))
+  }, [data?.settings])
   const chooseTerm = (t: number) => {
     setTerm(t)
     setStartYear((s) => Math.max(2, Math.min(s, lastYearOf(t))))
@@ -583,7 +601,10 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
       <SettingsCard state={data} open={settingsOpen} onToggle={() => setSettingsOpen(!settingsOpen)}
         draft={draft ?? draftFrom(data.settings)} setDraft={setDraft}
-        onSaved={() => qc.invalidateQueries({ queryKey: TERM_PRICING_KEY })} />
+        onSaved={() => qc.invalidateQueries({ queryKey: TERM_PRICING_KEY })}
+        bands={<BandEditor state={data} product={bandProduct} onProduct={setBandProduct}
+          drafts={bandDrafts} setDrafts={setBandDrafts}
+          onSaved={(next) => qc.setQueryData([...TERM_PRICING_KEY, navToken], next)} />} />
     </>
   )
 
@@ -1041,7 +1062,9 @@ function draftFrom(s: Settings): Draft {
   }
   for (const [k, v] of Object.entries(s.ANCHOR_MARGIN as Record<string, string>)) d[`ANCHOR_MARGIN.${k}`] = v
   for (const [k, v] of Object.entries(s.SHORT_TERM_MARGIN as Record<string, string>)) d[`SHORT_TERM_MARGIN.${k}`] = v
-  ;(s.VOLUME_BANDS as Array<{ from: number; discountPct: string }>).forEach((b, i) => { d[`BAND.${i}`] = b.discountPct })
+  // TP_BANDS (ruling 0.5): the four band discount boxes retire; bands are edited
+  // in the band editor only. SUPERSEDED, QUOTED NOT DELETED:
+  // `(s.VOLUME_BANDS as ...).forEach((b, i) => { d[\`BAND.${i}\`] = b.discountPct })`.
   return d
 }
 
@@ -1057,14 +1080,12 @@ function changesFrom(s: Settings, d: Draft): Settings {
     const next = Object.fromEntries(Object.keys(cur).map((p) => [p, d[`${k}.${p}`].trim()]))
     if (Object.keys(cur).some((p) => cur[p] !== next[p])) out[k] = next
   }
-  const bands = s.VOLUME_BANDS as Array<{ from: number; discountPct: string }>
-  const nextBands = bands.map((b, i) => ({ from: b.from, discountPct: d[`BAND.${i}`].trim() }))
-  if (bands.some((b, i) => b.discountPct !== nextBands[i].discountPct)) out.VOLUME_BANDS = nextBands
   return out
 }
 
-function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft }: {
+function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft, bands }: {
   state: ServerState; open: boolean; onToggle: () => void; onSaved: () => void; draft: Draft; setDraft: (d: Draft) => void
+  bands: ReactNode
 }) {
   const shell = useShell()
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -1112,10 +1133,6 @@ function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft }: {
                 ))}</tbody></table>
               <p className="tp-small tp-muted">Costs are read from Base Cost Data and are not edited here
                 {Object.values(state.costs)[0] ? ` (${Object.values(state.costs)[0].batchLabel}, effective ${Object.values(state.costs)[0].effectiveFrom})` : ''}.</p>
-              <table className="tp-table"><thead><tr><th>Volume band (units per product line)</th><th>Discount on the monthly fee %</th></tr></thead>
-                <tbody>{(state.settings.VOLUME_BANDS as Array<{ from: number }>).map((b, i, a) => (
-                  <tr key={b.from}><td>{i + 1 < a.length ? `${b.from} to ${a[i + 1].from - 1}` : `${b.from} and above`}</td><td>{field(`BAND.${i}`, 'tp-set-narrow')}</td></tr>
-                ))}</tbody></table>
             </div>
           </div>
           {message && <p className={message.kind === 'error' ? 'tp-error' : 'tp-small'} role={message.kind === 'error' ? 'alert' : 'status'} data-testid="tp-settings-message">{message.text}</p>}
@@ -1124,8 +1141,242 @@ function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft }: {
               <button type="button" className="btn-primary" data-testid="tp-settings-save" disabled={!dirty || saving} onClick={save}>{saving ? 'Saving...' : 'Save settings'}</button>
             </div>
           )}
+          {bands}
         </div>
       )}
+    </section>
+  )
+}
+
+
+// ── VOLUME DISCOUNT BANDS: the per-product editor (TP_BANDS, spec v1.8) ────
+//
+// Built to prototypes/term-pricing-bands/term-pricing-bands.html: 4a (lines
+// 28-90, six bands and a floor breach) and 4b (lines 114-145, a rule broken
+// while typing). Content, rules and behaviour are binding; type and colour are
+// the estate's tokens, as every Term Pricing surface (C13).
+//
+// TB-6: the rules are the ENGINE'S validateBands, run as the admin types; the
+// server runs the same function and is the authority. TB-7: the margin check
+// and the fee table are the engine's bandMarginGrid on the bands AS TYPED; this
+// screen does no arithmetic on money. Ruling 0.5: Save bands saves the shown
+// product's bands only. Ruling 0.7: a non-admin reads the same editor, disabled.
+//
+// NOT BUILT (ruling 0.4): 4b's "How bands differ by product (example)" card.
+
+interface BandRow { from: string; discountPct: string }
+interface StoredBand { from: number; discountPct: string }
+type BandDrafts = Record<string, { rows: BandRow[]; base: StoredBand[] }>
+
+const storedBands = (s: Settings) => (s.VOLUME_BANDS_BY_PRODUCT ?? {}) as Record<string, StoredBand[]>
+/** A stored discount as the editor shows it, to one decimal (mockup 4a: "5.0"). */
+const shownDiscount = (t: string) => (/^\d+$/.test(t) ? `${t}.0` : t)
+/** A typed discount as it is stored: "5.0" is "5", as the seed writes it. */
+const storedDiscount = (t: string) => t.trim().replace(/\.0$/, '')
+const rowsFrom = (list: StoredBand[]): BandRow[] => list.map((b) => ({ from: String(b.from), discountPct: shownDiscount(b.discountPct) }))
+const sameBands = (rows: BandRow[], list: StoredBand[] | undefined) => !!list && rows.length === list.length
+  && rows.every((r, i) => r.from.trim() === String(list[i].from) && storedDiscount(r.discountPct) === storedDiscount(list[i].discountPct))
+
+/** On a reload, a product's draft is refreshed only if it held no unsaved change. */
+function refreshBandDrafts(prev: BandDrafts, s: Settings): BandDrafts {
+  const out: BandDrafts = {}
+  for (const [p, list] of Object.entries(storedBands(s))) {
+    const d = prev[p]
+    out[p] = d && !sameBands(d.rows, d.base) ? d : { rows: rowsFrom(list), base: list }
+  }
+  return out
+}
+
+const units = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+const floorShown = (f: { n: bigint; d: bigint }) => formatPct(f, 1).replace(/\.0$/, '')
+const MAX_BANDS_SHOWN = 6
+
+function BandEditor({ state, product, onProduct, drafts, setDrafts, onSaved }: {
+  state: ServerState; product: string; onProduct(p: string): void
+  drafts: BandDrafts; setDrafts(f: (d: BandDrafts) => BandDrafts): void; onSaved(next: ServerState): void
+}) {
+  const shell = useShell()
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string; problems?: string[] } | null>(null)
+  const admin = state.isAdmin
+  const offered = PRODUCTS.filter((p) => state.costs[p.key] && storedBands(state.settings)[p.key])
+  const stored = storedBands(state.settings)[product] ?? []
+  const rows = drafts[product]?.rows ?? rowsFrom(stored)
+  // The engine sees the discount as it would be STORED ("5.0" is "5"), so the
+  // grid's labels read as the mockup's ("2 · 5%"); anything else, "5.25"
+  // included, reaches the validator exactly as typed.
+  const typed = rows.map((r, i) => ({ from: i === 0 ? '1' : r.from, discountPct: storedDiscount(r.discountPct) }))
+  const v = validateBands(typed)
+  const grid = useMemo(() => {
+    try { return bandMarginGrid(product, typed, buildParams(state.settings, state.costs)) }
+    catch (e) { return { ok: false as const, problems: [{ band: null, field: 'count' as const, message: (e as Error).message }] } }
+  }, [product, JSON.stringify(typed), state])
+  const dirty = !sameBands(rows, stored)
+  const name = productLabel(product)
+
+  const setRows = (next: BandRow[]) => {
+    setDrafts((d) => ({ ...d, [product]: { rows: next, base: d[product]?.base ?? stored } }))
+    setMessage(null)
+  }
+  const edit = (i: number, k: keyof BandRow, val: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: val } : r)))
+  const add = () => setRows([...rows, { from: '', discountPct: rows[rows.length - 1]?.discountPct ?? '0.0' }])
+  const remove = (i: number) => setRows(rows.filter((_, j) => j !== i))
+  const discard = () => { setDrafts((d) => ({ ...d, [product]: { rows: rowsFrom(stored), base: stored } })); setMessage(null) }
+
+  async function save() {
+    if (!admin || !dirty || !v.ok || saving) return
+    setSaving(true)
+    const bands = typed.map((b) => ({ from: b.from.trim(), discountPct: storedDiscount(b.discountPct) }))
+    const r = await shell.api<ServerState & { error?: string; problems?: Array<{ message: string }> }>(
+      'PUT', `/api/term-pricing/bands/${product}`, { bands })
+    setSaving(false)
+    if (!r.ok) {
+      setMessage({ kind: 'error', text: r.data?.error ?? `The bands were not saved (${r.status ?? 'network'}).`,
+        problems: r.data?.problems?.map((p) => p.message) })
+      return
+    }
+    // The route answers with the state AFTER the write, so the screen takes it
+    // as the stored state at once. Waiting for a refetch left the draft
+    // compared with the bands it had just replaced, and Save and Discard read
+    // enabled for that moment (found by probe-bands.mjs --admin).
+    const saved = r.data?.settings ? storedBands(r.data.settings)[product] : undefined
+    if (saved) setDrafts((d) => ({ ...d, [product]: { rows: rowsFrom(saved), base: saved } }))
+    setMessage({ kind: 'ok', text: `Saved. Every quote priced from now on uses these ${name} bands.` })
+    if (r.data?.settings) onSaved(r.data)
+  }
+
+  const problemAt = (i: number, field: string) => v.problems.some((p) => p.band === i + 1 && p.field === field)
+  const fix = <div className="tp-small tp-muted tp-bands-fix">Fix the band rules to see the margin check.</div>
+  const shownErrors = message?.kind === 'error' ? (message.problems?.length ? message.problems : [message.text]) : v.problems.map((p) => p.message)
+
+  return (
+    <section className="tp-bands" aria-label="Volume discount bands" data-testid="tp-bands">
+      <div className="tp-bands-head">
+        <div>
+          {admin && <div className="tp-small tp-muted" data-testid="tp-bands-eyebrow">Term Pricing · Settings · Admin edits</div>}
+          <h3 className="tp-h2">Volume discount bands</h3>
+        </div>
+        {admin && (
+          <div className="tp-bands-actions">
+            <button type="button" className="btn-ghost" data-testid="tp-bands-discard" disabled={!dirty || saving} onClick={discard}>Discard</button>
+            <button type="button" className="btn-primary" data-testid="tp-bands-save" disabled={!dirty || !v.ok || saving} onClick={save}>{saving ? 'Saving...' : 'Save bands'}</button>
+          </div>
+        )}
+      </div>
+      {!admin && <p className="tp-small tp-muted" data-testid="tp-bands-readonly">Only an admin can change these.</p>}
+
+      <div className="tp-inline-row tp-bands-product">
+        <span className="tp-label tp-inline-label">Product</span>
+        <Seg<string> label="Product" testid="tp-bands-product" value={product} onChoose={(p) => { onProduct(p); setMessage(null) }}
+          options={offered.map((p) => ({ key: p.key, label: p.label }))} />
+        <span className="tp-small tp-muted">Each product has its own bands. A band's discount applies only to the units inside it.</span>
+      </div>
+
+      <div className="tp-settings-grid tp-bands-grid">
+        <div data-testid="tp-bands-editor">
+          <div className="tp-sec-title">{name} bands</div>
+          <table className="tp-table tp-bands-table">
+            <thead><tr><th>Band</th><th>From</th><th>To</th><th>Discount</th><th><span className="visually-hidden">Remove</span></th></tr></thead>
+            <tbody>{rows.map((r, i) => {
+              const to = v.rows[i]?.to
+              return (
+                <tr key={i} data-testid={`tp-bed-row-${i + 1}`}>
+                  <td>{i + 1}</td>
+                  <td>{i === 0
+                    ? <span className="tp-v tp-bands-ro" data-testid="tp-bed-from-1">1</span>
+                    : <input className="tp-num tp-set-narrow" aria-label={`Band ${i + 1} starts at`} data-testid={`tp-bed-from-${i + 1}`}
+                        value={r.from} disabled={!admin} aria-invalid={problemAt(i, 'from') || undefined}
+                        onChange={(e) => edit(i, 'from', e.target.value)} />}</td>
+                  <td><span className="tp-v tp-bands-ro" data-testid={`tp-bed-to-${i + 1}`}>{to === null ? 'and above' : String(to ?? '?')}</span></td>
+                  <td><span className="tp-pct-field">
+                    <input className="tp-num tp-set-narrow" aria-label={`Band ${i + 1} discount`} data-testid={`tp-bed-disc-${i + 1}`}
+                      value={r.discountPct} disabled={!admin} aria-invalid={problemAt(i, 'discountPct') || undefined}
+                      onChange={(e) => edit(i, 'discountPct', e.target.value)} /> %</span></td>
+                  <td>{admin && i > 0 && (
+                    <button type="button" className="btn-ghost tp-remove" aria-label={`Remove band ${i + 1}`} data-testid={`tp-bed-remove-${i + 1}`}
+                      disabled={rows.length <= 2} onClick={() => remove(i)}>✕</button>
+                  )}</td>
+                </tr>
+              )
+            })}</tbody>
+          </table>
+          {shownErrors.length > 0 && (
+            <div className="tp-bands-problems" role="alert" data-testid="tp-bands-problems">
+              {shownErrors.map((m, i) => <p key={i} className="tp-error">{m}</p>)}
+            </div>
+          )}
+          {admin && (
+            <div className="tp-inline-row tp-mt">
+              <button type="button" className="btn-ghost" data-testid="tp-bands-add" disabled={rows.length >= MAX_BANDS_SHOWN} onClick={add}>
+                + Add band ({rows.length} of {MAX_BANDS_SHOWN})</button>
+              <span className="tp-small tp-muted">You type where each band starts; "To" fills itself in.</span>
+            </div>
+          )}
+          {v.ok && (
+            <div className="tp-small tp-muted tp-bands-rules" data-testid="tp-bands-rules">
+              Rules checked as you type:<br />
+              · Band 1 always starts at 1.<br />
+              · Each band starts above the one before it: no gaps, no overlaps.<br />
+              · The last band runs to "and above".<br />
+              · Discounts never fall as volume rises.<br />
+              · 2 to 6 bands.
+            </div>
+          )}
+          {message?.kind === 'ok' && <p className="tp-small" role="status" data-testid="tp-bands-message">{message.text}</p>}
+        </div>
+
+        <div className="tp-bands-check">
+          <div data-testid="tp-bands-margin">
+            <div className="tp-bands-check-head">
+              <div className="tp-sec-title">Margin check · worst case per band</div>
+              {grid.ok && <span className="tp-small tp-muted">Every unit at that band's fee · floor {floorShown(grid.floor)}%</span>}
+            </div>
+            {grid.ok ? (
+              <>
+                <table className="tp-table tp-bands-margins" data-testid="tp-bands-grid">
+                  <thead><tr><th>Band</th>{grid.terms.map((t) => <th key={t}>{t}</th>)}</tr></thead>
+                  <tbody>{grid.rows.map((r) => (
+                    <tr key={r.band} data-testid={`tp-bgrid-row-${r.band}`}>
+                      <td>{r.band} · {r.discountPct}%</td>
+                      {r.cells.map((c) => (
+                        <td key={c.termMonths} data-testid={`tp-bgrid-${r.band}-${c.termMonths}`} data-below={c.belowFloor ? 'true' : undefined}>
+                          {c.belowFloor ? <span className="tp-chip tp-flag tp-bands-cell">{formatPct(c.margin, 1)}</span> : formatPct(c.margin, 1)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}</tbody>
+                </table>
+                <div className="tp-small tp-muted">Margin on price, %, by term in months.</div>
+              </>
+            ) : fix}
+          </div>
+          {grid.ok && grid.breaches.length > 0 && (
+            <div className="tp-warn" role="note" data-testid="tp-bands-warn">
+              <b>{grid.breaches.length} term{grid.breaches.length === 1 ? ' breaches' : 's breach'} the {floorShown(grid.floor)}% floor.</b>{' '}
+              {grid.breaches.map((b) => {
+                const row = grid.rows[b.band - 1]
+                const range = row.to === null ? `${units(row.from)} units and above` : `${units(row.from)} to ${units(row.to)} units`
+                return `Band ${b.band} (${range}, ${row.discountPct}%) at ${b.termMonths} months: fee ${formatMoney(b.feeCents)}, margin ${formatPct(b.margin, 1)}%.`
+              }).join(' ')}{' '}
+              You can still save. A quote is flagged for approval only when its whole-deal margin falls below the floor.
+            </div>
+          )}
+          <div data-testid="tp-bands-fees">
+            <div className="tp-sec-title">Fee per unit per month · {name}</div>
+            {grid.ok ? (
+              <table className="tp-table tp-bands-fee-table" data-testid="tp-bands-fee-table">
+                <thead><tr><th>Band</th>{grid.feeTerms.map((t) => <th key={t}>{t}</th>)}</tr></thead>
+                <tbody>{grid.rows.map((r) => (
+                  <tr key={r.band} data-testid={`tp-bfee-row-${r.band}`}>
+                    <td>{r.band} · {r.discountPct}%</td>
+                    {grid.feeTerms.map((t) => <td key={t} data-testid={`tp-bfee-${r.band}-${t}`}>{formatMoney(r.cells.find((c) => c.termMonths === t)!.feeCents)}</td>)}
+                  </tr>
+                ))}</tbody>
+              </table>
+            ) : fix}
+          </div>
+        </div>
+      </div>
     </section>
   )
 }
