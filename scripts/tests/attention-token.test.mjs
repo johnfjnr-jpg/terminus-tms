@@ -218,6 +218,16 @@ const AMBER_FAMILY = [
   // binds the token once.
   '.tp-amber td',
   '.tp-ready',
+  // ── TP_MANUAL (M-6, C3), 2026-10-12 ────────────────────────────────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT: 33 bindings against 29. Four sites, one
+  // meaning: a manual price whose row fails a check. The flag text, the warn
+  // chip's mark, and two TRANSLUCENT sites (the warn chip's border and the
+  // flagged row's wash), which derive from the token as the hover wash does.
+  '.tp-manual-chip.is-warn',
+  '.tp-manual-chip.is-warn .tp-manual-mark',
+  '.tp-manual-flag',
+  '.tp-table.tp-manual-table tr.tp-manual-flagged td',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries
@@ -270,9 +280,17 @@ test('R-V7 11: the translucent sites DERIVE from the token, not from a literal',
     const rule = css.match(new RegExp(`${esc}\\s*\\{([^}]*)\\}`))
     assert.ok(rule, `${sel} has no rule`)
   }
+  // TP_MANUAL adds two: the warn chip's border and the flagged row's wash. Each
+  // translucent site is NAMED and must carry the mix, so the count cannot be
+  // met by a mix somewhere else.
+  for (const sel of ['.tp-manual-chip.is-warn', '.tp-table.tp-manual-table tr.tp-manual-flagged td']) {
+    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const rule = css.match(new RegExp(`${esc}\\s*\\{([^}]*)\\}`))
+    assert.ok(rule && /color-mix\(in srgb, var\(--attention\)/.test(rule[1]), `${sel} does not derive from the token`)
+  }
   const mixes = (css.match(/color-mix\(in srgb, var\(--attention\)/g) ?? []).length
-  assert.equal(mixes, 2,
-    `expected the glow and the hover wash to derive from the token, found ${mixes}`)
+  assert.equal(mixes, 4,
+    `expected the glow, the hover wash and TP_MANUAL's chip border and row wash to derive from the token, found ${mixes}`)
 })
 
 // AND NO LITERAL OF THE RETIRED COLOUR SURVIVES ANYWHERE. A site can drift back

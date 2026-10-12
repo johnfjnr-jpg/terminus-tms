@@ -27,9 +27,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import {
   priceQuote, capexAllocation, termLadder, normaliseParams, formatMoney, formatPct,
-  validateBands, bandMarginGrid,
+  validateBands, bandMarginGrid, manualLadder,
 } from '../../../src/lib/term-pricing.js'
-import type { CpiMode, Quote, AllocationPreview } from '../../../src/lib/term-pricing.js'
+import type { CpiMode, Quote, AllocationPreview, ManualLadder } from '../../../src/lib/term-pricing.js'
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
 // TP_CAPEX (C-11): the milestone names, defined once and shared with Commercials.
 import { MILESTONE_NAMES } from '../../../src/lib/milestone-vocabulary.js'
@@ -78,6 +78,15 @@ const vsAnchor = (saving: { n: bigint; d: bigint }, isAnchor: boolean) => {
   const s = formatPct(saving, 1)
   return s.startsWith('-') ? { text: `+${s.slice(1)}%`, kind: 'premium' } : { text: `−${s}%`, kind: 'saving' }
 }
+// v1.9 (TP_MANUAL, C10): a ratio as the ladder prints a change: "+127.3%",
+// "−71.2%" (U+2212), and "0.0%" at zero, where a sign would claim a direction.
+const signedPct = (r: { n: bigint; d: bigint }) => {
+  const s = formatPct(r, 1)
+  if (s === '0.0' || s === '-0.0') return '0.0%'
+  return s.startsWith('-') ? `−${s.slice(1)}%` : `+${s}%`
+}
+// One empty object, so a return to the screen does not recompute every render.
+const NO_PRICES: Record<number, string> = Object.freeze({}) as Record<number, string>
 const isWhole = (s: string) => /^\d+$/.test(s.trim())
 const isDecimal = (s: string) => /^\d+(\.\d+)?$/.test(s.trim())
 const monthsText = (from: number, to: number) => (from === to ? `${from}` : `${from} to ${to}`)
@@ -252,6 +261,89 @@ function Sec({ title, note, children, testid }: { title: string; note?: string; 
   )
 }
 
+// ── v1.9 (spec 4.6, TP_MANUAL): the manual ladder comparison ─────────────
+//
+// COMPARISON ONLY (M-2): it prices no quote, saves nothing and changes no
+// setting, and everyone sees it (M-3). Every figure, flag and summary line is
+// manualLadder's (M-8); this only lays them out and formats them (M-9, C10).
+function ManualLadderCard({ m, prices, onPrice, onFill, onClear }: {
+  m: ManualLadder; prices: Record<number, string>
+  onPrice(term: number, value: string): void; onFill(): void; onClear(): void
+}) {
+  const s = m.summary
+  const chips = [['floor', s.floor], ['total', s.total], ['profit', s.profit]] as const
+  const product = productLabel(m.product)
+  return (
+    <section className="tp-card tp-manual" aria-label="Compare a manual ladder" data-testid="tp-manual">
+      <div className="tp-card-head">
+        <h2 className="tp-h2" data-testid="tp-manual-title">Compare a manual ladder · {product} per camera</h2>
+        <div className="tp-manual-actions">
+          <button type="button" className="btn-ghost" data-testid="tp-manual-fill" onClick={onFill}>Fill from calculated</button>
+          <button type="button" className="btn-ghost" data-testid="tp-manual-clear" onClick={onClear}>Clear</button>
+        </div>
+      </div>
+      <p className="tp-small tp-muted tp-manual-intro">Type a monthly price for each term to see how it performs. Comparison only: it does not price quotes and is cleared when you leave the screen.</p>
+      {/* C11: no chips until a price is entered. */}
+      {s.priced > 0 && (
+        <div className="tp-manual-chips" data-testid="tp-manual-chips">
+          {chips.map(([k, c]) => (
+            <span key={k} className={`tp-manual-chip${c.ok ? '' : ' is-warn'}`} data-testid={`tp-manual-chip-${k}`}>
+              <span className="tp-manual-mark" aria-hidden="true">{c.ok ? '✓' : '⚠'}</span>{c.text}
+            </span>
+          ))}
+        </div>
+      )}
+      <table className="tp-table tp-manual-table" data-testid="tp-manual-table">
+        <thead><tr>
+          <th>Term</th><th>Your price / mo</th><th>Calculated, 1 camera</th><th>Difference</th>
+          <th>vs {m.anchorTerm} months</th><th>Margin</th><th>Profit / camera</th><th>Client total</th><th>Check</th>
+        </tr></thead>
+        <tbody>
+          {m.rows.map((r) => {
+            const t = r.termMonths
+            const priced = r.status === 'priced'
+            const flags = priced ? r.flags ?? [] : []
+            const errId = `tp-manual-err-${t}`
+            return (
+              <tr key={t} className={flags.length ? 'tp-manual-flagged' : undefined} data-testid={`tp-manual-${t}`} data-status={r.status}>
+                <td>{t} months</td>
+                <td className="tp-manual-input">
+                  <input className="tp-num tp-manual-price" inputMode="decimal" data-testid={`tp-manual-price-${t}`}
+                    aria-label={`Your price per month, ${t} months`} value={prices[t] ?? ''}
+                    aria-invalid={r.status === 'invalid' || undefined} aria-describedby={r.status === 'invalid' ? errId : undefined}
+                    onChange={(e) => onPrice(t, e.target.value)}
+                    // M-5: money format. The estate's numeric guard strips a typed
+                    // comma, so a valid price is re-shown as the ENGINE'S cents
+                    // ("2,500.00") when the field is left; set as a value, not
+                    // typed, so the guard does not see it.
+                    onBlur={() => { if (r.status === 'priced' && r.priceCents !== undefined && money(r.priceCents) !== prices[t]) onPrice(t, money(r.priceCents)) }} />
+                  {r.status === 'invalid' && <div className="tp-error tp-manual-err" id={errId} data-testid={errId}>{r.message}</div>}
+                </td>
+                <td className="tp-muted" data-testid={`tp-manual-calc-${t}`}>{r.calculatedCents === null ? '-' : money(r.calculatedCents)}</td>
+                <td data-testid={`tp-manual-diff-${t}`}>{priced && r.difference ? signedPct(r.difference) : ''}</td>
+                <td data-testid={`tp-manual-vs-${t}`}>{!priced ? '' : r.vsAnchor === 'list' ? 'list' : r.vsAnchor ? signedPct(r.vsAnchor) : '-'}</td>
+                <td data-testid={`tp-manual-margin-${t}`}>{priced && r.margin ? pct(r.margin) : ''}</td>
+                <td data-testid={`tp-manual-profit-${t}`}>{priced && r.profitCents !== undefined ? money(r.profitCents) : ''}</td>
+                <td data-testid={`tp-manual-total-${t}`}>{priced && r.totalCents !== undefined ? money(r.totalCents) : ''}</td>
+                <td className="tp-manual-check" data-testid={`tp-manual-check-${t}`}>
+                  {!priced ? '' : flags.length
+                    ? flags.map((f) => <div key={f.kind} className="tp-manual-flag">⚠ {f.message}</div>)
+                    : <span className="tp-ok">✓</span>}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {/* C6, C8: every figure in the note is the engine's, from live settings. */}
+      <p className="tp-small tp-muted" data-testid="tp-manual-note">
+        One {product} camera, first volume band ({m.firstBandDiscountPct}%), Base figures with no CPI. Cost per camera
+        = {money(m.hwCostCents)} hardware + {money(m.hostingMonthlyCents)} a month hosting. "Calculated" uses the live settings. A blank price skips that term.
+      </p>
+    </section>
+  )
+}
+
 export function TermPricingView({ navToken }: { navToken: number }) {
   const shell = useShell()
   const qc = useQueryClient()
@@ -320,6 +412,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   useEffect(() => {
     if (data) setBandDrafts((d) => refreshBandDrafts(d, data.settings))
   }, [data?.settings])
+  // TP_MANUAL (M-2, C5): the manual ladder's prices are scratch. Held here so
+  // a switch of tab keeps them (T-1), and stamped with the navigation they
+  // were typed in, so leaving Term Pricing and coming back clears them. The
+  // view is re-rendered, not remounted, on a navigation (main.tsx register),
+  // so a fresh navToken is the only sign of a return; nothing else resets.
+  const [manualState, setManualState] = useState<{ token: number; prices: Record<number, string> }>({ token: navToken, prices: {} })
+  const manualPrices = manualState.token === navToken ? manualState.prices : NO_PRICES
+  const setManualPrices = (prices: Record<number, string>) => setManualState({ token: navToken, prices })
   const chooseTerm = (t: number) => {
     setTerm(t)
     setStartYear((s) => Math.max(2, Math.min(s, lastYearOf(t))))
@@ -343,6 +443,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     try { return { ladder: termLadder({ units: unitCounts, perCameraProduct: PER_CAMERA_PRODUCT }, params.p) } }
     catch (e) { return { error: (e as Error).message } }
   }, [params, unitCounts, badUnits])
+
+  // v1.9 (spec 4.6, M-8): every figure on the manual card is the engine's.
+  // One camera whatever the units, so it needs only the settings (C7).
+  const manual = useMemo(() => {
+    if (!params?.ok) return null
+    try { return { m: manualLadder({ product: PER_CAMERA_PRODUCT, prices: manualPrices }, params.p) } }
+    catch (e) { return { error: (e as Error).message } }
+  }, [params, manualPrices])
 
   // T-2, T-6: THE PRICE. The OPEX Base quote at the chosen term, from the
   // units alone, so nothing on Payment terms can move or refuse it. It feeds
@@ -535,6 +643,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <p className="tp-small tp-muted" data-testid="tp-ladder-note">Click a row to quote it. Longer terms lower the monthly fee and raise total profit.</p>
             </section>
           )}
+
+          {manual && 'error' in manual && (
+            <section className="tp-card"><p className="tp-error" role="alert" data-testid="tp-manual-error">{manual.error}</p></section>
+          )}
+          {manual && 'm' in manual && manual.m && <ManualLadderCard m={manual.m} prices={manualPrices}
+            onPrice={(t, v) => setManualPrices({ ...manualPrices, [t]: v })}
+            onFill={() => setManualPrices(Object.fromEntries(manual.m.rows.map((r) => [r.termMonths, r.calculatedCents === null ? '' : money(r.calculatedCents)])))}
+            onClear={() => setManualPrices({})} />}
 
           {p0 && (
             <section className="tp-card" aria-label="Price breakdown" data-testid="tp-breakdown-card">
