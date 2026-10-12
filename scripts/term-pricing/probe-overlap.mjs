@@ -13,6 +13,8 @@
 //                  non-admin and as an admin (the only tab an admin changes);
 //                  TP_BANDS adds the band editor as an admin at 6 bands (4a,
 //                  with its floor warning), with a rule broken (4b), and at 2;
+//                  TP_MANUAL adds the manual ladder card, empty, filled (MG-1)
+//                  and flagged (MG-4), as a non-admin;
 //   Payment terms  WHT off, split (5% / 10%, grossed up, CPI published 3% from
 //                  year 3) and borne (10%), each under OPEX and four CAPEX
 //                  shapes: the default, Monthly instalments over 12, G-C2's
@@ -92,6 +94,12 @@ const INJECTIONS = {
   'bands-warn-up': '[data-testid="tp-bands-warn"] { margin-top: -70px !important; }',
   'bands-squeeze': '.tp-bands-grid > .tp-bands-check { flex: 0 0 240px !important; max-width: 240px !important; }',
   'bands-ro-over': '[data-testid="tp-bed-from-1"] { position: relative; left: -170px; }',
+  // TP_MANUAL: a flag pulled left over Client total must fire the overprint
+  // detector; the table forced wider than its card must fire the manual fit
+  // check; the chips pulled down onto the table's header must fire overprint.
+  'manual-flag-over': '.tp-manual-flag { position: relative; left: -90px; }',
+  'manual-wide': '.tp-table.tp-manual-table { min-width: 1100px !important; }',
+  'manual-chips-down': '.tp-manual-chips { margin-bottom: -34px !important; }',
 }
 
 async function signedIn(browser, { admin = false, floor = null } = {}) {
@@ -296,6 +304,50 @@ async function bandSweep(browser, TP) {
   await page.close()
 }
 
+// TP_MANUAL (brief: "with the card empty, filled and flagged"): the manual
+// ladder card on the Pricing tab, as a non-admin (M-3), on the demo deal's
+// units so the ladder above it is as wide as a real deal makes it. Empty (C11,
+// no chips), filled with MG-1 (two amber rows) and flagged with MG-4 (120 at
+// 300.00: three flags on one row). Each state asserts it was reached first.
+const manualFit = async (p, where) => {
+  const over = await p.evaluate(() => {
+    const card = document.querySelector('#view-term-pricing [data-testid="tp-manual"]')
+    const t = card?.querySelector('table')
+    if (!card || !t) return ['NO CARD']
+    const inner = card.getBoundingClientRect().right - parseFloat(getComputedStyle(card).paddingRight)
+    return t.getBoundingClientRect().right > inner + 0.5 || card.scrollWidth > card.clientWidth + 1 ? [`table right ${Math.round(t.getBoundingClientRect().right)} > ${Math.round(inner)}`] : []
+  })
+  check(over.length === 0, `${where}: the manual table fits its card`, over.join(', '))
+}
+async function manualSweep(browser, TP) {
+  const page = await signedIn(browser)
+  await page.evaluate(() => window.navigate('term-pricing'))
+  await page.waitForFunction(() => document.querySelector('#view-term-pricing [data-testid="tp-manual"]'), { timeout: 15000 })
+  await typeInto(page, 'tp-units-safesight', '120')
+  await typeInto(page, 'tp-units-air_quality', '40')
+  await typeInto(page, 'tp-units-hemir', '2')
+  const reached = (want) => async (p) => {
+    const s = await p.evaluate(() => ({
+      rows: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-table"] tbody tr').length,
+      priced: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-table"] tbody tr[data-status="priced"]').length,
+      chips: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-chips"] .tp-manual-chip').length,
+      flagged: document.querySelectorAll('#view-term-pricing tr.tp-manual-flagged').length,
+      flags120: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-check-120"] .tp-manual-flag').length,
+    }))
+    const ok = Object.entries(want).every(([k, v]) => s[k] === v)
+    return { ok, detail: JSON.stringify(s), minAtoms: 120 }
+  }
+  await sweep(page, TP, 'manual empty', reached({ rows: 10, priced: 0, chips: 0, flagged: 0 }), manualFit)
+  const MG1 = { 12: '2500.00', 24: '1500.00', 36: '1100.00', 48: '900.00', 60: '800.00', 72: '700.00', 84: '620.00', 96: '560.00', 108: '520.00', 120: '500.00' }
+  for (const [t, v] of Object.entries(MG1)) await typeInto(page, `tp-manual-price-${t}`, v)
+  await page.click('[data-testid="tp-manual-title"]')
+  await sweep(page, TP, 'manual filled (MG-1)', reached({ rows: 10, priced: 10, chips: 3, flagged: 2, flags120: 0 }), manualFit)
+  await typeInto(page, 'tp-manual-price-120', '300.00')
+  await page.click('[data-testid="tp-manual-title"]')
+  await sweep(page, TP, 'manual flagged (MG-4)', reached({ rows: 10, priced: 10, chips: 3, flagged: 3, flags120: 3 }), manualFit)
+  await page.close()
+}
+
 // The Quote tab: every table fits its card, L1 on the tax detail's Total row,
 // and TILE_FIT on the tiles.
 async function quoteChecks(p, where, taxOn) {
@@ -396,7 +448,7 @@ try {
         if (isOpen) await page.click('[data-testid="tp-settings-toggle"]')
       }
       // Payment terms and Quote do not depend on the admin flag; swept once.
-      if (admin) { await page.close(); await bandSweep(browser, TP); continue }
+      if (admin) { await page.close(); await bandSweep(browser, TP); await manualSweep(browser, TP); continue }
 
       // ── Payment terms and Quote: every WHT state, every payment shape. ────
       for (const w of ['off', 'split', 'borne']) {

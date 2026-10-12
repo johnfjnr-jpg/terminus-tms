@@ -994,6 +994,47 @@ read-merge-write of the one jsonb row, so two admins saving DIFFERENT products i
 the same instant could lose one save. It rests on there being one admin today;
 when there are two, the save needs a precondition (Architecture 13).
 
+### A MANUAL LADDER IS A COMPARISON, NEVER A PRICE (TP_MANUAL, John 2026-10-12)
+
+**Decided** (rulings M-1 to M-9 and C1 to C11; spec v1.9, section 4.6). A card
+on the Pricing tab where anyone types a monthly price per SafeSight camera for
+each term and sees it against the calculated one-camera fee: difference, vs the
+anchor term, margin, profit, client total, and three checks against the
+previous priced row. **It prices no quote, changes no setting and stores
+nothing**; the probe asserts the card sends no write request at all.
+
+**"Calculated" is the ladder's own per-camera path at one camera, not a new
+formula** (M-8): `manualLadder` calls `termLadder` with one unit. With one unit
+the only unit sits in band 1, so it is the first band's fee by construction,
+measured equal to `unitEconomics`'s band 1 at every term on two band sets.
+
+**The engine names no product** (C1): `manualLadder({ product, prices })`, the
+screen passing `'safesight'`, as it already names the per-camera product for the
+ladder. What that rests on: a second product wanting the comparison. If none
+ever does, the parameter costs nothing.
+
+**SCRATCH MEANS CLEARED ON RETURN, AND THE VIEW HAD TO BE TAUGHT IT** (C5). Term
+Pricing is RE-RENDERED, not remounted, on a navigation (`main.tsx` `register`),
+so every input on it already survived leaving and coming back. The prices are
+stamped with the `navToken` they were typed in and read as empty under a new
+one; nothing else on the screen changed behaviour. If the view is ever keyed on
+`navToken`, the stamp becomes redundant and everything else on the screen starts
+clearing too, which is a separate decision.
+
+**Two per-camera figures sit on one screen and are DIFFERENT on purpose** (C6).
+The ladder's "SafeSight / cam / mo" divides the quote's SafeSight line by its
+units, so it blends bands; the card's "Calculated, 1 camera" is always one
+camera. They agree only while the units are 1. Kept as ruled, with the column
+and the note saying "1 camera" so the difference is stated rather than
+discovered.
+
+**A TYPED COMMA NEVER REACHES THE FIELD.** The estate's numeric guard
+(`app.js`, `NUMERIC_INPUT_SELECTOR`) strips every character but digits and the
+first point from a decimal input as it is typed. So "commas accepted" (C9) holds
+for values set as values (Fill, and the money format the field takes when it is
+left), and a typed comma is stripped rather than refused. The engine ignores
+commas either way, so no price can be refused for carrying one.
+
 
 ### A FULL ASSESSMENT CRITERIA REVIEW, as its own session after Round 41
 
