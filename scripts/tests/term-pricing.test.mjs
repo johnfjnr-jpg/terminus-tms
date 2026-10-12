@@ -1520,6 +1520,16 @@ test('4.6, C6, C8: the note\'s figures come from the engine: hardware, hosting a
   assert.equal(manual({}, p).firstBandDiscountPct, '7.5')
 })
 
+test('4.6, C3: the floor in the wording and the check is MARGIN_FLOOR, not 25 (Verification 24)', () => {
+  // 60 at 800.00: margin 58.3% (MG-1). Against a 60% floor it is below, and the
+  // summary names 60; against 7.5% every priced term is at or above it.
+  const at60 = manual({ 60: '800.00' }, { ...SPEC_PARAMS, MARGIN_FLOOR: '60' })
+  assert.deepEqual(at60.rows.find((r) => r.termMonths === 60).flags.map((f) => f.message), ['Below the floor'])
+  assert.equal(at60.summary.floor.text, 'Below the 60% floor at 1 term (60)')
+  assert.equal(manual({ 60: '800.00' }, { ...SPEC_PARAMS, MARGIN_FLOOR: '7.5' }).summary.floor.text,
+    'At or above the 7.5% floor at every priced term')
+})
+
 test('4.6: a filled row (your price = Calculated) reads exactly 0.0% difference', () => {
   const calc = manual({}).rows
   const filled = Object.fromEntries(calc.map((r) => [r.termMonths, formatMoney(r.calculatedCents)]))
