@@ -1276,7 +1276,10 @@ function BandEditor({ state, product, onProduct, drafts, setDrafts, onSaved }: {
         <div data-testid="tp-bands-editor">
           <div className="tp-sec-title">{name} bands</div>
           <table className="tp-table tp-bands-table">
-            <thead><tr><th>Band</th><th>From</th><th>To</th><th>Discount</th><th><span className="visually-hidden">Remove</span></th></tr></thead>
+            <thead><tr><th>Band</th><th>From</th><th>To</th><th>Discount</th><th aria-label="Remove" /></tr></thead>
+            {/* "Remove" is the header's accessible name, not hidden text: a
+                visually-hidden span still sits on the page as ink, and the
+                overlap sweep's first run counted it over band 3 from 1600. */}
             <tbody>{rows.map((r, i) => {
               const to = v.rows[i]?.to
               return (
