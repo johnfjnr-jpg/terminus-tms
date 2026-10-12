@@ -64,3 +64,34 @@ view -> probes from the click (both mockup states; an admin edit and a non-admin
 a quote priced on configured bands) -> calibration injections each FIRED -> overlap sweep
 1240..1920 step 40 including the band editor at 2 and 6 bands -> full gate -> merge --no-ff ->
 merged gate -> ls-remote -> "ready for John's push".
+
+RULINGS ON PHASE 0 (appended verbatim at the phase they launch, CLAUDE.md build discipline 7;
+pasted by John 2026-10-12. The brief above stays verbatim.)
+
+TP_BANDS: RULINGS ON PHASE 0 (Claude, under John's rulings 2026-10-12). Resume.
+
+0.1 ADMIN PROBE: OPTION (b). The probe proves the editor up to the request it sends; the
+    route's success and refusal paths are proven over HTTP by tests calling the route's own
+    validation. No grant to john+test; no automated write to live settings. The close-out
+    states that a real admin save was not driven from the click; John does it as a walk step.
+0.2 WARNING WORDING (the mockup's sentence was Claude's error): "1 term breaches the 25% floor.
+    [band and term detail as drawn]. You can still save. A quote is flagged for approval only
+    when its whole-deal margin falls below the floor."
+0.3 B-7 GOVERNS: the fee table shows every band.
+0.4 DO NOT BUILD the "How bands differ by product" card. While the set is invalid, the fee table
+    shows the same "Fix the band rules" state as the grid.
+0.5 ACCEPTED: the editor keeps its own Save bands / Discard, saving the shown product's bands
+    only; the Settings card's four discount boxes retire; Save settings keeps every other key.
+0.6 ACCEPTED: rulings cited as TB-1 to TB-9 in spec, code and reports; the brief stays verbatim.
+0.7 ACCEPTED: non-admins see the editor read-only with "Only an admin can change these."; the
+    eyebrow reads "Admin edits" for an admin, none otherwise.
+Section 5 positions ACCEPTED: "?" in To while a start is invalid; one line per problem, in band
+    order. Storage, new key and later removal migration ACCEPTED as proposed. Engine API
+    (validateBands, bandMarginGrid) ACCEPTED.
+
+MIGRATION: reviewed by Claude; applied by John in the SQL editor inside begin/commit, ledger row
+recorded. Verify by reading the row back before building on it.
+
+Continue: spec v1.8 -> tests fail first -> engine -> route -> view -> probes -> calibration ->
+sweep -> full gate -> merge -> merged gate -> ls-remote -> "ready for John's push".
+At the close, write (do not apply) the migration removing VOLUME_BANDS, for after John's push.
