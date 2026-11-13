@@ -137,3 +137,33 @@ STOP RULES
 - Any layout change beyond the fifth sub-tab and the extra roll-up row: STOP
   and photograph (mockup-first rule).
 - Anything this brief does not cover that forces a choice: STOP and ask.
+
+PHASE 1 SIGN-OFF (John, 2026-11-13), appended at the phase it launches
+
+Rulings on the Phase 1 report:
+C1 ACCEPTED. No satisfies change for Test Bed; DEFAULT_LEVELS untouched;
+   Test Bed response stays byte-identical. Phase 2 proof adds one check:
+   GET /scoring-criteria?record_type=test_bed response identical before
+   and after.
+C2 ACCEPTED. Phase 3 measures Commercial at Solution Alignment (6 to 7)
+   AND Proposal (7 to 8) on the same record.
+C3 NOT IN SCOPE. OPP_FIGURE_BEARING_LEVELS untouched. Add to the carried
+   list in the round report.
+C4 ACCEPTED. The comment at app.js:4864-4866 claiming a probe goes with
+   the set. Do not write a replacement claim; the Phase 2 invariant and
+   before/after proof are the guard.
+H1 NOTED. Expected per convention.
+description column: null, as positioned.
+
+RIDER, Phase 2 step 0 (before any code change):
+Sweep for level comparisons by literal value that Phase 1's patterns
+could not see. Over src, frontend, frontend-react/src and scripts, grep
+for comparisons of a score or level value against a number literal
+(e.g. ===, !==, >=, <=, >, < followed by 1-5, and inline arrays or sets
+of 1-5 values) near score, level, value or series reads. Calibrate the
+pattern on app.js:4867 first. Report every hit with a verdict: decides
+met / does not. Any hit that decides met: STOP and report before
+building.
+
+Proceed to Phase 2 on the rider's result. Phase 2 stops for sign-off as
+the brief says.
