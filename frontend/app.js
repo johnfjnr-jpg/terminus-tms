@@ -3506,9 +3506,11 @@ async function ensureOppCriteria() {
   return oppCriteriaPromise
 }
 
+// DEAL RADAR Phase 2: the sort lives in src/lib/lens-rollup.js, published by
+// the bundle. A caller, not a copy, so the lens roll-up and every other reader
+// of a criterion's history order entries one way.
 function oppAssessSeries(key) {
-  const v = currentOppPayload?.[key]
-  return Array.isArray(v) ? [...v].sort((a, b) => String(a?.at).localeCompare(String(b?.at))) : []
+  return window.tmsAssessSeries(currentOppPayload?.[key])
 }
 
 // Round 30 Phase 2: the record's own current answer for a criterion, and the
@@ -4876,20 +4878,15 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 // "nothing to satisfy" different values rather than the same value rendered
 // twice. Third instance of that trap in this project, and the first designed
 // in rather than inherited.
+//
+// DEAL RADAR Phase 2: the counting lives in src/lib/lens-rollup.js
+// (lensRollupAt), so the radar and these rows read one computation. This is
+// its asOf-null caller, and it keeps the three states and the return shape it
+// always had. Whether a level counts as met is still DATA on the level (R-DD4).
 function oppLensRollup(lens, stage, criteria) {
-  const mine = (criteria ?? []).filter(c => c.lens_id === lens.id
-    && (c.stages ?? []).some(st => st.stage === stage))
-  if (!mine.length) return { name: lens.name, state: 'none', met: 0, total: 0 }
-  const met = mine.filter(c => {
-    const series = oppAssessSeries(c.criterion_key)
-    if (!series.length) return false
-    // Whether the latest level counts as met is DATA on the level (R-DD4,
-    // scoring_scale_levels.satisfies), read from the levels the criteria
-    // response already carries. A value with no matching level is not met.
-    const v = Number(series[series.length - 1].value)
-    return (c.levels ?? []).some(l => l.value === v && l.satisfies === true)
-  }).length
-  return { name: lens.name, state: met === mine.length ? 'satisfied' : 'unsatisfied', met, total: mine.length }
+  const { met, total } = window.tmsLensRollupAt(lens.id, criteria, currentOppPayload, stage, null)
+  if (!total) return { name: lens.name, state: 'none', met: 0, total: 0 }
+  return { name: lens.name, state: met === total ? 'satisfied' : 'unsatisfied', met, total }
 }
 
 // A FRACTION, NOT A TICK, and the two constraints resolve to the same answer.

@@ -20,6 +20,7 @@ import { TermPricingView } from './term-pricing/TermPricingView'
 import type { VersionSeam } from './versions/VersionCardHost'
 import type { DealFormSeam } from './deal/seam'
 import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../src/lib/format-dates.js'
+import { assessSeries, lensRollupAt } from '../../src/lib/lens-rollup.js'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
 //
@@ -73,6 +74,15 @@ declare global {
      */
     tmsFormatDate?: (v: unknown) => string
     tmsFormatTimestamp?: (v: unknown) => string
+    /**
+     * DEAL RADAR Phase 2: the ONE lens roll-up and the ONE score-entry sort,
+     * published for `app.js` on the same argument as `tmsFormatDate`. The
+     * existing "Assessment by lens" rows and the radar must read one
+     * computation, so `oppLensRollup` and `oppAssessSeries` in `app.js` are
+     * callers of these, not copies.
+     */
+    tmsAssessSeries?: typeof assessSeries
+    tmsLensRollupAt?: typeof lensRollupAt
     /**
      * PERF ROUND: the ONE contacts fetch, published for `app.js`.
      *
@@ -199,6 +209,10 @@ function register(view: string, render: (id: string, navToken: number) => React.
 // app.js parses immediately after this bundle.
 window.tmsFormatDate = fmtDate
 window.tmsFormatTimestamp = fmtTimestamp
+// DEAL RADAR Phase 2: published first for the same reason. app.js has no
+// fallback for these, deliberately: a fallback would be the second sort.
+window.tmsAssessSeries = assessSeries
+window.tmsLensRollupAt = lensRollupAt
 
 // THE SEAM'S SHAPE IS THE VANILLA'S, not this tree's. `loadContactsData`
 // reads `{ ok, data }` from its own `api()` and branches on `ok`; handing it

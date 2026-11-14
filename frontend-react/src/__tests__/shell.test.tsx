@@ -124,11 +124,16 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // `loadContactsData` because `showApp` calls `navigate` four times. A
     // cache in the bundle that the shell cannot reach would have left the
     // vanilla's four in place.
+    //
+    // DEAL RADAR Phase 2 adds TWO, `tmsAssessSeries` and `tmsLensRollupAt`,
+    // on the formatter's argument exactly: the lens rows and the radar must
+    // read one roll-up, and app.js cannot import it.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
       'loadContactDetail', 'loadTermPricing', 'loadTestBedDetail', 'mountLeadsList',
-      'mountNewLeadGrid', 'tmsContacts', 'tmsFormatDate', 'tmsFormatTimestamp'])
+      'mountNewLeadGrid', 'tmsAssessSeries', 'tmsContacts', 'tmsFormatDate', 'tmsFormatTimestamp',
+      'tmsLensRollupAt'])
   })
 })
 
