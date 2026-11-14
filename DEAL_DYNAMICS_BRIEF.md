@@ -189,3 +189,28 @@ Proceed to Phase 3 as the brief states, with the Phase 1 corrections:
   stay identical to the Phase 2 AFTER capture, except Commercial at the
   stages where Regulatory driver now counts (expected and listed).
 - Test Bed checksum unchanged.
+
+PHASE 3 SIGN-OFF (John, 2026-11-14), appended at the phase it launches
+
+Phase 3 ACCEPTED at 75ce49e.
+- Probe fault on the rendered refresh: accepted as reported; the
+  separate measurement with a new-count-only wait stands.
+- Fixture DD3CLICKMWFXCL92 soft-deleted as listed: accepted.
+- Seen-not-acted items (refusal message wording on a never-scored
+  criterion; "CHECKING..." on unowned records): QUEUED, not this round.
+
+Proceed to Phase 4 as the brief states, plus one rider:
+
+RIDER, report only, no fix: on R1 (not-mine for john+test) at 1240,
+wait until the Deal dynamics pane has fully rendered (a wait only the
+settled state satisfies; state what it waits on), then count enabled
+level inputs on all four rows, and do the same on the Commercial pane.
+Report the counts and a screenshot. If any are enabled, record it as a
+finding (the server still refuses non-owner writes, so no data risk)
+and carry it; do not change the door in this round.
+
+Phase 4 report must also restate the "latent assessment_current point"
+from the migration header in plain words.
+
+Full gate with NordVPN OFF. Stop at push-ready and report the expected
+SHA. Rule 18: John pushes.

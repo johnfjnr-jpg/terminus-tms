@@ -5684,7 +5684,7 @@ textarea::placeholder { color: var(--muted); }
    because it would show a figure against an entry that never recorded it. */
 .opp-assess-entry-answer { font-family: var(--mono); color: var(--muted); }
 
-/* ── Round 32 Phase 2: the four lens rollups on the exit criteria card ─────
+/* ── Round 32 Phase 2: the lens rollups on the exit criteria card ──────────
    A DISPLAY IN A CARD WHERE EVERYTHING ELSE GATES, so it has to look like a
    different kind of thing. Every requirement above it is a tick box against a
    label; these are a name against a count, with no box, under their own

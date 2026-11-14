@@ -943,7 +943,7 @@ function renderOppStageTabs(stages, currentStage) {
     // REMOVED RATHER THAN WIRED, which is the business's decision and the
     // reason is the one this project has recorded more often than any other:
     // the Assessment tab already holds the instrument, measured at 461px over
-    // the seven criteria configured at the time, across four lens sub-tabs, and
+    // the seven criteria configured at the time, across the lens sub-tabs, and
     // a second surface showing the same criteria is a second thing to drift.
     //
     // Round 41 added an eighth criterion. The number above is left as the
@@ -3446,18 +3446,22 @@ async function ensureOppLenses() {
   return oppLensesPromise
 }
 
-// The four lens sub-tabs inside the Assessment tab.
+// The lens sub-tabs inside the Assessment tab, one per scoring_lenses row.
 //
 // createSubTabs is a five-key destructuring allowlist: mount, tabs, label,
 // adopt, onSelect. A sixth key is discarded with no error, so this passes only
 // keys the function reads. Read from the definition rather than from its two
 // existing consumers, which pass different subsets between them.
 //
-// KEYS ARE SANITISED even though the four lens names have no spaces today.
-// createSubTabs builds its pane ids as `${mount.id}-pane-${key}` from the RAW
-// key, so a lens renamed to two words would produce an id that getElementById
-// resolves and every CSS selector misses. That is Round 21 Phase 7 exactly,
-// and it costs one replace to make impossible rather than to remember.
+// KEYS ARE SANITISED. createSubTabs builds its pane ids as
+// `${mount.id}-pane-${key}` from the RAW key, so a two-word lens name would
+// produce an id that getElementById resolves and every CSS selector misses.
+// That is Round 21 Phase 7 exactly, and it costs one replace to make
+// impossible rather than to remember.
+//
+// No longer hypothetical: DEAL DYNAMICS (2026-11-14) added "Deal dynamics",
+// the first lens name with a space, and its pane is
+// `opp-assessment-mount-pane-deal-dynamics` because of this line.
 function oppLensKey(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
 }
@@ -4705,7 +4709,7 @@ async function mountOppAssessmentLenses() {
     mount.appendChild(bar)
   }
 
-  // Every pane is rendered up front, not only the open one. Four lenses over
+  // Every pane is rendered up front, not only the open one. Every lens over
   // criteria already in memory is cheap, and it means switching a sub-tab
   // never shows an empty pane that fills a moment later.
   for (const l of lenses) {
@@ -4852,7 +4856,7 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 // Defaulted to the global rather than left undefined. A future call site
 // that forgets to pass it gets the right answer instead of `undefined`,
 // which would make every row fail open and quietly restore the defect.
-// ── Round 32 Phase 2: the four lens rollups ───────────────────────────────
+// ── Round 32 Phase 2: the lens rollups ────────────────────────────────────
 //
 // STAGE SCOPED, not lens wide, settled with the business in Phase 0.
 //
@@ -4867,8 +4871,8 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 //
 // THREE STATES AT THE RULE, not two with a rendering rule over them. `every()`
 // on an empty array returns true, so a lens with nothing configured computes
-// SATISFIED, on no evidence, and three of the four lenses are empty until
-// Round C. Returning early on an empty set is what makes "satisfied" and
+// SATISFIED, on no evidence, and when this was written most lenses were empty
+// until Round C. Returning early on an empty set is what makes "satisfied" and
 // "nothing to satisfy" different values rather than the same value rendered
 // twice. Third instance of that trap in this project, and the first designed
 // in rather than inherited.
