@@ -118,3 +118,44 @@ STOP RULES
 QUEUED, NOT THIS ROUND: gate skip rule (any skipped stage turns the gate
 red); C3; refusal wording on never-scored criteria; "CHECKING..." on
 unowned records; per-lens spider (parked by John).
+
+RULINGS AT PHASE 1 SIGN-OFF (John, 2026-11-14), appended as they launch
+Phase 2. Pasted verbatim:
+
+PHASE 1 SIGN-OFF: DEAL RADAR
+
+LAYOUT: John approves Option A as photographed (radar 280 x 210 centred
+above the unchanged rows, legend between them, card grows ~245px).
+This AMENDS the mockup of record: commit the Option A screenshots at 1240
+and 1920 under prototypes/deal-radar-option-a-live-*.png with a note in
+prototypes/deal-radar-option-b.html's header comment: "Arrangement
+superseded by Option A (stacked) 2026-11-14, John; size, colours, legend
+and geometry stand." Phase 3 geometry assertions cite both.
+
+R-RAD4 source: (a) latest of audit_log action='transition' timestamp and
+approved transition_requests closed_at, compared as INSTANTS, via the
+existing GET /records/:id/history. No server change. Backward moves count.
+No source: no overlay.
+
+Degenerate overlay: drawn whenever a stage change exists, legend key shown;
+aria-label states the last-stage figures.
+
+Fill: color-mix(in srgb, var(--green) 18%, transparent). No new token.
+
+Positions ACCEPTED: rows not tinted; series sort lifted into src/lib with
+oppAssessSeries as a caller (one sort, not two); transport via
+frontend-react/src/main.tsx onto window (format-dates precedent), bundle
+rebuilt and committed.
+
+Guard scope ACCEPTED: probe-gaps.mjs extended to visit stage tabs so the
+radar block and the existing lens rows join A1 and R-US4. Count this in
+Phase 3.
+
+Phase 1 roll-up values from the faulted layout probe: not to be quoted
+anywhere. Phase 2 re-measures.
+
+QUEUE (finding, not this round): workflow transitions
+(decide_transition_request, raise_transition_request zero-track) write
+no audit_log row; the audit trail is incomplete for approved moves.
+
+Proceed to Phase 2 as the brief states. Stop for sign-off.
