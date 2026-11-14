@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-10-12T10:10:39.332Z`
-- Git commit: `c6c20c6a62f22033dae272a47b20369441650e2d`
+- Generated at: `2026-11-14T05:04:53.418Z`
+- Git commit: `ba4b0445284d9d03b5790094c64b8837301cbda2`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1140 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1111 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1149 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1120 | yes |
 
 ## `stage_definitions`
 
@@ -255,23 +255,27 @@ Rule count by record type and requirement type:
 
 ## `scoring_criteria`
 
-36 rows.
+40 rows.
 
 | record_type | sort_order | criterion_key | name | asks | rescore_through_stage |
 |---|---|---|---|---|---|
 | opportunity | 1 | assessCommBudgetConfirmed | Budget confirmed | Is money identified and committed | (null) |
+| opportunity | 1 | assessDealClientResponsiveness | Client responsiveness | How quickly does the client reply to our communications? | (null) |
 | opportunity | 1 | assessLegalProcurementRoute | Procurement route and compliance | How must they buy this, and what rules bind that route | (null) |
 | opportunity | 1 | assessOrgEconomicBuyer | Economic Buyer identified | Who can say yes and release the money | (null) |
 | opportunity | 1 | assessTechNeedDefinition | Need / problem definition | What problem are we solving, and how do they describe it | (null) |
 | opportunity | 2 | assessCommMetricsValue | Metrics and quantified value | Is the value stated in the buyer's own numbers | (null) |
+| opportunity | 2 | assessDealTerminusResponsiveness | Terminus responsiveness | How quickly do we reply to the client and move the next step? | (null) |
 | opportunity | 2 | assessLegalPaperProcess | Paper process | Whose contract do we sign, and what passes through legal | (null) |
 | opportunity | 2 | assessOrgChampion | Champion identified | Who inside is selling this when we are not there | (null) |
 | opportunity | 2 | assessTechDecisionCriteria | Decision criteria | What will they judge the options on | (null) |
 | opportunity | 3 | assessCommFundingMechanism | Funding mechanism | How would this actually be paid for | (null) |
+| opportunity | 3 | assessDealEngagementMomentum | Engagement momentum | Is interaction with the client rising, steady or falling? | (null) |
 | opportunity | 3 | assessLegalExportControl | Export control and licensing status | Can this be shipped and supported lawfully | (null) |
 | opportunity | 3 | assessOrgPrioritisation | Prioritisation | Where does this sit against everything else they are funding | (null) |
 | opportunity | 3 | assessTechSolutionFit | Solution fit | Does what we do meet what they actually need | (null) |
 | opportunity | 4 | assessCommPricingModelFit | Pricing model fit | Does our commercial model match how they buy | (null) |
+| opportunity | 4 | assessDealClientFollowThrough | Client follow-through | Does the client complete agreed actions by the agreed date? | (null) |
 | opportunity | 4 | assessLegalDataProtection | Data protection and residency | What personal data is involved, and where must it live | (null) |
 | opportunity | 4 | assessOrgTriggerTimeline | Trigger event / timeline | What is forcing a decision, and by when | (null) |
 | opportunity | 4 | assessTechIntegrationComplexity | Integration complexity | What has to connect, and how hard is it | (null) |
@@ -298,7 +302,7 @@ Rule count by record type and requirement type:
 
 ## `scoring_anchors`
 
-187 rows. Wording is not printed: it is provisional and
+207 rows. Wording is not printed: it is provisional and
 pending business review, and emitting it would bury every configuration
 change in prose. The shape is what a diff needs.
 
@@ -319,6 +323,10 @@ change in prose. The shape is what a diff needs.
 | assessCommRegulatoryDriver | 1 | 1, 2, 3, 4, 5 |
 | assessCommRoiPayback | 1 | 1, 2, 3, 4, 5 |
 | assessCommRoiPayback | 2 | 1, 2, 3, 4, 5 |
+| assessDealClientFollowThrough | 1 | 1, 2, 3, 4, 5 |
+| assessDealClientResponsiveness | 1 | 1, 2, 3, 4, 5 |
+| assessDealEngagementMomentum | 1 | 1, 2, 3, 4, 5 |
+| assessDealTerminusResponsiveness | 1 | 1, 2, 3, 4, 5 |
 | assessLegalAntiCorruption | 1 | 1, 2, 4 |
 | assessLegalDataProtection | 1 | 1, 2, 4 |
 | assessLegalExportControl | 1 | 1, 2, 4 |
@@ -347,6 +355,83 @@ change in prose. The shape is what a diff needs.
 | scorePhysicalSuitability | 1 | 1, 3, 5 |
 | scoreRolloutPath | 1 | 1, 3, 5 |
 | scoreUseCaseRequirementsAndMetrics | 1 | 1, 3, 5 |
+
+## `scoring_lenses`
+
+5 rows.
+
+| sort_order | name | criteria |
+|---|---|---|
+| 10 | Commercial | 8 |
+| 20 | Organisational | 8 |
+| 30 | Technical | 7 |
+| 40 | Legal | 8 |
+| 50 | Deal dynamics | 4 |
+
+## `scoring_scales` and `scoring_scale_levels`
+
+3 scales, 13 levels. `satisfies` is whether a score at that level counts as met in the lens roll-up (R-DD4).
+A criterion with no scale is scored against `DEFAULT_LEVELS` in `src/lib/scoring-levels.js`, which has no rows here.
+
+| scale | value | label | reason_required | satisfies | criteria |
+|---|---|---|---|---|---|
+| Deal dynamics, five level | 1 | Poor | true | false | 4 |
+| Deal dynamics, five level | 2 | Weak | true | false | 4 |
+| Deal dynamics, five level | 3 | Adequate | false | false | 4 |
+| Deal dynamics, five level | 4 | Good | false | true | 4 |
+| Deal dynamics, five level | 5 | Strong | false | true | 4 |
+| Deal evidence, five level | 1 | Not applicable | false | true | 22 |
+| Deal evidence, five level | 2 | Unknown | true | false | 22 |
+| Deal evidence, five level | 3 | Our hypothesis | false | false | 22 |
+| Deal evidence, five level | 4 | Buyer confirmed | false | true | 22 |
+| Deal evidence, five level | 5 | Verified | false | true | 22 |
+| Requirement confirmation, three level | 1 | Not applicable | false | true | 9 |
+| Requirement confirmation, three level | 2 | Not confirmed | true | false | 9 |
+| Requirement confirmation, three level | 4 | Confirmed | true | true | 9 |
+
+## `scoring_criterion_stages`
+
+157 rows. One line per criterion that has a lens; stages in stage order, `*` marks required. An empty stages cell is a criterion that renders at no stage.
+
+| lens | criterion_key | scale | stages |
+|---|---|---|---|
+| Commercial | assessCommBudgetConfirmed | Deal evidence, five level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Commercial | assessCommMetricsValue | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Commercial | assessCommFundingMechanism | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Commercial | assessCommPricingModelFit | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Commercial | assessCommCompetition | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Commercial | assessCommRoiPayback | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Commercial | assessCommCommercialFit | Deal evidence, five level | Proposal*, Evaluation, Negotiating |
+| Commercial | assessCommRegulatoryDriver | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgEconomicBuyer | Deal evidence, five level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgChampion | Deal evidence, five level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgPrioritisation | Deal evidence, five level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgTriggerTimeline | Deal evidence, five level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgPainOwner | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgBuyingCommittee | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgDecisionProcess | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Organisational | assessOrgPolitics | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Technical | assessTechNeedDefinition | Deal evidence, five level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Technical | assessTechDecisionCriteria | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Technical | assessTechSolutionFit | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Technical | assessTechIntegrationComplexity | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Technical | assessTechDataArchitecture | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Technical | assessTechDeliveryFeasibility | Deal evidence, five level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Technical | assessTechPilotRequirement | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalProcurementRoute | Requirement confirmation, three level | Qualification*, Solution Alignment, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalPaperProcess | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalExportControl | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalDataProtection | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalLiabilityIndemnity | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalLocalContent | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalAntiCorruption | Requirement confirmation, three level | Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Legal | assessLegalIpOwnership | Requirement confirmation, three level | Proposal*, Evaluation, Negotiating |
+| Deal dynamics | assessDealClientResponsiveness | Deal dynamics, five level | Qualification, Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Deal dynamics | assessDealTerminusResponsiveness | Deal dynamics, five level | Qualification, Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Deal dynamics | assessDealEngagementMomentum | Deal dynamics, five level | Qualification, Solution Alignment*, Proposal, Evaluation, Negotiating |
+| Deal dynamics | assessDealClientFollowThrough | Deal dynamics, five level | Qualification, Solution Alignment*, Proposal, Evaluation, Negotiating |
+
+Stage rows on criteria with no lens: 8.
 
 ## `stage_reference_docs`
 
@@ -423,36 +508,36 @@ _None._
 
 ## Record counts by type and status
 
-134 live, 121004 soft deleted, 121138 rows in total.
+134 live, 121659 soft deleted, 121793 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1726 |
-| contact | Active | 0 | 3498 |
+| account | active | 7 | 1730 |
+| contact | Active | 0 | 3519 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 12964 |
+| contact | Qualified | 12 | 13051 |
 | contact | Unqualified | 5 | 767 |
-| document | approved | 65 | 5826 |
+| document | approved | 65 | 5854 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
 | opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 319 |
+| opportunity | Evaluation | 0 | 321 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 1946 |
-| opportunity | Qualification | 6 | 11318 |
-| opportunity | Solution Alignment | 7 | 1480 |
+| opportunity | Proposal | 3 | 1958 |
+| opportunity | Qualification | 6 | 11397 |
+| opportunity | Solution Alignment | 7 | 1488 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1546 |
+| test_bed | Qualification | 4 | 1550 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 22781 |
+| unit | Planned | 9 | 22904 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -463,20 +548,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 6987 | 0 | 56592 |
+| 7022 | 0 | 56879 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5219 rows, of which 3 carry a null `stage`.
+5245 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2540 | 0 |
-| approved | Legal | 1476 | 1 |
+| approved | Commercial | 2552 | 0 |
+| approved | Legal | 1484 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1194 | 0 |
+| approved | Technical | 1200 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -606,7 +691,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-128 files in `supabase/migrations/`.
+130 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -736,6 +821,8 @@ than written as a literal list, so its members are not enumerable here.
 126. `20261001000002_term_pricing_settings.sql`
 127. `20261012000001_term_pricing_bands_per_product.sql`
 128. `20261012000002_term_pricing_remove_volume_bands.sql`
+129. `20261113000001_scoring_level_satisfies.sql`
+130. `20261114000001_deal_dynamics_lens.sql`
 
 ## Seed files, in application order
 
