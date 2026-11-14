@@ -12564,3 +12564,122 @@ input moving.
 
 **Verification 29's shape: a premise failed, so the decision was re-taken rather
 than re-weighed**, and the superseded reasoning is left visible at the site.
+
+---
+
+# R-RAD1 TO R-RAD10: THE DEAL RADAR
+
+**Ruled by John 2026-11-13 and 2026-11-14, the DEAL RADAR round**
+(`DEAL_RADAR_BRIEF.md`, with the three phase sign-offs appended there
+verbatim). Every assessed stage tab's Exit criteria card draws the lens
+roll-ups as a radar, above the unchanged "Assessment by lens" rows. **Display
+only: it writes nothing and gates nothing.**
+
+## The rulings
+
+- **R-RAD1. An axis is the existing roll-up, nothing new.** Met over total at
+  the tab's stage, as a fraction 0 to 1, with met meaning the level's
+  `satisfies` flag (R-DD4). No average and no new arithmetic on scores. The
+  value comes from `lensRollupAt` in `src/lib/lens-rollup.js`, the same
+  function the rows read, so the shape and the rows cannot disagree.
+- **R-RAD2. Axes in lens `sort_order`**, the first at the top, clockwise. The
+  order never varies by data, and the axis count follows the lens rows.
+- **R-RAD3. Coverage is criteria with ANY entry over total.** Unknown counts
+  as scored, because it requires a reason and is therefore a deliberate answer.
+  Strictly under half draws that axis dashed in the attention token, with its
+  label in the same token.
+- **R-RAD4. The overlay rescores TODAY'S criteria at the tab's stage, using
+  only entries at or before the record's last stage change.** No stage change:
+  no overlay and no key. Computed, never stored.
+- **R-RAD5. Every stage tab shows its own radar**, matching the rows beside it.
+- **R-RAD6. Labels are derived from the lens name**: several words give their
+  uppercase initials (Deal dynamics gives DD), one word its first three letters
+  (Commercial gives COM). No label list in code.
+- **R-RAD7. A lens with no criteria at a stage keeps its axis, with its vertex
+  at the centre**, so the polygon skips nothing. Fewer than three lenses: no
+  radar, rows only.
+- **R-RAD8. The legend shows Now, Last stage and Under half scored, each only
+  when that element is drawn.**
+- **R-RAD9. The rows are unchanged.** No "since last stage" figures. Proved by
+  stripping the radar and comparing all 15 blocks to `main` byte for byte.
+- **R-RAD10. Accessible**: `role="img"`, and an `aria-label` stating each
+  lens's met of total, naming the low-coverage lenses, and saying what the
+  overlay shows or why there is none.
+
+**Amended at the Phase 1 sign-off, and the amendments are part of the rulings:**
+
+- **Layout is Option A, stacked**: a 280 x 210 radar centred above the rows,
+  its legend between them. The card stays 420 wide and grows about 245px. The
+  live screenshots `prototypes/deal-radar-option-a-live-*.png` amend the mockup
+  of record, `prototypes/deal-radar-option-b.html`, whose size, colours, legend
+  and geometry stand.
+- **The R-RAD4 instant is the latest of two sources, compared as INSTANTS**:
+  `audit_log` rows with action `transition`, read through the existing
+  `GET /records/:id/history`, and approved `transition_requests.closed_at`,
+  from the list the page already fetches. No server change. A backward move
+  counts. The rule is `lastStageChangeAt` in `src/lib/radar.js`.
+- **The fill is `color-mix(in srgb, var(--green) 18%, transparent)`.** The
+  mockup's fill had no token, so it was reported rather than invented, and
+  this is the ruling.
+
+## Why the overlay rescores today's criteria
+
+**Stages ask different criteria.** Qualification and Solution Alignment do not
+assess the same set, so a replay of what the previous stage's tab showed would
+compare two different questionnaires. The shapes would differ because the
+questions changed, and would read as movement in the scoring.
+
+**So the overlay holds the criteria fixed, at the tab's own stage, and moves
+only time.** It asks: of the criteria this stage asks today, how many were met
+on the evidence that existed when the record last moved? The difference
+between the two shapes is then exactly the scoring done since the move.
+
+**A degenerate overlay is still drawn, with its key** (Phase 1 sign-off). A
+record that moved before any of this stage's criteria were scored has its
+overlay at the centre, and that is a true statement: nothing was met at the
+move. Drawing nothing would say the record never moved.
+
+**Two sources, because neither is complete on its own.** A move through the
+approval workflow writes an approved request and **no `audit_log` row**, which
+is queued as its own finding. Older moves went the other way. Measured on the
+round's records: R2's only move, on 2026-08-24, left an audit row and no
+approved request, and the in-page fixture's move left a request and no audit
+row.
+
+## A failed read is not a record that never moved
+
+**If either read fails, the radar draws no overlay and its label says the last
+stage change could not be read** (`data-overlay="unavailable"`, with no Last
+stage key). A failure is not cached, so the next render asks again.
+
+**The guard has teeth, and the measurement shows what it prevents.** With the
+history half of the guard removed and the history read failed in the page, R2
+rendered `absent`, which is the state for a record that has never moved. R2
+has moved. Without the guard, a network failure tells the reader something
+false about the deal, in the same shape as a true statement.
+`scripts/deal-radar/probe-radar-unavailable.mjs` fails each read in turn and
+fired on all four injections against the guard, the label and the state.
+
+## OPEN QUESTION, NOT A RULE: does amber stay a signal?
+
+**On the round's test data, 118 of 150 axes read low coverage.** Amber is
+meant to point at the lens that needs attention, and when four axes in five
+carry it, it marks the normal case rather than the exception.
+
+**This is recorded to be revisited after real deals, not decided now.** Test
+records are scored sparsely and on purpose, so the proportion says more about
+the fixtures than about selling. The question to ask, once real opportunities
+have been scored: is the proportion of low axes still high enough that amber
+has stopped discriminating? If it is, the threshold or the treatment is the
+thing to re-rule. R-RAD3 stands until then.
+
+## Where it lives
+
+| concern | site |
+|---|---|
+| the roll-up at an instant | `lensRollupAt` and `assessSeries`, `src/lib/lens-rollup.js` |
+| geometry, labels, coverage, the instant | `src/lib/radar.js` |
+| published to the classic script | `window.tmsLensRollupAt`, `window.tmsAssessSeries`, `window.tmsRadar`, `frontend-react/src/main.tsx` |
+| markup | `renderOppRadarHtml`, `frontend/app.js` |
+| colour | `.opp-radar*` rules in `frontend/style.css`, tokens only |
+| the standing layout check | the stage-tab pass in `scripts/adjacency/probe-gaps.mjs`, which is itself unwired (queued) |
