@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deal radar on the Exit criteria card (approved mockup, Option B)</title>
+<!--
+  REFERENCE OF RECORD for the DEAL RADAR round.
+  Approved by John 2026-11-13 (Option B), legend added 2026-11-14 per his ruling.
+  Static mockup. Figures are ILLUSTRATIVE. Fonts: Inter stands in for
+  General Sans / Satoshi; #E8B04B stands in for the --attention token.
+  Geometry: 5 axes, fixed order by lens sort_order, first axis at the top,
+  clockwise. Rings at 50% and 100%. Values are "met of total at this stage".
+  Solid green = now. Dashed grey = today's criteria scored as at the last
+  stage change. Dashed amber axis = fewer than half the lens's criteria scored.
+-->
+<style>
+body{margin:0;background:#1A1B23;color:#F2F2F0;font-family:Inter,sans-serif}
+.wrap{width:900px;box-sizing:border-box;padding:28px 32px}
+.card{background:#15161C;border:1px solid #2C2D36;border-radius:6px;padding:20px 24px;display:flex;gap:32px}
+.left{width:300px;display:flex;flex-direction:column;gap:12px}
+h2{margin:0;font-size:15px;font-weight:600}
+h3{margin:0;font-size:13px;font-weight:600;color:#A8A9B0}
+.row{padding:9px 0;border-bottom:1px solid #23242C;display:flex;justify-content:space-between;font-size:13px}
+.ok{color:#66CC99}.warn{color:#E8B04B}.muted{color:#A8A9B0}
+.right{flex:1;display:flex;flex-direction:column;gap:8px}
+.radar{display:flex;gap:16px;align-items:center}
+.rollups{flex:1;display:flex;flex-direction:column;font-family:'JetBrains Mono',monospace;font-size:12px}
+.rollups div{height:26px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #23242C}
+.legend{display:flex;gap:16px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#A8A9B0}
+.legend span{display:flex;gap:6px;align-items:center}
+.key{display:inline-block;width:18px;height:0}
+p{margin:0;font-size:12px;color:#A8A9B0;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="card" aria-label="Exit criteria">
+<div class="left">
+<h2>Exit criteria · Solution Alignment</h2>
+<div>
+<div class="row"><span>Bid/No Bid: Commercial</span><span class="ok">Approved</span></div>
+<div class="row"><span>Bid/No Bid: Technical</span><span class="ok">Approved</span></div>
+<div class="row"><span>Bid/No Bid: Legal</span><span class="warn">Pending</span></div>
+<div class="row"><span>Assessment reviewed</span><span class="muted">Not ticked</span></div>
+</div>
+</div>
+<div class="right">
+<h3>Assessment by lens</h3>
+<div class="radar">
+<svg width="280" height="210" viewBox="0 0 480 360" role="img" aria-label="Radar of the five lenses at this stage; Legal dashed for low coverage">
+<g fill="none" stroke="#2C2D36" stroke-width="1.5">
+<polygon points="240,50 373.2,146.7 322.3,303.3 157.7,303.3 106.9,146.7"/>
+<polygon points="240,120 306.6,168.4 281.1,246.6 198.9,246.6 173.4,168.4"/>
+</g>
+<g stroke="#3A3B46" stroke-width="1.5">
+<line x1="240" y1="190" x2="240" y2="50"/><line x1="240" y1="190" x2="373.2" y2="146.7"/><line x1="240" y1="190" x2="322.3" y2="303.3"/><line x1="240" y1="190" x2="106.9" y2="146.7"/>
+</g>
+<line x1="240" y1="190" x2="157.7" y2="303.3" stroke="#E8B04B" stroke-width="2" stroke-dasharray="6 6"/>
+<polygon points="240,149.4 290.6,173.6 251.5,205.9 228.5,205.9 173.4,168.4" fill="none" stroke="#A8A9B0" stroke-width="2" stroke-dasharray="7 6"/>
+<polygon points="240,90.6 306.6,168.4 275.4,238.7 216.1,222.8 140.1,157.6" fill="rgba(102,204,153,0.18)" stroke="#66CC99" stroke-width="3"/>
+<g font-family="JetBrains Mono, monospace" font-size="20" fill="#A8A9B0">
+<text x="240" y="34" text-anchor="middle">COM</text>
+<text x="384" y="146" text-anchor="start">ORG</text>
+<text x="330" y="328" text-anchor="start">TEC</text>
+<text x="150" y="328" text-anchor="end" fill="#E8B04B">LEG</text>
+<text x="96" y="146" text-anchor="end">DD</text>
+</g>
+</svg>
+<div class="rollups">
+<div><span>Commercial</span><span>5 of 7</span></div>
+<div><span>Organisational</span><span>4 of 8</span></div>
+<div><span>Technical</span><span>3 of 7</span></div>
+<div class="warn"><span>Legal</span><span>2 of 7</span></div>
+<div><span>Deal dynamics</span><span>3 of 4</span></div>
+</div>
+</div>
+<div class="legend">
+<span><span class="key" style="border-top:2px solid #66CC99"></span>Now</span>
+<span><span class="key" style="border-top:2px dashed #A8A9B0"></span>Last stage</span>
+<span><span class="key" style="border-top:2px dashed #E8B04B"></span>Under half scored</span>
+</div>
+<p>Display only. Approvals still gate the stage.</p>
+</div>
+</section>
+</div>
+</body>
+</html>
