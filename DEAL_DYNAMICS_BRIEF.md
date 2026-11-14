@@ -167,3 +167,25 @@ building.
 
 Proceed to Phase 2 on the rider's result. Phase 2 stops for sign-off as
 the brief says.
+
+PHASE 2 SIGN-OFF (John, 2026-11-14), appended at the phase it launches
+
+Phase 2 ACCEPTED at b4b15a2.
+- Ledger row for 20261113000001: inserted by John.
+- No database flip. The server never decides met by level (Phase 1), so
+  the in-page flip covers the only reader.
+- The not-met levels gap is accepted; Phase 3's level 3 case adds a
+  direct not-met case on the new scale.
+- DESIGN_PRINCIPLES.md:5837 history reference: leave for Phase 4.
+
+Proceed to Phase 3 as the brief states, with the Phase 1 corrections:
+- Show the full migration text and STOP before applying.
+- Proof measures Commercial at Solution Alignment (6 to 7) and Proposal
+  (7 to 8) on the same record.
+- Click-path scores on R2 (5e5ca23d): a level 3 score reads NOT met, a level 4
+  reads MET, and a level 1 without a reason is refused. Leave the entries
+  (append-only) and list them in the report.
+- Re-run probe-rollups after applying: the four existing lenses must
+  stay identical to the Phase 2 AFTER capture, except Commercial at the
+  stages where Regulatory driver now counts (expected and listed).
+- Test Bed checksum unchanged.
