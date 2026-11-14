@@ -4854,18 +4854,6 @@ const OPP_EXIT_CRITERION_KEYS = new Set([
 // which would make every row fail open and quietly restore the defect.
 // ── Round 32 Phase 2: the four lens rollups ───────────────────────────────
 //
-// The levels that CLOSE a question. Not applicable (1), Buyer confirmed (4)
-// and Verified (5). Unknown (2) is plainly a gap, and Our hypothesis (3) is a
-// real answer that is not yet confirmed, which will read as a gap: that is a
-// judgement the business took rather than arithmetic, and a lens full of
-// hypotheses is not a lens to be confident in.
-//
-// Numeric rather than by label, because a label is display text and a rename
-// would silently move a level in or out of this set. The probe asserts that 1,
-// 4 and 5 are still Not applicable, Buyer confirmed and Verified, so a scale
-// change is loud rather than silent.
-const OPP_LENS_SATISFYING_LEVELS = new Set([1, 4, 5])
-
 // STAGE SCOPED, not lens wide, settled with the business in Phase 0.
 //
 // Criterion visibility marks the stages a criterion can be ANSWERED at, and
@@ -4891,7 +4879,11 @@ function oppLensRollup(lens, stage, criteria) {
   const met = mine.filter(c => {
     const series = oppAssessSeries(c.criterion_key)
     if (!series.length) return false
-    return OPP_LENS_SATISFYING_LEVELS.has(Number(series[series.length - 1].value))
+    // Whether the latest level counts as met is DATA on the level (R-DD4,
+    // scoring_scale_levels.satisfies), read from the levels the criteria
+    // response already carries. A value with no matching level is not met.
+    const v = Number(series[series.length - 1].value)
+    return (c.levels ?? []).some(l => l.value === v && l.satisfies === true)
   }).length
   return { name: lens.name, state: met === mine.length ? 'satisfied' : 'unsatisfied', met, total: mine.length }
 }
