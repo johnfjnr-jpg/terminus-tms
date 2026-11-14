@@ -159,3 +159,34 @@ QUEUE (finding, not this round): workflow transitions
 no audit_log row; the audit trail is incomplete for approved moves.
 
 Proceed to Phase 2 as the brief states. Stop for sign-off.
+
+RULINGS AT PHASE 2 SIGN-OFF (John, 2026-11-14), appended as they launch
+Phase 3. Pasted verbatim:
+
+PHASE 2 SIGN-OFF: DEAL RADAR
+
+Phase 2 ACCEPTED at c970b2b.
+- lensRollupAt(lensId, criteria, payload, stage, asOf) signature: accepted.
+- No fallback for the published functions: accepted (bundle freshness
+  stage guards the dependency, format-dates precedent).
+- Re-measured roll-up table replaces Phase 1 figures.
+
+Phase 3 additions:
+A. Before building, count live opportunity score entries whose `at` does
+   not parse as an instant (read-only). Report the number. Non-zero: list
+   them and continue; the position (outside every asOf) stands.
+B. Proof 3c needs a NON-DEGENERATE overlay. Create a test opportunity
+   owned by john+test through the real API (fixtures.mjs), score at least
+   three lenses at Qualification through the click path, move it to
+   Solution Alignment through the REAL transition route, then score
+   further entries. Assert the dashed vertices equal lensRollupAt at the
+   transition instant and differ from the solid shape on at least two
+   axes. Soft-delete the fixture and list it. If the transition route
+   cannot be driven by existing fixture helpers without new machinery
+   (exit-criteria setup, approvals), STOP and report what it needs.
+   Do NOT write directly to records.status or audit_log.
+C. R1/R3 degenerate overlays: assert present (vertices at centre) with
+   legend key shown, per the Phase 1 ruling.
+
+Proceed to Phase 3 as the brief states, with Option A layout and the
+amended mockup of record. Stop for sign-off.
