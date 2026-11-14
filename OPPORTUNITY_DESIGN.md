@@ -756,6 +756,16 @@ because a rule over an empty set would have read as satisfied, and Round 25
 inserted none because the strictness is not yet knowable. They arrive when the
 full criterion set exists.
 
+**R-DD8 (John, 2026-11-14): any future `assessment_current` rule for
+opportunities excludes the Deal dynamics lens while R-DD1 stands** (information
+only). The four Deal dynamics criteria carry `required = true` at Solution
+Alignment, so a rule covering "every required criterion" would otherwise pick
+them up and block deals with no warning. **Whoever adds the first
+`assessment_current` rule must either exclude this lens or first ask John to
+lift R-DD1.** Recorded here because this section is where that rule's author
+will be reading, and the cumulative growth described above is exactly the
+mechanism that would carry the four criteria into it unannounced.
+
 #### The same property has a second surface, found in Round 33 Phase 0
 
 **A set growing underneath a rule is not only a gate problem.** The paragraphs

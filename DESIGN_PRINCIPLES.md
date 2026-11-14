@@ -1047,8 +1047,17 @@ review of what somebody imagined a salesperson would need.
 
 **In scope, and the second half is the part that would otherwise be missed:**
 
-- **the thirty Opportunity criteria**, across four lenses: Commercial 7,
-  Organisational 8, Technical 7, Legal 8, plus whatever Round 41 adds
+- **the thirty-five Opportunity criteria**, across five lenses: Commercial 8,
+  Organisational 8, Technical 7, Legal 8, Deal dynamics 4. Measured live from
+  `scoring_criteria` on 2026-11-14. When this was scheduled it read "the thirty
+  Opportunity criteria, across four lenses: Commercial 7, Organisational 8,
+  Technical 7, Legal 8, plus whatever Round 41 adds"; Round 41 added one,
+  Regulatory or external driver, which is Commercial's eighth
+- **the four Deal dynamics criteria by name** (Client responsiveness,
+  Terminus responsiveness, Engagement momentum, Client follow-through), **all
+  PROVISIONAL from 2026-11-14.** Their business-day thresholds were set before
+  any real deal was scored against them and are to be recalibrated after real
+  deals, which is this review's own input clause applied to the newest lens
 - **the Test Bed scoring anchors simplified in earlier rounds.** They were
   trimmed for a reason at the time and nobody has looked at them since with a
   real Test Bed in front of them. **Named explicitly so the review is not
