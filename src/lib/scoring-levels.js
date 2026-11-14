@@ -48,7 +48,7 @@ export async function resolveLevels(db, scaleId) {
 
   const { data, error } = await db
     .from('scoring_scale_levels')
-    .select('value, label, reason_required, description')
+    .select('value, label, reason_required, description, satisfies')
     .eq('scale_id', scaleId)
     .order('value', { ascending: true })
 
@@ -61,5 +61,10 @@ export async function resolveLevels(db, scaleId) {
   // already resolve, rather than being pre-resolved here: this function does
   // not know which criterion is being scored and therefore cannot see the
   // override.
-  return { levels: (data ?? []).map(l => ({ value: l.value, label: l.label, reason_required: l.reason_required, description: l.description ?? null })) }
+  //
+  // DEAL DYNAMICS Phase 2, 2026-11-13: `satisfies` is whether a score at this
+  // level counts as met in the lens roll-up (R-DD4). It is carried on a scaled
+  // level only. DEFAULT_LEVELS above has no such key, deliberately: no Test Bed
+  // reader decides met, and the Test Bed response is held byte-identical.
+  return { levels: (data ?? []).map(l => ({ value: l.value, label: l.label, reason_required: l.reason_required, description: l.description ?? null, satisfies: l.satisfies === true })) }
 }

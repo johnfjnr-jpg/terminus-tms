@@ -5741,7 +5741,7 @@ sequence: they are single decisions the business takes when it wants to.
   Approvals card is the authority on approvals and the criteria card should
   defer to it. Nobody has chosen, and choosing changes both record types.
 
-### The four lens rollups on the Exit Criteria card
+### The lens rollups on the Exit Criteria card
 
 Round 32 Phase 2. Sits directly on the observation above: this is a second
 thing in that card, and it is deliberately not a gate.
@@ -5769,8 +5769,8 @@ moment the two readings returned `false` and `true`.
 
 **THREE STATES AT THE RULE, not two with a rendering rule over them.**
 `every()` on an empty array returns true, so a lens with nothing configured
-computes SATISFIED on no evidence, and three of the four lenses are empty until
-Round C. Returning early on an empty set is what makes "satisfied" and "nothing
+computes SATISFIED on no evidence, and when this was written most lenses were
+empty until Round C. Returning early on an empty set is what makes "satisfied" and "nothing
 to satisfy" different values rather than one value rendered twice.
 
 **A FRACTION, NOT A TICK, and two separate constraints resolve to the same
@@ -5789,6 +5789,61 @@ distinction survives into the wording rather than stopping at the rule.
 **Cost: 152px on a card that is 420px wide at 1240, 1920 and 3440 and does not
 grow.** Roughly 66px of that is the three empty lenses, which stop being empty
 at Round C.
+
+### Whether a level counts as met is data on the level (R-DD4)
+
+DEAL DYNAMICS round, 2026-11-13, ruled by the business. **Whether a scale
+level counts as met in the lens roll-up is `scoring_scale_levels.satisfies`,
+one flag per level. It is never a set of values typed into code.**
+
+**What it replaced.** The roll-up decided met with
+`OPP_LENS_SATISFYING_LEVELS = new Set([1, 4, 5])` in `frontend/app.js`. The set
+was right for the two scales it was written against, and only because the
+three-level confirmation scale was numbered 1, 2, 4 to fit it (the section
+below). **A scale whose level 1 means "worst" would read its worst answer as
+met**, and the Deal dynamics scale (1 Poor to 5 Strong) is exactly that scale.
+So the set had to go before that scale arrived, and it went first, in its own
+phase, with a before-and-after proof that today's behaviour did not move.
+
+**The flags reproduce the set exactly on the two existing scales**: Not
+applicable, Buyer confirmed and Verified on the evidence scale, and Not
+applicable and Confirmed on the confirmation scale. The Deal dynamics scale
+flags Good and Strong. **Test Bed is untouched**: its criteria carry no scale,
+fall back to `DEFAULT_LEVELS` in code, and no Test Bed reader decides met.
+
+**Two guards, and no replacement comment.** INVARIANT 15 asserts that every
+scale has at least one met level, because a scale with none can never satisfy
+a lens and nothing on screen would say why. A level whose value has no matching
+row, or whose row carries no flag, is NOT met. The comment that sat beside the
+set claimed a probe guarded its numbering; it was deleted with the set rather
+than restated, because the invariant and the proof are the guard.
+
+**The general form, and it is Architecture 2 applied to a meaning rather than a
+row:** when code branches on WHICH values of a configured scale mean something,
+that meaning is configuration too. A value set in code is a second definition of
+the scale, and it is correct only for as long as nobody adds a scale.
+
+### A criterion is three tables, and the Round 41 addition shipped with two
+
+DEAL DYNAMICS round, Finding A, 2026-11-13. **`assessCommRegulatoryDriver` was
+added in Round 41 (`20260831000006`) with a criterion row and five anchors, and
+NO `scoring_criterion_stages` rows. It rendered on no stage and counted in no
+roll-up from 2026-08-31 until this round gave it its siblings' rows**
+(Solution Alignment required, then Proposal, Evaluation and Negotiating).
+
+**The cause is a claim in that migration's own header**: "Lens totals and the
+assessmentReviewed exit criterion both read the criteria table, so neither needs
+a change." True of the table, and false of what reads it. The Assessment panel
+and the lens roll-up both select criteria **through their stage rows** (Round 32
+made the roll-up stage-scoped), so a criterion with no stage row is in the
+table, has a full definition, and is on no screen. **Nothing failed**: no
+invariant asks whether a criterion is visible anywhere, and an absent row reads
+exactly like a criterion that was never meant to show.
+
+**The checklist for a new criterion is therefore three tables, not two**:
+`scoring_criteria`, `scoring_anchors` at the current version, and
+`scoring_criterion_stages`. A migration adding one names all three, or says why
+a table is deliberately left empty.
 
 ### The confirmation scale is three level, reversing Round 24
 
@@ -5837,6 +5892,13 @@ rollup's satisfying set of `{1, 4, 5}` would not contain Confirmed, because 3
 is Our hypothesis. Measured rather than reasoned: `Set([1,4,5]).has(3)` is
 false. **It would have broken in the direction that reports finished work as
 outstanding**, which is the direction nobody investigates.
+
+**SUPERSEDED IN MECHANISM, 2026-11-13, and the reasoning above is left as it
+was.** The set `{1, 4, 5}` no longer exists: R-DD4 moved "counts as met" onto
+`scoring_scale_levels.satisfies` (under "Whether a level counts as met is data
+on the level", above). The numbering
+1, 2, 4 still stands, and it still means what it says about the scale; it is
+simply no longer what makes Confirmed count.
 
 **The gaps at 3 and 5 are true statements about the scale.** A requirement has
 no hypothesis state and nothing beyond confirmed to verify.

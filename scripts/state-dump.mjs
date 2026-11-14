@@ -639,6 +639,61 @@ w('')
     rows.map(r => [cell(r.key), cell(r.version), cell(r.scores)])))
 }
 
+// ── scoring_lenses, scoring_scales and their levels, scoring_criterion_stages ──
+//
+// DEAL DYNAMICS Phase 4, 2026-11-14. Three tables the scoring framework is
+// configured by, none of which this file recorded. Two consequences were live:
+// a lens added by row produced no diff here, and `satisfies` - which since
+// R-DD4 decides what counts as met - was configuration with no changelog.
+//
+// The third table is Finding A's: a criterion with anchors and no stage rows
+// renders nowhere, and nothing here could show it. Every criterion that has a
+// lens is now printed with its stages, so a missing row is an empty cell that
+// a reader can see rather than an absence nobody looks for.
+{
+  const lenses = (await fetchAll(db, 'scoring_lenses', 'id, name, sort_order')).sort(by('sort_order', 'name'))
+  const scales = (await fetchAll(db, 'scoring_scales', 'id, name')).sort(by('name'))
+  const levels = (await fetchAll(db, 'scoring_scale_levels', 'scale_id, value, label, reason_required, satisfies')).sort(by('value'))
+  const crits = (await fetchAll(db, 'scoring_criteria', 'id, record_type, criterion_key, lens_id, scale_id, sort_order'))
+  const stageRows = await fetchAll(db, 'scoring_criterion_stages', 'criterion_id, stage, required')
+  const stageDefs = await fetchAll(db, 'stage_definitions', 'record_type, stage_name, sort_order')
+  const lensName = Object.fromEntries(lenses.map(l => [l.id, l.name]))
+  const scaleName = Object.fromEntries(scales.map(s => [s.id, s.name]))
+
+  w('## `scoring_lenses`')
+  w('')
+  w(`${lenses.length} rows.`)
+  w('')
+  w(table(['sort_order', 'name', 'criteria'],
+    lenses.map(l => [cell(l.sort_order), cell(l.name), cell(crits.filter(c => c.lens_id === l.id).length)])))
+
+  w('## `scoring_scales` and `scoring_scale_levels`')
+  w('')
+  w(`${scales.length} scales, ${levels.length} levels. \`satisfies\` is whether a score at that level counts as met in the lens roll-up (R-DD4).`)
+  w('A criterion with no scale is scored against `DEFAULT_LEVELS` in `src/lib/scoring-levels.js`, which has no rows here.')
+  w('')
+  w(table(['scale', 'value', 'label', 'reason_required', 'satisfies', 'criteria'],
+    scales.flatMap(s => levels.filter(l => l.scale_id === s.id).map(l => [
+      cell(s.name), cell(l.value), cell(l.label), cell(l.reason_required), cell(l.satisfies),
+      cell(crits.filter(c => c.scale_id === s.id).length)]))))
+
+  w('## `scoring_criterion_stages`')
+  w('')
+  w(`${stageRows.length} rows. One line per criterion that has a lens; stages in stage order, \`*\` marks required. An empty stages cell is a criterion that renders at no stage.`)
+  w('')
+  const orderOf = (rt, st) => stageDefs.find(d => d.record_type === rt && d.stage_name === st)?.sort_order ?? 999
+  const lensed = crits.filter(c => c.lens_id)
+    .sort((a, b) => (lenses.findIndex(l => l.id === a.lens_id) - lenses.findIndex(l => l.id === b.lens_id)) || (a.sort_order - b.sort_order))
+  w(table(['lens', 'criterion_key', 'scale', 'stages'],
+    lensed.map(c => [cell(lensName[c.lens_id]), cell(c.criterion_key), cell(scaleName[c.scale_id] ?? '(default levels)'),
+      cell(stageRows.filter(s => s.criterion_id === c.id)
+        .sort((a, b) => orderOf(c.record_type, a.stage) - orderOf(c.record_type, b.stage))
+        .map(s => s.stage + (s.required ? '*' : '')).join(', '))])))
+  const unlensed = stageRows.filter(s => !lensed.some(c => c.id === s.criterion_id)).length
+  w(`Stage rows on criteria with no lens: ${unlensed}.`)
+  w('')
+}
+
   w('## `stage_reference_docs`')
   w('')
   w(`${rows.length} rows. \`document_name\` reproduced exactly, including spacing.`)

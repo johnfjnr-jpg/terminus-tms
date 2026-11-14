@@ -818,6 +818,47 @@ test('INVARIANT 14: one batch per product per date, so "current" has exactly one
 })
 
 // ─────────────────────────────────────────────────────────────
+// INVARIANT 15: every scoring scale has at least one level that counts as met
+// ─────────────────────────────────────────────────────────────
+//
+// DEAL DYNAMICS Phase 2, 2026-11-13, ruling R-DD4. Whether a level counts as
+// met in the lens roll-up is `scoring_scale_levels.satisfies`, data per level,
+// replacing a set of values typed into app.js. A scale with no met level can
+// never satisfy a lens, whatever anybody scores, and nothing on the screen
+// would say why: the roll-up would simply read "0 of N" for ever.
+//
+// The rule is a function of its inputs so it can be shown failing on a
+// synthetic scale without touching the live rows (Verification 9), and the
+// live population is asserted non-empty first, because a scan of no scales
+// names no offender (Verification 14).
+const scalesWithNoMetLevel = (scales, levels) =>
+  scales.filter(s => !levels.some(l => l.scale_id === s.id && l.satisfies === true)).map(s => s.name)
+
+test('INVARIANT 15: every scoring scale has at least one level that counts as met', async () => {
+  // Calibration, both directions, on synthetic rows.
+  const calScales = [{ id: 'a', name: 'cal has met' }, { id: 'b', name: 'cal none met' }]
+  const calLevels = [
+    { scale_id: 'a', value: 1, satisfies: false }, { scale_id: 'a', value: 2, satisfies: true },
+    { scale_id: 'b', value: 1, satisfies: false }, { scale_id: 'b', value: 2, satisfies: false },
+  ]
+  assert.deepEqual(scalesWithNoMetLevel(calScales, calLevels), ['cal none met'],
+    'the rule failed to name a scale with no met level, or named one that has a met level')
+  // A missing key is not a met level: a select that forgot the column must not pass.
+  assert.deepEqual(scalesWithNoMetLevel([{ id: 'c', name: 'cal no key' }], [{ scale_id: 'c', value: 1 }]), ['cal no key'],
+    'a level with no satisfies key was read as met')
+
+  const scales = await pagedSelect(() => db.from('scoring_scales').select('id, name'), 'scoring_scales')
+  const levels = await pagedSelect(() => db.from('scoring_scale_levels').select('id, scale_id, value, satisfies'), 'scoring_scale_levels')
+  assert.ok(scales.length > 0, 'no scoring scales were read, so this invariant would pass on nothing')
+  assert.ok(levels.length > 0, 'no scale levels were read, so this invariant would pass on nothing')
+  assert.ok(levels.every(l => typeof l.satisfies === 'boolean'),
+    'a scale level carries no boolean satisfies, so the column is missing or the select did not ask for it')
+
+  assert.deepEqual(scalesWithNoMetLevel(scales, levels), [],
+    'these scales have no level with satisfies = true, so no score on them can ever satisfy a lens')
+})
+
+// ─────────────────────────────────────────────────────────────
 // The Commercial gate on an Opportunity is version-scoped
 // ─────────────────────────────────────────────────────────────
 //
