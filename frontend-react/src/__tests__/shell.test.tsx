@@ -127,13 +127,14 @@ describe('the bundle registers exactly the loaders it declares', () => {
     //
     // DEAL RADAR Phase 2 adds TWO, `tmsAssessSeries` and `tmsLensRollupAt`,
     // on the formatter's argument exactly: the lens rows and the radar must
-    // read one roll-up, and app.js cannot import it.
+    // read one roll-up, and app.js cannot import it. Phase 3 adds `tmsRadar`,
+    // one namespace for the radar's pure rules, on the same argument.
     expect(added).toEqual([
       'initOpportunityDealPanel', 'initOpportunityDealVersions',
       'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
       'loadContactDetail', 'loadTermPricing', 'loadTestBedDetail', 'mountLeadsList',
       'mountNewLeadGrid', 'tmsAssessSeries', 'tmsContacts', 'tmsFormatDate', 'tmsFormatTimestamp',
-      'tmsLensRollupAt'])
+      'tmsLensRollupAt', 'tmsRadar'])
   })
 })
 

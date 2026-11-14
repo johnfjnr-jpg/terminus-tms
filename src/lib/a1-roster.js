@@ -67,10 +67,17 @@
 // ships is a roster nobody can trust to be complete in the other direction.
 
 /* The state label is `<width> <mode>/<structure>/<responsibility>/fx-<on|off>`,
-   for example `1920 capex/hybrid/Per Unit/fx-on`. */
-const EVERY = () => true
+   for example `1920 capex/hybrid/Per Unit/fx-on`.
+
+   DEAL RADAR Phase 3, 2026-11-14: the walk now also visits the stage tabs, as
+   states labelled `<width> stage/<stage>`. A Commercials container is not owed
+   on a stage tab, so EVERY and NOT_HYBRID mean every COMMERCIALS state. Left
+   as `() => true`, every Commercials entry would read absent from every stage
+   tab, which is a fault in the roster rather than in the screen. */
+const STAGE_TAB = (s) => s.includes(' stage/')
+const EVERY = (s) => !STAGE_TAB(s)
 const HYBRID = (s) => s.includes('/hybrid/')
-const NOT_HYBRID = (s) => !s.includes('/hybrid/')
+const NOT_HYBRID = (s) => !STAGE_TAB(s) && !s.includes('/hybrid/')
 const OPEX = (s) => s.includes('opex/')
 const LUMP_SUM = (s) => s.includes('/Lump Sum/')
 
@@ -119,4 +126,9 @@ export const A1_ROSTER = [
     what: 'the OPEX table', sample: 'HEMIR' },
   { key: 'cm-grid-row cm-grid-total', when: 'Lump Sum responsibility only', inState: LUMP_SUM,
     what: 'the contractor milestone grid total', sample: 'Total' },
+  /* DEAL RADAR Phase 3: the "Assessment by lens" rows on every assessed stage
+     tab, beneath the radar. A name against "N of M", space-between across the
+     card, so a row stretched past its card is what this would catch. */
+  { key: 'opp-lens-rollup', when: 'every assessed stage tab', inState: STAGE_TAB,
+    what: 'the Exit criteria card\'s Assessment by lens rows', sample: 'Commercial' },
 ]

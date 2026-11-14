@@ -228,6 +228,16 @@ const AMBER_FAMILY = [
   '.tp-manual-chip.is-warn .tp-manual-mark',
   '.tp-manual-flag',
   '.tp-table.tp-manual-table tr.tp-manual-flagged td',
+  // ── DEAL RADAR Phase 3, 2026-11-14 ─────────────────────────────────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT: 36 bindings against 33, and the hook
+  // refused the commit. Three sites, one meaning (R-RAD3): fewer than half of
+  // a lens's criteria at this stage carry any score. Not an error and not a
+  // refusal, a gap that needs the eye. The dashed axis, its label, and the
+  // legend key that names them.
+  '.opp-radar-spoke--low',
+  '.opp-radar-label--low',
+  '.opp-radar-key--low .opp-radar-swatch',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

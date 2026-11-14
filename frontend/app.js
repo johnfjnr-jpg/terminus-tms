@@ -1361,6 +1361,11 @@ function refreshOppNextStageButton() {
 // ONE LOADED VALUE, read by everything. Verification 20: a second reader of the
 // same value always drifts, and eleven controls depend on this one fact.
 let oppOpenRequest = null
+// DEAL RADAR Phase 3: every request the same fetch returned, kept so the
+// radar's stage-change instant (R-RAD4) reads the requests this load already
+// has rather than asking again. Null when the fetch failed, which is not the
+// same as "no requests".
+let oppAllRequests = null
 
 // R8: what buildStageTracks said about the record's CURRENT stage, held once.
 // The button, the panel and the gate then answer from one place.
@@ -1450,9 +1455,11 @@ async function loadOppOpenRequest(recordId) {
   oppOpenRequest = null
   oppPendingReview = null
   oppLastRejected = null
+  oppAllRequests = null
   const r = await api('GET', `/api/records/${recordId}/transition-requests`)
   if (!r.ok) return
   const all = r.data ?? []
+  oppAllRequests = all
   const open = all.filter(x => x.status === 'open')
   oppOpenRequest = open.find(x => x.kind === 'transition') ?? null
   oppPendingReview = open.find(x => x.kind === 'review') ?? null
@@ -4904,7 +4911,103 @@ function oppLensRollup(lens, stage, criteria) {
 //
 // "None at this stage" rather than "0 of 0", because a zero fraction reads as
 // a measurement of nothing rather than as nothing to measure.
-function renderOppLensRollupsHtml(stage, criteria, lenses) {
+// ── DEAL RADAR: WHEN THE RECORD LAST CHANGED STAGE (R-RAD4) ──────────────
+//
+// Two sources, ruled at the Phase 1 sign-off, because moves are recorded in
+// two places and no record carries both: the older transition route writes an
+// audit_log row, and the approval workflow records the move only on its
+// request. The audit half is the ONE added read, GET /records/:id/history; the
+// request half is the list loadOppOpenRequest already fetched. The rule that
+// picks between them is src/lib/radar.js's lastStageChangeAt.
+//
+// Answers { ok, at }. `ok: false` means a source could not be read, which is
+// NOT "never moved": the radar then draws no overlay and says why in its
+// label, rather than presenting a failed read as a record that never moved.
+// A failure is not cached, so the next render asks again.
+let oppStageChange = null
+function ensureOppStageChange(recordId) {
+  if (oppStageChange?.recordId === recordId) return oppStageChange.promise
+  const promise = api('GET', `/api/records/${recordId}/history`).then((h) => {
+    if (!h.ok || !Array.isArray(oppAllRequests)) {
+      if (oppStageChange?.promise === promise) oppStageChange = null
+      return { ok: false, at: null }
+    }
+    return { ok: true, at: window.tmsRadar.lastStageChangeAt(h.data?.entries ?? [], oppAllRequests) }
+  })
+  oppStageChange = { recordId, promise }
+  return promise
+}
+
+// ── DEAL RADAR: THE LENS ROLL-UPS AS A SPIDER (R-RAD1 to R-RAD10) ────────
+//
+// Display only. Every value is lensRollupAt's, every position is radarPoints',
+// and this function only turns them into markup. Option A of record: the
+// radar centred above the unchanged rows, its legend between them.
+//
+// Colours are CLASSES, never attributes, so they come from the tokens in
+// style.css and a theme change reaches them.
+function renderOppRadarHtml(stage, criteria, lenses, stageChange) {
+  const R = window.tmsRadar
+  // R-RAD7: fewer than three axes is not a shape, so the rows stand alone.
+  if ((lenses ?? []).length < 3) return ''
+  const G = R.RADAR
+  const n = lenses.length
+  const f2 = (v) => v.toFixed(2)
+  const pts = (ps) => ps.map((p) => `${f2(p.x)},${f2(p.y)}`).join(' ')
+  const frac = (r) => (r.total ? r.met / r.total : 0)
+  const now = lenses.map((l) => window.tmsLensRollupAt(l.id, criteria, currentOppPayload, stage, null))
+  // R-RAD4: today's criteria at this stage, scored only on entries at or
+  // before the last stage change. Absent when there has been none.
+  const asOf = stageChange?.ok ? stageChange.at : null
+  const then = asOf
+    ? lenses.map((l) => window.tmsLensRollupAt(l.id, criteria, currentOppPayload, stage, asOf))
+    : null
+  const low = now.map((r) => R.isLowCoverage(r))
+  const outer = R.radarPoints(Array(n).fill(1))
+  const short = lenses.map((l) => R.lensShortLabel(l.name))
+
+  const rings = [1, 0.5].map((k) =>
+    `<polygon class="opp-radar-ring" points="${pts(R.radarPoints(Array(n).fill(k)))}"/>`).join('')
+  const spokes = outer.map((p, i) =>
+    `<line class="opp-radar-spoke${low[i] ? ' opp-radar-spoke--low' : ''}" data-lens="${escHtml(lenses[i].name)}" x1="${G.cx}" y1="${G.cy}" x2="${f2(p.x)}" y2="${f2(p.y)}"/>`).join('')
+  const overlay = then
+    ? `<polygon class="opp-radar-then" points="${pts(R.radarPoints(then.map(frac)))}"/>`
+    : ''
+  const shape = `<polygon class="opp-radar-now" points="${pts(R.radarPoints(now.map(frac)))}"/>`
+  const labels = short.map((s, i) => {
+    const at = R.radarLabelAt(i, n)
+    return `<text class="opp-radar-label${low[i] ? ' opp-radar-label--low' : ''}" x="${f2(at.x)}" y="${f2(at.y)}" text-anchor="${at.anchor}">${escHtml(s)}</text>`
+  }).join('')
+
+  // R-RAD10: what a sighted reader gets from the shape, said in words.
+  const said = (rs) => lenses.map((l, i) => (rs[i].total
+    ? `${l.name} ${rs[i].met} of ${rs[i].total}`
+    : `${l.name} none at this stage`)).join(', ')
+  const lowNames = lenses.filter((_, i) => low[i]).map((l) => l.name)
+  const aria = [
+    `Assessment by lens at ${stage}: ${said(now)}.`,
+    lowNames.length ? `Fewer than half scored: ${lowNames.join(', ')}.` : '',
+    then ? `At the last stage change: ${said(then)}.`
+      : (stageChange?.ok ? 'No stage change yet.' : 'The last stage change could not be read.'),
+  ].filter(Boolean).join(' ')
+
+  // R-RAD8: a key only for what is on screen. "Now" is always drawn, even at
+  // the centre; "Last stage" whenever an overlay is, degenerate included
+  // (Phase 1 sign-off); "Under half scored" only beside a dashed axis.
+  const keys = [
+    '<span class="opp-radar-key opp-radar-key--now"><span class="opp-radar-swatch"></span>Now</span>',
+    then ? '<span class="opp-radar-key opp-radar-key--then"><span class="opp-radar-swatch"></span>Last stage</span>' : '',
+    lowNames.length ? '<span class="opp-radar-key opp-radar-key--low"><span class="opp-radar-swatch"></span>Under half scored</span>' : '',
+  ].join('')
+
+  const overlayState = then ? 'present' : (stageChange?.ok ? 'absent' : 'unavailable')
+  return `<svg class="opp-radar" width="280" height="210" viewBox="0 0 ${G.width} ${G.height}" role="img" aria-label="${escHtml(aria)}" data-stage="${escHtml(stage)}" data-overlay="${overlayState}"${asOf ? ` data-as-of="${escHtml(asOf)}"` : ''}>
+      <g>${rings}</g><g>${spokes}</g>${overlay}${shape}<g>${labels}</g>
+    </svg>
+    <div class="opp-radar-legend">${keys}</div>`
+}
+
+function renderOppLensRollupsHtml(stage, criteria, lenses, stageChange) {
   if (!criteria || !lenses) {
     // SAID, not omitted. An empty block and a block that failed to load are
     // the same 60px of heading, which is the ambiguity Round 31 Phase 1 found
@@ -4919,7 +5022,8 @@ function renderOppLensRollupsHtml(stage, criteria, lenses) {
       <span class="opp-lens-rollup-n">${escHtml(l.name)}</span><span class="opp-lens-rollup-v">${escHtml(value)}</span>
     </div>`
   }).join('')
-  return `<div class="opp-lens-rollups"><p class="opp-lens-rollups-h">Assessment by lens</p>${rows}</div>`
+  // R-RAD9: the rows are unchanged; the radar is inserted above them.
+  return `<div class="opp-lens-rollups"><p class="opp-lens-rollups-h">Assessment by lens</p>${renderOppRadarHtml(stage, criteria, lenses, stageChange)}${rows}</div>`
 }
 
 async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, isStillCurrent = () => true, recordStage = currentOppStage) {
@@ -4937,6 +5041,7 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
   // Started before the await, not after, so the three requests overlap.
   const criteriaPromise = ensureOppCriteria()
   const lensesPromise = ensureOppLenses()
+  const stageChangePromise = ensureOppStageChange(recordId)
   const result = await api('GET', `/api/records/${recordId}/exit-criteria?stage=${encodeURIComponent(fromStage)}`)
   // Dropped rather than painted if a newer load has started. Without this a
   // slower response for an earlier tab lands last and shows that stage's
@@ -5066,12 +5171,12 @@ async function renderOppExitCriteria(containerId, recordId, fromStage, toStage, 
       // where to look at the moment they can already see it.
       : `<p class="sub" style="margin-bottom:10px">All criteria met. ${unmetApprovals} approval${unmetApprovals === 1 ? '' : 's'} still outstanding.</p>`)
     : `<p class="sub" style="margin-bottom:10px">${outstanding} of ${requirements.length} outstanding to move to ${escHtml(toStage)}:</p>`
-  const [criteria, lenses] = await Promise.all([criteriaPromise, lensesPromise])
+  const [criteria, lenses, stageChange] = await Promise.all([criteriaPromise, lensesPromise, stageChangePromise])
   // RE-CHECKED AFTER THE SECOND AWAIT. The guard above covered the only await
   // this function had; parallelising gave it two, and the same slow-response
   // fault Round 31 hit on renderTbStageExitCriteria applies to the later one.
   if (!isStillCurrent()) return
-  el.innerHTML = summary + rows + renderOppLensRollupsHtml(fromStage, criteria, lenses)
+  el.innerHTML = summary + rows + renderOppLensRollupsHtml(fromStage, criteria, lenses, stageChange)
   const fb = document.createElement('div')
   fb.className = 'tb-doc-feedback opp-crit-feedback'
   el.appendChild(fb)
@@ -7642,6 +7747,10 @@ async function renderOppDetail(opp) {
   // Loaded ONCE per record load, and read by every control whose enabled state
   // depends on it. A control that fetched its own copy would be the second
   // reader Verification 20 is about.
+  //
+  // DEAL RADAR: the stage-change instant is forgotten here, per load, so a
+  // record that has just moved is never drawn against its previous move.
+  oppStageChange = null
   await loadOppOpenRequest(opp.id)
   // THE FREEZE, ON THE WHOLE VIEW, FROM ONE VALUE. Not eleven controls each
   // testing for themselves: that is the second-reader shape, and a control that

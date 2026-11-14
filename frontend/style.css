@@ -5750,6 +5750,83 @@ textarea::placeholder { color: var(--muted); }
   color: var(--muted);
 }
 
+/* DEAL RADAR, 2026-11-14. The lens roll-ups as a spider, Option A of record:
+   centred above the unchanged rows, its legend between them
+   (prototypes/deal-radar-option-a-live-*.png, amending
+   prototypes/deal-radar-option-b.html, whose size, colours, legend and
+   geometry stand).
+
+   The card is 420px and does not grow, so the radar is drawn at the mockup's
+   280 x 210 and centred in the 390px the block leaves it, rather than beside
+   the rows where it measured 37px short at every width (Phase 1).
+
+   EVERY COLOUR IS A TOKEN. The mockup's hexes map to --hairline (rings),
+   --hairline-strong (spokes), --muted (labels, the last-stage outline, legend
+   text), --attention (an axis under half scored) and --green (now). The one
+   mockup colour with no token, the 18% fill, is derived from --green rather
+   than minted, ruled at the Phase 1 sign-off. */
+.opp-radar {
+  display: block;
+  margin: 0 auto 4px;
+}
+.opp-radar-ring {
+  fill: none;
+  stroke: var(--hairline);
+  stroke-width: 1.5;
+}
+.opp-radar-spoke {
+  stroke: var(--hairline-strong);
+  stroke-width: 1.5;
+}
+/* R-RAD3: fewer than half of this lens's criteria at this stage are scored. */
+.opp-radar-spoke--low {
+  stroke: var(--attention);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+}
+/* R-RAD4: today's criteria as scored at the last stage change. */
+.opp-radar-then {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-dasharray: 7 6;
+}
+.opp-radar-now {
+  fill: color-mix(in srgb, var(--green) 18%, transparent);
+  stroke: var(--green);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.opp-radar-label {
+  font-family: var(--mono);
+  font-size: 20px;
+  fill: var(--muted);
+}
+.opp-radar-label--low { fill: var(--attention); }
+.opp-radar-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.opp-radar-key {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.opp-radar-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+}
+.opp-radar-key--now .opp-radar-swatch { border-top: 2px solid var(--green); }
+.opp-radar-key--then .opp-radar-swatch { border-top: 2px dashed var(--muted); }
+.opp-radar-key--low .opp-radar-swatch { border-top: 2px dashed var(--attention); }
+
 /* Round 34 Phase 3: the tab row's edit controls RESERVE THEIR SPACE.
 
    Moving Cancel and Save into the tab row removed the 76px shift the banner

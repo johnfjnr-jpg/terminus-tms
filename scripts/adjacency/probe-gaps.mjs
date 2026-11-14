@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { freshOpportunity, tearDown } from '../fixtures.mjs'
 import { api } from '../api-client.mjs'
 import { A1_ROSTER } from '../../src/lib/a1-roster.js'
+import { inkOverlaps } from '../lib/ink-overlap.mjs'
 
 const ROOT = '/Users/johnfryatt/terminus-tms'
 const OUT = `${ROOT}/.verify/adjacency/`
@@ -139,16 +140,21 @@ try {
        backstop came back SILENT. A detector that mistakes a figure for a label
        does not report a wrong gap, it reports the wrong ROW. */
     const FIG = /^[-(]?\s*\$?\s*[\d,]+(\.\d+)?\s*%?\)?$/
+    /* ── A COUNT IS A FIGURE TOO. DEAL RADAR Phase 3, 2026-11-14 ──────────
+       The lens roll-up rows read "Commercial  5 of 7". Without this the walk
+       took "5 of 7" for a second LABEL and the rows were invisible to A1,
+       which is why the Phase 1 sign-off asked for them to join it. */
+    const COUNT = /^\d+ of \d+$/
     const isFigure = (e) => {
       const i = e.querySelector('input')
       if (i) return true
       const t = txt(e)
-      return t.length > 0 && t.length < 24 && (FIG.test(t) || t === '—' || t === '-')
+      return t.length > 0 && t.length < 24 && (FIG.test(t) || COUNT.test(t) || t === '—' || t === '-')
     }
     const isLabel = (e) => {
       if (e.querySelector('input, select')) return false
       const t = txt(e)
-      return t.length > 1 && !FIG.test(t)
+      return t.length > 1 && !FIG.test(t) && !COUNT.test(t)
     }
     /* ── A CELL IS A LEAF, AND THIS IS WHAT THE FIRST RUN GOT WRONG ────────
        It reported an 808px offender, `lead-card-body tb-top-row`, which is the
@@ -330,7 +336,11 @@ try {
      to compare and skips, so a calibration of it would inject into a check that
      never ran and score the silence as a missing detector. */
   const WIDTHS = FAST ? [1920, 1240] : [1920, 1440, 1240]
-  STATES = WIDTHS.length * COMBOS.length
+  /* DEAL RADAR Phase 3: the assessed stage tabs, walked after the Commercials
+     matrix at the same widths. The terminal tabs render static markup with no
+     roll-ups, so they are not owed a radar. */
+  const STAGE_TABS = ['Qualification', 'Solution Alignment', 'Proposal', 'Evaluation', 'Negotiating']
+  STATES = WIDTHS.length * COMBOS.length + WIDTHS.length * STAGE_TABS.length
   console.log(`adjacency gap probe   ${new Date().toISOString()}`)
   console.log(`opportunity ${oppId}   growth allowance ${GROWTH}px   backstop ${BACKSTOP}px   states ${STATES}`)
 
@@ -1258,6 +1268,85 @@ try {
     check(byC.size > 0, `A1 growth had containers to compare (${byC.size}) in ${combo}`)
     check(drifted.length === 0, `A1 no row's gap GROWS with the panel by more than ${GROWTH}px`
       + (drifted.length ? `\n         ${drifted.join('\n         ')}` : ` (${byC.size} containers)`))
+  }
+
+  /* ── DEAL RADAR Phase 3: THE STAGE TABS JOIN A1 AND R-US4 ─────────────
+     Ruled at the DEAL RADAR Phase 1 sign-off. Until now this walk only ever
+     opened Commercials, so the Exit criteria card, its "Assessment by lens"
+     rows and the radar above them were measured by nothing. Each assessed
+     stage tab is a state of its own, labelled `<width> stage/<stage>`, and
+     the roster's predicates tell the two kinds of state apart. */
+  const stageSeen = new Map() // container -> width -> max gap, across every stage tab
+  for (const width of WIDTHS) {
+    await p.setViewport({ width, height: 2100 })
+    await p.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle0' })
+    await p.evaluate((src) => { (0, eval)(src) }, `navigate("opportunity-detail","${oppId}")`)
+    await p.waitForFunction((id) => currentOppDetailId === id && Array.isArray(oppLenses),
+      { timeout: 40000 }, oppId)
+    await p.evaluate(() => document.fonts?.ready ?? Promise.resolve())
+    for (const stage of STAGE_TABS) {
+      const key = await p.evaluate((s) => oppStageTabKey(s), stage)
+      await p.evaluate((k) => document.querySelector(`#view-opportunity-detail [data-opp-tab="${k}"]`).click(), key)
+      /* Waits on THIS stage's radar, which no other tab's panel can satisfy:
+         the svg names the stage it was drawn for. */
+      await p.waitForFunction((k, s) => {
+        const blk = document.querySelector(`#opp-stage-criteria-${k} .opp-lens-rollups`)
+        return !!blk && !!blk.querySelector(`svg.opp-radar[data-stage="${s}"]`)
+          && blk.querySelectorAll('.opp-lens-rollup').length === oppLenses.length
+          && blk.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+      }, { timeout: 15000 }, key, stage)
+      const label = `${width} stage/${stage}`
+      console.log(`\n── ${label} ──`)
+      const rows = await walk()
+      statesWalked.push(label)
+      for (const r of rows) {
+        if (!rosterSeen.has(r.key)) rosterSeen.set(r.key, [])
+        rosterSeen.get(r.key).push(label)
+        if (!stageSeen.has(r.key)) stageSeen.set(r.key, {})
+        const byW = stageSeen.get(r.key)
+        byW[width] = Math.max(byW[width] ?? -Infinity, r.max)
+      }
+      const fit = await p.evaluate((k) => {
+        const over = []
+        for (const sel of [`#opp-stage-criteria-${k}`, `#opp-stage-criteria-${k} .opp-lens-rollups`,
+          `#opp-stage-criteria-${k} .opp-radar-legend`]) {
+          const e = document.querySelector(sel)
+          if (!e) { over.push(`${sel}: ABSENT`); continue }
+          if (e.scrollWidth > e.clientWidth + 1) over.push(`${sel}: ${e.scrollWidth} of ${e.clientWidth}, over by ${e.scrollWidth - e.clientWidth}px`)
+        }
+        /* The svg has no scroll box of its own, so its claim is a RELATIONSHIP:
+           it sits inside the block that holds it. */
+        const s = document.querySelector(`#opp-stage-criteria-${k} svg.opp-radar`)?.getBoundingClientRect()
+        const b = document.querySelector(`#opp-stage-criteria-${k} .opp-lens-rollups`)?.getBoundingClientRect()
+        if (s && b && (s.left < b.left - 1 || s.right > b.right + 1)) over.push(`svg.opp-radar: ${Math.round(s.left)}..${Math.round(s.right)} outside ${Math.round(b.left)}..${Math.round(b.right)}`)
+        return over
+      }, key)
+      check(fit.length === 0, `R-US4 the Exit criteria card, the lens block, its radar and legend fit their boxes`
+        + (fit.length ? `\n         ${fit.join('\n         ')}` : ' (four checked)'))
+      /* The card joins the structural overprint detector, which names
+         nothing: every text run and control in the card, the radar's axis
+         labels included, against every other. */
+      const ink = await p.evaluate(inkOverlaps, `#opp-stage-criteria-${key}`)
+      check(!ink.missing && ink.atoms > 0 && ink.hits.length === 0, `INK nothing in the Exit criteria card overprints (${ink.atoms} atoms)`
+        + (ink.hits.length ? `\n         ${ink.hits.join('\n         ')}` : ''))
+      check(rows.some((r) => r.key === 'opp-lens-rollup'), `A1 the walk found the lens roll-up rows on ${stage}`)
+      const over = rows.filter((r) => r.max > BACKSTOP)
+      check(over.length === 0, `A1 backstop: no gap exceeds ${BACKSTOP}px`
+        + (over.length ? `\n         ${over.map((o) => `${o.key.slice(0, 40)} at ${o.max}px ("${o.sample}")`).join('\n         ')}` : ''))
+      states++
+    }
+  }
+  {
+    const widest = Math.max(...WIDTHS), narrowest = Math.min(...WIDTHS)
+    const drifted = []
+    for (const [key, byW] of stageSeen) {
+      if (byW[widest] === undefined || byW[narrowest] === undefined) continue
+      const growth = byW[widest] - byW[narrowest]
+      if (growth > GROWTH) drifted.push(`${key.slice(0, 40)} ${WIDTHS.map((w) => `${w}:${byW[w] ?? '-'}`).join(' ')} grew ${growth}px`)
+    }
+    check(stageSeen.size > 0, `A1 growth had stage-tab containers to compare (${stageSeen.size})`)
+    check(drifted.length === 0, `A1 no stage-tab row's gap GROWS with the panel by more than ${GROWTH}px`
+      + (drifted.length ? `\n         ${drifted.join('\n         ')}` : ` (${stageSeen.size} containers)`))
   }
 } catch (e) {
   threw = e

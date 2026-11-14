@@ -21,6 +21,7 @@ import type { VersionSeam } from './versions/VersionCardHost'
 import type { DealFormSeam } from './deal/seam'
 import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../src/lib/format-dates.js'
 import { assessSeries, lensRollupAt } from '../../src/lib/lens-rollup.js'
+import * as radar from '../../src/lib/radar.js'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
 //
@@ -83,6 +84,12 @@ declare global {
      */
     tmsAssessSeries?: typeof assessSeries
     tmsLensRollupAt?: typeof lensRollupAt
+    /**
+     * DEAL RADAR Phase 3: the radar's pure rules (geometry, labels, the
+     * coverage rule, the stage-change instant), published as ONE namespace
+     * rather than six names, so the seam grows by one entry.
+     */
+    tmsRadar?: typeof radar
     /**
      * PERF ROUND: the ONE contacts fetch, published for `app.js`.
      *
@@ -213,6 +220,7 @@ window.tmsFormatTimestamp = fmtTimestamp
 // fallback for these, deliberately: a fallback would be the second sort.
 window.tmsAssessSeries = assessSeries
 window.tmsLensRollupAt = lensRollupAt
+window.tmsRadar = radar
 
 // THE SEAM'S SHAPE IS THE VANILLA'S, not this tree's. `loadContactsData`
 // reads `{ ok, data }` from its own `api()` and branches on `ok`; handing it
