@@ -190,3 +190,32 @@ C. R1/R3 degenerate overlays: assert present (vertices at centre) with
 
 Proceed to Phase 3 as the brief states, with Option A layout and the
 amended mockup of record. Stop for sign-off.
+
+RULINGS AT PHASE 3 SIGN-OFF (John, 2026-11-14), appended as they launch
+Phase 4. Pasted verbatim:
+
+PHASE 3 SIGN-OFF: DEAL RADAR
+
+Phase 3 ACCEPTED at e4ad6d1.
+Positions 1, 3, 5, 6 ACCEPTED. Position 4: the "Display only" line stays
+OUT (John to confirm; default out).
+
+Findings QUEUED (not this round): the 5 pre-existing probe-gaps
+Commercials failures on main; probe-gaps being unwired; the workflow
+transition audit_log gap (observed again).
+
+Phase 4 additions:
+A. Failed-read path (position 2): in the page, stub GET
+   /records/:id/history to fail (and separately the transition-requests
+   read), render a stage tab, assert: no overlay, svg
+   data-overlay="unavailable", the aria-label states the last stage
+   change could not be read, Last stage key absent, rows unchanged.
+   Calibrate: with the guard removed, the check fails. No server change.
+B. Record in DESIGN_PRINCIPLES the observation that on current test data
+   118 of 150 axes read low coverage, as a known open question to revisit
+   after real deals (does amber stay a signal), not a rule.
+
+Then Phase 4 as the brief states: DESIGN_PRINCIPLES R-RAD1 to R-RAD10 and
+the overlay rule's reason, CURRENT_STATE if affected, full gate with
+NordVPN OFF and PUPPETEER_PATH set (no skipped stages), push-ready SHA.
+Rule 18. Stop.
