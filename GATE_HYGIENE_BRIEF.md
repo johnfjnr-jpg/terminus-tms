@@ -63,3 +63,50 @@ workflow audit_log gap; view-wide keyboard reach of frozen inputs;
 revision reason prefill/append; pale Save/Discard on not-mine contact;
 C3; refusal wording; CHECKING...; per-lens spider; the single
 commercial-gate teardown transport drop (baseline on record).
+---
+
+PHASE 1 SIGN-OFF: GATE HYGIENE (appended at the phase it launches)
+
+Incident (background gate run on import): accepted as reported; residue
+cleared and re-queried at 0. Lesson recorded: a residue query must be
+calibrated against a known row first (the r7h% vs harness_r7h% miss).
+
+G1 (John rules):
+(i) Any stage that does not run to PASS/FAIL makes the gate RED and names
+    the stage. --round-close kept as an accepted no-op. Record the
+    supersession of F6's position in DESIGN_PRINCIPLES with F6's reasoning
+    left visible.
+(ii) A skip INSIDE a stage is also RED, named by the gate:
+    - probe-term-initial-value: rewrite the unconditional SKIP as an
+      assertion that the branch is unreachable;
+    - probe-stage-probability: the conditional SKIP fails the stage when
+      it fires;
+    - node "skipped"/"todo" and vitest "N skipped" counts > 0 fail the
+      suite stage.
+    Calibrate each: inject one skip of each kind, the gate goes red naming
+    it; revert, green.
+G2 (John rules): probe-gaps joins the gate as a REQUIRED stage
+    (needsSession + needsBrowser). Prove: passes on the fixed tree; an
+    injected 4px overflow on a rostered container fails the gate by name.
+G3 R-US4: proceed as an ordinary finding. Measure wrap first, track
+    widening only if wrap cannot fit; add #deal-units-panel and
+    #deal-install-panel to the R-US4 roster; screenshots at
+    1240/1440/1920. Show the roster change catches the 37px at all three
+    widths on the unfixed tree before fixing.
+G3 A5 (John rules): option (a). The A5 geometry check measures radios to
+    the schedule HEAD, per the probe's own driven check. Product unchanged.
+    Calibrate: move the radios 40px away, A5 fails.
+G4 (added): verify-all.mjs runs only when executed directly, never on
+    import (main-module guard). Prove: importing it starts nothing (no
+    process, no harness rows); running it works as before.
+
+ORDER: G4, G3, then G1 and G2. Gate must be green before G2 wires in.
+
+QUEUED (not this round): 23 harness_* stage-gate rules from 2026-09-13
+(cleanup to be proposed before applied); the 27 standing-rule probes
+triage, including the 4 rotted (leads gated-fields, lead door,
+probe-scrollable, plus borderline probe-transition-render) and the 4 with
+no unwired reason; probe-dead-selectors has no pass/fail;
+probe-version-join exits 0 on SKIP.
+
+Proceed to Phase 2. Stop for sign-off.
