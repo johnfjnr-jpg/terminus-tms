@@ -63,6 +63,7 @@ workflow audit_log gap; view-wide keyboard reach of frozen inputs;
 revision reason prefill/append; pale Save/Discard on not-mine contact;
 C3; refusal wording; CHECKING...; per-lens spider; the single
 commercial-gate teardown transport drop (baseline on record).
+
 ---
 
 PHASE 1 SIGN-OFF: GATE HYGIENE (appended at the phase it launches)
