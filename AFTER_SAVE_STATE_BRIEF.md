@@ -75,3 +75,39 @@ QUEUED, NOT THIS ROUND: view-wide keyboard reach of frozen inputs;
 revision reason prefill/append; gate hygiene (skip rule, wire probe-gaps,
 5 Commercials failures); workflow audit_log gap; C3; refusal wording;
 CHECKING...; per-lens spider.
+
+---
+
+PHASE 1 SIGN-OFF (John, 2026-11-15), appended at the phase it launches
+
+Phase 1 ACCEPTED. Premise corrections noted: Reference-on-arrival is a
+deliberate rule; finding A is the pulse racing its own record's load.
+
+B: John rules OPTION (b). Per record, across any reload of the SAME
+record, keep: top tab (whatever is showing, clicked or landed), lens
+(restore oppAssessCurrentLens at mount; fall back to the first lens if
+it no longer exists), scroll (restored once the remount settles), and
+the save message (widen oppAssessSaveReport to success; dropped at the
+next draft change, Cancel, the next save, or leaving the record).
+Arrival rule unchanged: a navigation to a record still lands on
+Reference. No server change.
+
+A: FOLDED IN. The pulse does not tick while its own record's load is in
+flight. The guard MUST release when the load fails as well as when it
+finishes. Proof: a forced load failure (in-page stub) is followed by a
+pulse tick that runs; calibrate by removing the release.
+
+C: John rules '[role="link"]' added to NON_ACTION_SELECTOR. Add a pure
+census test: exactly one role="link" element in source (the kc-name
+span) and no setAttribute('role','link'); a new one fails the test by
+name. Contact view for the reader: 0 enabled inputs after a settled
+wait, 0 writes.
+
+Phase 2 proof as the brief states, plus:
+- B under an OUTSIDE change: another identity's real write reloads the
+  view, the change is visible, and tab, lens, scroll and message are
+  kept. This is the case (b) exists for; it must be measured, not
+  reasoned.
+- Message lifetime: each drop condition measured once.
+- A: reopen-after-outside-change run at least 6 times: 0 double loads.
+Calibrate every fix. Stop for sign-off.
