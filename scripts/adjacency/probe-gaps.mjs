@@ -1430,6 +1430,13 @@ if (statesWalked.length) {
     + (missing.length ? `:\n         ${missing.join('\n         ')}`
       : ` (${A1_ROSTER.length - skipped.length} of ${A1_ROSTER.length} rostered, over ${statesWalked.length} states)`)
     + (skipped.length ? `\n         not carried by any state this run walked, so untested here: ${skipped.join(', ')}` : ''))
+  /* ── AND SAID AS A SKIP, SO THE GATE CAN READ IT. GATE HYGIENE G1 ───────
+     The line above is inside a passing check, where a reader sees it and the
+     gate cannot. A rostered container this run never measured is a hole in
+     the run, so it is also printed as the estate's SKIP line, which the gate
+     now counts as red. The full matrix carries all of them; a partial run
+     (C_FAST, a narrowed width list) is exactly when this fires. */
+  if (skipped.length) console.log(`SKIP  R-A1P rostered but measured in no state this run walked: ${skipped.join(', ')}`)
 
   const known = new Set(A1_ROSTER.map((r) => r.key))
   const stranger = [...rosterSeen.keys()].filter((k) => !known.has(k))

@@ -15,7 +15,8 @@
 // period"; only the hybrid half had been built. W5 and that note are one rule at
 // two structures, which is Verification 23 resolved by reading the existing
 // decision rather than taking a second one.
-import { freshOpportunity, tearDown } from './fixtures.mjs'
+import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
+import { readSystemDefaults } from '../src/lib/system-defaults.js'
 import { api } from './api-client.mjs'
 
 const results = []
@@ -92,9 +93,22 @@ if (!noRecovery) {
   // is switched on. The first version of this check `!noRecovery || ...` and
   // reported PASS without testing anything - Verification 14, a comparison
   // reached with nothing on either side.
-  console.log(`SKIP  a two-phase deal cannot have an absent recovery period at this point: `
-    + `the structure change defaults it to ${beforeF.recoveryMonths}, so the branch is `
-    + `unreachable from outside and the term correctly follows it`)
+  //
+  // ── AN ASSERTION, NOT A SKIP. GATE HYGIENE G1, ruled 2026-11-15 ─────────
+  // SUPERSEDED, QUOTED NOT DELETED: `console.log(\`SKIP  a two-phase deal
+  // cannot have an absent recovery period at this point ...\`)`. It printed on
+  // every gate run and the stage still read PASS, so the gate's green carried
+  // a hole nobody counted. The gate now fails any stage that skips.
+  //
+  // What the skip SAID is a claim, so it is asserted: the reason the branch is
+  // unreachable is that the transition wrote the configured default, read live
+  // through the same reader the route uses rather than typed here. Restating
+  // `!noRecovery` would be true by construction; this fails the day the
+  // default stops being applied, and the else branch then tests the behaviour.
+  const configured = (await readSystemDefaults(admin())).recoveryMonths
+  record('the absent-recovery branch is unreachable: moving to two-phase wrote the configured default',
+    configured !== undefined && beforeF.recoveryMonths === configured,
+    `recovery after the structure change=${JSON.stringify(beforeF.recoveryMonths)}, configured default=${JSON.stringify(configured)}`)
   record('and the term follows that defaulted recovery period',
     p.factoring?.termMonths === beforeF.recoveryMonths,
     `recovery=${beforeF.recoveryMonths} -> term=${JSON.stringify(p.factoring?.termMonths)}`)

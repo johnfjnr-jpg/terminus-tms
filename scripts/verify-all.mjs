@@ -17,7 +17,7 @@ import { spawnSync } from 'node:child_process'
 import { writeFileSync, mkdirSync, existsSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { gateVerdict } from './lib/gate-verdict.mjs'
+import { gateVerdict, skipsInside } from './lib/gate-verdict.mjs'
 
 // ── THE GATE RUNS WHEN IT IS EXECUTED, NEVER WHEN IT IS IMPORTED. G4 ─────
 //
@@ -45,6 +45,12 @@ const IS_MAIN = (() => {
 // behaving as it always has - that decision is recorded at the browser check
 // below and it is still right. A close is the one moment a SKIP of a required
 // stage is fatal.
+//
+// SUPERSEDED 2026-11-15, GATE HYGIENE G1, ruled by John, the reasoning above
+// left standing: every run is now held to the round-close standard, so a
+// skipped stage is red whether or not this flag is passed. The flag is still
+// ACCEPTED, so a habit or a script that passes it does not break; it changes
+// nothing. See scripts/lib/gate-verdict.mjs for the premise that failed.
 const ROUND_CLOSE = process.argv.includes('--round-close')
 
 const ROOT = new URL('../', import.meta.url).pathname
@@ -460,6 +466,13 @@ function runGate() {
   // a formatted line is not a record.
   const skippedStages = []
 
+  // G1, GATE HYGIENE 2026-11-15: the stages that RAN and exited 0 having
+  // skipped part of themselves - a probe's SKIP line, a node `skipped`/`todo`
+  // count, a vitest `skipped`/`todo` count. Read from each stage's own output
+  // by `skipsInside`, so the rule lives in one testable function. A stage that
+  // FAILED is not also listed here: its failure is already the red.
+  const skippedInside = []
+
   // Set to the NAME of the first gate stage that failed. Everything downstream is
   // SKIPPED rather than run, so the summary cannot be read as a list of findings.
   //
@@ -482,6 +495,11 @@ function runGate() {
   // already distinguishes it from PASS for a session-blocked stage. With a
   // browser present the probe runs and can fail; without one it reports SKIPPED,
   // which is not a pass and says so.
+//
+// SUPERSEDED 2026-11-15, GATE HYGIENE G1: SKIP no longer satisfies both. It
+// is still REPORTED as not run, by name, and it now makes the gate RED. The
+// "people learn to ignore it" reasoning above is answered by the gate naming
+// exactly what to install, rather than by a green that measured less.
   const browserAvailable = (() => {
     const dir = process.env.PUPPETEER_PATH
     if (!dir) return false
@@ -490,7 +508,7 @@ function runGate() {
 
   for (const stage of STAGES) {
     if (stage.needsBrowser && !browserAvailable) {
-      skippedStages.push(stage)
+      skippedStages.push({ name: stage.name, why: 'no browser (set PUPPETEER_PATH)' })
       summary.push(`SKIP  ${stage.name.padEnd(26)} not run: no browser (set PUPPETEER_PATH)`)
       transcript.push(
         `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
@@ -501,7 +519,7 @@ function runGate() {
       continue
     }
     if (stage.needsSession && blockedBy) {
-      skippedStages.push(stage)
+      skippedStages.push({ name: stage.name, why: `the ${blockedBy} stage failed` })
       summary.push(`SKIP  ${stage.name.padEnd(26)} not run: ${blockedBy} failed`)
       transcript.push(
         `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The ${blockedBy} stage failed, so this stage was not run.\n` +
@@ -575,7 +593,13 @@ function runGate() {
       if (v) tally = `  ${v[2]}/${v[3]} pass, ${v[1] ?? 0} fail`
       else if (/^\s*Tests\s+no tests/m.test(output)) tally = '  0/0 pass, 0 fail'
     }
-    summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms${tally}`)
+    const holes = ok ? skipsInside(output) : []
+    if (holes.length) {
+      skippedInside.push({ name: stage.name, holes })
+      summary.push(`INCOMPLETE  ${stage.name.padEnd(26)} exit 0  ${ms}ms${tally}  skipped inside: ${holes.join('; ')}`)
+    } else {
+      summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms${tally}`)
+    }
   }
 
   const stamp = process.env.VERIFY_STAMP ?? String(process.hrtime.bigint())
@@ -595,25 +619,27 @@ function runGate() {
   // F6: the verdict is computed by a function that can be exercised without a
   // seventeen-minute run, rather than assembled inline where it went wrong.
   //
-  // The skipped stages are counted by NAME against the stage list, not by
-  // position, so a reordering cannot silently move which one is required.
-  const skippedRequired = skippedStages.filter((s) => s.required).length
+  // G1, GATE HYGIENE 2026-11-15: every stage that did not run, and every stage
+  // that skipped part of itself, is passed BY NAME and makes the gate red.
+  // `required` no longer decides the verdict; it is kept on the stage as a
+  // record of which stages a round close was once allowed to rest on.
 
-  // The structural record and the printed summary must agree about how many
-  // stages skipped. If they ever disagree, one of them is lying and the gate
-  // says so rather than picking a side.
-  const printedSkips = summary.filter((l) => l.startsWith('SKIP')).length
-  if (printedSkips !== skippedStages.length) {
-    console.error(`\nGATE BOOKKEEPING BROKEN: ${printedSkips} SKIP lines printed but ` +
-      `${skippedStages.length} stages recorded as skipped. Refusing to report a verdict.`)
+  // The structural records and the printed summary must agree, for both kinds
+  // of hole. If they ever disagree, one of them is lying and the gate says so
+  // rather than picking a side.
+  const printedSkips = summary.filter((l) => l.startsWith('SKIP ')).length
+  const printedIncomplete = summary.filter((l) => l.startsWith('INCOMPLETE ')).length
+  if (printedSkips !== skippedStages.length || printedIncomplete !== skippedInside.length) {
+    console.error(`\nGATE BOOKKEEPING BROKEN: ${printedSkips} SKIP and ${printedIncomplete} INCOMPLETE lines printed but ` +
+      `${skippedStages.length} and ${skippedInside.length} stages recorded. Refusing to report a verdict.`)
     process.exit(2)
   }
 
   const verdict = gateVerdict({
     stageCount: STAGES.length,
     failed,
-    skippedRequired,
-    skippedOther: skippedStages.length - skippedRequired,
+    notRun: skippedStages,
+    skippedInside,
     roundClose: ROUND_CLOSE,
   })
   console.log('\n' + verdict.lines.join('\n'))

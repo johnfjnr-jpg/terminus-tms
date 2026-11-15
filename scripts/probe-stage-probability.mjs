@@ -145,8 +145,13 @@ const tcv = d.tcv ?? d.total_contract_value ?? null
 // must exist before the equality means anything, and when they do not the
 // probe says so instead of counting it.
 if (tcv === null || d.weighted_value === null) {
-  console.log(`SKIP  weighted amount not exercised: tcv=${tcv} weighted=${d.weighted_value}`
-    + '  (a priced fixture is needed for this claim)')
+  // ── A FAILURE, NOT A SKIP. GATE HYGIENE G1, ruled 2026-11-15 ───────────
+  // SUPERSEDED, QUOTED NOT DELETED: `console.log(\`SKIP  weighted amount not
+  // exercised ...\`)`, after which the probe exited 0 and the gate read PASS
+  // for a claim it had not measured. Not exercising the claim is now a failed
+  // check, named, so the stage goes red and says which fixture fell short.
+  record('weighted amount was exercised (a priced fixture is needed for this claim)', false,
+    `tcv=${tcv} weighted=${d.weighted_value}`)
 } else {
   record('weighted amount agrees with TCV x the new probability',
     Math.abs(d.weighted_value - tcv * (afterSql.probability_pct / 100)) < 0.01,
