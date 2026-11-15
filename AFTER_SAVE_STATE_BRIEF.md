@@ -111,3 +111,28 @@ Phase 2 proof as the brief states, plus:
 - Message lifetime: each drop condition measured once.
 - A: reopen-after-outside-change run at least 6 times: 0 double loads.
 Calibrate every fix. Stop for sign-off.
+
+---
+
+PHASE 2 SIGN-OFF (John, 2026-11-15), appended at the phase it launches
+
+Phase 2 ACCEPTED at 621365a.
+Departure 1 ACCEPTED: scroll kept by not resetting (browser scroll
+  anchoring with the lens kept). No scroll restore. Keep the site comment
+  with both measurements (10 of 10 without restore; 3 of 10 with).
+J7: REMOVE the drop at the start of a save as redundant; record in the
+  site comment why (every save writes a new report; a prior draft change
+  already drops it). Re-run the message-lifetime section after removal:
+  all drop conditions still pass.
+Classifier change in enumerate-controls.mjs (declared link = navigation):
+  ACCEPTED.
+john+test2 record-scoped seat seeded and deleted per Verification 47:
+  ACCEPTED (0 remain).
+QUEUED: pale filled Save/Discard on a not-mine contact (cosmetic).
+
+Proceed to Phase 3 as the brief states: DESIGN_PRINCIPLES entry (a reload
+caused by your own write must not cost you your place or your message;
+include the scroll finding: keep place by not taking it away, restoring a
+number fights scroll anchoring), CURRENT_STATE if affected, full gate
+(NordVPN OFF, PUPPETEER_PATH set, no skipped stages), push-ready SHA.
+Rule 18. Stop.
