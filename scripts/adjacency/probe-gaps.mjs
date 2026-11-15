@@ -817,7 +817,23 @@ try {
       check(a5.ok, `A5 the invoicing group and a schedule are both rendered (${a5.which})`
         + (a5.nohead ? ', but no head sits in the schedule\'s column above its body' : ''))
       if (a5.ok) {
-        check(a5.above >= 0 && a5.above <= 60,
+        /* ── THE BOUND IS 36, CARRIED OVER, NOT RE-READ. John's ruling at the
+           GATE HYGIENE Phase 2 sign-off, 2026-11-15 ─────────────────────────
+           SUPERSEDED, QUOTED NOT DELETED: `a5.above <= 60`, which was the
+           bound when this check measured to the schedule's BODY. Re-aimed at
+           the head (above), the same 60 let CAPEX/OPEX radios drift 42px away
+           and pass: a +40px calibration came back silent in 12 of 15 states.
+
+           THE DERIVATION, from the original ruling and not from any reading
+           taken that day: 60px to the body, minus the head-to-body distance of
+           a one-line head, 24px (an 18px line plus its 6px bottom margin) =
+           36px to the head. Measured healthy for the record, not to set it:
+           18 (CAPEX, OPEX) and 30 (Hybrid).
+
+           NOT a bound computed from live margins. That was option (ii), and
+           it was ruled out because a bound read from the thing it bounds
+           grows with a margin-based fault and goes silent. */
+        check(a5.above >= 0 && a5.above <= 36,
           `A5 the radios sit IMMEDIATELY above the ${a5.which} schedule's head (${a5.above}px between them, ${a5.toBody}px to its body)`)
         check(a5.overlap > a5.schedWidth * 0.5,
           `A5 the radios sit OVER that schedule's column, not beside it `
