@@ -89,3 +89,31 @@ Proof additions for A:
 - Server unchanged; RLS untouched.
 
 Proceed to Phase 2. Stop for sign-off.
+
+---
+
+## PHASE 2 SIGN-OFF (John, 2026-11-15), appended at the phase it launches
+
+Phase 2 ACCEPTED at bf4c190.
+Departure 1 ACCEPTED (Reference measured as panel reach).
+Departure 2 ACCEPTED: keep oppAssessSaveReport. Success message wipe
+  stays queued (finding B).
+Departure 3 ACCEPTED (enumerate-controls.mjs gains 'tabpanel').
+Departure 4 AMENDED: while frozen, Cancel is ENABLED when the pane holds
+  drafts, DISABLED when it holds none. Save stays disabled while frozen.
+  Cancel only clears page-memory drafts; it writes nothing.
+  Proof: the pre-freeze draft case, Cancel clears the draft, 0 writes,
+  fields stay disabled, frozen line stays. Calibrate: with Cancel
+  disabled again, the clear check fails.
+Owned-record census limit: accepted as stated (no change detected; not
+  a calibrated detector).
+
+Findings QUEUED for the next round (not this one):
+  B pulse reload after a save wipes "Saved N of N" and resets the lens
+    to Commercial;
+  C key-contact name link (span.kc-name role=link) inert for readers.
+Finding A queued low.
+
+Proceed to Phase 3 with the Departure 4 amendment built first, then:
+DESIGN_PRINCIPLES freeze lesson, full gate (NordVPN OFF, PUPPETEER_PATH
+set, no skipped stages), push-ready SHA. Rule 18. Stop.
