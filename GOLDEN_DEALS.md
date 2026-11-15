@@ -1,7 +1,10 @@
-# THE FOUR GOLDEN DEALS
+# THE GOLDEN DEALS
 
-**PROVISIONAL until John confirms these figures.** Until then the acceptance
-harness says so in its own output.
+**This document carries no confirmation status.** Status is recorded per
+deal, in one place: the `status`, `confirmedBy`, `confirmedOn` and
+`confirmedFiguresSha256` fields of each deal in
+`scripts/golden-deals/expectations.json`. `node scripts/golden-deals-check`
+prints them as a table on every run, and the merge gate echoes that table.
 
 Every figure below was EXECUTED by the live pricing engine, not paraphrased
 from it. The run is `scripts/golden-deals/compute.mjs`, committed, and it writes
@@ -15,7 +18,7 @@ resolveRates(payload, catalog)  ->  buildDealInputs  ->  calculateDeal
                                                      (+ opexRows on OPEX)
 ```
 
-## The rate card all four price against
+## The rate card every golden deal prices against
 
 **Declared in the fixture, NOT read from the database**, so a golden deal
 means the same thing next year. The live catalog is a batch with an effective
@@ -36,7 +39,7 @@ published a price change, and the red would say nothing about the engine.
 | Install per AQ Sensor | 400 |
 | Install per HEMIR | 3,000 |
 
-## The four, and what each one is for
+## The 5 deals, and what each one is for
 
 | deal | shape | what it exercises |
 |---|---|---|
@@ -44,6 +47,7 @@ published a price change, and the red would say nothing about the engine.
 | G2 | CAPEX, two-phase | the recovery period, and contractor payment milestones |
 | G3 | hybrid | PO factoring, withholding tax borne by Terminus, and one zero-unit line |
 | G4 | CAPEX, two-phase | an absolute price override, a margin override, a rate override, gross-up |
+| G5 | OPEX, single phase, lump sum installation | a type's share of a lump sum inside its all-in fee, an exact stored fee, a margin override on a different row |
 
 ---
 # G1. OPEX single-phase: all-in monthly fee and blended margin
@@ -175,7 +179,7 @@ NOT grossed up, so the invoice base IS contract net = 1,226,877
 priced cost        802,200
 finance cost     + 0
 WHT borne        + 0
-Test Bed cost    + 0   (none of these four came from a conversion)
+Test Bed cost    + 0   (no golden deal came from a conversion)
 TOTAL DEAL COST  = 802,200
 
 ACHIEVED MARGIN  = (1,226,877 - 802,200) / 1,226,877 = 34.61447235541949%
@@ -391,7 +395,7 @@ NOT grossed up, so the invoice base IS contract net = 2,144,294
 priced cost        1,399,000
 finance cost     + 0
 WHT borne        + 0
-Test Bed cost    + 0   (none of these four came from a conversion)
+Test Bed cost    + 0   (no golden deal came from a conversion)
 TOTAL DEAL COST  = 1,399,000
 
 ACHIEVED MARGIN  = (2,144,294 - 1,399,000) / 2,144,294 = 34.75708088536366%
@@ -611,7 +615,7 @@ NOT grossed up, so the invoice base IS contract net = 1,017,345
 priced cost        677,900
 finance cost     + 72,526
 WHT borne        + 152,602
-Test Bed cost    + 0   (none of these four came from a conversion)
+Test Bed cost    + 0   (no golden deal came from a conversion)
 TOTAL DEAL COST  = 903,028
 
 ACHIEVED MARGIN  = (1,017,345 - 903,028) / 1,017,345 = 11.236797743145148%
@@ -805,7 +809,7 @@ leaves contract net intact:
 priced cost        1,084,550
 finance cost     + 0
 WHT borne        + 0
-Test Bed cost    + 0   (none of these four came from a conversion)
+Test Bed cost    + 0   (no golden deal came from a conversion)
 TOTAL DEAL COST  = 1,084,550
 
 ACHIEVED MARGIN  = (1,646,964 - 1,084,550) / 1,646,964 = 34.14853026538528%
@@ -1006,7 +1010,7 @@ NOT grossed up, so the invoice base IS contract net = 1,694,469
 priced cost        1,191,500
 finance cost     + 0
 WHT borne        + 0
-Test Bed cost    + 0   (none of these four came from a conversion)
+Test Bed cost    + 0   (no golden deal came from a conversion)
 TOTAL DEAL COST  = 1,191,500
 
 ACHIEVED MARGIN  = (1,694,469 - 1,191,500) / 1,694,469 = 29.6829862334454%

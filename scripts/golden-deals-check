@@ -1,19 +1,23 @@
 #!/usr/bin/env node
-// ── THE ACCEPTANCE HARNESS FOR THE FOUR GOLDEN DEALS ─────────────────────
+// ── THE ACCEPTANCE HARNESS FOR THE GOLDEN DEALS ──────────────────────────
 //
 //   node scripts/golden-deals-check
 //
-// It re-prices all four deals through the LIVE engine and compares EVERY
-// figure against the committed expectations, exact match. A change to pricing
-// that moves any of them is red, and the failure names the figure.
+// It re-prices every deal in `GOLDEN_DEALS` (five, 4,734 figures, since
+// 2026-09-30) through the LIVE engine and compares EVERY figure against the
+// committed expectations, exact match. A change to pricing that moves any of
+// them is red, and the failure names the deal and the figure.
 //
-// ── PROVISIONAL UNTIL JOHN CONFIRMS ──────────────────────────────────────
+// ── STATUS IS PER DEAL, AND IS PRINTED ON EVERY RUN ──────────────────────
 //
 // The expectations were produced by the engine, which means they record what it
-// DOES and not yet what it SHOULD. Until John has reproduced them in Excel and
-// confirmed, this suite says PROVISIONAL in its own output on every run,
-// including a green one, because a green suite that implies confirmation nobody
-// gave is worse than no suite.
+// DOES. A deal is CONFIRMED only once John has reproduced it in Excel and
+// accepted it, by name and date, and each deal carries its own status (R-GS1,
+// John 2026-11-15), so a change to one deal can never alter another's. The
+// per-deal status table and the "pricing may not move" message print on every
+// run, green or red (R-GS4), between GOLDEN STATUS markers the merge gate
+// echoes. A green suite that implied confirmation nobody gave would be worse
+// than no suite, and so would one that went quiet once confirmed.
 //
 // ── IT COMPARES, IT DOES NOT RE-BLESS ────────────────────────────────────
 //
@@ -22,6 +26,7 @@
 // somebody reads, and that is the whole control: a suite that can silently
 // adopt whatever the engine now says is a suite that cannot fail.
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { GOLDEN_DEALS, GOLDEN_CATALOG } from './golden-deals/deals.mjs'
 import { priceGoldenDeal, flatten } from './golden-deals/engine.mjs'
 
@@ -149,47 +154,111 @@ for (const deal of GOLDEN_DEALS) {
 //
 // The status HAS to be hand-editable, because it records a fact only John can
 // state. What must not be possible is stating it without saying who and when. So
-// CONFIRMED requires both, and a bare flip is now red rather than quiet.
-const status = expected.status ?? 'PROVISIONAL'
+// CONFIRMED requires both, and a bare flip is red rather than quiet.
+//
+// ── PER DEAL SINCE 2026-11-15. R-GS1 AND R-GS5 ───────────────────────────
+//
+// The status was ONE flag for the file, so recomputing G1 erased the
+// confirmation of G2 to G4 although their figures had not moved. Each deal now
+// carries its own, and every check below is per deal and names the deal:
+//
+//   1. a FILE-WIDE status field is red: it is the retired shape, and a second
+//      home for one fact
+//   2. a deal with NO status is red. It is not read as PROVISIONAL: a default
+//      here would be the harness inventing the word nobody wrote
+//   3. a status other than PROVISIONAL or CONFIRMED is red
+//   4. CONFIRMED without confirmedBy AND confirmedOn is red
+//   5. PROVISIONAL carrying any confirmation field is red: the residue of a
+//      half-done reset or a half-done stamp
+//   6. CONFIRMED without confirmedFiguresSha256, or whose figures no longer hash
+//      to it, is red (R-GS5). A confirmation is of THESE figures; without the
+//      hash, hand-editing a confirmed deal's figures kept its stamp, which the
+//      file's note forbade and nothing enforced.
 const ALLOWED = ['PROVISIONAL', 'CONFIRMED']
-if (!ALLOWED.includes(status)) {
-  bad(`the expectations carry an unknown status ${JSON.stringify(status)}`,
-    `It must be one of ${ALLOWED.join(' or ')}.`)
-} else if (status === 'CONFIRMED' && !(expected.confirmedBy && expected.confirmedOn)) {
-  bad('the expectations say CONFIRMED and do not say by whom or when',
-    'A confirmation is somebody accepting these figures on a date. Add confirmedBy '
-    + 'and confirmedOn, or leave the status PROVISIONAL.')
-} else {
-  ok(status === 'CONFIRMED'
-    ? `confirmed by ${expected.confirmedBy} on ${expected.confirmedOn}`
-    : 'status PROVISIONAL, stated on every run')
+const CONFIRMATION = ['confirmedBy', 'confirmedOn', 'confirmedFiguresSha256']
+const hashFigures = (figures) => createHash('sha256').update(JSON.stringify(figures, null, 2)).digest('hex')
+
+for (const k of ['status', ...CONFIRMATION]) {
+  if (k in expected) {
+    bad(`the expectations carry a file-wide ${k}`,
+      'Status is recorded per deal (R-GS1). Move it onto each deal it is true of, and remove it here.')
+  }
 }
-console.log(`GOLDEN DEALS CHECK  status ${status}`)
+
+const table = []
+for (const deal of GOLDEN_DEALS) {
+  const exp = expected.deals[deal.id]
+  const row = { id: deal.id, n: exp?.figures ? Object.keys(exp.figures).length : 0, status: exp?.status, who: '-', refused: false }
+  table.push(row)
+  if (!exp) { row.refused = true; continue } // already red: no committed expectations
+  const before = fails.length
+  if (exp.status === undefined) {
+    bad(`${deal.id} records no status`,
+      'Every deal states PROVISIONAL or CONFIRMED. A missing status is not read as PROVISIONAL.')
+  } else if (!ALLOWED.includes(exp.status)) {
+    bad(`${deal.id} carries an unknown status ${JSON.stringify(exp.status)}`,
+      `It must be one of ${ALLOWED.join(' or ')}.`)
+  } else if (exp.status === 'CONFIRMED') {
+    row.who = `${exp.confirmedBy ?? '?'} ${exp.confirmedOn ?? '?'}`
+    if (!(exp.confirmedBy && exp.confirmedOn)) {
+      bad(`${deal.id} says CONFIRMED and does not say by whom or when`,
+        'A confirmation is somebody accepting these figures on a date. Add confirmedBy '
+        + 'and confirmedOn, or leave the deal PROVISIONAL.')
+    } else if (!exp.confirmedFiguresSha256) {
+      bad(`${deal.id} says CONFIRMED and records no confirmedFiguresSha256`,
+        'A confirmation is of particular figures. Record the SHA-256 of '
+        + 'JSON.stringify(figures, null, 2) at the moment of confirmation.')
+    } else if (exp.confirmedFiguresSha256 !== hashFigures(exp.figures)) {
+      bad(`${deal.id} says CONFIRMED but its figures are not the figures that were confirmed`,
+        `confirmedFiguresSha256 is ${exp.confirmedFiguresSha256}, the committed figures hash to `
+        + `${hashFigures(exp.figures)}. Figures are never hand-edited; a recompute that moves `
+        + 'them resets the deal to PROVISIONAL.')
+    } else {
+      ok(`${deal.id} CONFIRMED by ${exp.confirmedBy} on ${exp.confirmedOn}, and its figures hash to the confirmed ${exp.confirmedFiguresSha256.slice(0, 12)}`)
+    }
+  } else {
+    const stray = CONFIRMATION.filter((k) => k in exp)
+    if (stray.length) {
+      bad(`${deal.id} is PROVISIONAL but carries ${stray.join(', ')}`,
+        'A provisional deal names no confirmer. Remove the field, or complete the stamp.')
+    } else {
+      ok(`${deal.id} PROVISIONAL, stated on every run`)
+    }
+  }
+  if (fails.length > before) row.refused = true
+}
+
+console.log('GOLDEN DEALS CHECK')
 console.log(`  ${compared} figures compared across ${GOLDEN_DEALS.length} deals\n`)
 for (const c of checks) console.log(`  PASS  ${c}`)
 for (const f of fails) console.log(`  FAIL  ${f}`)
 console.log('')
-// ── THE MESSAGE SAYS WHICH KIND OF GREEN THIS IS ─────────────────────────
+// ── THE STATUS BLOCK, ON EVERY RUN. R-GS4 ────────────────────────────────
 //
-// Both branches are printed on a PASSING run, deliberately, because the whole
-// point of the status is that a green means two different things before and
-// after confirmation. A suite that went quiet once confirmed would leave a
-// reader unable to tell a checked baseline from an unchecked one.
-if (status === 'CONFIRMED') {
-  console.log(`CONFIRMED: ${expected.confirmedBy} reproduced these figures by hand on`)
-  console.log(`${expected.confirmedOn} and accepted them. They are the pricing acceptance`)
-  console.log('baseline of record.')
-  console.log('')
-  console.log('PRICING MAY NOT MOVE WITHOUT THIS SUITE GOING RED. A change that moves any')
-  console.log('figure here is either a defect or an intentional change; an intentional one')
-  console.log('updates the goldens and needs a fresh confirmation, by name and date.')
-  console.log('')
-} else {
-  console.log('PROVISIONAL: these figures are what the engine DOES, not yet what John has')
-  console.log('confirmed it SHOULD do. A green run here means pricing has not moved since')
-  console.log('they were taken. It does not mean they are right.')
-  console.log('')
+// Printed green or red, between markers `scripts/verify-all.mjs` copies onto
+// the gate's console. The gate copies these lines; it does not work the status
+// out again, so there is one reader of it. The message used to print only on a
+// CONFIRMED file, so from 2026-09-30 to 2026-11-15 no run showed it at all.
+const inStatus = (s) => table.filter((r) => r.status === s && !r.refused).map((r) => r.id)
+const list = (ids) => (ids.length ? ids.join(', ') : 'none')
+console.log('GOLDEN STATUS')
+console.log(`  ${'deal'.padEnd(5)} ${'figures'.padStart(7)}  ${'status'.padEnd(11)}  confirmed`)
+for (const r of table) {
+  const word = r.status === undefined ? '(none)' : String(r.status)
+  console.log(`  ${r.id.padEnd(5)} ${String(r.n).padStart(7)}  ${word.padEnd(11)}  ${r.who}${r.refused ? '   REFUSED, see FAIL above' : ''}`)
 }
+console.log('')
+console.log('PRICING MAY NOT MOVE WITHOUT THIS SUITE GOING RED. A change that moves any')
+console.log('figure here is either a defect or an intentional change; an intentional one')
+console.log('recomputes the goldens, returns every deal it moved to PROVISIONAL, and needs')
+console.log('a fresh confirmation of each, by name and date.')
+console.log('')
+console.log(`CONFIRMED (${list(inStatus('CONFIRMED'))}): reproduced by hand by the person named, on the`)
+console.log('date shown, and accepted. These are the pricing acceptance baseline of record.')
+console.log(`PROVISIONAL (${list(inStatus('PROVISIONAL'))}): what the engine DOES, not yet what John has`)
+console.log('confirmed it SHOULD do. Green means they have not moved, not that they are right.')
+console.log('END GOLDEN STATUS')
+console.log('')
 if (fails.length) {
   console.log(`FAIL: ${fails.length} check(s) failed.`)
   process.exit(1)

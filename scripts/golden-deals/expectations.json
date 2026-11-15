@@ -1,6 +1,5 @@
 {
-  "note": "Figures written by scripts/golden-deals/compute.mjs and NEVER hand-edited: re-run the script. The confirmation block below is the exception, because it records a judgement only John can make, and re-running compute.mjs deliberately returns it to PROVISIONAL.",
-  "status": "PROVISIONAL",
+  "note": "Figures written by scripts/golden-deals/compute.mjs and NEVER hand-edited: re-run the script. Each deal carries its own status. compute.mjs keeps a deal's status, confirmedBy, confirmedOn and confirmedFiguresSha256 only while that deal's figures are byte-identical, and otherwise writes PROVISIONAL. CONFIRMED is written only by a hand stamp naming who and when, with confirmedFiguresSha256 = SHA-256 of JSON.stringify(figures, null, 2).",
   "catalog": {
     "ssUnitCost": 8000,
     "aqUnitCost": 2000,
@@ -16,6 +15,7 @@
   "deals": {
     "G1": {
       "title": "OPEX single-phase: all-in monthly fee and blended margin",
+      "status": "PROVISIONAL",
       "figures": {
         "rates.ssUnitCost.value": 8000,
         "rates.ssUnitCost.source": "catalog",
@@ -927,6 +927,10 @@
     },
     "G2": {
       "title": "CAPEX two-phase: recovery period and milestone payments",
+      "status": "CONFIRMED",
+      "confirmedBy": "John Fryatt",
+      "confirmedOn": "2026-09-28",
+      "confirmedFiguresSha256": "774c0fea7e2e930ea054bcad1c4b4bd5bf8cf7846f14ab29b2f501587591cf1d",
       "figures": {
         "rates.ssUnitCost.value": 8000,
         "rates.ssUnitCost.source": "catalog",
@@ -1997,6 +2001,10 @@
     },
     "G3": {
       "title": "Hybrid with PO factoring and withholding tax",
+      "status": "CONFIRMED",
+      "confirmedBy": "John Fryatt",
+      "confirmedOn": "2026-09-28",
+      "confirmedFiguresSha256": "5129294a31b9ed71b62646a040a667ddde92001da0f9711d35697013b1ffe322",
       "figures": {
         "rates.ssUnitCost.value": 8000,
         "rates.ssUnitCost.source": "catalog",
@@ -2698,6 +2706,10 @@
     },
     "G4": {
       "title": "CAPEX two-phase with an absolute price override and a margin override",
+      "status": "CONFIRMED",
+      "confirmedBy": "John Fryatt",
+      "confirmedOn": "2026-09-28",
+      "confirmedFiguresSha256": "9ba8c6dddcd32e1c172b8cd558f136e71eba2017d48312fe2031b1ab96fd411a",
       "figures": {
         "rates.ssUnitCost.value": 8000,
         "rates.ssUnitCost.source": "catalog",
@@ -3687,6 +3699,7 @@
     },
     "G5": {
       "title": "OPEX with LUMP SUM installation: the all-in fee absorbs the install share",
+      "status": "PROVISIONAL",
       "figures": {
         "rates.ssUnitCost.value": 8000,
         "rates.ssUnitCost.source": "catalog",

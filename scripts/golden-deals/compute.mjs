@@ -5,7 +5,8 @@
 // figure in GOLDEN_DEALS.md is EXECUTED here by the live engine and none is
 // paraphrased, retyped or rounded by hand on its way into the document.
 //
-// It writes two artefacts from ONE pricing run each:
+// It writes two artefacts from ONE pricing run each, for EVERY deal in
+// `GOLDEN_DEALS` (five since 2026-09-30):
 //
 //   GOLDEN_DEALS.md                        for John, to reproduce in Excel
 //   scripts/golden-deals/expectations.json for the acceptance harness
@@ -15,8 +16,16 @@
 // and the markdown is never hand-corrected: a figure that looks wrong is fixed
 // by fixing the engine or the fixture and re-running this.
 //
+// AND ONE THING IT DOES NOT WRITE: A CONFIRMATION. Each deal carries its own
+// status (R-GS1, John 2026-11-15). This script carries a deal's status forward
+// ONLY when that deal's figures are byte-identical to the file it is replacing,
+// and otherwise writes PROVISIONAL. It never writes CONFIRMED from nothing; that
+// word enters the file only by a hand stamp naming who and when. See the EMIT
+// section at the foot of this file.
+//
 //   node scripts/golden-deals/compute.mjs
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { GOLDEN_DEALS, GOLDEN_CATALOG } from './deals.mjs'
 import { priceGoldenDeal, flatten } from './engine.mjs'
 
@@ -231,7 +240,7 @@ const dealSection = (priced) => {
   S.push(`priced cost        ${money(t.totalDealCost)}`)
   S.push(`finance cost     + ${money(result.financeCost)}${cf.factoringTermMissing ? '   NOT RECORDED: the facility has no term' : ''}`)
   S.push(`WHT borne        + ${money(tax.whtBorne)}`)
-  S.push(`Test Bed cost    + ${money(result.testBedCost)}   (none of these four came from a conversion)`)
+  S.push(`Test Bed cost    + ${money(result.testBedCost)}   (no golden deal came from a conversion)`)
   S.push(`TOTAL DEAL COST  = ${money(result.totalDealCostAll)}`)
   S.push('')
   S.push(`ACHIEVED MARGIN  = (${money(t.contractNet)} - ${money(result.totalDealCostAll)}) / ${money(t.contractNet)} = ${result.achievedMargin}%`)
@@ -274,9 +283,17 @@ const dealSection = (priced) => {
 const priced = GOLDEN_DEALS.map((d) => priceGoldenDeal(d))
 
 const head = []
-head.push('# THE FOUR GOLDEN DEALS', '')
-head.push('**PROVISIONAL until John confirms these figures.** Until then the acceptance',
-  'harness says so in its own output.', '')
+head.push('# THE GOLDEN DEALS', '')
+// NO STATUS IN THIS DOCUMENT, ruled 2026-11-15 (GOLDEN_STATUS Phase 1). The
+// header used to hard-code "PROVISIONAL until John confirms", and said it even
+// at the confirmed commit 6550b09: it was never a reader of the status, only a
+// wrong copy of it. A hand stamp in expectations.json would leave any status
+// here stale, so this document says where the status LIVES instead.
+head.push('**This document carries no confirmation status.** Status is recorded per',
+  'deal, in one place: the `status`, `confirmedBy`, `confirmedOn` and',
+  '`confirmedFiguresSha256` fields of each deal in',
+  '`scripts/golden-deals/expectations.json`. `node scripts/golden-deals-check`',
+  'prints them as a table on every run, and the merge gate echoes that table.', '')
 head.push('Every figure below was EXECUTED by the live pricing engine, not paraphrased',
   'from it. The run is `scripts/golden-deals/compute.mjs`, committed, and it writes',
   'this file and the harness\'s expectations from one pricing run each, so the',
@@ -284,7 +301,7 @@ head.push('Every figure below was EXECUTED by the live pricing engine, not parap
 head.push('The pipeline, exactly as the application runs it:', '',
   '```', 'resolveRates(payload, catalog)  ->  buildDealInputs  ->  calculateDeal',
   '                                                     (+ opexRows on OPEX)', '```', '')
-head.push('## The rate card all four price against', '')
+head.push('## The rate card every golden deal prices against', '')
 head.push('**Declared in the fixture, NOT read from the database**, so a golden deal',
   'means the same thing next year. The live catalog is a batch with an effective',
   'date and it moves; a suite pinned to it would go red the first time somebody',
@@ -293,18 +310,36 @@ head.push('**Declared in the fixture, NOT read from the database**, so a golden 
 head.push('| rate | value |', '|---|---|')
 for (const [k, v] of Object.entries(GOLDEN_CATALOG)) head.push(`| ${RATE_LABELS[k]} | ${money(v)} |`)
 head.push('')
-head.push('## The four, and what each one is for', '')
+head.push(`## The ${GOLDEN_DEALS.length} deals, and what each one is for`, '')
 head.push('| deal | shape | what it exercises |', '|---|---|---|')
-head.push('| G1 | OPEX, single phase | the all-in monthly fee, the inverse allocation, the blended margin |')
-head.push('| G2 | CAPEX, two-phase | the recovery period, and contractor payment milestones |')
-head.push('| G3 | hybrid | PO factoring, withholding tax borne by Terminus, and one zero-unit line |')
-head.push('| G4 | CAPEX, two-phase | an absolute price override, a margin override, a rate override, gross-up |')
+// Keyed by deal, and a deal with no row REFUSES the run. The table was a
+// hand-written list of four rows and G5 never got one (found 2026-11-15): a
+// list beside a population has to fail on the unrecorded member.
+const PURPOSE = {
+  G1: '| G1 | OPEX, single phase | the all-in monthly fee, the inverse allocation, the blended margin |',
+  G2: '| G2 | CAPEX, two-phase | the recovery period, and contractor payment milestones |',
+  G3: '| G3 | hybrid | PO factoring, withholding tax borne by Terminus, and one zero-unit line |',
+  G4: '| G4 | CAPEX, two-phase | an absolute price override, a margin override, a rate override, gross-up |',
+  G5: '| G5 | OPEX, single phase, lump sum installation | a type\'s share of a lump sum inside its all-in fee, an exact stored fee, a margin override on a different row |',
+}
+for (const d of GOLDEN_DEALS) {
+  if (!PURPOSE[d.id]) throw new Error(`${d.id} has no row in the GOLDEN_DEALS.md purpose table. Add one to PURPOSE.`)
+  head.push(PURPOSE[d.id])
+}
 head.push('')
 head.push('---', '')
 
 const body = priced.map((p) => dealSection(p)).join('\n---\n\n')
 writeFileSync('GOLDEN_DEALS.md', `${head.join('\n')}${body}`)
 
+// ── SUPERSEDED 2026-11-15 BY R-GS1. The reasoning below is left standing ────
+//
+// It was right about a deal whose figures moved and wrong about a deal whose
+// figures did not. The status was ONE flag for every deal, so R-TL1a's change
+// to G1 (2026-09-30, ee177d8) re-ran this script and erased the confirmation of
+// G2, G3 and G4 although their 2,745 figures were byte-identical to what John
+// signed. The replacement follows this block.
+//
 // ── A RE-RUN RETURNS THE STATUS TO PROVISIONAL, AND THAT IS DELIBERATE ────
 //
 // The confirmation is the ONE hand-edited field in that file, because it
@@ -316,16 +351,68 @@ writeFileSync('GOLDEN_DEALS.md', `${head.join('\n')}${body}`)
 // confirmation of figures that may have moved is not a confirmation. Preserving
 // it across a re-run would be the dangerous convenience, because the one case it
 // would help is the one case where it is wrong.
-const expectations = {
-  note: 'Figures written by scripts/golden-deals/compute.mjs and NEVER hand-edited: re-run the script. The confirmation block below is the exception, because it records a judgement only John can make, and re-running compute.mjs deliberately returns it to PROVISIONAL.',
-  status: 'PROVISIONAL',
-  catalog: GOLDEN_CATALOG,
-  deals: Object.fromEntries(priced.map((p) => [p.deal.id, {
-    title: p.deal.title,
-    figures: flatten(p),
-  }])),
+// ── THE STATUS IS PER DEAL, AND AN UNMOVED DEAL KEEPS ITS OWN. R-GS1, R-GS5 ──
+//
+// Ruled by John 2026-11-15. For each deal, read the file being replaced:
+//
+//   figures BYTE-IDENTICAL to the prior file's  ->  status, confirmedBy,
+//       confirmedOn and confirmedFiguresSha256 are carried across verbatim
+//   figures changed, deal new, or no usable prior file  ->  PROVISIONAL,
+//       and none of the other three fields is written
+//
+// "Byte-identical" is the same serialisation as the bytes on disk, so it is
+// exactly the property a confirmation rests on. A key reorder with identical
+// values reads as CHANGED and resets: a false reset, in the safe direction, and
+// `flatten` is deterministic so it does not occur today.
+//
+// THIS SCRIPT NEVER WRITES CONFIRMED FROM NOTHING. It can only carry one
+// forward, and the harness then re-checks the carried hash against the figures,
+// so a carried confirmation is still only as good as the stamp it came from.
+// A prior file in the retired shape (one top-level status) carries nothing: a
+// file-wide flag is not evidence about any one deal.
+const EXPECT = 'scripts/golden-deals/expectations.json'
+const serialise = (figures) => JSON.stringify(figures, null, 2)
+const STATUS_FIELDS = ['status', 'confirmedBy', 'confirmedOn', 'confirmedFiguresSha256']
+
+let prior = null
+let priorProblem = null
+if (!existsSync(EXPECT)) priorProblem = 'there is no prior expectations file'
+else {
+  try { prior = JSON.parse(readFileSync(EXPECT, 'utf8')) } catch (e) { priorProblem = `the prior expectations file does not parse (${e.message})` }
 }
-writeFileSync('scripts/golden-deals/expectations.json', `${JSON.stringify(expectations, null, 2)}\n`)
+if (priorProblem) console.log(`RESET ALL: ${priorProblem}, so every deal is written PROVISIONAL.`)
+
+const decisions = []
+const deals = Object.fromEntries(priced.map((p) => {
+  const figures = flatten(p)
+  const before = prior?.deals?.[p.deal.id]
+  let carry = null
+  let why
+  if (!prior) why = 'no usable prior file'
+  else if (!before) why = 'new deal'
+  else if (serialise(before.figures) !== serialise(figures)) why = 'figures changed'
+  else if (typeof before.status !== 'string') why = 'figures byte-identical, but the prior file recorded no status for this deal'
+  else { carry = before; why = 'figures byte-identical' }
+  const status = carry
+    ? Object.fromEntries(STATUS_FIELDS.filter((k) => k in carry).map((k) => [k, carry[k]]))
+    : { status: 'PROVISIONAL' }
+  decisions.push(`  ${p.deal.id}  ${carry ? 'KEPT ' : 'RESET'}  ${status.status.padEnd(11)}  ${why}`)
+  return [p.deal.id, { title: p.deal.title, ...status, figures }]
+}))
+
+const expectations = {
+  note: 'Figures written by scripts/golden-deals/compute.mjs and NEVER hand-edited: re-run the script. Each deal carries its own status. compute.mjs keeps a deal\'s status, confirmedBy, confirmedOn and confirmedFiguresSha256 only while that deal\'s figures are byte-identical, and otherwise writes PROVISIONAL. CONFIRMED is written only by a hand stamp naming who and when, with confirmedFiguresSha256 = SHA-256 of JSON.stringify(figures, null, 2).',
+  catalog: GOLDEN_CATALOG,
+  deals,
+}
+writeFileSync(EXPECT, `${JSON.stringify(expectations, null, 2)}\n`)
+console.log('Status per deal:')
+for (const d of decisions) console.log(d)
+// The hash a stamp must record, printed so a stamp is copied from the run
+// rather than computed by hand (Verification 20).
+for (const [id, d] of Object.entries(deals)) {
+  console.log(`  ${id}  figures sha256 ${createHash('sha256').update(serialise(d.figures)).digest('hex')}`)
+}
 
 const counts = priced.map((p) => `${p.deal.id} ${Object.keys(flatten(p)).length}`).join(', ')
 console.log(`Wrote GOLDEN_DEALS.md and scripts/golden-deals/expectations.json`)
