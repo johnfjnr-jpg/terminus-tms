@@ -5572,6 +5572,15 @@ textarea::placeholder { color: var(--muted); }
   flex: 1 1 100%;
   min-height: 0;
 }
+/* ASSESSMENT PANE FIXES F1: why the pane cannot be edited, said beside it.
+   Full weight on purpose: `.is-frozen` dims controls to 0.45, and this is the
+   sentence that explains the dimming, so it must not be dimmed with them. */
+.opp-assess-savebar-frozen {
+  font-size: 12px;
+  flex: 1 1 100%;
+  color: var(--white);
+}
+.opp-assess-savebar-frozen.hidden { display: none; }
 
 .opp-assess-anchors {
   /* The 880 lives here now. This is the prose the cap was written for: at

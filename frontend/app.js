@@ -1975,9 +1975,25 @@ const WIDGET_ROLES = new Set(['radio', 'checkbox', 'switch', 'button', 'menuitem
 // A real control is still caught: role is what distinguishes them, so the same
 // span with role="button" is neutralised, and an element with a native control
 // inside is excluded as a container by the rule below.
+//
+// ── 'tabpanel', ASSESSMENT PANE FIXES F3, ruled by John 2026-11-15 ──────────
+//
+// A tab panel is declared CONTENT: the region a tab shows, never an action.
+// It was missing here, and that mattered only because of timing. The third
+// loop below excludes a container of controls by what it holds AT SWEEP TIME,
+// and #opp-tab-assessment and #opp-tab-reference are swept while still empty,
+// before their async mounts fill them. Empty, a tabindex=0 panel looked like a
+// widget and was marked inert, so on a not-mine record every lens sub-tab
+// inside it inherited pointer-events none and could not switch panes. Later
+// sweeps skip it as a container and never remove the mark.
+//
+// Keyed on the declared role rather than on an id, so the next lazily filled
+// panel is covered too. Nothing editable is released: inputs are disabled by
+// the first loop and buttons by the second, independently of this one.
 const NON_WIDGET_ROLES = new Set([
   'note', 'tooltip', 'status', 'img', 'presentation', 'none',
   'definition', 'term', 'separator', 'heading', 'paragraph', 'caption',
+  'tabpanel',
 ])
 
 const NON_ACTION_SELECTOR = [
@@ -3622,6 +3638,22 @@ function renderOppAssessCriterion(c) {
   // that explains itself.
   const unanchored = c.current_version == null || !Object.keys(anchorSet).length
 
+  // ── FROZEN, AT RENDER TIME. ASSESSMENT PANE FIXES F1 ─────────────────────
+  //
+  // John's ruling: scoring stays REFUSED while a transition request is open,
+  // and the screen must be honest about it. The view-wide `.is-frozen` CSS
+  // stops the mouse only: a level's <label for> still checks its radio, and the
+  // keyboard reaches every input, so a person could draft a level, find the
+  // figure and reason unclickable, and be refused with 423 on Save. `disabled`
+  // closes the label, mouse and keyboard routes at once.
+  //
+  // Read from oppOpenRequest, the same ONE value the view's is-frozen class and
+  // the banner read, so the pane cannot disagree with them. It is loaded before
+  // the panes render (renderOppDetail awaits loadOppOpenRequest first), and a
+  // withdraw reloads the record, which re-renders the panes editable.
+  const frozen = !!oppOpenRequest
+
+
   // ── Round 30 Phase 3: THE FIVE LEVELS, VISIBLE ──────────────────────────
   //
   // The select is gone and so is the separate value cell, and they go together
@@ -3692,7 +3724,7 @@ function renderOppAssessCriterion(c) {
         // client on oppCriteria, and duplicating it into the DOM would make the
         // markup a second copy to go stale against the anchors it came from.
         return `<input type="radio" class="opp-assess-level-input" name="opp-assess-lv-${escHtml(c.criterion_key)}"
-                  id="${id}" value="${escHtml(String(l.value))}"${on ? ' checked' : ''}${unanchored ? ' disabled' : ''}
+                  id="${id}" value="${escHtml(String(l.value))}"${on ? ' checked' : ''}${(unanchored || frozen) ? ' disabled' : ''}
                   data-criterion="${escHtml(c.criterion_key)}" data-level="${escHtml(String(l.value))}"
                   onchange="setOppAssessDraft('${escHtml(c.criterion_key)}', this.value)"${hoverDefs ? `
                   onfocus="showOppLevelDefinition(this)" onblur="hideOppAssessDefn()"` : ''}>
@@ -3812,11 +3844,11 @@ function renderOppAssessCriterion(c) {
   const answerBox = (c.criterion_key !== OPP_VALUE_CAPTURE_KEY || !figureBearing) ? '' : `
     <span class="opp-assess-answer">
       <input type="text" inputmode="decimal" id="opp-assess-amount-${escHtml(c.criterion_key)}"
-        aria-label="Budget figure, optional"
+        aria-label="Budget figure, optional"${frozen ? ' disabled' : ''}
         value="${escHtml(String(answerDraft.amount ?? current?.answer?.amount ?? ''))}" placeholder="Budget figure"
         oninput="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'amount', this.value)">
       <select id="opp-assess-currency-${escHtml(c.criterion_key)}"
-        aria-label="Currency"
+        aria-label="Currency"${frozen ? ' disabled' : ''}
         onchange="setOppAssessAnswer('${escHtml(c.criterion_key)}', 'currency', this.value)">
         ${CURRENCY_CODES.map(x => `<option value="${x}"${(answerDraft.currency ?? current?.answer?.currency ?? 'SGD') === x ? ' selected' : ''}>${x}</option>`).join('')}
       </select>
@@ -4028,7 +4060,7 @@ function renderOppAssessCriterion(c) {
              the text it was replacing sat on the screen above it. Both of
              those are this element. */''}
         <textarea class="opp-assess-reason-cell" id="opp-assess-reason-${escHtml(c.criterion_key)}" rows="1"
-          aria-label="Reason for ${escHtml(c.name)}"${unanchored ? ' disabled' : ''}
+          aria-label="Reason for ${escHtml(c.name)}"${(unanchored || frozen) ? ' disabled' : ''}
           placeholder="${mustGiveReason ? 'Reason (required)' : 'Reason'}"
           onfocus="growOppAssessReason(this)" onblur="resetOppAssessReason(this)"
           oninput="setOppAssessReason('${escHtml(c.criterion_key)}', this.value); growOppAssessReason(this)">${escHtml(oppAssessReason[c.criterion_key] ?? oppAssessStoredReason(c.criterion_key))}</textarea>
@@ -4482,10 +4514,27 @@ function renderOppAssessSaveBar() {
   const bar = document.getElementById('opp-assess-savebar')
   if (!bar) return
   const dirty = oppAssessDirtyKeys()
-  bar.classList.toggle('hidden', dirty.length === 0)
+  // ASSESSMENT PANE FIXES F1: SHOWN ON ITS OWN WHILE FROZEN. A frozen pane has
+  // no drafts, so a bar shown only for drafts could never carry the line that
+  // says why nothing here can be edited. The banner saying it sits at the top
+  // of the record, measured 694px above the viewport at the pane, so the bar
+  // is the only place the reason is on screen beside the controls.
+  const frozen = !!oppOpenRequest
+  bar.classList.toggle('hidden', dirty.length === 0 && !frozen)
+  const frozenLine = document.getElementById('opp-assess-savebar-frozen')
+  if (frozenLine) {
+    frozenLine.textContent = frozen
+      ? `Frozen: a move to ${oppOpenRequest.to_stage ?? 'the next stage'} is awaiting approval. Withdraw the request to edit it.`
+      : ''
+    frozenLine.classList.toggle('hidden', !frozen)
+  }
+  for (const id of ['opp-assess-savebar-record', 'opp-assess-savebar-cancel']) {
+    const b = document.getElementById(id)
+    if (b) b.disabled = frozen
+  }
   const count = document.getElementById('opp-assess-savebar-count')
   if (count) {
-    count.textContent = dirty.length === 1
+    count.textContent = dirty.length === 0 ? '' : dirty.length === 1
       // NOT ONE OF THE FOUR THE RULING NAMED, and changed anyway. It sits
       // directly beside the button, so leaving it would have put "ready to
       // record" next to a control saying Save - the panel contradicting
@@ -4497,7 +4546,39 @@ function renderOppAssessSaveBar() {
   }
 }
 
+// ── THE "NOT SAVED" REPORT OUTLIVES THE RELOAD ITS OWN SAVES CAUSE ─────────
+//
+// ASSESSMENT PANE FIXES F2, and a defect that change created rather than one it
+// walked past. Measured: the bar read "Saved 1 of 2. Not saved: Champion
+// identified (Organisational), reason required." and 2.2s later was EMPTY.
+// The saves that did land advance the record, the pulse sees the new revision
+// and reloads it, and mountOppAssessmentLenses rebuilds the bar from nothing.
+//
+// That reload is older than F2, and it blanks "Saved 1 of 1." the same way on
+// 1b1c221. What F2 changed is which messages it reaches: a missing reason used
+// to refuse the whole batch, write nothing, and so keep its message. Saving the
+// other drafts is now what wipes the sentence naming the one left behind.
+//
+// So the report lives exactly as long as the drafts it names: kept per record,
+// put back when the bar is rebuilt, and dropped once none of its keys is still
+// pending, on Cancel, on the next save, or on a different record.
+let oppAssessSaveReport = null
+
+function restoreOppAssessSaveReport() {
+  const r = oppAssessSaveReport
+  if (!r) return
+  const pending = oppAssessDirtyKeys().filter(k => k in r.rows)
+  if (r.recordId !== currentOppDetailId || !pending.length) { oppAssessSaveReport = null; return }
+  const fb = document.getElementById('opp-assess-savebar-feedback')
+  if (fb) { fb.textContent = r.text; fb.className = 'opp-assess-savebar-feedback msg-error' }
+  for (const k of pending) {
+    const cell = document.getElementById(`opp-assess-feedback-${k}`)
+    if (cell) { cell.textContent = r.rows[k]; cell.className = 'opp-assess-feedback msg-error' }
+  }
+}
+
 window.cancelAllOppAssess = function () {
+  oppAssessSaveReport = null
   for (const k of oppAssessDirtyKeys()) {
     delete oppAssessDraft[k]
     delete oppAssessReason[k]
@@ -4547,6 +4628,7 @@ window.saveAllOppAssess = async function () {
   }
   const keys = oppAssessDirtyKeys()
   if (!keys.length) return
+  oppAssessSaveReport = null
 
   // Round 30 Phase 2: a reason typed against a criterion that has never been
   // assessed has no level to be recorded against. Refused here, before
@@ -4558,11 +4640,19 @@ window.saveAllOppAssess = async function () {
     return
   }
 
-  const missing = oppAssessMissingReasons()
-  if (missing.length) {
-    setFb(`A reason is required for ${missing.map(oppAssessNameFor).join(', ')}, and it must say something the recorded one does not. Nothing was recorded.`, 'msg-error')
-    return
-  }
+  // ── PER DRAFT, NOT PER BATCH. ASSESSMENT PANE FIXES F2 ───────────────────
+  //
+  // This used to refuse the WHOLE batch when any one draft owed a reason, so
+  // one unfinished criterion held every finished one hostage. A missing reason
+  // is a fact about that draft alone, so that draft is skipped and KEPT as a
+  // draft, with its row saying why, and the others save. No request is sent for
+  // a skipped draft: the panel already knows the rule, so firing it to be
+  // refused would only add a round trip.
+  //
+  // The level gate above stays a batch refusal, as ruled at the Phase 1
+  // sign-off: it is not this brief's subject.
+  const missing = new Set(oppAssessMissingReasons())
+
 
   const btn = document.getElementById('opp-assess-savebar-record')
   if (btn) btn.disabled = true
@@ -4575,6 +4665,11 @@ window.saveAllOppAssess = async function () {
   const failed = []
   let saved = 0
   for (const key of keys) {
+    if (missing.has(key)) {
+      failed.push({ key, skipped: true,
+        error: 'A reason is required, and it must say something the recorded one does not.' })
+      continue
+    }
     const a = oppAssessAnswer[key] ?? {}
     const sendAnswer = key === OPP_VALUE_CAPTURE_KEY && String(a.amount ?? '').trim() !== ''
     // Round 30 Phase 2: the field always holds text now, so an unedited reason
@@ -4604,12 +4699,24 @@ window.saveAllOppAssess = async function () {
   const fresh = await api('GET', `/api/opportunities/${currentOppDetailId}`)
   if (fresh.ok) currentOppPayload = fresh.data.payload ?? {}
   rerenderOppAssessLens()
-  if (btn) btn.disabled = false
+  // Through the same one value the bar reads, so a request raised while the
+  // batch ran does not leave Save enabled on a frozen pane.
+  if (btn) btn.disabled = !!oppOpenRequest
 
   if (!failed.length) {
     setFb(`Saved ${saved} of ${keys.length}.`, 'msg-ok')
   } else {
-    setFb(`Saved ${saved} of ${keys.length}. Not saved: ${failed.map(f => oppAssessNameFor(f.key)).join(', ')}.`, 'msg-error')
+    // ONE "Not saved:" list, semicolon-separated, ruled at the Phase 1 sign-off.
+    // A skipped draft names its reason in the list; a server refusal names its
+    // row, whose cell below carries the server's own message.
+    const named = (k) => {
+      const c = (oppCriteria ?? []).find(x => x.criterion_key === k)
+      const lens = (oppLenses ?? []).find(l => l.id === c?.lens_id)?.name
+      return lens ? `${oppAssessNameFor(k)} (${lens})` : oppAssessNameFor(k)
+    }
+    const text = `Saved ${saved} of ${keys.length}. Not saved: ${failed.map(f => f.skipped ? `${named(f.key)}, reason required` : named(f.key)).join('; ')}.`
+    setFb(text, 'msg-error')
+    oppAssessSaveReport = { recordId: currentOppDetailId, text, rows: Object.fromEntries(failed.map(f => [f.key, f.error])) }
     for (const f of failed) {
       const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
       if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
@@ -4714,6 +4821,7 @@ async function mountOppAssessmentLenses() {
               onclick="saveAllOppAssess()">Save</button>
       <button type="button" class="btn-ghost" id="opp-assess-savebar-cancel"
               onclick="cancelAllOppAssess()">Cancel</button>
+      <span id="opp-assess-savebar-frozen" class="opp-assess-savebar-frozen hidden" role="status"></span>
       <span id="opp-assess-savebar-feedback" class="opp-assess-savebar-feedback"></span>`
     mount.appendChild(bar)
   }
@@ -4726,6 +4834,7 @@ async function mountOppAssessmentLenses() {
     if (pane) renderOppAssessLens(pane, l.id)
   }
   renderOppAssessSaveBar()
+  restoreOppAssessSaveReport()
 }
 
 // oppLandOnTabAfterLoad, Round 22 Phase 2, widened in Phase 3. The

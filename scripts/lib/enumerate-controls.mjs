@@ -42,9 +42,10 @@ export function enumerateControlsInPage(viewId) {
   const WIDGET_ROLES = new Set(['button', 'switch', 'radio', 'checkbox', 'tab', 'menuitem',
     'link', 'option', 'combobox', 'slider', 'textbox'])
   // Declared as content rather than as a control: not a widget, whatever class
-  // it carries. The same set the door itself exempts.
+  // it carries. The same set the door itself exempts, so 'tabpanel' joined it
+  // here when the door gained it (ASSESSMENT PANE FIXES F3, 2026-11-15).
   const NON_WIDGET_ROLES = new Set(['note', 'tooltip', 'status', 'img', 'presentation',
-    'none', 'definition', 'term', 'separator', 'heading', 'paragraph', 'caption'])
+    'none', 'definition', 'term', 'separator', 'heading', 'paragraph', 'caption', 'tabpanel'])
 
   const seen = new Map()
   const out = []
