@@ -4,9 +4,11 @@ Written for a commercial reader. No code is quoted, and every rule names the
 function and file that implements it so any statement here can be checked
 against the thing that runs.
 
-**Everything below was read in the source this session, and the four worked
-examples in `GOLDEN_DEALS.md` were EXECUTED by the engine rather than worked out
-by hand.** Where the code does something surprising, it is in
+**Everything below was read in the source this session, and the worked
+examples in `GOLDEN_DEALS.md` (four when this was written, five since G5 was
+added on 2026-09-30) were EXECUTED by the engine rather than worked out by
+hand.** Which of them John has confirmed is recorded per deal and printed by
+`scripts/golden-deals-check` on every run, not here. Where the code does something surprising, it is in
 **[SURPRISES](#surprises)** rather than smoothed over.
 
 ---

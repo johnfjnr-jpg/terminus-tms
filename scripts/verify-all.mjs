@@ -18,6 +18,7 @@ import { writeFileSync, mkdirSync, existsSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gateVerdict, skipsInside } from './lib/gate-verdict.mjs'
+import { stageEcho } from './lib/stage-echo.mjs'
 
 // ── THE GATE RUNS WHEN IT IS EXECUTED, NEVER WHEN IT IS IMPORTED. G4 ─────
 //
@@ -56,7 +57,10 @@ const ROUND_CLOSE = process.argv.includes('--round-close')
 const ROOT = new URL('../', import.meta.url).pathname
 const OUT_DIR = join(ROOT, '.verify')
 
-const STAGES = [
+// Exported as DATA, which is safe since G4: importing this file runs nothing.
+// `scripts/tests/stage-echo.test.mjs` reads it to prove the golden deals stage
+// declares its echo.
+export const STAGES = [
   // ── REACHABILITY, FIRST OF ALL. Round 2 Phase 0 item 4 ─────────────────
   //
   // On 2026-09-05 a gate reported the database suite failing 91 of 92 over 821
@@ -108,30 +112,31 @@ const STAGES = [
     cmd: ['node', ['scripts/golden-deals/subkey-census.mjs']],
     needs: 'nothing. Pure, and it drives the engine rather than grepping it.',
   },
-  // ── THE FOUR GOLDEN DEALS. Deliverable 3 of the golden deals round ─────
+  // ── THE GOLDEN DEALS. Deliverable 3 of the golden deals round ──────────
   //
-  // Re-prices all four reference deals through the live engine and compares
-  // EVERY figure against the committed expectations, exact match. This is the
-  // permanent guard on pricing: any change that moves a figure is red here and
-  // names the figure.
+  // Re-prices every golden deal (five, 4,734 figures, since 2026-09-30) through
+  // the live engine and compares EVERY figure against the committed
+  // expectations, exact match. This is the permanent guard on pricing: any
+  // change that moves a figure is red here and names the deal and the figure.
   //
-  // CONFIRMED 2026-09-28: John reproduced all four deals by hand in Excel and
-  // accepted the figures, so the stage has dropped its PROVISIONAL qualifier.
-  // The harness still prints WHICH kind of green this is on every run, because
-  // a checked baseline and an unchecked one are different facts and a suite that
-  // went quiet on confirmation would leave a reader unable to tell them apart.
+  // STATUS IS PER DEAL (R-GS1, John 2026-11-15). The deals CONFIRMED by name,
+  // date and figure hash are the pricing acceptance baseline of record; the
+  // PROVISIONAL ones are what the engine does, not yet checked. Which is which
+  // is NOT restated here, because a comment typing it is a literal with a shelf
+  // life: this comment once said "CONFIRMED 2026-09-28 ... 3651 figures" for
+  // six weeks while the stage reported PROVISIONAL on 4,734.
   //
-  // THIS IS NOW THE PRICING ACCEPTANCE BASELINE OF RECORD. A change that moves
-  // any of the 3651 figures is either a defect or an intentional change, and an
-  // intentional one updates the goldens and needs a fresh confirmation by name
-  // and date. The harness refuses a CONFIRMED status carrying neither.
+  // THE ECHO (R-GS4): the stage's own GOLDEN STATUS block, the per-deal table
+  // and the "pricing may not move" message, is copied onto the gate's console
+  // after the summary on every run. A passing stage without the block FAILS.
   //
-  // Calibrated by `scripts/golden-deals/calibrate.mjs`: five injections, five
-  // fired, every file byte-identical afterwards.
+  // Calibrated by `scripts/golden-deals/calibrate.mjs`, which counts and
+  // prints its own cases; this comment does not restate the number.
   {
     name: 'golden deals',
     cmd: ['node', ['scripts/golden-deals-check']],
     needs: 'nothing. Pure arithmetic against a fixture rate card.',
+    echo: { begin: 'GOLDEN STATUS', end: 'END GOLDEN STATUS' },
   },
   {
     name: 'database suite',
@@ -498,6 +503,9 @@ function runGate() {
   // FAILED is not also listed here: its failure is already the red.
   const skippedInside = []
 
+  // R-GS4: the blocks stages declared with `echo`, in stage order.
+  const echoes = []
+
   // Set to the NAME of the first gate stage that failed. Everything downstream is
   // SKIPPED rather than run, so the summary cannot be read as a list of findings.
   //
@@ -579,7 +587,14 @@ function runGate() {
     const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
     // status is null when the process could not be spawned at all, which is a
     // different failure from a failing suite and must not read as one.
-    const ok = run.status === 0
+    let ok = run.status === 0
+    // R-GS4: a stage that declares an echo has its block copied after the
+    // summary, and a PASSING stage whose block is missing is failed here.
+    if (stage.echo) {
+      const echo = stageEcho(stage.echo, output, ok)
+      if (ok && !echo.ok) ok = false
+      echoes.push({ name: stage.name, ...echo })
+    }
     if (!ok) failed++
     if (!ok && stage.gate && !blockedBy) blockedBy = stage.name
 
@@ -638,6 +653,11 @@ function runGate() {
   console.log(`\nMERGE GATE  ${branch}  ${head}${dirty ? '  (WORKING TREE DIRTY)' : ''}`)
   console.log(summary.map((l) => `  ${l}`).join('\n'))
   console.log(`\nfull output: ${file}`)
+  for (const e of echoes) {
+    console.log(`\n── ${e.name}, echoed from the stage's own output ${'─'.repeat(Math.max(0, 40 - e.name.length))}`)
+    if (e.lines) console.log(e.lines.map((l) => `  ${l}`).join('\n'))
+    if (e.problem) console.log(`  ECHO MISSING: ${e.problem}`)
+  }
   // A SKIPPED stage is not a passed one and not a failed one, and saying so is
   // the whole point of the pre-stage: "1 of 19 stages FAILED" beside fourteen
   // skips reads correctly, where fourteen failures did not.

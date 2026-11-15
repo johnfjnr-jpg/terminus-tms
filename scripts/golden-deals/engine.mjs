@@ -16,9 +16,11 @@ import { GOLDEN_CATALOG } from './deals.mjs'
 /**
  * Prices one golden deal through the live engine.
  *
- * TEST BED COST IS ZERO ON ALL FOUR, deliberately and stated rather than
- * defaulted: it is a sunk cost carried from a converted Test Bed, it reaches
- * only total cost, and none of these four deals came from a conversion. A
+ * TEST BED COST IS ZERO ON EVERY GOLDEN DEAL, deliberately and stated rather
+ * than defaulted: it is a sunk cost carried from a converted Test Bed, it
+ * reaches only total cost, and no golden deal came from a conversion.
+ * (Measured on all five 2026-11-15: `result.testBedCost` is 0 on G1 to G5,
+ * as it must be, since the call below passes 0 for every deal.) A
  * non-zero value would make every achieved margin in the document depend on a
  * figure none of the inputs mentions.
  */

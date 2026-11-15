@@ -12367,10 +12367,21 @@ sentence.
 
 ---
 
-# THE FOUR GOLDEN DEALS ARE THE PRICING ACCEPTANCE BASELINE OF RECORD
+# THE GOLDEN DEALS ARE THE PRICING ACCEPTANCE BASELINE OF RECORD
 
 **Confirmed by John Fryatt 2026-09-28**, after reproducing all four deals by
 hand in Excel. Recorded 2026-09-29.
+
+**CORRECTED 2026-11-15, GOLDEN_STATUS round (R-GS1 to R-GS5, John).** This entry
+was written for four deals, 3,651 figures and one file-wide confirmation. Today:
+**five deals** (G5 added 2026-09-30 by R-TL3), **4,734 figures**, and **status
+recorded per deal**. G2, G3 and G4 are CONFIRMED, John Fryatt, 2026-09-28, each
+with `confirmedFiguresSha256`, re-stamped after their figures were re-proved
+byte-identical to `6550b09`. G1 (moved by R-TL1a) and G5 (new) are PROVISIONAL
+pending John's Excel check. Which deal holds which status is not restated here:
+the harness prints it on every run. The paragraphs below are corrected for the
+count only where a number was a statement of fact, and the one superseded
+paragraph is marked rather than deleted.
 
 > **The four golden deals are the pricing acceptance baseline of record. Any
 > intentional pricing change updates the goldens and requires John's
@@ -12378,8 +12389,8 @@ hand in Excel. Recorded 2026-09-29.
 
 ## What that makes the suite
 
-`scripts/golden-deals-check` pins **3651 figures** across four deals and
-compares them exactly. Before the confirmation a green run meant only that
+`scripts/golden-deals-check` pins **4,734 figures** across five deals (3,651
+across four when this was written) and compares them exactly. Before the confirmation a green run meant only that
 pricing had not moved since the figures were taken. **It now means the engine
 still agrees with a baseline a person has checked**, which is a different and
 much stronger claim, and the suite prints which of the two it is on every run
@@ -12398,12 +12409,21 @@ harness has no update flag, so moving the expectations means running
 
 ## The confirmation is a fact about a person, so it names one
 
-`CONFIRMED` without `confirmedBy` and `confirmedOn` is **refused**. The rule
+`CONFIRMED` without `confirmedBy` and `confirmedOn` is **refused**, per deal
+since 2026-11-15, and so is one without `confirmedFiguresSha256` or whose
+figures no longer hash to it (R-GS5). The rule
 exists because of a measurement rather than a principle: calibrating the
 harness showed that flipping the status by hand left the suite green with its
 provisional warning simply gone, so the one line telling a reader the figures
 were unchecked could be deleted without anything objecting. Same family as a
 control that deletes its own evidence of use.
+
+**SUPERSEDED 2026-11-15 by R-GS1. The paragraph is left standing because its
+reasoning was right about a deal that moved and wrong about one that did not.**
+With ONE flag for every deal, R-TL1a's change to G1 re-ran `compute.mjs` and
+erased the confirmation of G2 to G4, whose figures had not moved. `compute.mjs`
+now carries a deal's status only while that deal's figures are byte-identical,
+and resets only the deals that moved.
 
 **And re-running `compute.mjs` returns the status to PROVISIONAL**, dropping
 the name and date. That looks like losing a confirmation and is the safe
@@ -12428,7 +12448,7 @@ covering more than it does.
 
 - **It is the ENGINE.** Approval routing, version issuing and stage gates read
   these figures and are not pinned here.
-- **Four deals, not the space of deals.** They were chosen to exercise the
+- **Five deals, not the space of deals.** They were chosen to exercise the
   branches that matter - OPEX allocation, recovery periods, hybrid milestones,
   factoring, gross-up, both kinds of override - and a shape none of them reaches
   is a shape this suite cannot speak for.

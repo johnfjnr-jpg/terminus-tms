@@ -151,6 +151,15 @@ stored, and margin-driven rows keep price-first derivation.
 
 - **G1 and G5 are PROVISIONAL.** The figures are what the engine does, not yet
   what John has confirmed it should do. G2 to G4 remain CONFIRMED and unmoved.
+
+  **CORRECTION, 2026-11-15 (GOLDEN_STATUS round, R-GS3).** "Remain CONFIRMED"
+  was true of the figures and false of the record. The status was one flag for
+  the whole file, and this round's recompute (`ee177d8`) reset it to
+  PROVISIONAL and removed the name and date, so from 2026-09-30 the file
+  recorded NO deal as confirmed. G2 to G4's figures were byte-identical to what
+  John signed throughout. Status is now recorded per deal and G2 to G4 were
+  re-stamped CONFIRMED (John Fryatt, 2026-09-28) on 2026-11-15. The sentence
+  above is left as written.
 - **The `installShares` fallback to unit count is untested here.** It fires only
   when a catalog carries no per-unit install rates at all, and no fixture in this
   round reaches it.

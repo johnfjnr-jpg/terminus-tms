@@ -1,4 +1,7 @@
-// ── THE FOUR GOLDEN DEALS: THEIR INPUTS, AND NOTHING ELSE ────────────────
+// ── THE GOLDEN DEALS: THEIR INPUTS, AND NOTHING ELSE ─────────────────────
+//
+// Five since 2026-09-30 (G5 added by R-TL3). Status is recorded per deal in
+// expectations.json, never here: this file is inputs only.
 //
 // Step 1 of the pricing verification. These are the reference deals John
 // checks by hand in Excel; every figure published about them is computed from
