@@ -8273,6 +8273,11 @@ tool is a gate people learn to ignore. What can run unattended is asserted in th
 pure suite, and the new route is exercised over HTTP in `probe-write-success`,
 including that a transition moves the stage and not the revision.
 
+**The premise that decision rests on was re-taken at GATE HYGIENE, 2026-11-15**
+("A SKIPPED STAGE IS A FAILED STAGE", below). A browser stage that cannot run
+now makes the gate red, by name. probe-pulse itself is still unwired; it is in
+the queued triage of the 27 standing-rule probes.
+
 ---
 
 ## Tenth walk: G1 reverses X4, and G2/G3 finds the poll blind to the workflow
@@ -12682,7 +12687,7 @@ thing to re-rule. R-RAD3 stands until then.
 | published to the classic script | `window.tmsLensRollupAt`, `window.tmsAssessSeries`, `window.tmsRadar`, `frontend-react/src/main.tsx` |
 | markup | `renderOppRadarHtml`, `frontend/app.js` |
 | colour | `.opp-radar*` rules in `frontend/style.css`, tokens only |
-| the standing layout check | the stage-tab pass in `scripts/adjacency/probe-gaps.mjs`, which is itself unwired (queued) |
+| the standing layout check | the stage-tab pass in `scripts/adjacency/probe-gaps.mjs`, unwired when this was written and a required gate stage since the GATE HYGIENE round, 2026-11-15 |
 
 # THE FREEZE IS REFUSED IN THE MARKUP, AND SAID WHERE IT BITES
 
@@ -12927,3 +12932,157 @@ disagreed about what navigation is.
 
 **Queued from this round:** on a not-mine contact, the disabled Save and
 Discard render as pale filled blocks (cosmetic).
+
+---
+
+# A SKIPPED STAGE IS A FAILED STAGE, AND A DETECTOR NOBODY RUNS DETECTS NOTHING
+
+The GATE HYGIENE round, 2026-11-15. Brief and rulings: `GATE_HYGIENE_BRIEF.md`.
+
+## A stage that did not run to PASS or FAIL is a red gate
+
+**SUPERSEDES F6's SPLIT, AND F6's REASONING STAYS VISIBLE.** F6, from the LEADS
+close, separated two concerns. The SUMMARY would never claim every stage
+passed when one had not run. That part stands. A run with a skip still
+EXITED 0, unless an opt-in `--round-close` run found a skipped stage marked
+`required`. The reasoning, quoted from `verify-all.mjs` and from the probe-pulse
+note above:
+
+> puppeteer is deliberately not a dependency, and a gate that goes red for a
+> missing optional tool is a gate people learn to ignore.
+
+"What F6 is worth", above, is still true: it fired on its first closing gate and
+refused it. **What failed is the premise that an honest summary line is
+enough.**
+- The exit code is what every caller reads, and it said 0 on a run that
+  measured less than it claimed. Measured on 2026-11-15, with `PUPPETEER_PATH`
+  unset: `24 of 26 stages passed, 2 NOT RUN ... UNANSWERED, not green`, exit 0.
+- `required` was a property of ONE stage, so a skip of any other stage could
+  never be fatal.
+
+Verification 29: a premise that fails means the decision is re-taken, not
+re-weighed.
+
+**AND A SECOND KIND OF HOLE THE SPLIT NEVER SAW: A STAGE THAT RUNS, SKIPS PART
+OF ITSELF, AND EXITS 0.** The term initial-value probe printed
+`SKIP a two-phase deal cannot have an absent recovery period at this point`
+on every gate run. That includes the run that printed `All 26 stages passed.`
+at the AFTER-SAVE STATE close. Nothing read the line.
+
+**THE RULE, ruled by John.** Every stage that FAILED, was NOT RUN, or was
+SKIPPED INSIDE makes the gate red on every run, and each is named.
+- NOT RUN covers: no browser, or a pre-stage failed.
+- SKIPPED INSIDE covers: a probe's `SKIP` line, node `skipped`/`todo` above 0,
+  and vitest `skipped`/`todo` above 0.
+- `--round-close` is accepted and changes nothing.
+- The two probes that skipped were changed in the same round:
+  - the unconditional skip became an assertion of WHY the branch is
+    unreachable: the structure change wrote the configured default, read live.
+    Restating the `if` would have been true by construction;
+  - the conditional skip became a failed check.
+
+**THE ANSWER TO "PEOPLE LEARN TO IGNORE IT" IS THE NAME, NOT THE GREEN.** A red
+gate that says `NOT RUN HTTP readonly-view probe: no browser (set
+PUPPETEER_PATH)` costs one install. A green gate that measured less costs
+whatever the missing stage would have caught.
+
+**Calibrated on real gate runs:**
+- one skip of each kind, each in a different stage, was red and named on its
+  own line;
+- with `PUPPETEER_PATH` unset, both browser stages were named;
+- restored, the gate was green;
+- with the rule removed, the verdict function read `All 26 stages passed.` with
+  exit 0 for both an unset run and a skip-inside run. In a real gate the pure
+  suite's G1 tests catch the removal: the rule reddens the gate, and the suite
+  guards the rule.
+
+## A detector nobody runs detects nothing
+
+`scripts/adjacency/probe-gaps.mjs` is the estate's layout guard: A1 adjacency,
+R-US4 containment, A5 placement, the ink guard, and the stage tabs. **It was
+unwired, and five failures sat on `main` unseen**, because nothing ran it unless
+a round did. Verification 9's unscheduled-detector clause, in the guard the
+layout rules lean on. It is now a REQUIRED gate stage. The full matrix is
+30 states at three widths in about three minutes, and the gate runs all of it:
+- a reduced matrix in the gate would be a second detector to keep alive;
+- the cost of completeness was measured, and it is small.
+
+**AND THE RUN IT FINALLY GOT SHOWED ITS ROSTER WAS AIMED AT THE WRONG BOX.**
+- The Installation card's band ran **37px past the card at every width**.
+- R-US4 rostered the PARENTS, so it saw the overflow only at 1240, where the
+  parent is narrow enough for the spill to cross it, by 3px.
+- **A containment check names the box that overflows, not the box the overflow
+  eventually reaches.** With the card rostered, the unfixed tree read 37px
+  over in all 12 Per Unit states.
+
+**The wider census, for the record and not wired here:**
+- 249 scripts drive a browser, and 3 are wired;
+- 27 of the unwired ones assert a standing rule;
+- 4 of those have rotted against markup that has since changed;
+- 4 carry no recorded reason for being unwired.
+
+Queued for a probe triage round.
+
+## A residue query is calibrated against a known row first
+
+A session importing `verify-all.mjs` to read it **ran the gate**. The kill came
+mid-database-suite, and the run left harness records, stage rules, an approval
+and a contact link.
+- **The first residue query read zero, and was wrong.** It matched `r7h%`
+  against a record type spelled `harness_r7h...`.
+- A query by creation time found the residue.
+- **The zero came from an instrument never shown reaching one**
+  (Verification 13): a residue query is shown finding a KNOWN row before its
+  zero is believed.
+
+The cause was then fixed at the source: the gate runs only as the process entry
+point, and a source-shape test holds that. An import cannot start it again.
+
+## Re-aiming a check must carry its strictness over, and a bound must not be read from the thing it bounds
+
+A5 asserted the invoicing radios sit within 60px of the schedule's BODY. On
+John's ruling it was re-aimed at the schedule's HEAD, which its own driven check
+already defined as part of the schedule.
+- **The 60 came along unchanged, and that loosened the check by the head's own
+  extent.**
+- A +40px calibration was silent in 12 of 15 states.
+
+**The bound is now 36, carried over rather than re-read.** It is 60px to the
+body, minus the 24px from a one-line head's top to the body's top, derived from
+the original ruling. Today's healthy readings (18 and 30) are recorded and were
+not used.
+
+The alternative, a bound computed from the live margins, was ruled out. **A
+bound read from the thing it bounds grows with a margin-based fault and goes
+silent.** Verification 47's "take the threshold from the requirement, never
+from the result", arriving through a re-aim rather than a new check.
+
+**Calibrated over all 15 states, both ways:**
+- +40px of margin failed 15 of 15 (58, 70);
+- `translateY(-40px)`, which moves the radios away without touching margin,
+  failed 15 of 15 (58, 70).
+- **The literal `translateY(+40px)` moved the radios DOWN, onto the schedule.**
+  It failed 15 of 15 on overlap rather than on the bound, so it is not counted
+  as the bound's calibration: an alarm for the wrong reason (Verification 14).
+
+## Where it lives
+
+| concern | site |
+|---|---|
+| the verdict and the skip reader | `gateVerdict`, `skipsInside` in `scripts/lib/gate-verdict.mjs`, with F6's supersession at the site |
+| the gate's use of them | `scripts/verify-all.mjs`: `NOT RUN` and `INCOMPLETE` summary lines, both cross-checked |
+| the run-on-import guard | `IS_MAIN` and `runGate()` in `scripts/verify-all.mjs`; the G4 tests in `scripts/tests/gate-verdict.test.mjs` |
+| the layout guard in the gate | stage `probe-gaps layout guard`, required |
+| R-US4's roster | `#deal-install-panel` added, in `scripts/adjacency/probe-gaps.mjs` |
+| the band fix | `#deal-install-seetable, #deal-install-notapplicable { width: min-content; }`, `frontend/style.css` |
+| A5's bound | `a5.above <= 36` with its derivation, `scripts/adjacency/probe-gaps.mjs` |
+
+**Queued from this round:**
+- the 23 `harness_*` stage-gate rules from 2026-09-13; cleanup to be proposed
+  before it is applied;
+- the 27 standing-rule probes, including the 4 rotted and the 4 with no
+  unwired reason;
+- `probe-dead-selectors` has no pass or fail;
+- `probe-version-join` exits 0 on SKIP;
+- `scripts/leads-card/calibrate-gate-verdict.mjs` no longer runs against the
+  new verdict shape.
