@@ -12683,3 +12683,120 @@ thing to re-rule. R-RAD3 stands until then.
 | markup | `renderOppRadarHtml`, `frontend/app.js` |
 | colour | `.opp-radar*` rules in `frontend/style.css`, tokens only |
 | the standing layout check | the stage-tab pass in `scripts/adjacency/probe-gaps.mjs`, which is itself unwired (queued) |
+
+# THE FREEZE IS REFUSED IN THE MARKUP, AND SAID WHERE IT BITES
+
+ASSESSMENT PANE FIXES, 2026-11-15. **John's ruling, and it is the premise of
+everything below: scoring stays REFUSED while a transition request is open.
+The freeze is right; the UI must be honest about it.**
+
+## What a person met
+
+John could select a level on a frozen record and could not enter the budget
+figure or update the reason. Then Save answered 423. Measured on an owned,
+frozen record, the screen offered an action the server would refuse, by three
+routes:
+
+- `.is-frozen input, textarea, select { pointer-events: none }` stops the
+  MOUSE only. A level is a `<label for>`, and clicking a label checks its radio
+  whatever the radio's pointer-events say, so the level drafted. The figure
+  and the reason are plain inputs, so they did not.
+- **The keyboard reached every one of them.** Pointer-events are not a focus
+  rule.
+- **The sentence explaining it sat in the freeze banner, measured 694px above
+  the viewport at the pane.** The person was refused with no reason in sight.
+
+Introduced 2026-08-31 (`2d59905`) on top of the label segments from
+`b7a83ac`. **Each was right where it was made**, and the defect is in the
+meeting: a mouse-only freeze, then a control the mouse reaches through
+something else (Verification 23's shape, at the level of CSS).
+
+## The rule
+
+**A refusal the server will give is rendered as `disabled`, at render time,
+from the ONE value that already drives the freeze.** Here that is
+`oppOpenRequest`, the value behind the view's `is-frozen` class and the
+banner, so the pane cannot disagree with either. `disabled` closes the label,
+mouse and keyboard routes at once; a pointer rule closes one.
+
+**And the reason is said beside the controls it explains.** The assessment
+save bar shows while frozen even with nothing to save, and reads `Frozen: a
+move to <stage> is awaiting approval. Withdraw the request to edit it.` It is
+sticky, so it is in the viewport beside the first row and the last at 1240,
+1440 and 1920. It is set at full weight: it is the sentence explaining the
+dimming, and must not be dimmed with what it explains.
+
+**A control that writes nothing stays live.** Save is disabled while frozen.
+**Cancel is enabled exactly when there is a draft to clear** (Phase 2
+sign-off): it only clears drafts held in the page's memory. Disabling it
+stranded a draft made before the freeze until the request was decided, which
+protected nothing. Disclosures stay live for the same reason. **Refuse writes,
+not reading or tidying.**
+
+**`disabled` here has a second writer, and the proof is what holds that
+safe.** On an owned record the door's sweep writes `disabled = false` on every
+input. It runs before the pane renders today, so the freeze survives. A probe
+reads the state after a settled wait, and it was calibrated by injecting a
+sweep AFTER the pane: 182 of 182 fields went live and the probe failed. A
+future reorder is caught by the proof rather than by a person.
+
+## The door asks what a thing DECLARES, not what it holds at sweep time
+
+On a record John does not own, the lens sub-tabs could not switch panes.
+Nothing targeted them. **The whole tab panel had been marked inert**, and they
+inherited `pointer-events: none`. The door excludes "a container of
+controls", and it tests that by what the element holds AT THE MOMENT OF THE
+SWEEP. `#opp-tab-assessment` and `#opp-tab-reference` are swept while still
+empty, before their async mounts fill them, so an empty `tabindex="0"` panel
+looked like a widget. Later sweeps then skip it as a container and never
+remove the mark.
+
+**`tabpanel` is now a content role in `NON_WIDGET_ROLES`** (John's Option A,
+in preference to re-enabling only the sub-tab buttons). A panel is declared
+content, whatever it holds and whenever it fills, so the next lazily filled
+panel is covered without anyone naming it. Nothing editable was released:
+inputs are disabled by the door's first loop and buttons by its second,
+independently. The shared enumerator in `scripts/lib/enumerate-controls.mjs`
+carries the same set, as its own comment promises.
+
+**The general form: a structural test evaluated once, against a DOM that is
+still arriving, is a test of timing.** Prefer the declared property.
+
+## One unfinished draft does not hold the rest hostage
+
+**The save is per draft.** A draft owing a reason is skipped before any
+request is sent, kept as a draft, and named: `Saved N of M. Not saved:
+<criterion> (<lens>), reason required.` One list, semicolon-separated, for
+skipped and server-refused alike. The no-level gate stays a batch refusal; it
+was not this round's subject.
+
+**AND A MESSAGE MUST OUTLIVE THE RELOAD ITS OWN WRITES CAUSE.** Measured: the
+F2 sentence was on screen for 2.2 seconds. The saves that land advance the
+record, the pulse reloads it, and the remount rebuilds the bar from nothing.
+That reload is older than this round, and it wipes `Saved 1 of 1.` the same
+way. **What changed is which message it reaches.** A batch refusal wrote
+nothing, so its message stayed. Partial saving is exactly what erases the
+sentence naming the draft left behind. That made it this round's defect
+(build discipline 10's limit), and `oppAssessSaveReport` keeps the report for
+as long as a draft it names is still pending. The success message's wipe stays
+queued.
+
+## Where it lives
+
+| concern | site |
+|---|---|
+| the pane's `disabled` | `const frozen = !!oppOpenRequest` in `renderOppAssessCriterion`, `frontend/app.js` |
+| the frozen line, Save and Cancel | `renderOppAssessSaveBar`, and `#opp-assess-savebar-frozen` in `mountOppAssessmentLenses` |
+| the per-draft save | `saveAllOppAssess`; `oppAssessSaveReport` and `restoreOppAssessSaveReport` |
+| content roles | `NON_WIDGET_ROLES`, `frontend/app.js`, and its copy in `scripts/lib/enumerate-controls.mjs` |
+| the proof | `scripts/assess-pane/probe-assess-pane.mjs`, unwired: it builds, freezes and tears down its own fixtures and reads two named live records |
+
+**Queued from this round, not fixed in it:**
+- **B.** The pulse reload after a save wipes `Saved N of N` and resets the lens
+  to Commercial. The same reload also lands an in-page reopen on Reference.
+- **C.** A key contact's name link, `span.kc-name role=link`, is inert for
+  readers.
+- **A, low.** On an in-page reopen, `is-frozen` lands about 1.3s before the
+  panes re-render, and overlapping loads each null `oppOpenRequest` before
+  awaiting it, so live controls can show for a moment before the resting
+  state, which is correct on every run measured.
