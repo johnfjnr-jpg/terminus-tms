@@ -415,6 +415,7 @@ function navigate(view, id) {
   else if (view === 'opportunity-detail' && id) {
     // Arriving at a record: the default-to-Reference is wanted.
     oppUserPickedTab = false
+    oppArrivalPending = true
     loadOpportunityDetail(id)
   }
 }
@@ -2080,6 +2081,19 @@ const NON_ACTION_SELECTOR = [
   // such attribute and stays blocked: it is the requester's control, not the
   // approver's.
   '[data-decision-track]',
+  // ── A DECLARED LINK IS NAVIGATION. AFTER-SAVE STATE C, ruled 2026-11-15 ──
+  //
+  // The key contact's name (`span.kc-name role="link"`) opens the contact. Its
+  // role is in neither WIDGET_ROLES nor NON_WIDGET_ROLES, so the third loop
+  // read its tabindex=0 alone, classed it as a widget, and killed it: a reader
+  // could see a contact's name on somebody else's record and not open it. The
+  // contact view applies the door itself, so opening it releases nothing.
+  //
+  // Keyed on the DECLARED ROLE, not on `.kc-name`, for the reason F3 and
+  // Verification 19 give. scripts/tests/role-link-census.test.mjs holds the
+  // population at its one member, so a second role="link" is a red test, read
+  // by whoever adds it, rather than a silent exemption.
+  '[role="link"]',
 ].join(', ')
 
 // ── THE DOOR MUST OUTLIVE THE RENDER IT WAS APPLIED IN ──────────────────
@@ -3444,6 +3458,42 @@ let oppCriterionQueue = Promise.resolve()
 // same load's own completion.
 let oppUserPickedTab = false
 
+// ── ARRIVAL OR RELOAD. AFTER-SAVE STATE B, ruled by John 2026-11-15 ────────
+//
+// Every load of a record was treated as an arrival: the lens went back to
+// Commercial, the scroll to 0 and the save message away, and a tab that had
+// not been clicked went to Reference. Measured after a save that landed: the
+// person's own write moves the record's freshness, the pulse reloads it 2.8s
+// later, and they lose their place and the sentence saying what happened.
+//
+// Ruled option (b): the reload still happens, so nothing anybody else does is
+// hidden, but a reload of the SAME record keeps the person where they were.
+// Only an ARRIVAL - a navigation, or a different record - resets the view, and
+// it still lands on Reference, which is the deliberate rule below.
+let oppArrivalPending = false
+let oppRenderedRecordId = null
+
+// ── THE SCROLL IS KEPT BY NOT RESETTING, NOT BY RESTORING ─────────────────
+//
+// The ruling asked for the scroll to be restored once the remount settles, and
+// that was built and then MEASURED OUT. What the person experiences was held to
+// the element at the middle of the window and where it sits on screen, across a
+// reload of the same record, on every top tab:
+//
+//   without a restore   10 of 10 tabs: the content stays exactly where it was
+//   with the restore     7 of 10 tabs: the content jumps up by 128px
+//
+// The scroll was only ever lost because the lens went back to Commercial and
+// the page changed height under the person (Phase 1: 259 -> 0; with the lens
+// kept and the restore removed, 599 -> 599). With the lens kept, the browser's
+// own scroll anchoring holds the place, including when an outside change grows
+// content ABOVE the reader. A restore that writes the old scrollTop back fights
+// that anchoring and moves the content by exactly the growth. So the place is
+// kept by not taking it away, and there is no restore to fight it.
+
+
+
+
 // Round 25 Phase 5: the lens vocabulary, fetched ONCE for the page rather than
 // per record. Lenses are global reference data, so a per-record fetch would
 // re-ask the same question on every opportunity opened.
@@ -4124,6 +4174,9 @@ window.setOppAssessDraft = function (key, value) {
   // clicking it used to open a draft asserting what the record already said.
   // That is also where the duplicate reading came from in Phase 0: value cell
   // and control showing the same words, because the draft equalled the record.
+  // AFTER-SAVE STATE B: a draft change is the first of the save message's
+  // ruled drop conditions. The sentence described the last save, not this.
+  dropOppAssessSaveReport()
   const cur = oppAssessCurrent(key)
   if (value === '' || (cur && String(cur.value) === String(value))) delete oppAssessDraft[key]
   else oppAssessDraft[key] = value
@@ -4380,6 +4433,7 @@ window.resetOppAssessReason = function (el) {
 }
 
 window.setOppAssessReason = function (key, value) {
+  dropOppAssessSaveReport()
   oppAssessReason[key] = value
   // Round 30 Phase 2: the bar is updated, the pane is NOT re-rendered. A
   // corrected reason is now a change on its own, so the bar has to count it;
@@ -4398,6 +4452,7 @@ window.setOppAssessReason = function (key, value) {
 const OPP_FIGURE_BEARING_LEVELS = new Set(['Our hypothesis', 'Buyer confirmed', 'Verified'])
 
 window.setOppAssessAnswer = function (key, field, value) {
+  dropOppAssessSaveReport()
   oppAssessAnswer[key] = { ...(oppAssessAnswer[key] ?? {}), [field]: value }
 }
 window.cancelOppAssess = function (key) {
@@ -4567,15 +4622,37 @@ function renderOppAssessSaveBar() {
 // So the report lives exactly as long as the drafts it names: kept per record,
 // put back when the bar is rebuilt, and dropped once none of its keys is still
 // pending, on Cancel, on the next save, or on a different record.
+//
+// ── WIDENED TO SUCCESS. AFTER-SAVE STATE B, ruled by John 2026-11-15 ──────
+//
+// "Saved 1 of 1." was on screen for 3.4s and then wiped by the same reload,
+// so a person who looked away missed what had happened. The report now carries
+// success too, and its lifetime is the ruled one for both: dropped at the next
+// draft change, Cancel, the next save, or leaving the record (an arrival).
 let oppAssessSaveReport = null
+
+// One drop, so every condition takes the message off the screen as well as out
+// of memory. A report forgotten while its sentence stayed on the bar would be
+// put back by nothing and contradicted by nothing.
+function dropOppAssessSaveReport() {
+  const r = oppAssessSaveReport
+  if (!r) return
+  oppAssessSaveReport = null
+  const fb = document.getElementById('opp-assess-savebar-feedback')
+  if (fb) { fb.textContent = ''; fb.className = 'opp-assess-savebar-feedback' }
+  for (const k of Object.keys(r.rows)) {
+    const cell = document.getElementById(`opp-assess-feedback-${k}`)
+    if (cell) { cell.textContent = ''; cell.className = 'opp-assess-feedback' }
+  }
+}
 
 function restoreOppAssessSaveReport() {
   const r = oppAssessSaveReport
   if (!r) return
+  if (r.recordId !== currentOppDetailId) { oppAssessSaveReport = null; return }
   const pending = oppAssessDirtyKeys().filter(k => k in r.rows)
-  if (r.recordId !== currentOppDetailId || !pending.length) { oppAssessSaveReport = null; return }
   const fb = document.getElementById('opp-assess-savebar-feedback')
-  if (fb) { fb.textContent = r.text; fb.className = 'opp-assess-savebar-feedback msg-error' }
+  if (fb) { fb.textContent = r.text; fb.className = `opp-assess-savebar-feedback ${r.cls}` }
   for (const k of pending) {
     const cell = document.getElementById(`opp-assess-feedback-${k}`)
     if (cell) { cell.textContent = r.rows[k]; cell.className = 'opp-assess-feedback msg-error' }
@@ -4583,7 +4660,7 @@ function restoreOppAssessSaveReport() {
 }
 
 window.cancelAllOppAssess = function () {
-  oppAssessSaveReport = null
+  dropOppAssessSaveReport()
   for (const k of oppAssessDirtyKeys()) {
     delete oppAssessDraft[k]
     delete oppAssessReason[k]
@@ -4633,7 +4710,7 @@ window.saveAllOppAssess = async function () {
   }
   const keys = oppAssessDirtyKeys()
   if (!keys.length) return
-  oppAssessSaveReport = null
+  dropOppAssessSaveReport()
 
   // Round 30 Phase 2: a reason typed against a criterion that has never been
   // assessed has no level to be recorded against. Refused here, before
@@ -4710,6 +4787,7 @@ window.saveAllOppAssess = async function () {
 
   if (!failed.length) {
     setFb(`Saved ${saved} of ${keys.length}.`, 'msg-ok')
+    oppAssessSaveReport = { recordId: currentOppDetailId, text: `Saved ${saved} of ${keys.length}.`, cls: 'msg-ok', rows: {} }
   } else {
     // ONE "Not saved:" list, semicolon-separated, ruled at the Phase 1 sign-off.
     // A skipped draft names its reason in the list; a server refusal names its
@@ -4721,7 +4799,7 @@ window.saveAllOppAssess = async function () {
     }
     const text = `Saved ${saved} of ${keys.length}. Not saved: ${failed.map(f => f.skipped ? `${named(f.key)}, reason required` : named(f.key)).join('; ')}.`
     setFb(text, 'msg-error')
-    oppAssessSaveReport = { recordId: currentOppDetailId, text, rows: Object.fromEntries(failed.map(f => [f.key, f.error])) }
+    oppAssessSaveReport = { recordId: currentOppDetailId, text, cls: 'msg-error', rows: Object.fromEntries(failed.map(f => [f.key, f.error])) }
     for (const f of failed) {
       const cell = document.getElementById(`opp-assess-feedback-${f.key}`)
       if (cell) { cell.textContent = f.error; cell.className = 'opp-assess-feedback msg-error' }
@@ -4769,11 +4847,18 @@ function rerenderOppAssessLens() {
 }
 
 let oppAssessCurrentLens = null
+// Which record oppAssessCurrentLens belongs to, so a lens is only ever
+// restored onto the record it was chosen on.
+let oppAssessLensRecordId = null
 let currentOppPayload = {}
 
-async function mountOppAssessmentLenses() {
+async function mountOppAssessmentLenses({ arrival = true } = {}) {
   const mount = document.getElementById('opp-assessment-mount')
   if (!mount) return
+  // AFTER-SAVE STATE B: the lens the person had open on THIS record, read
+  // before createSubTabs runs, because its construction selects the first lens
+  // and onSelect overwrites oppAssessCurrentLens with it.
+  const lensToKeep = (!arrival && oppAssessLensRecordId === currentOppDetailId) ? oppAssessCurrentLens : null
   const lenses = await ensureOppLenses()
   if (!lenses?.length) {
     // Distinct from an empty LENS. This is the vocabulary itself being absent
@@ -4838,6 +4923,10 @@ async function mountOppAssessmentLenses() {
     const pane = built.panes[oppLensKey(l.name)]
     if (pane) renderOppAssessLens(pane, l.id)
   }
+  // Back to the lens the person was on. A lens that no longer exists (the
+  // vocabulary changed) leaves the first one selected, as ruled.
+  if (lensToKeep && built.panes[lensToKeep]) built.strip.select(lensToKeep)
+  oppAssessLensRecordId = currentOppDetailId
   renderOppAssessSaveBar()
   restoreOppAssessSaveReport()
 }
@@ -7338,7 +7427,7 @@ let oppPulseInFlight = false
 // Counters, so the calibration can assert "issued no polls" and "did not
 // repaint" rather than a person watching a network tab. A detector nobody can
 // read is an assertion (Verification 9).
-window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0, failures: 0 }
+window.__oppPulseStats = { polls: 0, rereads: 0, skippedHidden: 0, failures: 0, skippedLoading: 0 }
 
 // ── THE CLOCK, SECOND RESOLUTION ──────────────────────────────────────────
 //
@@ -7593,6 +7682,8 @@ async function oppPulseTick() {
   if (document.hidden) { window.__oppPulseStats.skippedHidden++; return }
   if (!oppPulseShouldRun()) { stopOppPulse(); return }
   if (oppPulseInFlight) return
+  // A: never against a render that has not finished.
+  if (oppLoadsInFlight > 0) { window.__oppPulseStats.skippedLoading++; return }
   oppPulseInFlight = true
   try {
     const id = oppPulseRecordId
@@ -7628,6 +7719,9 @@ async function oppPulseTick() {
     notePulseSuccess(id)
     // Still the same record after the round trip.
     if (currentOppDetailId !== id) return
+    // A: a load that began, or finished, while this request was in flight has
+    // already read the record, so this answer is about a screen that is gone.
+    if (oppLoadsInFlight > 0 || oppFreshnessAt !== heldWhenAsked) return
     const seen = r.data?.freshness_at
     const stage = r.data?.status
     // A null freshness is NO ANSWER, not "unchanged". Every record was
@@ -7825,7 +7919,32 @@ window.oppPatch = async function (recordId, body) {
   return retried
 }
 
+// ── THE PULSE WAITS FOR ITS RECORD'S LOAD. AFTER-SAVE STATE A ─────────────
+//
+// Measured in 1 of 6 in-page reopens right after an outside change: TWO loads,
+// the second from oppPulseTick 2.3s into the first. The pulse compares against
+// oppFreshnessAt, which only the END of a render writes, so for the whole of a
+// load it still holds the previous visit's value and an older change reads as
+// news. The second load then nulled oppOpenRequest while the first was
+// mounting: the brief window of live controls on a frozen record.
+//
+// A COUNT, NOT A FLAG, and released in `finally`, so a load that FAILS - a 500,
+// a dropped connection, a throw while rendering - releases it as surely as one
+// that finishes. A flag left set by a failed load would stop the pulse for
+// good, which is the silence the pulse's own stall message exists to prevent.
+let oppLoadsInFlight = 0
+window.__oppLoadsInFlight = () => oppLoadsInFlight
+
 async function loadOpportunityDetail(id) {
+  oppLoadsInFlight++
+  try {
+    await loadOpportunityDetailNow(id)
+  } finally {
+    oppLoadsInFlight--
+  }
+}
+
+async function loadOpportunityDetailNow(id) {
   // The decision floor is cleared on every load, so a refusal from one record
   // cannot follow the reader to the next. decideRequest writes its message
   // AFTER awaiting this, so the clear never eats the message it is about to
@@ -7850,6 +7969,14 @@ async function loadOpportunityDetail(id) {
 async function renderOppDetail(opp) {
   const p = opp.payload ?? {}
   const det = opp.opportunity_details ?? {}
+  // Decided once, before anything is rebuilt, and consumed: the first render
+  // after a navigation is the arrival and every later one is a reload.
+  const arrival = oppArrivalPending || opp.id !== oppRenderedRecordId
+  oppArrivalPending = false
+  oppRenderedRecordId = opp.id
+
+  // Leaving the record drops the save message; a reload of it does not.
+  if (arrival) oppAssessSaveReport = null
 
   // Set here, before any tab renders, so all three writers share one number.
   // source 'load': a full record render is the screen catching up, not the
@@ -8082,7 +8209,7 @@ async function renderOppDetail(opp) {
   // they are. The Assessment tab's contents belong to THIS record, and mounting
   // on record load means the strip is already there when the tab is opened
   // rather than appearing a beat afterwards.
-  mountOppAssessmentLenses()
+  mountOppAssessmentLenses({ arrival })
   // The record's own stage panel is filled eagerly, so the tab carrying the
   // green dot is never a blank card if the user goes straight to it.
   loadOppStageTab(opp.id, opp.status, opp.status, stages)
@@ -8118,11 +8245,15 @@ async function renderOppDetail(opp) {
     // the user now is, and that element exists synchronously at switch time
     // whereas the new advance control does not.
     switchOppTab(landing, { focusTab: true })
-  } else if (!oppUserPickedTab) {
+  } else if (arrival && !oppUserPickedTab) {
     // Land back on Reference when opening or switching opportunities, the
     // same convention as other modules resetting their sub-view on entry,
     // UNLESS the user already picked a tab while this load was still in
     // flight.
+    //
+    // AN ARRIVAL ONLY. A reload of the record on screen keeps whatever tab is
+    // showing, clicked or landed on (AFTER-SAVE STATE B). Before this, a tab
+    // reached without a click went to Reference on the next pulse reload.
     switchOppTab('reference')
   }
 }

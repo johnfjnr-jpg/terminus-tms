@@ -133,7 +133,10 @@ export function enumerateControlsInPage(viewId) {
  */
 export function classifyControl(r) {
   // Navigation must stay alive, or a read-only record stops being readable.
-  const nav = !!(r.cls?.includes('detail-tab') || r.role === 'tab'
+  // A DECLARED link is navigation too: the door exempts `[role="link"]`
+  // (AFTER-SAVE STATE C, 2026-11-15), and an instrument that still counted it
+  // as a write control reported the door's own ruling as a gap.
+  const nav = !!(r.cls?.includes('detail-tab') || r.role === 'tab' || r.role === 'link'
     || /back|close/i.test(r.text) || r.tag === 'a')
   // Reading more of a record you may not edit is still reading.
   // `ariaExpanded` FIRST: a disclosure declares itself, and P3 added collapsible
