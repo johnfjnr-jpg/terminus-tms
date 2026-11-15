@@ -12800,3 +12800,130 @@ queued.
   panes re-render, and overlapping loads each null `oppOpenRequest` before
   awaiting it, so live controls can show for a moment before the resting
   state, which is correct on every run measured.
+
+**All three were taken by the next round, AFTER-SAVE STATE, below.**
+
+# A RELOAD CAUSED BY YOUR OWN WRITE MUST NOT COST YOU YOUR PLACE OR YOUR MESSAGE
+
+AFTER-SAVE STATE AND READER LINKS, 2026-11-15. John's goal, in his terms:
+**after you save, you stay where you were, and you see what happened.**
+
+## Why every save cost the person their place
+
+The Opportunity view follows its record by a pulse
+(`OPP_PULSE_INTERVAL_MS`, 3.5s). It compares `freshness_at`, a timestamp a
+database trigger moves on any write to the record or its satellites, with the
+value the screen was rendered at, and reloads on any difference.
+
+**A person's own save moves that timestamp**, and no write response carries
+it, so the next tick after every save reloads the record. Measured: `Saved 1
+of 1.` appeared 1.9s after Save, the pulse fired at 2.8s, and by 5.3s the lens
+was back to Commercial, the scroll was 0 and the message was gone. The top tab
+survived only because the person had clicked it.
+
+**The pulse cannot tell the user's own write from anyone else's, and that is
+structural, not an oversight.** The revision is adopted from every write
+response (Architecture 13), but freshness also moves for approvals, raises and
+withdrawals, which write no revision. So "the revision is mine" cannot prove
+"nothing else happened".
+
+## The ruling: keep the place, never skip the reload
+
+**Option (a), skipping the reload after one's own write, was rejected.** To
+stop reloading, the client must adopt the new freshness, and anyone else's
+change landing in that window is absorbed into it and **hidden until the next
+change**: a silent stale view. And it removes only one cause; anyone else's
+change still reloads and still costs the place.
+
+**Option (b), ruled.** The reload always happens, so nothing anybody else does
+is hidden. Every load is classed once, before anything is rebuilt:
+
+- an **ARRIVAL** is a navigation or a different record. It lands on Reference,
+  resets the lens and drops the save message. This rule is unchanged and
+  deliberate.
+- a **RELOAD** is anything else. It keeps the top tab showing (clicked OR
+  reached by the arrow keys, which set no click guard and used to be sent to
+  Reference), restores the lens, and puts the save message back.
+
+**The message, success included, lives exactly as long as it is true**: it
+drops at the next draft change, Cancel, or leaving the record, and the next
+save writes its own. A drop at the start of a save was built, calibrated
+SILENT, and removed: every save either follows a draft change that already
+dropped it, or overwrites it.
+
+## KEEP THE PLACE BY NOT TAKING IT AWAY. RESTORING A NUMBER FIGHTS SCROLL ANCHORING
+
+The ruling first asked for the scroll to be restored once the remount settled.
+That was built, and the measurement removed it.
+
+**The measure was what the person sees**, not the scroll number: the element
+at the middle of the window, and where it sits on screen, across an outside
+reload, on every top tab.
+
+| | content under the reader held |
+|---|---|
+| without the restore | **10 of 10 tabs** |
+| with the restore | **3 of 10**; on the other 7 it jumped up 128px |
+
+**The scroll was only ever lost because the lens reset changed the page's
+height** under the person. With the lens kept, the page keeps its height, and
+the browser's own **scroll anchoring** holds the place. That includes the case
+where an outside change grows content ABOVE the reader: the summary grew by
+128px, and anchoring moved `scrollTop` by exactly that so the content stayed
+still. Writing the old `scrollTop` back undid it and moved the content by the
+growth.
+
+**The general lesson, and it is Verification 27 one level down.** A scroll
+number is a property of the document, and the place is a property of the
+person. **Prefer not to take the place away over putting a number back.**
+Where a restore is genuinely needed, anchor it to an element and its on-screen
+position, never to `scrollTop`. And a probe asserting `scrollTop` equality
+would have passed the restore that moved the content.
+
+## The pulse waits for its own record's load (finding A)
+
+Finding A was the same pulse. `oppFreshnessAt` is written only when a render
+ENDS, so during a load the pulse compared against the previous visit's value
+and started a second load on top of the first: 1 in 6 natural reopens, and
+certain when the load was held for 4s.
+
+**The pulse does not tick while its record's load is in flight**, and drops an
+answer if a load started or finished while it waited. The guard is a COUNT
+released in `finally`. **A load that fails releases it too**, proved with an
+in-page 500 followed by a tick that ran, because a flag left set by a failed
+load would silence the pulse for good, the exact failure its stall message
+exists to prevent.
+
+## A declared link is navigation (finding C)
+
+A key contact's name, `span.kc-name role="link"`, opens the contact. The
+door's third loop saw `tabindex=0` and an unknown role, classed it as a
+widget, and killed it, so a reader could see a contact on somebody else's
+record and not open it.
+
+**`[role="link"]` joins `NON_ACTION_SELECTOR`**, keyed on the declared role
+for the reason F3 gave. The contact view applies the door itself, so opening
+it releases nothing: measured, 17 fields and 0 enabled for a reader.
+
+**An exemption keyed on a declared role is only as safe as the population
+declaring it**, so `scripts/tests/role-link-census.test.mjs` holds it at one
+member and fails by name on a second. The shared classifier in
+`scripts/lib/enumerate-controls.mjs` now counts a declared link as
+navigation, because the moment the door changed, the two instruments
+disagreed about what navigation is.
+
+## Where it lives
+
+| concern | site |
+|---|---|
+| arrival or reload | `oppArrivalPending`, `oppRenderedRecordId` and the `arrival` read at the top of `renderOppDetail`, `frontend/app.js` |
+| the tab rule | `arrival && !oppUserPickedTab` at the end of `renderOppDetail` |
+| the lens | `mountOppAssessmentLenses({ arrival })` and `oppAssessLensRecordId` |
+| the message | `oppAssessSaveReport`, `dropOppAssessSaveReport`, `restoreOppAssessSaveReport` |
+| the scroll (no code, deliberately) | the comment `THE SCROLL IS KEPT BY NOT RESETTING, NOT BY RESTORING`, beside `oppRenderedRecordId`, with both measurements |
+| the pulse guard | `oppLoadsInFlight`, `loadOpportunityDetail`, `oppPulseTick` |
+| declared links | `NON_ACTION_SELECTOR`; `role-link-census.test.mjs`; `classifyControl` |
+| the proof | `scripts/after-save/probe-after-save.mjs`, unwired: it builds its own fixtures, acts as a second identity (john+test2, through the throwing client's token override) with a record-scoped seat it seeds and removes, and reads named live records |
+
+**Queued from this round:** on a not-mine contact, the disabled Save and
+Discard render as pale filled blocks (cosmetic).
