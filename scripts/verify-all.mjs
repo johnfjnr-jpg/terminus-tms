@@ -287,6 +287,31 @@ const STAGES = [
     needsBrowser: true,
   },
   {
+    // ── PROBE-GAPS JOINS THE GATE. GATE HYGIENE G2, ruled by John 2026-11-15 ─
+    //
+    // A1 adjacency, R-US4 containment, A5 placement, the ink guard and the
+    // stage tabs, over the full matrix: 30 states, three widths. It was
+    // UNWIRED, so nothing ran it unless a round did, and five failures sat on
+    // main unseen - Verification 9's unscheduled detector, in the estate's
+    // own layout guard.
+    //
+    // Measured before wiring: 174s, 177s and 190s for the full matrix, the
+    // last under a bare `node` with no --env-file, exactly as spawned here,
+    // 433 of 433. Under the 10-minute line the ruling set, so the gate runs
+    // the WHOLE matrix rather than a reduced one: a reduced matrix in the gate
+    // is a second detector to keep alive, and the cost of completeness is
+    // three minutes.
+    //
+    // REQUIRED, and with G1 that now means the same as every other stage: if
+    // it cannot run, the gate is red and says so.
+    required: true,
+    name: 'probe-gaps layout guard',
+    cmd: ['node', ['scripts/adjacency/probe-gaps.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
     // ── CURRENT_STATE STALENESS, WIRED 2026-09-14 ───────────────────────
     //
     // It existed and was wired to NOTHING. The method requires it at every

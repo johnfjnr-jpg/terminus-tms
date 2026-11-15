@@ -11,7 +11,10 @@
 // label and some later cell in the same row is a figure. Any container holding
 // such rows is walked, whatever it is called.
 //
-// UNWIRED: needs a browser, a live server and a signed-in session.
+// WIRED 2026-11-15, GATE HYGIENE G2: the gate stage `probe-gaps layout guard`
+// in scripts/verify-all.mjs, required. Needs a browser, a live server and a
+// signed-in session. (It read "UNWIRED" until then, and five failures sat on
+// main because nothing ran it.)
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('adjacency/probe-gaps.mjs')
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
