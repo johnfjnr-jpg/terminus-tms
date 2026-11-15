@@ -187,9 +187,41 @@ try {
       check(after.frozen && after.draft === '4', `reopened frozen, the earlier draft survives (frozen ${after.frozen}, draft ${after.draft})`)
       check(after.radio === true && after.amount === true && after.currency === true && after.reason === true,
         `level, figure, currency and reason are all disabled (${after.radio}, ${after.amount}, ${after.currency}, ${after.reason})`)
-      check(after.save === true && after.cancel === true, `Save and Cancel are disabled (${after.save}, ${after.cancel})`)
-      check(s.writes.length === 0, `no write was sent (${s.writes.join(', ') || 'none'})`)
-      await s.p.evaluate(() => cancelAllOppAssess())
+      // Departure 4 as amended at the Phase 2 sign-off: Save disabled while
+      // frozen, Cancel LIVE while there is a draft, because it writes nothing.
+      check(after.save === true && after.cancel === false, `with a draft: Save disabled, Cancel enabled (${after.save}, ${after.cancel})`)
+      // A REAL click on the real Cancel, not a call to its handler.
+      //
+      // MEASURED: the reopen's second, pulse-driven load lands the record on
+      // Reference, so the Assessment panel is display:none and Cancel has no
+      // box. That landing is older than this round (queued with finding B), and
+      // a person would open Assessment again, so the probe does the same.
+      const landed = await s.p.evaluate(() => document.querySelector('#view-opportunity-detail [data-opp-tab].active')?.dataset.oppTab)
+      if (landed !== 'assessment') { await s.p.click('#view-opportunity-detail [data-opp-tab="assessment"]'); await settle(s.p) }
+      console.log(`  (after the reopen the record had landed on the ${landed} tab)`)
+      await s.p.evaluate(() => document.getElementById('opp-assess-savebar-cancel').scrollIntoView({ block: 'center' }))
+      // The click's own failure is recorded rather than thrown, so a dead
+      // Cancel reaches the clear check below and fails THERE, by name.
+      const atCancel = await s.p.evaluate(() => { const c = document.getElementById('opp-assess-savebar-cancel'); const r = c.getBoundingClientRect()
+        const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        let hid = null; for (let e = c; e; e = e.parentElement) if (getComputedStyle(e).display === 'none') { hid = `${e.tagName}#${e.id}.${String(e.className).split(' ')[0]}${e.hidden ? '[hidden]' : ''}`; break }
+        return `rect ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)} vh ${innerHeight}, pe ${getComputedStyle(c).pointerEvents}, at ${at === c ? 'self' : `${at?.tagName}#${at?.id}.${String(at?.className).split(' ')[0]}`}, bars ${document.querySelectorAll('#opp-assess-savebar').length}, hidden by ${hid}, active tab ${document.querySelector('#view-opportunity-detail [data-opp-tab].active')?.dataset.oppTab}, view shown ${getComputedStyle(document.getElementById('view-opportunity-detail')).display}` })
+      const clickErr = await s.p.click('#opp-assess-savebar-cancel').then(() => null).catch((e) => `${e.message} [${atCancel}]`)
+      await settle(s.p)
+      const cleared = await s.p.evaluate(() => {
+        const all = [...document.querySelectorAll('#opp-assessment-mount input, #opp-assessment-mount textarea, #opp-assessment-mount select')]
+        const line = document.getElementById('opp-assess-savebar-frozen')
+        return { drafts: Object.keys(oppAssessDraft).length, dirty: oppAssessDirtyKeys().length,
+          fields: all.length, enabled: all.filter((x) => !x.disabled).length,
+          line: line.getBoundingClientRect().height > 0 && line.textContent.startsWith('Frozen: a move to Proposal'),
+          bar: document.getElementById('opp-assess-savebar').getBoundingClientRect().height > 0,
+          save: document.getElementById('opp-assess-savebar-record').disabled, cancel: document.getElementById('opp-assess-savebar-cancel').disabled }
+      })
+      check(cleared.drafts === 0 && cleared.dirty === 0, `Cancel clears the draft (${cleared.drafts} drafts, ${cleared.dirty} dirty${clickErr ? `; the click: ${clickErr}` : ''})`)
+      check(cleared.fields > 0 && cleared.enabled === 0, `the fields stay disabled (${cleared.fields} fields, ${cleared.enabled} enabled)`)
+      check(cleared.line && cleared.bar, `the frozen line stays (${cleared.line}, bar shown ${cleared.bar})`)
+      check(cleared.save && cleared.cancel, `with no draft left: Save and Cancel disabled (${cleared.save}, ${cleared.cancel})`)
+      check(s.writes.length === 0, `no write was sent, Cancel included (${s.writes.join(', ') || 'none'})`)
       await s.p.close()
     }
   }

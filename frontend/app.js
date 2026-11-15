@@ -4528,10 +4528,15 @@ function renderOppAssessSaveBar() {
       : ''
     frozenLine.classList.toggle('hidden', !frozen)
   }
-  for (const id of ['opp-assess-savebar-record', 'opp-assess-savebar-cancel']) {
-    const b = document.getElementById(id)
-    if (b) b.disabled = frozen
-  }
+  // Save is refused while frozen, so it is disabled. Cancel is NOT a write: it
+  // only clears drafts held in this page's memory. Ruled at the Phase 2
+  // sign-off: while frozen it stays live exactly when there is a draft to
+  // clear, so a draft made before the freeze is not stranded until the
+  // request is decided.
+  const save = document.getElementById('opp-assess-savebar-record')
+  if (save) save.disabled = frozen
+  const cancel = document.getElementById('opp-assess-savebar-cancel')
+  if (cancel) cancel.disabled = frozen && dirty.length === 0
   const count = document.getElementById('opp-assess-savebar-count')
   if (count) {
     count.textContent = dirty.length === 0 ? '' : dirty.length === 1
