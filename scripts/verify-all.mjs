@@ -14,9 +14,30 @@
 // moment you have already discarded it.
 
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { gateVerdict } from './lib/gate-verdict.mjs'
+
+// ── THE GATE RUNS WHEN IT IS EXECUTED, NEVER WHEN IT IS IMPORTED. G4 ─────
+//
+// GATE HYGIENE, ruled by John 2026-11-15. A session read this file by
+// importing it, and the import RAN THE GATE: every stage started in the
+// background, the database suite created harness fixtures, and killing it
+// mid-suite left five live harness records, four stage-gate rules, an
+// approval and a contact link behind. Nothing about `import` says "run".
+//
+// So everything with an effect lives in `runGate()`, called only when this
+// file is the process's entry point. The stage list and its helpers stay at
+// module scope so a reader can import them and get data, not a run.
+//
+// realpath on both sides, because `node scripts/verify-all.mjs` from the repo
+// root, an absolute path and a symlinked checkout must all count as direct.
+const IS_MAIN = (() => {
+  if (!process.argv[1]) return false
+  try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)) }
+  catch { return false }
+})()
 
 // ── ROUND-CLOSE MODE, F6 ─────────────────────────────────────────────────
 //
@@ -28,7 +49,6 @@ const ROUND_CLOSE = process.argv.includes('--round-close')
 
 const ROOT = new URL('../', import.meta.url).pathname
 const OUT_DIR = join(ROOT, '.verify')
-if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true })
 
 const STAGES = [
   // ── REACHABILITY, FIRST OF ALL. Round 2 Phase 0 item 4 ─────────────────
@@ -423,175 +443,181 @@ const STAGES = [
 // What needs a browser is the hook's behaviour on a version-shaped response,
 // and that is measured here and reported at the boundary.
 
-const transcript = []
-const summary = []
-let failed = 0
+function runGate() {
+  if (!existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true })
 
-// F6: the stages that did NOT run, recorded as objects when it happens.
-//
-// The first version of this recovered the names by parsing the SKIP lines back
-// out of the summary, splitting on the padding. It worked, and it worked BY
-// LUCK: `name.padEnd(26)` leaves two spaces after the door stage's 24-character
-// name and NOTHING after the seven stage names that are 26 or longer, so the
-// same parse returns the whole line for those. A count is not a structure, and
-// a formatted line is not a record.
-const skippedStages = []
+  const transcript = []
+  const summary = []
+  let failed = 0
 
-// Set to the NAME of the first gate stage that failed. Everything downstream is
-// SKIPPED rather than run, so the summary cannot be read as a list of findings.
-//
-// It holds the name rather than a boolean because there are now two gate
-// stages, reachability and the session, and a skip line that names the wrong
-// one is a label asserting something nobody checked. Round 2 Phase 0 caught
-// exactly that: every skip read "the session precondition failed" on a run
-// where reachability was what failed.
-let blockedBy = null
+  // F6: the stages that did NOT run, recorded as objects when it happens.
+  //
+  // The first version of this recovered the names by parsing the SKIP lines back
+  // out of the summary, splitting on the padding. It worked, and it worked BY
+  // LUCK: `name.padEnd(26)` leaves two spaces after the door stage's 24-character
+  // name and NOTHING after the seven stage names that are 26 or longer, so the
+  // same parse returns the whole line for those. A count is not a structure, and
+  // a formatted line is not a record.
+  const skippedStages = []
 
-// ── IS A BROWSER AVAILABLE? R9, and it reconciles two rulings ────────────
-//
-// R9 rules probe-readonly-view into the gate: a probe that fails correctly to
-// NOBODY is a false-completion signal, and this round exists because of that
-// silence. The standing exclusion below has its own reason and it is also
-// right: puppeteer is deliberately not a dependency, and a gate that goes red
-// for a missing optional tool is a gate people learn to ignore.
-//
-// Both hold, and SKIP is the existing outcome that satisfies both - the gate
-// already distinguishes it from PASS for a session-blocked stage. With a
-// browser present the probe runs and can fail; without one it reports SKIPPED,
-// which is not a pass and says so.
-const browserAvailable = (() => {
-  const dir = process.env.PUPPETEER_PATH
-  if (!dir) return false
-  try { return existsSync(`${dir}/package.json`) } catch { return false }
-})()
+  // Set to the NAME of the first gate stage that failed. Everything downstream is
+  // SKIPPED rather than run, so the summary cannot be read as a list of findings.
+  //
+  // It holds the name rather than a boolean because there are now two gate
+  // stages, reachability and the session, and a skip line that names the wrong
+  // one is a label asserting something nobody checked. Round 2 Phase 0 caught
+  // exactly that: every skip read "the session precondition failed" on a run
+  // where reachability was what failed.
+  let blockedBy = null
 
-for (const stage of STAGES) {
-  if (stage.needsBrowser && !browserAvailable) {
-    skippedStages.push(stage)
-    summary.push(`SKIP  ${stage.name.padEnd(26)} not run: no browser (set PUPPETEER_PATH)`)
+  // ── IS A BROWSER AVAILABLE? R9, and it reconciles two rulings ────────────
+  //
+  // R9 rules probe-readonly-view into the gate: a probe that fails correctly to
+  // NOBODY is a false-completion signal, and this round exists because of that
+  // silence. The standing exclusion below has its own reason and it is also
+  // right: puppeteer is deliberately not a dependency, and a gate that goes red
+  // for a missing optional tool is a gate people learn to ignore.
+  //
+  // Both hold, and SKIP is the existing outcome that satisfies both - the gate
+  // already distinguishes it from PASS for a session-blocked stage. With a
+  // browser present the probe runs and can fail; without one it reports SKIPPED,
+  // which is not a pass and says so.
+  const browserAvailable = (() => {
+    const dir = process.env.PUPPETEER_PATH
+    if (!dir) return false
+    try { return existsSync(`${dir}/package.json`) } catch { return false }
+  })()
+
+  for (const stage of STAGES) {
+    if (stage.needsBrowser && !browserAvailable) {
+      skippedStages.push(stage)
+      summary.push(`SKIP  ${stage.name.padEnd(26)} not run: no browser (set PUPPETEER_PATH)`)
+      transcript.push(
+        `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
+        `THIS IS NOT A PASS. Nothing was measured. Install a scratch browser and set\n` +
+        `PUPPETEER_PATH to run it:\n` +
+        `  npm i puppeteer --prefix /tmp/tms-probe\n` +
+        `  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer npm run verify\n${'='.repeat(72)}\n`)
+      continue
+    }
+    if (stage.needsSession && blockedBy) {
+      skippedStages.push(stage)
+      summary.push(`SKIP  ${stage.name.padEnd(26)} not run: ${blockedBy} failed`)
+      transcript.push(
+        `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The ${blockedBy} stage failed, so this stage was not run.\n` +
+        `This is not a finding about ${stage.name}. Nothing was measured.\n${'='.repeat(72)}\n`)
+      continue
+    }
+    const [bin, args] = stage.cmd
+    // ── WALL-CLOCK, SO A FAILURE IS PLACEABLE IN TIME ────────────────────────
+    //
+    // Added 2026-09-14 after a failure that could not be diagnosed AT ALL.
+    //
+    // The version-gate probe died on a 404 reading its own fixture. That record
+    // turned out to be soft-deleted at 07:32:09 UTC - but the transcript
+    // carried only DURATIONS, so there was no way to tell whether the 404
+    // happened BEFORE that delete (something swept a live fixture: a real gate
+    // defect) or AFTER it (routine housekeeping by the next stage, and the 404
+    // was a transient read).
+    //
+    // Two mechanisms were proposed and both collapsed on arithmetic, because
+    // the one number that would have settled it did not exist. A 24-stage gate
+    // in which no failure can be located in time cannot diagnose its own
+    // intermittents - the same blind-instrument class as the rest of this
+    // sequence, arriving in the instrument the whole estate reports from.
+    //
+    // ISO with milliseconds, because the events being compared are database
+    // timestamps and whole seconds are not enough to order them.
+    const startedAt = new Date().toISOString()
+    const started = process.hrtime.bigint()
+    const run = spawnSync(bin, args, { cwd: ROOT, encoding: 'utf8', shell: false })
+    const ms = Number((process.hrtime.bigint() - started) / 1000000n)
+    const endedAt = new Date().toISOString()
+    const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
+    // status is null when the process could not be spawned at all, which is a
+    // different failure from a failing suite and must not read as one.
+    const ok = run.status === 0
+    if (!ok) failed++
+    if (!ok && stage.gate && !blockedBy) blockedBy = stage.name
+
     transcript.push(
-      `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
-      `THIS IS NOT A PASS. Nothing was measured. Install a scratch browser and set\n` +
-      `PUPPETEER_PATH to run it:\n` +
-      `  npm i puppeteer --prefix /tmp/tms-probe\n` +
-      `  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer npm run verify\n${'='.repeat(72)}\n`)
-    continue
-  }
-  if (stage.needsSession && blockedBy) {
-    skippedStages.push(stage)
-    summary.push(`SKIP  ${stage.name.padEnd(26)} not run: ${blockedBy} failed`)
-    transcript.push(
-      `${'='.repeat(72)}\n${stage.name}\nSKIPPED. The ${blockedBy} stage failed, so this stage was not run.\n` +
-      `This is not a finding about ${stage.name}. Nothing was measured.\n${'='.repeat(72)}\n`)
-    continue
-  }
-  const [bin, args] = stage.cmd
-  // ── WALL-CLOCK, SO A FAILURE IS PLACEABLE IN TIME ────────────────────────
-  //
-  // Added 2026-09-14 after a failure that could not be diagnosed AT ALL.
-  //
-  // The version-gate probe died on a 404 reading its own fixture. That record
-  // turned out to be soft-deleted at 07:32:09 UTC - but the transcript
-  // carried only DURATIONS, so there was no way to tell whether the 404
-  // happened BEFORE that delete (something swept a live fixture: a real gate
-  // defect) or AFTER it (routine housekeeping by the next stage, and the 404
-  // was a transient read).
-  //
-  // Two mechanisms were proposed and both collapsed on arithmetic, because
-  // the one number that would have settled it did not exist. A 24-stage gate
-  // in which no failure can be located in time cannot diagnose its own
-  // intermittents - the same blind-instrument class as the rest of this
-  // sequence, arriving in the instrument the whole estate reports from.
-  //
-  // ISO with milliseconds, because the events being compared are database
-  // timestamps and whole seconds are not enough to order them.
-  const startedAt = new Date().toISOString()
-  const started = process.hrtime.bigint()
-  const run = spawnSync(bin, args, { cwd: ROOT, encoding: 'utf8', shell: false })
-  const ms = Number((process.hrtime.bigint() - started) / 1000000n)
-  const endedAt = new Date().toISOString()
-  const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
-  // status is null when the process could not be spawned at all, which is a
-  // different failure from a failing suite and must not read as one.
-  const ok = run.status === 0
-  if (!ok) failed++
-  if (!ok && stage.gate && !blockedBy) blockedBy = stage.name
+      `${'='.repeat(72)}\n${stage.name}  (${bin} ${args.join(' ')})\nneeds: ${stage.needs}\n` +
+      `started: ${startedAt}\nended:   ${endedAt}\n` +
+      `exit: ${run.status === null ? `could not run (${run.error?.message ?? 'unknown'})` : run.status}  in ${ms}ms\n` +
+      `${'='.repeat(72)}\n${output}`)
+    // ── THE COUNT COMES FROM THE RUN ────────────────────────────────────────
+    //
+    // Round 39 close, set by the business, and it is Verification 20 rather than
+    // a new idea: a hand-typed test count is a SECOND READER of a computed value,
+    // and second readers drift. A commit message said "217 pass" while the suite
+    // said 216, and the gap was not a typo: six new tests were not in the suite
+    // at all, because the line adding them had never landed.
+    //
+    // The mismatch is what surfaced it. That is the argument for emitting the
+    // number here rather than tidiness: a message that quotes this line cannot
+    // claim a green suite that did not include the tests it was adding.
+    const counts = output.match(/^. (tests|pass|fail) (\d+)$/gm) ?? []
+    const n = (k) => counts.find((l) => l.includes(` ${k} `))?.match(/(\d+)$/)?.[1]
+    let tally = n('tests') ? `  ${n('pass')}/${n('tests')} pass, ${n('fail')} fail` : ''
 
-  transcript.push(
-    `${'='.repeat(72)}\n${stage.name}  (${bin} ${args.join(' ')})\nneeds: ${stage.needs}\n` +
-    `started: ${startedAt}\nended:   ${endedAt}\n` +
-    `exit: ${run.status === null ? `could not run (${run.error?.message ?? 'unknown'})` : run.status}  in ${ms}ms\n` +
-    `${'='.repeat(72)}\n${output}`)
-  // ── THE COUNT COMES FROM THE RUN ────────────────────────────────────────
-  //
-  // Round 39 close, set by the business, and it is Verification 20 rather than
-  // a new idea: a hand-typed test count is a SECOND READER of a computed value,
-  // and second readers drift. A commit message said "217 pass" while the suite
-  // said 216, and the gap was not a typo: six new tests were not in the suite
-  // at all, because the line adding them had never landed.
-  //
-  // The mismatch is what surfaced it. That is the argument for emitting the
-  // number here rather than tidiness: a message that quotes this line cannot
-  // claim a green suite that did not include the tests it was adding.
-  const counts = output.match(/^. (tests|pass|fail) (\d+)$/gm) ?? []
-  const n = (k) => counts.find((l) => l.includes(` ${k} `))?.match(/(\d+)$/)?.[1]
-  let tally = n('tests') ? `  ${n('pass')}/${n('tests')} pass, ${n('fail')} fail` : ''
-
-  // ── AND THE SAME FOR VITEST, WHICH COUNTS IN ITS OWN WORDS ─────────────
-  //
-  // Migration Round 1 Phase 3. node:test prints `# pass 440`; vitest prints
-  // `Tests  37 passed (37)`, or `Tests  2 failed | 35 passed (37)`. The parser
-  // above matched neither, so the React stage reported PASS with NO NUMBER -
-  // and a report quoting "37/37" would then have been a hand-typed second
-  // reader, which is the exact fault the paragraph above exists to prevent.
-  //
-  // Read from the run rather than added to it, both halves, so a stage that
-  // ran zero tests cannot read as a stage that passed.
-  if (!tally) {
-    const v = output.match(/^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed(?: \| \d+ skipped)? \((\d+)\)/m)
-    if (v) tally = `  ${v[2]}/${v[3]} pass, ${v[1] ?? 0} fail`
-    else if (/^\s*Tests\s+no tests/m.test(output)) tally = '  0/0 pass, 0 fail'
+    // ── AND THE SAME FOR VITEST, WHICH COUNTS IN ITS OWN WORDS ─────────────
+    //
+    // Migration Round 1 Phase 3. node:test prints `# pass 440`; vitest prints
+    // `Tests  37 passed (37)`, or `Tests  2 failed | 35 passed (37)`. The parser
+    // above matched neither, so the React stage reported PASS with NO NUMBER -
+    // and a report quoting "37/37" would then have been a hand-typed second
+    // reader, which is the exact fault the paragraph above exists to prevent.
+    //
+    // Read from the run rather than added to it, both halves, so a stage that
+    // ran zero tests cannot read as a stage that passed.
+    if (!tally) {
+      const v = output.match(/^\s*Tests\s+(?:(\d+) failed \| )?(\d+) passed(?: \| \d+ skipped)? \((\d+)\)/m)
+      if (v) tally = `  ${v[2]}/${v[3]} pass, ${v[1] ?? 0} fail`
+      else if (/^\s*Tests\s+no tests/m.test(output)) tally = '  0/0 pass, 0 fail'
+    }
+    summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms${tally}`)
   }
-  summary.push(`${ok ? 'PASS' : 'FAIL'}  ${stage.name.padEnd(26)} exit ${run.status ?? 'n/a'}  ${ms}ms${tally}`)
+
+  const stamp = process.env.VERIFY_STAMP ?? String(process.hrtime.bigint())
+  const file = join(OUT_DIR, `verify-${stamp}.txt`)
+  writeFileSync(file, transcript.join('\n'))
+
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim()
+  const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim()
+  const dirty = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim()
+
+  console.log(`\nMERGE GATE  ${branch}  ${head}${dirty ? '  (WORKING TREE DIRTY)' : ''}`)
+  console.log(summary.map((l) => `  ${l}`).join('\n'))
+  console.log(`\nfull output: ${file}`)
+  // A SKIPPED stage is not a passed one and not a failed one, and saying so is
+  // the whole point of the pre-stage: "1 of 19 stages FAILED" beside fourteen
+  // skips reads correctly, where fourteen failures did not.
+  // F6: the verdict is computed by a function that can be exercised without a
+  // seventeen-minute run, rather than assembled inline where it went wrong.
+  //
+  // The skipped stages are counted by NAME against the stage list, not by
+  // position, so a reordering cannot silently move which one is required.
+  const skippedRequired = skippedStages.filter((s) => s.required).length
+
+  // The structural record and the printed summary must agree about how many
+  // stages skipped. If they ever disagree, one of them is lying and the gate
+  // says so rather than picking a side.
+  const printedSkips = summary.filter((l) => l.startsWith('SKIP')).length
+  if (printedSkips !== skippedStages.length) {
+    console.error(`\nGATE BOOKKEEPING BROKEN: ${printedSkips} SKIP lines printed but ` +
+      `${skippedStages.length} stages recorded as skipped. Refusing to report a verdict.`)
+    process.exit(2)
+  }
+
+  const verdict = gateVerdict({
+    stageCount: STAGES.length,
+    failed,
+    skippedRequired,
+    skippedOther: skippedStages.length - skippedRequired,
+    roundClose: ROUND_CLOSE,
+  })
+  console.log('\n' + verdict.lines.join('\n'))
+  process.exit(verdict.exitCode)
 }
 
-const stamp = process.env.VERIFY_STAMP ?? String(process.hrtime.bigint())
-const file = join(OUT_DIR, `verify-${stamp}.txt`)
-writeFileSync(file, transcript.join('\n'))
-
-const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim()
-const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim()
-const dirty = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout?.trim()
-
-console.log(`\nMERGE GATE  ${branch}  ${head}${dirty ? '  (WORKING TREE DIRTY)' : ''}`)
-console.log(summary.map((l) => `  ${l}`).join('\n'))
-console.log(`\nfull output: ${file}`)
-// A SKIPPED stage is not a passed one and not a failed one, and saying so is
-// the whole point of the pre-stage: "1 of 19 stages FAILED" beside fourteen
-// skips reads correctly, where fourteen failures did not.
-// F6: the verdict is computed by a function that can be exercised without a
-// seventeen-minute run, rather than assembled inline where it went wrong.
-//
-// The skipped stages are counted by NAME against the stage list, not by
-// position, so a reordering cannot silently move which one is required.
-const skippedRequired = skippedStages.filter((s) => s.required).length
-
-// The structural record and the printed summary must agree about how many
-// stages skipped. If they ever disagree, one of them is lying and the gate
-// says so rather than picking a side.
-const printedSkips = summary.filter((l) => l.startsWith('SKIP')).length
-if (printedSkips !== skippedStages.length) {
-  console.error(`\nGATE BOOKKEEPING BROKEN: ${printedSkips} SKIP lines printed but ` +
-    `${skippedStages.length} stages recorded as skipped. Refusing to report a verdict.`)
-  process.exit(2)
-}
-
-const verdict = gateVerdict({
-  stageCount: STAGES.length,
-  failed,
-  skippedRequired,
-  skippedOther: skippedStages.length - skippedRequired,
-  roundClose: ROUND_CLOSE,
-})
-console.log('\n' + verdict.lines.join('\n'))
-process.exit(verdict.exitCode)
+if (IS_MAIN) runGate()
