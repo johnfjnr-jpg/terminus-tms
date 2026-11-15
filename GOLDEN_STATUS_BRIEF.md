@@ -49,6 +49,33 @@ confirmed lives; one flag for five deals let one change erase four
 sign-offs). CURRENT_STATE if affected. Full gate, no skips. Push-ready SHA.
 STOP.
 
+PHASE 1 SIGN-OFF (John, 2026-11-15), appended at the phase it launches:
+- Schema: per-deal status/confirmedBy/confirmedOn; top-level status
+  REMOVED. ACCEPTED.
+- compute.mjs rule: carry status only when the deal's figures are
+  byte-identical to the prior file; otherwise PROVISIONAL with no name or
+  date; never writes CONFIRMED from nothing; missing/unparseable prior
+  file resets all and says so; key reorder resets (safe direction).
+  ACCEPTED. Superseded comment kept visible with a dated note.
+- Harness checks 1 to 5, including missing status = red and PROVISIONAL
+  with a name or date = red. ACCEPTED.
+- GOLDEN_DEALS.md carries no status, only a pointer to where it lives.
+  ACCEPTED.
+- Gate echo of the harness's GOLDEN STATUS block via markers; missing
+  markers on a passing stage fail the stage loudly. ACCEPTED.
+- calibrate.mjs rebuilt in this round (dead since ee177d8): G1-only anchor
+  for case 3, per-deal cases replace 5 to 7, case 1 expects G5. ACCEPTED.
+- engine.mjs "all four": measure G5's Test Bed cost before rewording.
+  ACCEPTED.
+R-GS5 (ADDITION, John rules): each CONFIRMED deal carries
+      confirmedFiguresSha256 = SHA-256 of JSON.stringify(figures, null, 2)
+      at confirmation. Harness refuses CONFIRMED whose figures no longer
+      hash to it, and CONFIRMED without the field. compute.mjs carries it
+      with the status (identical figures give an identical hash).
+      Calibrate: hand-edit one G2 figure leaving CONFIRMED fields: harness
+      red naming G2; revert. The G2-G4 stamp in Phase 2 computes the hash
+      from the re-proved byte-identical figures.
+
 QUEUED: John's Excel check of G1 and G5, then a one-commit stamp round;
 factoring on the term screen (spec v1.10 first); probe triage; 23
 harness rules cleanup; workflow audit_log gap.
