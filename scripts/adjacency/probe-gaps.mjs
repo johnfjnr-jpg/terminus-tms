@@ -784,15 +784,38 @@ try {
         const which = box('#deal-opex-year-slot') ? 'opex' : box('#deal-hybrid-schedule') ? 'hybrid'
           : box('#deal-capex-year-slot') ? 'capex' : 'none'
         if (!g || !sched) return { which, ok: false }
+        /* ── TO THE SCHEDULE'S HEAD, NOT ITS BODY. GATE HYGIENE G3, ruled by
+           John 2026-11-15, option (a) ─────────────────────────────────────
+           SUPERSEDED, QUOTED NOT DELETED: `above: Math.round(sched.top -
+           g.bottom)`, measured to the BODY. The driven check below already
+           says "THE SCHEDULE IS ITS HEAD AND ITS BODY" - the head is the part
+           Monthly changes - so this check and that one disagreed about what
+           the schedule is. At 1240 under Hybrid the 208px column wraps
+           "Hosting, annual in advance" onto two lines, and the body-measured
+           gap went 54 -> 72 with the radios sitting directly on the head.
+
+           The head is the one in the schedule's own column, directly above
+           its body: the same three heads the driven check reads, chosen by
+           geometry rather than by "first visible", so a head belonging to a
+           hidden or neighbouring schedule cannot stand in. No head is a
+           failure, not a fallback to the body. */
+        const head = ['.opex-year-head', '.capex-year-head', '.hg-colhead--right']
+          .flatMap((s) => [...document.querySelectorAll(s)]).filter(vis)
+          .map((e) => e.getBoundingClientRect())
+          .filter((h) => h.bottom <= sched.top + 1 && Math.min(h.right, sched.right) - Math.max(h.left, sched.left) > 0)
+          .sort((a, z) => z.bottom - a.bottom)[0]
+        if (!head) return { which, ok: false, nohead: true }
         return { which, ok: true,
-          above: Math.round(sched.top - g.bottom),
+          above: Math.round(head.top - g.bottom),
+          toBody: Math.round(sched.top - g.bottom),
           overlap: Math.round(Math.min(g.right, sched.right) - Math.max(g.left, sched.left)),
           schedWidth: Math.round(sched.width) }
       })
-      check(a5.ok, `A5 the invoicing group and a schedule are both rendered (${a5.which})`)
+      check(a5.ok, `A5 the invoicing group and a schedule are both rendered (${a5.which})`
+        + (a5.nohead ? ', but no head sits in the schedule\'s column above its body' : ''))
       if (a5.ok) {
         check(a5.above >= 0 && a5.above <= 60,
-          `A5 the radios sit IMMEDIATELY above the ${a5.which} schedule (${a5.above}px between them)`)
+          `A5 the radios sit IMMEDIATELY above the ${a5.which} schedule's head (${a5.above}px between them, ${a5.toBody}px to its body)`)
         check(a5.overlap > a5.schedWidth * 0.5,
           `A5 the radios sit OVER that schedule's column, not beside it `
           + `(${a5.overlap}px of ${a5.schedWidth}px)`)
@@ -1169,7 +1192,17 @@ try {
       const fit = await p.evaluate(() => {
         const vis = (e) => !!e && e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
         const over = []
-        for (const sel of ['#deal-section-1', '#deal-product-grid', '.units-row',
+        /* ── THE CARDS, NOT ONLY WHAT HOLDS THEM. GATE HYGIENE G3, 2026-11-15 ──
+           The Installation card's band ran 37px past the card at EVERY width,
+           and this list read it only at 1240: it rostered the PARENTS, and only
+           at 1240 is the parent narrow enough for the spill to cross it (by
+           3px). At 1440 and 1920 the overflow landed inside the wider parent
+           and was invisible. A containment check has to name the box that
+           overflows, not the box the overflow eventually reaches.
+           `#deal-product-grid` IS the Units card (its testid is
+           `deal-units-panel`) and was already here; the Installation card was
+           not. */
+        for (const sel of ['#deal-section-1', '#deal-product-grid', '#deal-install-panel', '.units-row',
           '#deal-contractor-group', '#deal-po-factoring', '.deal-payment-region',
           '#deal-opex-tables', '#deal-hybrid-group']) {
           const e = document.querySelector(sel)
@@ -1232,7 +1265,7 @@ try {
           `R-ADJ1 its accepted rightward overflow stays within 100px (${fx.over}px)`)
       }
       check(fresh.length === 0, `R-US4 every panel's content fits its own box`
-        + (fresh.length ? `\n         ${fresh.join('\n         ')}` : ' (eight containers checked)'))
+        + (fresh.length ? `\n         ${fresh.join('\n         ')}` : ' (nine containers checked)'))
       /* THE SHRINK CLAUSE ONLY APPLIES WHERE THE PAIR CAN OVERFLOW. Above
          1360 the factoring card is 340px and the 292px control FITS, so the
          entries correctly do not appear and asserting they must would fail on

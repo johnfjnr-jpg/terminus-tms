@@ -2637,6 +2637,23 @@ tbody tr:hover td { background: rgba(242,242,240,0.03); }
    the measured cause. The same mistake as `#deal-lump-summary` below:
    `max-content` measures the prose, not the fields. */
 #deal-intake-head .deal-field { width: min-content; }
+/* ── AND THE TEXT-ONLY GROUPS WRAP TOO. GATE HYGIENE G3, 2026-11-15 ───────
+   The rule above reached `.deal-field` and stopped there. Under Per Unit the
+   band shows the responsibility select beside `#deal-install-seetable`, a
+   `.form-group` holding only a label and a sentence, so `max-content` sized
+   it to "CONTRACTOR PRICING" on one line: 151.2px beside 232 + 24, a 407px
+   band in a 354px card. The Installation card overflowed by 37px at EVERY
+   width; the containment check saw it only at 1240, where it also crossed
+   the parent, because the card itself was not on its roster.
+
+   MEASURED BEFORE IT WAS WRITTEN, injected at 1920, 1440 and 1240: wrapped,
+   the group is 84px and the card reads 386 of 386 at all three, with 31px
+   to spare. The cost is height, 28px on the shared band track, which both
+   cards take together so their heads stay on one line. Lump Sum is untouched
+   (397 of 397 before and after). Track widening, the alternative, was not
+   needed. `#deal-install-notapplicable` is the same shape of group and gets
+   the same rule rather than waiting to be found the same way. */
+#deal-install-seetable, #deal-install-notapplicable { width: min-content; }
 /* And the ruling's assertion: the lump-sum input and the responsibility
    select share their top and bottom edges. With the label on two lines the
    groups no longer start level, so the band aligns on its BOTTOM edge, and
