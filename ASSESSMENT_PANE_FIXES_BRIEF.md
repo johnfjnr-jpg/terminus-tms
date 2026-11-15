@@ -60,3 +60,32 @@ Full gate, no skipped stages. Push-ready SHA. STOP.
 QUEUED, NOT THIS ROUND: view-wide keyboard reach of frozen inputs; revision
 reason prefill/append; gate-hygiene round; workflow audit_log gap; C3;
 refusal wording; CHECKING...; per-lens spider.
+
+---
+
+## PHASE 1 SIGN-OFF (John, 2026-11-15), appended at the phase it launches
+
+F1, F2 premises ACCEPTED as reported.
+- Cancel is the Discard the brief means; no label change.
+- Disclosure buttons stay live while frozen.
+- Bar shown on its own while frozen; measure it in the viewport at
+  1240/1440/1920.
+- The sweep as a second writer of disabled: accepted on order today;
+  Phase 2 reads state after a settled wait so a reorder fails the proof.
+F2 positions ACCEPTED: oppAssessMissingLevels gate unchanged; one
+"Not saved:" list, semicolon-separated, for skipped and server-refused.
+
+F3: John rules OPTION A. Add 'tabpanel' to NON_WIDGET_ROLES (app.js:1978).
+Proof additions for A:
+- On both not-mine records, #opp-tab-assessment AND #opp-tab-reference:
+  no is-inert-action or aria-disabled on the panel after a settled wait;
+  every lens sub-tab switches its pane; Reference navigation works.
+- Census, settled wait, both panels: 0 enabled inputs/selects/textareas;
+  0 enabled non-navigation buttons; 0 writes.
+- On an OWNED record: both panels unchanged (no new disabled, no lost
+  tab stop beyond the panel's own).
+- Calibrate: remove 'tabpanel' from NON_WIDGET_ROLES and the sub-tab
+  switch check fails on both panels.
+- Server unchanged; RLS untouched.
+
+Proceed to Phase 2. Stop for sign-off.
