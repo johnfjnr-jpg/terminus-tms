@@ -111,3 +111,34 @@ no unwired reason; probe-dead-selectors has no pass/fail;
 probe-version-join exits 0 on SKIP.
 
 Proceed to Phase 2. Stop for sign-off.
+
+---
+
+PHASE 2 SIGN-OFF: GATE HYGIENE (appended at the phase it launches)
+
+Phase 2 ACCEPTED at bea9c4b.
+- R-US4: only #deal-install-panel added (#deal-product-grid already
+  rostered): accepted. Not-applicable group given the same rule: accepted.
+- G1, G2, G4: accepted as proved.
+
+A5 BOUND: option (i). Radios to schedule HEAD <= 36px, derived from the
+original ruling (old 60px to body minus the head-to-body 24px), not from
+today's readings. Record the derivation at the site.
+NOT option (ii): a bound read from live computed margins grows with a
+margin-based fault and goes silent.
+Calibrate in Phase 3, both ways, all 15 states:
+  (a) #deal-invoicing-toggle margin +40px: A5 fails in 15 of 15;
+  (b) the same radios displaced by transform: translateY(+40px) (or
+      equivalent not touching margin): A5 fails in 15 of 15.
+Report per-state readings. Any silent state: STOP.
+
+QUEUED: scripts/leads-card/calibrate-gate-verdict.mjs no longer runs
+(old verdict shape); retire in the probe triage round.
+
+Proceed to Phase 3: A5 bound and calibration first, then DESIGN_PRINCIPLES
+entries (a skipped stage is a failed stage, with F6's supersession and
+reasoning visible; a detector nobody runs detects nothing; the residue
+query lesson; the A5 bound lesson: re-aiming a check must carry its
+strictness over, and a bound must not be read from the thing it bounds),
+CURRENT_STATE if affected, full gate (NordVPN OFF, PUPPETEER_PATH set, no
+skips), push-ready SHA. Rule 18. Stop.
