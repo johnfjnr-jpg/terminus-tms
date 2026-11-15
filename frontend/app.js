@@ -4628,7 +4628,8 @@ function renderOppAssessSaveBar() {
 // "Saved 1 of 1." was on screen for 3.4s and then wiped by the same reload,
 // so a person who looked away missed what had happened. The report now carries
 // success too, and its lifetime is the ruled one for both: dropped at the next
-// draft change, Cancel, the next save, or leaving the record (an arrival).
+// draft change, Cancel, the next save, or leaving the record (an arrival). The
+// next save needs no drop of its own: see the note at the top of the save.
 let oppAssessSaveReport = null
 
 // One drop, so every condition takes the message off the screen as well as out
@@ -4710,7 +4711,12 @@ window.saveAllOppAssess = async function () {
   }
   const keys = oppAssessDirtyKeys()
   if (!keys.length) return
-  dropOppAssessSaveReport()
+  // NO DROP HERE, and that is measured rather than forgotten. "Dropped at the
+  // next save" was built as a drop at this line and calibrated SILENT: removing
+  // it changed nothing observable. Every save either follows a draft change,
+  // which has already dropped the report, or ends by writing a new report over
+  // the old one, so a drop here could never be the thing that removed it.
+  // Removed as redundant on John's ruling, 2026-11-15 (AFTER-SAVE STATE J7).
 
   // Round 30 Phase 2: a reason typed against a criterion that has never been
   // assessed has no level to be recorded against. Refused here, before
