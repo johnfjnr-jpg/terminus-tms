@@ -1540,3 +1540,258 @@ test('4.6: comparison only; the engine refuses a product it cannot price, as the
   assert.throws(() => manual({ 12: '100.00' }, SPEC_PARAMS, 'nothing'),
     (e) => e instanceof TermPricingError && e.code === 'NO_COST')
 })
+
+// ── v1.10 (TERM_FACTORING): PO factoring, spec sections 9.2 to 9.6 and 11.6 ──
+//
+// FA-1 to FA-9 are COPIED from spec 11.6, computed by hand in the Phase 1
+// report and its sign-off; never computed by the code under test. FA-8 is the
+// captured baseline: every output of the engine BEFORE factoring existed,
+// over a fixed population, compared field by field.
+
+import { readFileSync } from 'node:fs'
+import { population, run, canonical } from '../term-pricing/capture-factoring-off-baseline.mjs'
+
+const FX = (over = {}) => ({ factoring: { enabled: true, ratePct: '1.0', termMonths: 12, method: 'straight', treatment: 'absorb', ...over } })
+const cents = (s) => BigInt(s.replace(/[,.]/g, ''))
+const monthOf = (q, m) => q.cashFlow.rows.find((r) => r.month === m)
+const runOf = (q, m) => q.schedule.find((r) => r.fromMonth <= m && m <= r.toMonth)
+
+test('FA-1 loan 960,000.00 at 1.0%/month over 12 months, straight: principal 80,000.00, interest 800 x (13 - k), F 62,400.00', () => {
+  const s = ENGINE.loanSchedule(cents('960,000.00'), '1.0', 12, 'straight')
+  assert.deepEqual(s.months.map((x) => money(x.principalCents)), Array(12).fill('80,000.00'))
+  assert.deepEqual(s.months.map((x) => money(x.interestCents)), ['9,600.00', '8,800.00', '8,000.00', '7,200.00', '6,400.00',
+    '5,600.00', '4,800.00', '4,000.00', '3,200.00', '2,400.00', '1,600.00', '800.00'])
+  assert.equal(money(s.interestCents), '62,400.00')
+})
+
+test('FA-2 the same loan, declining: a level payment, the last month clearing the balance; F 63,538.05', () => {
+  const s = ENGINE.loanSchedule(cents('960,000.00'), '1.0', 12, 'declining')
+  const pi = (i) => [money(s.months[i].principalCents), money(s.months[i].interestCents)]
+  assert.deepEqual(pi(0), ['75,694.84', '9,600.00'])
+  assert.deepEqual(pi(1), ['76,451.79', '8,843.05'])
+  assert.deepEqual(pi(11), ['84,450.34', '844.50'])
+  assert.equal(money(s.months.reduce((t, x) => t + x.principalCents, 0n)), '960,000.00')
+  assert.equal(money(s.interestCents), '63,538.05')
+})
+
+test('FA-3 T6, factoring on, Absorb: the price is unchanged; profit and margin before and after finance', () => {
+  const off = quote({ safesight: 120 }, 60)
+  const q = quote({ safesight: 120 }, 60, FX())
+  assert.equal(money(q.monthlyTotalCents), '289,818.77')
+  assert.equal(money(q.tcvNetCents), '17,389,126.20')
+  assert.deepEqual(canonical(q.schedule), canonical(off.schedule), 'Absorb invoices exactly what factoring off invoices')
+  assert.equal(money(q.factoring.advanceCents), '960,000.00', 'the advance defaults to the hardware cost')
+  assert.equal(money(q.factoring.profitBeforeFinanceCents), '14,989,126.20')
+  assert.equal(money(q.grossProfitCents), '14,926,726.20')
+  assert.equal(pct(q.factoring.marginBeforeFinance), '86.2')
+  assert.equal(pct(q.grossMargin), '85.8')
+})
+
+test('FA-3, Phase 1 ruling 2: under Absorb the margin floor reads the margin AFTER finance cost', () => {
+  // 86.0% sits between the two: 86.2% before finance, 85.8% after.
+  const p = withParams({ MARGIN_FLOOR: '86' })
+  assert.equal(quote({ safesight: 120 }, 60, {}, p).belowMarginFloor, false, 'off: 86.2% is above the floor')
+  assert.equal(quote({ safesight: 120 }, 60, FX(), p).belowMarginFloor, true, 'Absorb: 85.8% after finance is below it')
+  assert.equal(quote({ safesight: 120 }, 60, FX({ treatment: 'pass_through' }), p).belowMarginFloor, true,
+    'Pass through: 85.9% including the pass-through is below it')
+})
+
+test('FA-4 T6, Pass through: 8.67 per unit per month, -24.00 on month 60, profit unchanged, bands untouched', () => {
+  const off = quote({ safesight: 120 }, 60)
+  const q = quote({ safesight: 120 }, 60, FX({ treatment: 'pass_through' }))
+  const l = q.lines[0]
+  assert.equal(money(l.passThrough.perUnitMonthlyCents), '8.67')
+  assert.equal(money(l.passThrough.remainderCents), '-24.00')
+  assert.deepEqual([runOf(q, 1).fromMonth, runOf(q, 1).toMonth, money(runOf(q, 1).netCents)], [1, 59, '290,859.17'])
+  assert.deepEqual([runOf(q, 60).fromMonth, money(runOf(q, 60).netCents)], [60, '290,835.17'])
+  assert.equal(money(q.tcvNetCents), '17,451,526.20')
+  assert.equal(money(q.totalCostCents), '2,462,400.00')
+  assert.equal(money(q.grossProfitCents), '14,989,126.20')
+  assert.equal(pct(q.grossMargin), '85.9')
+  assert.equal(money(l.bands[0].feeByYear[0]), '2,613.33')
+  assert.deepEqual(canonical(l.bands), canonical(off.lines[0].bands), 'every band, fee and total is as with factoring off')
+})
+
+test('FA-5 the demo deal, Pass through: F allocated by hardware cost, per product, the deal still the sum of its lines', () => {
+  const q = quote(DEMO, 60, FX({ treatment: 'pass_through' }), CATALOG)
+  assert.equal(money(q.factoring.costCents), '80,600.00')
+  assert.deepEqual(q.factoring.allocation.map((a) => money(a.costCents)), ['62,400.00', '5,200.00', '13,000.00'])
+  assert.deepEqual(q.lines.map((x) => money(x.passThrough.perUnitMonthlyCents)), ['8.67', '2.17', '108.33'])
+  assert.deepEqual(q.lines.map((x) => money(x.passThrough.remainderCents)), ['-24.00', '-8.00', '0.40'])
+  assert.equal(money(q.factoring.passThroughMonthlyCents), '1,343.86')
+  assert.equal(money(q.factoring.passThroughLastExtraCents), '-31.60')
+  assert.deepEqual([runOf(q, 1).toMonth, money(runOf(q, 1).netCents), money(runOf(q, 60).netCents)], [59, '368,320.71', '368,289.11'])
+  assert.equal(money(q.tcvNetCents), '22,099,211.00')
+  assert.equal(money(q.grossProfitCents), '19,038,611.00')
+  assert.equal(pct(q.grossMargin), '86.2')
+  assert.deepEqual(q.lines.map((x) => [money(x.tcvNetCents), pct(x.grossMargin)]),
+    [['17,451,526.20', '85.9'], ['2,250,684.40', '85.6'], ['2,397,000.40', '88.6']])
+})
+
+test('FA-6 the demo deal as CAPEX G-C1, Pass through: added to the subscription outside CPI', () => {
+  const q = quote(DEMO, 60, { paymentStructure: 'capex', ...FX({ treatment: 'pass_through' }) }, CATALOG)
+  assert.equal(money(q.capex.capexCents), '1,550,000.00')
+  assert.deepEqual([runOf(q, 0).toMonth, money(runOf(q, 0).netCents)], [0, '1,550,000.00'])
+  assert.deepEqual([runOf(q, 1).fromMonth, runOf(q, 1).toMonth, money(runOf(q, 1).netCents)], [1, 59, '342,487.38'])
+  assert.equal(money(runOf(q, 60).netCents), '342,455.58')
+  assert.equal(money(q.tcvNetCents), '22,099,211.00')
+})
+
+test('FA-7 T6 Absorb, the cash flow: rows, month-1 timing, repayments from month 2, and the headline', () => {
+  const q = quote({ safesight: 120 }, 60, FX())
+  const row = (m, keys) => keys.map((k) => money(monthOf(q, m)[k]))
+  assert.equal(monthOf(q, 0), undefined, 'OPEX has no month 0')
+  assert.deepEqual(row(1, ['clientCents', 'hostingCents', 'procurementCents', 'advanceCents', 'principalCents', 'netCents']),
+    ['289,818.77', '-24,000.00', '-960,000.00', '960,000.00', '0.00', '265,818.77'])
+  assert.deepEqual(row(2, ['principalCents', 'interestCents', 'netCents', 'balanceCents']),
+    ['-80,000.00', '-9,600.00', '176,218.77', '442,037.54'])
+  assert.deepEqual(row(13, ['interestCents', 'netCents', 'balanceCents']), ['-800.00', '185,018.77', '2,433,244.01'])
+  assert.equal(money(monthOf(q, 14).principalCents), '0.00', 'the facility is repaid by month 13')
+  assert.equal(money(monthOf(q, 60).balanceCents), '14,926,726.20')
+  assert.deepEqual([money(q.cashFlow.lowest.balanceCents), q.cashFlow.lowest.month, q.cashFlow.paybackMonth], ['265,818.77', 1, 1])
+  const w = q.factoring.without
+  assert.deepEqual([money(w.lowest.balanceCents), w.lowest.month, w.paybackMonth], ['-694,181.23', 1, 4])
+})
+
+test('FA-7: client payments are what Terminus receives, after WHT and excluding GST (R-TF8)', () => {
+  // T21's invoice: 289,818.77 with WHT 10% borne, so Terminus receives 260,836.89; GST 9% is never counted.
+  const q = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: false, gstPct: '9', ...FX() })
+  assert.equal(money(monthOf(q, 5).clientCents), '260,836.89')
+})
+
+test('FA-7: under Pass through the without-factoring run is the price without the pass-through', () => {
+  const q = quote({ safesight: 120 }, 60, FX({ treatment: 'pass_through' }))
+  assert.equal(money(q.factoring.without.monthlyTotalCents), '289,818.77')
+  assert.deepEqual([money(q.factoring.without.lowest.balanceCents), q.factoring.without.paybackMonth], ['-694,181.23', 4])
+})
+
+test('FA-8 factoring OFF moves nothing the engine returns: every captured output, field by field', () => {
+  const pop = population()
+  assert.equal(BASELINE.cases.length, pop.length, 'the population is the one that was captured')
+  assert.ok(pop.length > 100)
+  const ALLOWED = new Set(['hardwareCostCents', 'hostingMonthlyCents', 'factoring', 'cashFlow',
+    'lines[].hardwareCostCents', 'lines[].hostingMonthlyCents', 'lines[].factoringCostCents', 'lines[].passThrough'])
+  let comparedQuotes = 0
+  for (const offInput of [(i) => i, (i) => ({ ...i, factoring: { enabled: false, ratePct: '', termMonths: null } })]) {
+    pop.forEach(([id, kind, input], i) => {
+      assert.equal(BASELINE.cases[i].id, id)
+      const variant = kind === 'quote' || kind === 'preview' ? offInput(input) : input
+      const now = canonical(run(kind, variant))
+      const added = new Set()
+      const diffs = []
+      compareTo(BASELINE.cases[i].output, now, '', added, diffs)
+      assert.deepEqual(diffs, [], `${id}: a captured field moved`)
+      const q = kind === 'preview' ? now.quote : kind === 'quote' && !now.refused ? now : null
+      const prefix = kind === 'preview' ? 'quote.' : ''
+      const unexpected = [...added].filter((k) => !ALLOWED.has(k.startsWith(prefix) ? k.slice(prefix.length) : k))
+      assert.deepEqual(unexpected, [], `${id}: fields added that are not the factoring fields`)
+      if (q) {
+        comparedQuotes++
+        assert.equal(q.factoring, null, `${id}: factoring is null when off`)
+        for (const l of q.lines) { assert.equal(l.factoringCostCents, '0n'); assert.equal(l.passThrough, null) }
+        assert.ok(added.size > 0, `${id}: the comparison saw the new fields, so it reached the quote`)
+      }
+    })
+  }
+  assert.ok(comparedQuotes > 150, `quotes compared: ${comparedQuotes}`)
+})
+
+function compareTo(base, now, path, added, diffs) {
+  if (Array.isArray(base)) {
+    if (!Array.isArray(now) || now.length !== base.length) { diffs.push(`${path}: length`); return }
+    base.forEach((b, i) => compareTo(b, now[i], `${path}[${i}]`, added, diffs))
+  } else if (base && typeof base === 'object') {
+    if (!now || typeof now !== 'object' || Array.isArray(now)) { diffs.push(`${path}: not an object`); return }
+    for (const k of Object.keys(base)) compareTo(base[k], now[k], path ? `${path}.${k}` : k, added, diffs)
+    for (const k of Object.keys(now)) if (!(k in base)) added.add((path ? `${path}.${k}` : k).replace(/\[\d+\]/g, '[]'))
+  } else if (base !== now) {
+    diffs.push(`${path}: ${JSON.stringify(base)} -> ${JSON.stringify(now)}`)
+  }
+}
+const BASELINE = JSON.parse(readFileSync(new URL('../term-pricing/factoring-off-baseline.json', import.meta.url), 'utf8'))
+
+test('FA-9 engine only: an advance SCHEDULE, each entry its own facility, and the cash flow follows it (R-TF12)', () => {
+  const q = quote({ safesight: 120 }, 60, FX({ advanceSchedule: [{ month: 1, amount: '600000.00' }, { month: 7, amount: '360000.00' }] }))
+  const [f1, f2] = q.factoring.facilities
+  assert.deepEqual([f1.month, money(f1.months[0].principalCents), money(f1.interestCents)], [1, '50,000.00', '39,000.00'])
+  assert.deepEqual(f1.months.map((x) => money(x.interestCents)).filter((_, i) => i === 0 || i === 11), ['6,000.00', '500.00'])
+  assert.deepEqual([f2.month, money(f2.months[0].principalCents), money(f2.interestCents)], [7, '30,000.00', '23,400.00'])
+  assert.deepEqual(f2.months.map((x) => money(x.interestCents)).filter((_, i) => i === 0 || i === 11), ['3,600.00', '300.00'])
+  assert.equal(money(monthOf(q, 1).advanceCents), '600,000.00')
+  assert.equal(money(monthOf(q, 7).advanceCents), '360,000.00')
+  assert.deepEqual([money(monthOf(q, 8).principalCents), money(monthOf(q, 8).interestCents)], ['-80,000.00', '-6,600.00'])
+  assert.deepEqual([money(monthOf(q, 19).principalCents), money(monthOf(q, 19).interestCents)], ['-30,000.00', '-300.00'])
+  assert.equal(money(monthOf(q, 20).principalCents), '0.00')
+  assert.equal(money(q.factoring.costCents), '62,400.00')
+})
+
+test('FA-9 engine only: a vendor payment SCHEDULE, and the procurement row follows it (R-TF12)', () => {
+  const q = quote({ safesight: 120 }, 60, { vendorPayments: [{ month: 1, amount: '500000.00' }, { month: 4, amount: '460000.00' }] })
+  assert.equal(money(monthOf(q, 1).procurementCents), '-500,000.00')
+  assert.equal(money(monthOf(q, 4).procurementCents), '-460,000.00')
+  assert.equal(money(quote({ safesight: 120 }, 60).cashFlow.rows[0].procurementCents), '-960,000.00', 'the default is one entry, month 1, the hardware cost')
+})
+
+test('v1.10: the deal is the exact sum of its lines with factoring on, both treatments, OPEX and CAPEX, with CPI', () => {
+  for (const extra of [FX(), FX({ treatment: 'pass_through' }), { ...FX({ treatment: 'pass_through', method: 'declining' }), ...LOCK('3') },
+    { paymentStructure: 'capex', ...LOCK('3'), ...FX({ treatment: 'pass_through' }) }]) {
+    const q = quote(DEMO, 60, extra, CATALOG)
+    const sum = (k) => q.lines.reduce((s, l) => s + l[k], 0n)
+    assert.equal(sum('tcvNetCents'), q.tcvNetCents)
+    assert.equal(sum('costCents'), q.totalCostCents)
+    assert.equal(sum('grossProfitCents'), q.grossProfitCents)
+    assert.equal(sum('factoringCostCents'), q.factoring.costCents)
+  }
+})
+
+test('v1.10 (9.4): the pass-through is NOT escalated by CPI', () => {
+  const off = quote({ safesight: 120 }, 60, LOCK('3'))
+  const q = quote({ safesight: 120 }, 60, { ...LOCK('3'), ...FX({ treatment: 'pass_through' }) })
+  for (const m of [1, 13, 25, 37, 49, 59]) {
+    assert.equal(money(runOf(q, m).netCents - runOf(off, m).netCents), '1,040.40', `month ${m}: 120 x 8.67, the same every year`)
+  }
+  assert.equal(money(runOf(q, 60).netCents - runOf(off, 60).netCents), '1,016.40', 'month 60 carries the -24.00')
+})
+
+test('v1.10 (9.4): every hardware cost 0 allocates the factoring cost by units', () => {
+  const p = withParams({ costs: { safesight: { hwCost: '0.00', hostingMonthly: '200.00' }, 'TEST-B': { hwCost: '0.00', hostingMonthly: '50.00' } } })
+  const q = quote({ safesight: 30, 'TEST-B': 10 }, 60, FX({ advance: '100000.00', treatment: 'pass_through' }), p)
+  assert.equal(money(q.factoring.costCents), '6,500.00')
+  assert.deepEqual(q.factoring.allocation.map((a) => money(a.costCents)), ['4,875.00', '1,625.00'])
+})
+
+test('v1.10 (R-TF3): the advance can be typed over from 0, and a note flag shows above the hardware cost', () => {
+  assert.equal(quote({ safesight: 120 }, 60, FX()).factoring.advanceAboveHardwareCost, false)
+  const over = quote({ safesight: 120 }, 60, FX({ advance: '1000000.00' }))
+  assert.deepEqual([money(over.factoring.advanceCents), over.factoring.advanceAboveHardwareCost], ['1,000,000.00', true])
+  const zero = quote({ safesight: 120 }, 60, FX({ advance: '0', treatment: 'pass_through' }))
+  assert.deepEqual([money(zero.factoring.costCents), money(zero.tcvNetCents)], ['0.00', '17,389,126.20'])
+})
+
+test('v1.10, Phase 1 rulings 3 and 6: refusals, each for its own reason', () => {
+  const refused = (f, code) => assert.throws(() => quote({ safesight: 120 }, 60, { factoring: { enabled: true, ratePct: '1.0', termMonths: 12, ...f } }),
+    (e) => e instanceof TermPricingError && e.code === code, JSON.stringify(f))
+  refused({ ratePct: '' }, 'FACTORING_RATE')
+  refused({ ratePct: null }, 'FACTORING_RATE')
+  refused({ ratePct: '100' }, 'FACTORING_RATE')
+  refused({ ratePct: '-1' }, 'FACTORING_RATE')
+  refused({ termMonths: null }, 'FACTORING_TERM')
+  refused({ termMonths: '' }, 'FACTORING_TERM')
+  refused({ termMonths: 0 }, 'FACTORING_TERM')
+  refused({ termMonths: 60 }, 'FACTORING_TERM')
+  refused({ method: 'balloon' }, 'FACTORING_METHOD')
+  refused({ treatment: 'markup' }, 'FACTORING_TREATMENT')
+  refused({ advance: '1.234' }, 'FACTORING_ADVANCE')
+  refused({ advance: '-5' }, 'FACTORING_ADVANCE')
+  refused({ advance: '5', advanceSchedule: [{ month: 1, amount: '5' }] }, 'FACTORING_ADVANCE')
+  refused({ advanceSchedule: [{ month: 49, amount: '5' }] }, 'FACTORING_SCHEDULE')
+  assert.equal(quote({ safesight: 120 }, 60, FX({ termMonths: 59 })).factoring.termMonths, 59, 'T - 1 is the longest term')
+  assert.match(String((() => { try { quote({ safesight: 120 }, 60, FX({ termMonths: 60 })) } catch (e) { return e.message } })()),
+    /from 1 to 59, so every repayment falls inside the 60-month contract/)
+  assert.throws(() => quote({ safesight: 120 }, 60, { factoring: { enabled: 'yes' } }), (e) => e.code === 'BAD_FACTORING')
+})
+
+test('v1.10: the ladders exclude factoring (accepted at Phase 1)', () => {
+  const plain = termLadder({ units: { safesight: 120 } }, SPEC_PARAMS)
+  assert.deepEqual(canonical(termLadder({ units: { safesight: 120 }, ...FX({ treatment: 'pass_through' }) }, SPEC_PARAMS)), canonical(plain))
+})

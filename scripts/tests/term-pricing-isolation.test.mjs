@@ -55,6 +55,11 @@ export const ALLOWED_IMPORTERS = [
   // that factoring off moves nothing the engine returns, not only the figures
   // the spec prints. A test fixture's capture, not a pricing caller.
   'scripts/term-pricing/capture-factoring-off-baseline.mjs',
+  // TERM_FACTORING Phase 2 (R-TF9): the parity test, the ONE file that imports
+  // both the term engine and the deal-sheet engine, to hold the re-implemented
+  // loan schedule and cash flow timing to Commercials' to the cent. Ruled at
+  // the Phase 1 sign-off. The engine itself still imports nothing (part 1).
+  'scripts/tests/term-factoring-parity.test.mjs',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']

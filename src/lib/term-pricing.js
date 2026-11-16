@@ -1,6 +1,6 @@
 // ── THE TERM PRICING ENGINE ──────────────────────────────────────────────
 //
-// Implements docs/pricing-spec.md (Specification v1.9) exactly. CLAUDE.md
+// Implements docs/pricing-spec.md (Specification v1.10) exactly. CLAUDE.md
 // Architecture rule 14: no hard-coded parameters, no floats for money. That
 // rule does not govern the deal-sheet engine, and this file is not part of it.
 //
@@ -406,7 +406,172 @@ export function bandMarginGrid(product, bands, params) {
   }
 }
 
-// ── The quote: sections 4.3, 4.4, 6, 7, 8 ────────────────────────────────
+// ── Section 9.2: the loan schedule (v1.10, TERM_FACTORING) ───────────────
+//
+// Commercials' arithmetic (deal-calculator `buildLoanSchedule`), RE-IMPLEMENTED
+// here in exact fractions, because R-TP1 forbids importing it and Architecture
+// 14 forbids its floats (R-TF9). Interest is charged on the balance BEFORE the
+// month's repayment; declining balance is a level annuity payment whose last
+// month clears the balance, exactly as Commercials.
+//
+// The schedule is held exactly. Each month's interest is rounded half-up to
+// cents on its own, and so is each month's principal, the LAST month carrying
+// the remainder so the principal repaid is the advance to the cent (spec 9.2,
+// C-7). The factoring cost F is the sum of the interest cents, which is what
+// the facility charges. scripts/tests/term-factoring-parity.test.mjs holds
+// this to Commercials' own schedule, month by month, both methods.
+
+const MONEY_2DP = /^\d+(\.\d{1,2})?$/
+const blank = (v) => v == null || (typeof v === 'string' && v.trim() === '')
+
+/**
+ * loanSchedule(advanceCents, ratePct, termMonths, method)
+ *   advanceCents  BigInt cents, at least 0
+ *   ratePct       decimal string, percent PER MONTH, 0 up to but not including 100
+ *   termMonths    whole number, at least 1
+ *   method        'straight' | 'declining'
+ * -> { advanceCents, ratePct, termMonths, method, interestCents,
+ *      months: [{ i, principalCents, interestCents, principalExact, interestExact }] }
+ * `i` is the repayment's position, 1 to n; the cash flow places it in month
+ * (drawn month + i). The exact fractions are exposed for the parity test.
+ */
+export function loanSchedule(advanceCents, ratePct, termMonths, method = 'straight') {
+  const n = safeInt(termMonths, 'factoring term')
+  if (n < 1) throw new TermPricingError('FACTORING_TERM', 'The factoring term must be at least 1 month.')
+  if (method !== 'straight' && method !== 'declining') {
+    throw new TermPricingError('FACTORING_METHOD', 'Repayment is Straight-line or Declining balance.')
+  }
+  const r = pctToRatio(ratePct, 'factoring rate')
+  if (cmp(r, ZERO) < 0 || cmp(r, ONE) >= 0) {
+    throw new TermPricingError('FACTORING_RATE', 'The factoring rate must be at least 0% and below 100% per month.')
+  }
+  const cents = typeof advanceCents === 'bigint' ? advanceCents : BigInt(safeInt(advanceCents, 'advance'))
+  if (cents < 0n) throw new TermPricingError('FACTORING_ADVANCE', 'The advance cannot be negative.')
+  const A = fromCents(cents)
+  const exact = []
+  let balance = A
+  if (method === 'declining') {
+    // A × r / (1 − (1 + r)^−n), written as A × r × g / (g − 1) with g = (1 + r)^n
+    // so the power stays a whole exponent; A / n when there is no interest.
+    const g = pow(add(ONE, r), n)
+    const payment = cmp(r, ZERO) === 0 ? div(A, fromInt(n)) : div(mul(mul(A, r), g), sub(g, ONE))
+    for (let i = 0; i < n; i++) {
+      const interest = mul(balance, r)
+      let principal = sub(payment, interest)
+      if (i === n - 1 || cmp(principal, balance) > 0) principal = balance
+      balance = sub(balance, principal)
+      exact.push([principal, interest])
+    }
+  } else {
+    const principal = div(A, fromInt(n))
+    for (let i = 0; i < n; i++) {
+      exact.push([principal, mul(balance, r)])
+      balance = sub(balance, principal)
+    }
+  }
+  let repaid = 0n
+  const months = exact.map(([principal, interest], i) => {
+    const principalCents = i < n - 1 ? roundHalfUp(principal, 2) : cents - repaid
+    repaid += principalCents
+    return { i: i + 1, principalCents, interestCents: roundHalfUp(interest, 2), principalExact: principal, interestExact: interest }
+  })
+  return {
+    advanceCents: cents, ratePct, termMonths: n, method,
+    interestCents: months.reduce((s, x) => s + x.interestCents, 0n),
+    months,
+  }
+}
+
+/** A money amount as typed: from 0, at most 2 decimals, to BigInt cents. */
+function moneyCents(v, code, message) {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (!MONEY_2DP.test(s)) throw new TermPricingError(code, message)
+  return roundHalfUp(parseDecimal(s), 2)
+}
+
+/**
+ * Section 2 and 9.2 (v1.10): the factoring inputs, refused where blank or out
+ * of range rather than given a value nobody entered (Phase 1 ruling 6,
+ * Architecture 11). Null when factoring is off, which is what keeps every
+ * v1.9 figure unchanged (FA-8).
+ *
+ * raw = { enabled, ratePct, termMonths, method, treatment,
+ *         advance (money string; blank = the hardware cost),
+ *         advanceSchedule ([{ month, amount }], engine level, R-TF12) }
+ */
+function factoringPlan(raw, T, hardwareCostCents) {
+  if (raw == null) return null
+  if (typeof raw !== 'object') throw new TermPricingError('BAD_FACTORING', 'factoring must be an object')
+  if (raw.enabled !== true && raw.enabled !== false && raw.enabled !== undefined) {
+    throw new TermPricingError('BAD_FACTORING', 'factoring.enabled must be true or false')
+  }
+  if (raw.enabled !== true) return null
+
+  if (blank(raw.ratePct)) throw new TermPricingError('FACTORING_RATE', 'Enter the factoring rate, % per month. A blank rate is not 0.')
+  if (typeof raw.ratePct !== 'string' || !/^\d+(\.\d+)?$/.test(raw.ratePct.trim())) {
+    throw new TermPricingError('FACTORING_RATE', 'Enter the factoring rate as a percentage per month, for example 1.5.')
+  }
+  if (blank(raw.termMonths)) throw new TermPricingError('FACTORING_TERM', 'Enter the factoring term in months.')
+  const n = raw.termMonths
+  if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 1 || n > T - 1) {
+    throw new TermPricingError('FACTORING_TERM',
+      `The factoring term must be a whole number of months from 1 to ${T - 1}, so every repayment falls inside the ${T}-month contract.`)
+  }
+  const method = raw.method ?? 'straight'
+  if (method !== 'straight' && method !== 'declining') {
+    throw new TermPricingError('FACTORING_METHOD', 'Repayment is Straight-line or Declining balance.')
+  }
+  const treatment = raw.treatment ?? 'absorb'
+  if (treatment !== 'absorb' && treatment !== 'pass_through') {
+    throw new TermPricingError('FACTORING_TREATMENT', 'The factoring cost is Absorbed or Passed through.')
+  }
+
+  // R-TF12: the advance is a SCHEDULE, one entry today. The screen gives one
+  // amount (or none, meaning the hardware cost); a schedule is engine level.
+  const advanceMessage = 'Enter the advance in USD from 0, with at most two decimals, for example 960000.00.'
+  let entries
+  if (raw.advanceSchedule != null) {
+    if (!blank(raw.advance)) throw new TermPricingError('FACTORING_ADVANCE', 'Give the advance or an advance schedule, not both.')
+    if (!Array.isArray(raw.advanceSchedule) || raw.advanceSchedule.length < 1) {
+      throw new TermPricingError('FACTORING_SCHEDULE', 'An advance schedule has at least one entry.')
+    }
+    entries = raw.advanceSchedule.map((e) => ({ month: e?.month, cents: moneyCents(e?.amount, 'FACTORING_ADVANCE', advanceMessage) }))
+  } else {
+    entries = [{ month: 1, cents: blank(raw.advance) ? hardwareCostCents : moneyCents(raw.advance, 'FACTORING_ADVANCE', advanceMessage) }]
+  }
+  const facilities = entries.map((e) => {
+    const d = e.month
+    if (typeof d !== 'number' || !Number.isSafeInteger(d) || d < 1 || d + n > T) {
+      throw new TermPricingError('FACTORING_SCHEDULE',
+        `An advance in month ${d} repaid over ${n} months would run past month ${T}. Draw it from month 1 to ${T - n}.`)
+    }
+    return { month: d, advanceCents: e.cents, loan: loanSchedule(e.cents, raw.ratePct.trim(), n, method) }
+  })
+  const advanceCents = facilities.reduce((s, f) => s + f.advanceCents, 0n)
+  return {
+    treatment, method, ratePct: raw.ratePct.trim(), termMonths: n,
+    facilities, advanceCents,
+    costCents: facilities.reduce((s, f) => s + f.loan.interestCents, 0n),
+    advanceAboveHardwareCost: advanceCents > hardwareCostCents,
+  }
+}
+
+/**
+ * Vendor payments (spec 9.5, R-TF12): a schedule, one entry today, month 1,
+ * the hardware cost. Engine level: the screen shows one amount.
+ */
+function vendorPlan(raw, T, hardwareCostCents) {
+  if (raw == null) return [{ month: 1, cents: hardwareCostCents }]
+  if (!Array.isArray(raw) || raw.length < 1) throw new TermPricingError('VENDOR_SCHEDULE', 'A vendor payment schedule has at least one entry.')
+  return raw.map((e) => {
+    if (typeof e?.month !== 'number' || !Number.isSafeInteger(e.month) || e.month < 0 || e.month > T) {
+      throw new TermPricingError('VENDOR_SCHEDULE', `A vendor payment month must be a whole number from 0 to ${T}.`)
+    }
+    return { month: e.month, cents: moneyCents(e.amount, 'VENDOR_SCHEDULE', 'A vendor payment is an amount in USD from 0, with at most two decimals.') }
+  })
+}
+
+// ── The quote: sections 4.3, 4.4, 6, 7, 8, 9 ────────────────────────────────
 
 /**
  * input = {
@@ -555,6 +720,68 @@ function quoteCore(input, params, preview) {
     }
   })
 
+  // ── v1.10 (TERM_FACTORING): hardware and hosting cost, under BOTH bases ──
+  //
+  // Phase 1 item 1: these were computed only inside capexPlan, so OPEX had no
+  // hardware total. They are the deal's now, computed once, and capexPlan
+  // reads them (one path, Architecture 3). The deal figures are rounded ONCE
+  // at deal level, exactly as capexPlan did, so CAPEX's warnings cannot move.
+  for (const l of lines) {
+    l.hardwareCostCents = roundHalfUp(mul(fromInt(l.units), l.hwCostPerUnit), 2)
+    l.hostingMonthlyCents = roundHalfUp(mul(fromInt(l.units), p.costs[l.product].hosting), 2)
+    l.factoringCostCents = 0n
+    l.passThrough = null
+  }
+  const hardwareCostCents = roundHalfUp(lines.reduce((s, l) => add(s, mul(fromInt(l.units), l.hwCostPerUnit)), ZERO), 2)
+  const hostingMonthlyCents = roundHalfUp(lines.reduce((s, l) => add(s, mul(fromInt(l.units), p.costs[l.product].hosting)), ZERO), 2)
+
+  // ── v1.10 sections 9.2 to 9.4: PO factoring ──────────────────────────────
+  //
+  // Null when off, and then every amount below is 0n, so each addition is an
+  // addition of zero and no v1.9 figure moves (FA-8, measured against the
+  // captured baseline in term-pricing.test.mjs).
+  //
+  // Phase 1 ruling 1, THE SHAPE: the factoring cost is allocated to the
+  // product LINES by hardware cost (by units if every hardware cost is 0), the
+  // last line taking the remainder. It is a cost of the line under BOTH
+  // treatments, so the line's profit shows it under Absorb (R-TF7). Under Pass
+  // through it is also a price component BESIDE the line's bands: per unit per
+  // month to the cent, remainder on the last invoice, never banded and never
+  // escalated. The bands are untouched, and the deal is still the exact sum of
+  // its lines.
+  const fx = factoringPlan(input.factoring, T, hardwareCostCents)
+  let ptMonthlyCents = 0n
+  let ptLastExtraCents = 0n
+  let ptTotalCents = 0n
+  if (fx) {
+    const hw = (l) => mul(fromInt(l.units), l.hwCostPerUnit)
+    const byUnits = lines.every((l) => cmp(hw(l), ZERO) === 0)
+    const weight = (l) => (byUnits ? fromInt(l.units) : hw(l))
+    const totalWeight = lines.reduce((s, l) => add(s, weight(l)), ZERO)
+    let allocated = 0n
+    lines.forEach((l, i) => {
+      const share = i < lines.length - 1
+        ? roundHalfUp(div(mul(fromCents(fx.costCents), weight(l)), totalWeight), 2)
+        : fx.costCents - allocated
+      allocated += share
+      l.factoringCostCents = share
+      l.costCents += share
+      if (fx.treatment === 'pass_through') {
+        const unitMonths = BigInt(l.units) * BigInt(T)
+        const perUnitMonthlyCents = roundHalfUp(div(fromCents(share), frac(unitMonths)), 2)
+        const remainderCents = share - perUnitMonthlyCents * unitMonths
+        l.passThrough = { totalCents: share, perUnitMonthlyCents, remainderCents }
+        l.monthlyByYear = l.monthlyByYear.map((c) => c + BigInt(l.units) * perUnitMonthlyCents)
+        l.tcvNetCents += share
+        ptMonthlyCents += BigInt(l.units) * perUnitMonthlyCents
+        ptLastExtraCents += remainderCents
+        ptTotalCents += share
+      }
+      l.grossProfitCents = l.tcvNetCents - l.costCents
+      l.grossMargin = l.tcvNetCents === 0n ? ZERO : frac(l.grossProfitCents, l.tcvNetCents)
+    })
+  }
+
   const monthlyTotalByYear = []
   for (let k = 0; k < years; k++) monthlyTotalByYear.push(lines.reduce((s, l) => s + l.monthlyByYear[k], 0n))
 
@@ -564,9 +791,14 @@ function quoteCore(input, params, preview) {
   // it exactly (checked below, and a break is refused, never shown).
   // SUPERSEDED, left visible: v1.5 summed each contract year's ESCALATED fee
   // here, so the margin rose with the escalator.
-  const tcvNetCents = monthlyTotalByYear[0] * BigInt(T)
+  const tcvNetCents = monthlyTotalByYear[0] * BigInt(T) + ptLastExtraCents
 
-  const totalCostCents = lines.reduce((s, l) => s + BigInt(l.units) * l.costPerUnitCents, 0n)
+  // v1.10: the deal's cost is the sum of its lines' costs, which carry the
+  // factoring cost under both treatments. So under Absorb the gross profit
+  // and margin are AFTER finance (the floor reads it, Phase 1 ruling 2) and
+  // under Pass through they are the unchanged profit over the higher price.
+  // The before-finance figures are reported on `factoring` (spec 9.3).
+  const totalCostCents = lines.reduce((s, l) => s + l.costCents, 0n)
   const grossProfitCents = tcvNetCents - totalCostCents
   const grossMargin = frac(grossProfitCents, tcvNetCents)
 
@@ -604,6 +836,20 @@ function quoteCore(input, params, preview) {
   // flat hardware line and a service line carrying the rest.
   const opexHardwareLineCents = structure === 'opex' && split
     ? roundHalfUp(div(fromCents(hardwareValueCents), fromInt(T)), 2) : null
+  const opexRow = (from, to, fee) => {
+    let parts
+    if (opexHardwareLineCents !== null) {
+      const serviceCents = fee - opexHardwareLineCents
+      if (serviceCents < 0n) {
+        throw new TermPricingError('NEGATIVE_SERVICE_LINE',
+          `The hardware line (${formatMoney(opexHardwareLineCents)} a month) is more than the month's fee (${formatMoney(fee)}), so the service line would be negative. Turn Split WHT off, or review the hardware margin.`)
+      }
+      parts = [['hardware', opexHardwareLineCents], ['service', serviceCents]]
+    } else {
+      parts = [['invoice', fee]]
+    }
+    return { kind: 'monthly', fromMonth: from, toMonth: to, capexCents: 0n, subscriptionCents: fee, netCents: fee, parts }
+  }
   const opexRows = (feeByYear) => {
     const rows = []
     for (let k = 1; k <= years; k++) {
@@ -611,19 +857,16 @@ function quoteCore(input, params, preview) {
       const to = 12 * (k - 1) + monthsInYearOf(k)
       const last = rows[rows.length - 1]
       if (last && last.netCents === feeByYear[k - 1]) { last.toMonth = to; continue }
-      const fee = feeByYear[k - 1]
-      let parts
-      if (opexHardwareLineCents !== null) {
-        const serviceCents = fee - opexHardwareLineCents
-        if (serviceCents < 0n) {
-          throw new TermPricingError('NEGATIVE_SERVICE_LINE',
-            `The hardware line (${formatMoney(opexHardwareLineCents)} a month) is more than the month's fee (${formatMoney(fee)}), so the service line would be negative. Turn Split WHT off, or review the hardware margin.`)
-        }
-        parts = [['hardware', opexHardwareLineCents], ['service', serviceCents]]
-      } else {
-        parts = [['invoice', fee]]
-      }
-      rows.push({ kind: 'monthly', fromMonth: from, toMonth: to, capexCents: 0n, subscriptionCents: fee, netCents: fee, parts })
+      rows.push(opexRow(from, to, feeByYear[k - 1]))
+    }
+    // v1.10 (9.4): the pass-through remainder goes on the LAST invoice, so
+    // month T becomes a run of its own. 0n with factoring off or under Absorb,
+    // and then nothing here runs.
+    if (ptLastExtraCents !== 0n) {
+      const last = rows[rows.length - 1]
+      const fee = last.netCents + ptLastExtraCents
+      if (last.fromMonth === last.toMonth) rows[rows.length - 1] = opexRow(T, T, fee)
+      else { last.toMonth -= 1; rows.push(opexRow(T, T, fee)) }
     }
     return rows
   }
@@ -825,7 +1068,9 @@ function quoteCore(input, params, preview) {
     }
 
     // Section 6.3 (C-5, Q2): month T carries the rounding.
-    const remainder = tcvNetCents - capexCents
+    // v1.10 (6.3): the subscription is built on the BANDED remainder, so CPI
+    // never reaches the pass-through, which is added to sub(m) after it.
+    const remainder = tcvNetCents - capexCents - ptTotalCents
     const baseFeeCents = roundHalfUp(div(fromCents(remainder), fromInt(T)), 2)
     const lastBaseFeeCents = remainder - baseFeeCents * BigInt(T - 1)
     if (lastBaseFeeCents < 0n) {
@@ -834,16 +1079,16 @@ function quoteCore(input, params, preview) {
     const subOf = (base, k) => roundHalfUp(mul(fromCents(base), factor(k)), 2)
 
     // Section 6.4 (C-9): warnings, shown and never refused.
-    const hardwareCostCents = roundHalfUp(lines.reduce((s, l) => add(s, mul(fromInt(l.units), l.hwCostPerUnit)), ZERO), 2)
-    const hostingMonthlyCents = roundHalfUp(lines.reduce((s, l) => add(s, mul(fromInt(l.units), p.costs[l.product].hosting)), ZERO), 2)
+    // v1.10: hardwareCostCents and hostingMonthlyCents are the deal's, computed
+    // once above for both bases, by the same expressions (Architecture 3).
 
     return {
       amountMode, structure: capexStructure, recoveryMonths,
       hardwareValueCents, hardwareCostCents, capexCents, payments,
       baseFeeCents, lastBaseFeeCents, allocation,
       // The Final subscription: each contract year's regular fee, and month T's.
-      subscriptionByYear: Array.from({ length: years }, (_, i) => subOf(baseFeeCents, i + 1)),
-      lastSubscriptionCents: subOf(lastBaseFeeCents, yearOf(T)),
+      subscriptionByYear: Array.from({ length: years }, (_, i) => subOf(baseFeeCents, i + 1) + ptMonthlyCents),
+      lastSubscriptionCents: subOf(lastBaseFeeCents, yearOf(T)) + ptMonthlyCents + ptLastExtraCents,
       warnings: {
         hardwareFundedCents: capexCents < hardwareCostCents ? hardwareCostCents - capexCents : null,
         hostingMonthlyCents,
@@ -877,7 +1122,10 @@ function quoteCore(input, params, preview) {
         capexCents += x.cents
       }
       const base = m === T ? capex.lastBaseFeeCents : capex.baseFeeCents
-      const subscriptionCents = m >= 1 ? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) : 0n
+      // v1.10 (6.3, 9.4): the pass-through is added AFTER the CPI factor.
+      const subscriptionCents = m >= 1
+        ? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) + ptMonthlyCents + (m === T ? ptLastExtraCents : 0n)
+        : 0n
       const netCents = capexCents + subscriptionCents
       let parts
       if (split) {
@@ -962,6 +1210,81 @@ function quoteCore(input, params, preview) {
     return hi >= lo ? t + r.netCents * BigInt(hi - lo + 1) : t
   }, 0n)
 
+  // ── v1.10 sections 9.5 and 9.6: the cash flow and its headline ──────────
+  //
+  // Months 0 to T; month 0 only when something happens in it. Client payments
+  // are each FINAL invoice as Terminus receives it, after WHT and excluding
+  // GST (R-TF8). Procurement and the advance are schedules, one entry today
+  // in month 1 (R-TF10, R-TF12); each advance is its own facility, repaid
+  // from the month after it is drawn. Amounts are signed: in positive, out
+  // negative.
+  const vendor = vendorPlan(input.vendorPayments, T, hardwareCostCents)
+  const cashFlow = (() => {
+    const byMonth = new Map()
+    const at = (m) => {
+      if (!byMonth.has(m)) {
+        byMonth.set(m, { month: m, procurementCents: 0n, advanceCents: 0n, clientCents: 0n, hostingCents: 0n, principalCents: 0n, interestCents: 0n })
+      }
+      return byMonth.get(m)
+    }
+    for (const r of final.schedule) for (let m = r.fromMonth; m <= r.toMonth; m++) at(m).clientCents += r.receivedCents
+    for (let m = 1; m <= T; m++) at(m).hostingCents -= hostingMonthlyCents
+    for (const v of vendor) at(v.month).procurementCents -= v.cents
+    for (const f of fx?.facilities ?? []) {
+      at(f.month).advanceCents += f.advanceCents
+      for (const x of f.loan.months) {
+        const row = at(f.month + x.i)
+        row.principalCents -= x.principalCents
+        row.interestCents -= x.interestCents
+      }
+    }
+    let balance = 0n
+    const rows = [...byMonth.values()].sort((a, b) => a.month - b.month).map((r) => {
+      const netCents = r.procurementCents + r.advanceCents + r.clientCents + r.hostingCents + r.principalCents + r.interestCents
+      balance += netCents
+      return { ...r, netCents, balanceCents: balance }
+    })
+    // 9.6: the lowest balance and its month (the earliest, on a tie), and
+    // payback: the first month from which the balance stays at or above 0.
+    let lowest = null
+    for (const r of rows) if (lowest === null || r.balanceCents < lowest.balanceCents) lowest = { balanceCents: r.balanceCents, month: r.month }
+    let paybackMonth = rows[0].month
+    rows.forEach((r, i) => { if (r.balanceCents < 0n) paybackMonth = i + 1 < rows.length ? rows[i + 1].month : null })
+    return { rows, lowest, paybackMonth, closingBalanceCents: balance }
+  })()
+
+  // 9.3 and 9.6: the factoring summary, and the same quote run with factoring
+  // OFF for the "without" headline. Under Pass through that is also the price
+  // without the pass-through.
+  let factoring = null
+  if (fx) {
+    const absorb = fx.treatment === 'absorb'
+    const without = quoteCore({ ...input, factoring: null }, p, false)
+    factoring = {
+      treatment: fx.treatment, method: fx.method, ratePct: fx.ratePct, termMonths: fx.termMonths,
+      advanceCents: fx.advanceCents, hardwareCostCents, advanceAboveHardwareCost: fx.advanceAboveHardwareCost,
+      facilities: fx.facilities.map((f) => ({ month: f.month, advanceCents: f.advanceCents, interestCents: f.loan.interestCents, months: f.loan.months })),
+      costCents: fx.costCents,
+      allocation: lines.map((l) => ({ product: l.product, costCents: l.factoringCostCents, passThrough: l.passThrough })),
+      passThroughCents: ptTotalCents,
+      passThroughMonthlyCents: ptMonthlyCents,
+      passThroughLastExtraCents: ptLastExtraCents,
+      profitBeforeFinanceCents: absorb ? grossProfitCents + fx.costCents : null,
+      marginBeforeFinance: absorb ? frac(grossProfitCents + fx.costCents, tcvNetCents) : null,
+      profitAfterFinanceCents: grossProfitCents,
+      marginAfterFinance: grossMargin,
+      without: {
+        monthlyTotalCents: without.monthlyTotalCents,
+        tcvNetCents: without.tcvNetCents,
+        grossProfitCents: without.grossProfitCents,
+        grossMargin: without.grossMargin,
+        lowest: without.cashFlow.lowest,
+        paybackMonth: without.cashFlow.paybackMonth,
+        closingBalanceCents: without.cashFlow.closingBalanceCents,
+      },
+    }
+  }
+
   const quote = {
     termMonths: T,
     paymentStructure: structure,
@@ -991,6 +1314,12 @@ function quoteCore(input, params, preview) {
       ? frac(grossProfitCents - base.tax.whtBorneCents, tcvNetCents) : null,
     capex,
     hardwareValueCents,
+    // v1.10 (TERM_FACTORING): both bases; the factoring summary (null when
+    // off); and the cash flow of this quote (spec 9.5, 9.6).
+    hardwareCostCents,
+    hostingMonthlyCents,
+    factoring,
+    cashFlow,
     cashYear1Cents: cashYear1(final.schedule),
     opexCashYear1Cents: monthlyTotalByYear[0] * BigInt(monthsInYear(1)),
     // The Final schedule: what the client is invoiced.

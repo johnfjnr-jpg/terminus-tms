@@ -70,7 +70,49 @@ export interface QuoteInput {
   /** v1.7 (T-4): in capexAllocation a share may be null or blank, meaning not yet typed. */
   milestones?: Array<{ key: string; month: number; sharePct: string | null }>
   recoveryMonths?: number
+  /** v1.10 (spec 2, 9.2 to 9.4). Absent or enabled false: every v1.9 figure. */
+  factoring?: FactoringInput | null
+  /** v1.10 (9.5, R-TF12), engine level: default one entry, month 1, the hardware cost. */
+  vendorPayments?: Array<{ month: number; amount: string }>
 }
+
+export interface FactoringInput {
+  enabled: boolean
+  /** Percent PER MONTH, as Commercials. Blank is refused while on. */
+  ratePct?: string | null
+  /** 1 to T - 1. Blank is refused while on. */
+  termMonths?: number | null
+  method?: 'straight' | 'declining'
+  treatment?: 'absorb' | 'pass_through'
+  /** Blank means the hardware cost (R-TF3). */
+  advance?: string | null
+  /** R-TF12, engine level: each entry is its own facility. */
+  advanceSchedule?: Array<{ month: number; amount: string }>
+}
+export interface LoanMonth { i: number; principalCents: bigint; interestCents: bigint; principalExact: Fraction; interestExact: Fraction }
+export interface LoanSchedule { advanceCents: bigint; ratePct: string; termMonths: number; method: 'straight' | 'declining'; interestCents: bigint; months: LoanMonth[] }
+export interface PassThrough { totalCents: bigint; perUnitMonthlyCents: bigint; remainderCents: bigint }
+export interface Factoring {
+  treatment: 'absorb' | 'pass_through'; method: 'straight' | 'declining'; ratePct: string; termMonths: number
+  advanceCents: bigint; hardwareCostCents: bigint; advanceAboveHardwareCost: boolean
+  facilities: Array<{ month: number; advanceCents: bigint; interestCents: bigint; months: LoanMonth[] }>
+  /** F: the sum of the monthly interest cents (spec 9.2). */
+  costCents: bigint
+  allocation: Array<{ product: string; costCents: bigint; passThrough: PassThrough | null }>
+  passThroughCents: bigint; passThroughMonthlyCents: bigint; passThroughLastExtraCents: bigint
+  /** Absorb only (9.3); null under Pass through. */
+  profitBeforeFinanceCents: bigint | null; marginBeforeFinance: Fraction | null
+  profitAfterFinanceCents: bigint; marginAfterFinance: Fraction
+  /** The same quote with factoring off (9.6). */
+  without: { monthlyTotalCents: bigint; tcvNetCents: bigint; grossProfitCents: bigint; grossMargin: Fraction
+    lowest: { balanceCents: bigint; month: number }; paybackMonth: number | null; closingBalanceCents: bigint }
+}
+/** Signed cents: in positive, out negative (spec 9.5). */
+export interface CashFlowRow {
+  month: number; procurementCents: bigint; advanceCents: bigint; clientCents: bigint; hostingCents: bigint
+  principalCents: bigint; interestCents: bigint; netCents: bigint; balanceCents: bigint
+}
+export interface CashFlow { rows: CashFlowRow[]; lowest: { balanceCents: bigint; month: number }; paybackMonth: number | null; closingBalanceCents: bigint }
 
 export type CpiMode = 'none' | 'published' | 'locked'
 
@@ -84,6 +126,8 @@ export interface QuoteLine {
   costPerUnitCents: bigint; bands: QuoteBand[]; monthlyByYear: bigint[]
   // v1.4: per-product totals; they sum to the deal exactly. No WHT field: WHT is never per product.
   tcvNetCents: bigint; costCents: bigint; grossProfitCents: bigint; grossMargin: Fraction
+  /** v1.10: both bases; the factoring cost allocated to the line (both treatments) and, under Pass through, its price component. */
+  hardwareCostCents: bigint; hostingMonthlyCents: bigint; factoringCostCents: bigint; passThrough: PassThrough | null
 }
 export interface ScheduleRow {
   /** 'monthly' under OPEX; 'invoice' under CAPEX (v1.6). A row is a run of identical invoices. */
@@ -171,6 +215,11 @@ export interface Quote {
   marginAfterWht: Fraction | null
   capex: CapexPlan | null
   hardwareValueCents: bigint
+  /** v1.10 (TERM_FACTORING) */
+  hardwareCostCents: bigint
+  hostingMonthlyCents: bigint
+  factoring: Factoring | null
+  cashFlow: CashFlow
   /** v1.6 (Q10): net invoices, months 0 to 12, on the Final schedule. */
   cashYear1Cents: bigint
   opexCashYear1Cents: bigint
@@ -227,4 +276,5 @@ export interface ManualLadder {
 /** v1.9 (spec 4.6): comparison only; it prices nothing and changes nothing. */
 export function manualLadder(input: { product: string; prices: Record<number, string | undefined> }, params: EngineParamsInput | NormalisedParams): ManualLadder
 export function formatMoney(cents: bigint): string
+export function loanSchedule(advanceCents: bigint, ratePct: string, termMonths: number, method?: 'straight' | 'declining'): LoanSchedule
 export function formatPct(ratio: Fraction, places?: number): string
