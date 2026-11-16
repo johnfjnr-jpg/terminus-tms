@@ -169,6 +169,8 @@ They are display figures for the price breakdown, so the screen does no arithmet
 
 **Pass through (v1.10).** Under `pass_through` each product line carries a pass-through amount `F_p` (section 9.4) beside its bands. Then `product_TCV(p) = Σ its bands ( band_TCV ) + F_p`, and `product_cost(p) = units(p) × cost(T) + F_p` under BOTH treatments. The bands themselves are unchanged: a band's fee, units and totals are as 4.2 and above, so `Σ its bands + F_p = product_TCV(p)` exactly. `Base TCV = Σ products ( product_TCV )` holds as before. With factoring off, `F_p = 0` and this paragraph changes nothing.
 
+**With factoring on (v1.10, corrected at the Phase 2 sign-off), `total_cost = Σ products ( product_cost(p) )`**, so it carries `F` under both treatments, and `gross_profit` and `gross_margin` are AFTER finance cost. The deal stays the exact sum of its lines. SUPERSEDED, left visible: the formula `total_cost = Σ products ( units × cost(T) )` above read alone excluded `F`, which broke the sum of the lines and, under `pass_through`, would have raised profit by `F`.
+
 A product's TCV is the same under `opex` and `capex`: the payment structure changes when cash arrives, never what a line is worth (section 6). **WHT is never allocated to a product.** It is withheld per invoice, and an invoice is not a product, so WHT borne is reported for the whole deal only (gross profit after WHT, and the margin after WHT).
 
 **Base TCV and Final TCV (v1.6, C-1, C-2, Q1, Q5).** The figures above are written with the escalator applied; v1.6 separates the two:
@@ -191,7 +193,7 @@ SUPERSEDED by v1.6 and left visible: v1.4 wrote `product_TCV(p)` with `fee_year(
 
 `gross_margin` below `MARGIN_FLOOR` shows a visible flag. The quote still prices.
 
-**With factoring on (v1.10, Phase 1 ruling 2):** under `absorb` the flag reads the margin AFTER finance cost, `(gross_profit − F) / Base TCV` (9.3); under `pass_through` it reads the margin including the pass-through, which is `gross_margin` on the Base TCV that carries it (9.4). With factoring off both are `gross_margin`, so nothing moves.
+**With factoring on (v1.10, Phase 1 ruling 2):** the flag reads `gross_margin`, which with factoring on is AFTER finance cost under `absorb` (9.3) and includes the pass-through under `pass_through` (9.4), because `total_cost` carries `F` (4.3). With factoring off it is the v1.9 `gross_margin`, so nothing moves. SUPERSEDED in wording at the Phase 2 sign-off, left visible: "under `absorb` the flag reads the margin AFTER finance cost, `(gross_profit − F) / Base TCV`".
 
 ### 4.5 Per camera, OPEX (v1.5)
 
@@ -423,10 +425,13 @@ SUPERSEDED in wording, left visible: Commercials' help text calls "rate multipli
 The price is unchanged: every fee, Base TCV, Final TCV and the schedule are as with factoring off. `F` is a cost:
 
 ```
-profit after finance  = gross_profit − F
-margin before finance = gross_margin                     (4.3, unchanged)
-margin after finance  = (gross_profit − F) / Base TCV    the margin floor (4.4) reads this
+profit after finance  = gross_profit                     (4.3, total_cost carries F)
+margin after finance  = gross_margin                     the margin floor (4.4) reads this
+profit before finance = gross_profit + F                 reported beside it
+margin before finance = (gross_profit + F) / Base TCV    reported beside it
 ```
+
+SUPERSEDED in wording at the Phase 2 sign-off, left visible: `profit after finance = gross_profit − F`; `margin before finance = gross_margin (4.3, unchanged)`; `margin after finance = (gross_profit − F) / Base TCV`. They wrote `gross_profit` for the before-finance figure, which the corrected 4.3 makes the after-finance one. No figure moves: FA-3 is 86.2% before and 85.8% after either way.
 
 Per product, `product_cost(p)` includes `F_p` (9.4), so the internal profit table shows the factoring cost by product.
 

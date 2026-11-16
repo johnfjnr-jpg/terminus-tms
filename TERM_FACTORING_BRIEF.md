@@ -146,6 +146,33 @@ added before its test is written.
 
 Proceed to Phase 2 (engine). Stop for sign-off.
 
+PHASE 2 SIGN-OFF (John, 2026-11-16), appended at the phase it launches:
+
+Phase 2 ACCEPTED at 3e7b2d8.
+
+SPEC CORRECTION APPROVED (implements rulings already given): commit the
+proposed 4.3 and 9.3 wording as the first Phase 3 commit (docs only):
+total_cost = Σ product_cost(p) including F under both treatments;
+gross_profit and gross_margin are after finance; margin before finance =
+(gross_profit + F) / Base TCV reported beside it under Absorb; profit
+before finance = gross_profit + F; the floor reads gross_margin. Engine
+unchanged; FA-3 figures unchanged.
+
+ACCEPTED: test count 156 (runner) replaces the brief's 126; the journal
+guard recovery; calibration case 8 re-scored and 8b added.
+
+QUEUED: the intermittent database-suite failure (empty message, 24,283ms
+failing vs 57,555ms passing, tearDown head count over record_revisions).
+If it recurs in Phase 3's gate, report it with its duration; do not
+re-run to green.
+
+PHASE 3 NOTE: the internal line under each product on the Pricing tab
+(bands vs product under Pass through) is ACCEPTED as a text line only.
+If it needs any change to panel structure, STOP and photograph.
+
+Proceed to Phase 3 (screen) as the brief states, rulings governing where
+the mockup's illustrative figures differ. Stop for sign-off.
+
 QUEUED, NOT THIS ROUND: staged vendor payments and staged factoring
 drawdowns, on the term screen and in Commercials; Commercials wording
 faults (help text "rate x term", statement "factored receipts", the
