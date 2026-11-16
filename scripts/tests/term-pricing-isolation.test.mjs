@@ -50,6 +50,11 @@ export const ALLOWED_IMPORTERS = [
   'scripts/tests/term-pricing-settings.test.mjs',
   // Phase 3: the screen, which prices in the browser.
   'frontend-react/src/term-pricing/TermPricingView.tsx',
+  // TERM_FACTORING Phase 2: captures every engine output over a fixed
+  // population BEFORE factoring was added, so term-pricing.test.mjs can prove
+  // that factoring off moves nothing the engine returns, not only the figures
+  // the spec prints. A test fixture's capture, not a pricing caller.
+  'scripts/term-pricing/capture-factoring-off-baseline.mjs',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']
