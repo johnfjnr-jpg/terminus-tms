@@ -13106,3 +13106,93 @@ from the result", arriving through a re-aim rather than a new check.
 - `probe-version-join` exits 0 on SKIP;
 - `scripts/leads-card/calibrate-gate-verdict.mjs` no longer runs against the
   new verdict shape.
+
+---
+
+# A CONFIRMATION IS RECORDED WHERE THE THING CONFIRMED LIVES
+
+The GOLDEN STATUS PER DEAL round, 2026-11-15 to 2026-11-16. Brief and rulings:
+`GOLDEN_STATUS_BRIEF.md` (R-GS1 to R-GS5, and both phase sign-offs).
+
+**Three sentences, John's, and each is a separate rule:**
+
+1. **A confirmation is recorded where the thing confirmed lives.**
+2. **One flag for five deals let one change erase four sign-offs.**
+3. **A confirmation names the exact figures it confirmed.**
+
+## The instance
+
+`scripts/golden-deals/expectations.json` carried ONE top-level `status`.
+`compute.mjs` was its only writer and reset it file-wide on every regeneration.
+R-TL1a moved 83 of G1's figures, the recompute wrote PROVISIONAL over the whole
+file, and **G2, G3 and G4 lost a sign-off John had given by hand in Excel on
+2026-09-28 while their figures stayed byte-identical** (1065, 696 and 984
+figures, re-proved against `6550b09`). `GOLDEN_DEALS.md` printed PROVISIONAL in
+its header whatever the file said.
+
+**Nothing could fail.** The flag was true about the FILE, because something in
+it was unconfirmed, and false about three of the deals it was read as
+describing. Verification 19's shape: a label read as a summary of work done.
+
+## Why the grain is the rule
+
+A confirmation recorded at a coarser grain than its subject is a claim about
+the container, and it fails in BOTH directions:
+
+| direction | what happens | measured here |
+|---|---|---|
+| one member changes | every member's confirmation is reset by a change that was not about it | G1 moved; G2 to G4 lost theirs |
+| a member is added | a container-wide CONFIRMED covers a member nobody checked | G5 joined on 2026-09-30; had the flag read CONFIRMED, it would have covered G5 |
+
+**So status, `confirmedBy`, `confirmedOn` and `confirmedFiguresSha256` live on
+each deal**, and a file-wide status field is itself a red check.
+
+## And a status alone is not enough: name the figures
+
+A per-deal status says somebody confirmed THIS DEAL. It does not say WHICH
+FIGURES. Hand-edit one G2 figure and leave the fields alone, and the deal still
+reads CONFIRMED over numbers nobody confirmed (R-GS5's own case).
+
+**Each CONFIRMED deal carries `confirmedFiguresSha256`**, the SHA-256 of
+`JSON.stringify(figures, null, 2)` at confirmation. The harness refuses a
+CONFIRMED deal with no hash, or whose figures no longer hash to it.
+`compute.mjs` keeps a deal's status only when its figures serialise
+identically, so **a confirmation survives exactly the changes that do not
+touch what it confirmed, and no others.** `compute.mjs` never writes CONFIRMED
+from nothing: a person stamps it, and the stamp refuses on a hash mismatch.
+
+## The check, beyond goldens
+
+**When recording a sign-off, an approval or a confirmation, ask what it is
+ABOUT, store it on that thing, and store a fingerprint of the content it
+covered.** Verification 23's instance, a stage-scoped approval surviving every
+revision, is the same question answered at the wrong grain in time rather than
+in space; the version-scoped approval that replaced it voids on any later
+revision, which is the fingerprint rule expressed as a revision number.
+
+## And the detector that went quiet
+
+`scripts/golden-deals/calibrate.mjs` had been dead since `ee177d8`: G5 made
+case 3's anchor occur twice, and the status cases anchored on the file-wide
+field R-TL1a removed. **Nothing ran it, so nothing said so**, and the gate's
+comment claimed "five injections, five fired" for six weeks (Verification 9: a
+detector nothing schedules rots, and its silence reads like its success).
+
+**The cases now live in `scripts/golden-deals/calibration-cases.mjs`**, read
+both by the calibrator and by `scripts/tests/calibration-anchors.test.mjs`
+under `npm test`. That test asserts every anchor occurs exactly once in its
+target, so the next G5 is a red pure stage on the commit that causes it. It
+does not run the injections; the calibrator remains the instrument for that.
+
+| what | where |
+|---|---|
+| per-deal status, name, date, hash | `scripts/golden-deals/expectations.json` |
+| the keep-or-reset rule | `scripts/golden-deals/compute.mjs` |
+| checks 1 to 6 and the `GOLDEN STATUS` block | `scripts/golden-deals-check` |
+| the echo, failing a passing stage with no block | `scripts/lib/stage-echo.mjs`, `scripts/verify-all.mjs` |
+| the 17 injections | `scripts/golden-deals/calibration-cases.mjs`, run by `calibrate.mjs` |
+| every anchor unique | `scripts/tests/calibration-anchors.test.mjs`, pure suite |
+
+**Queued from this round:** John's Excel check of G1 and G5, then a one-commit
+stamp round; factoring on the term screen (spec v1.10 first); probe triage; the
+23 `harness_*` rules cleanup; the workflow `audit_log` gap.
