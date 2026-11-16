@@ -173,6 +173,54 @@ If it needs any change to panel structure, STOP and photograph.
 Proceed to Phase 3 (screen) as the brief states, rulings governing where
 the mockup's illustrative figures differ. Stop for sign-off.
 
+PHASE 3 SIGN-OFF (John, 2026-11-16), appended at the phase it launches:
+
+Phase 3 ACCEPTED at d4592d8.
+
+JOHN RULES:
+1. T-6 superseded for PO factoring only: factoring may move the Pricing
+   tab's price, Base TCV and the approval value (Pass through) and the
+   margin the floor reads (Absorb). The refusal half of T-6 stands.
+   Record the supersession beside T-6 in the spec (docs), with T-6's
+   original text left visible.
+2. Layout departures ACCEPTED: content-sized input columns (measured
+   79px overflow at 1240 with equal columns) and figures wrapping below
+   the treatment toggle; switch wrapping below the subtitle at 1240.
+   Record them against the mockup of record in the brief's Phase 3
+   sign-off.
+Positions 2, 3, 5, 6, 7 ACCEPTED.
+
+QUEUED: CAPEX "subscription below hosting" warning reads the banded
+fee (not the invoiced subscription); a note on the ladder that it
+excludes factoring; probe triage to wire a Term Pricing layout guard
+covering the factoring and cash flow cards (probe-gaps roster does not
+include Term Pricing; probe-factoring is unwired).
+
+Proceed to Phase 4: the T-6 supersession note (docs), DESIGN_PRINCIPLES
+entry (the 2026-10-29 ruling's supersession; re-implement plus parity
+rather than share; the schedule shape for staging; why off is absent,
+not hidden), CURRENT_STATE if affected, full gate (NordVPN OFF,
+PUPPETEER_PATH set, no skips; if the database flake recurs, report it
+with its duration, do not re-run to green), push-ready SHA. Rule 18.
+Stop.
+
+RECORDED AGAINST THE MOCKUP OF RECORD (prototypes/term-factoring-mockup.html),
+per ruling 2 above. Where the built screen differs from the mockup's geometry,
+and why:
+- THE FOUR INPUTS: the mockup draws four EQUAL columns at its own 1216px. Built
+  as content-sized columns, still one row, the advance column taking the spare
+  width. Measured: with equal columns the flanked Repayment toggle ran 79px past
+  the card at 1240 and 29px at 1440 (probe-factoring.mjs, its edge check). The
+  advance column's hardware note wraps rather than widening its column (on the
+  three-product deal it pushed the toggle 386px out at 1240 before that).
+- THE FIGURES (factoring cost, monthly fee, margin, profit): the mockup sets
+  them beside the Absorb | Pass through toggle; built, they wrap below it at
+  1240, 1440 and 1920, because the screen's figures are longer than the
+  mockup's illustrative ones. They wrap; they never overflow.
+- THE SWITCH: at 1240 the factoring on/off switch wraps below the card's
+  subtitle; the mockup sets it right of the title. A reflow, not an overlap.
+Captures beside the mockup: prototypes/term-factoring/built/.
+
 QUEUED, NOT THIS ROUND: staged vendor payments and staged factoring
 drawdowns, on the term screen and in Commercials; Commercials wording
 faults (help text "rate x term", statement "factored receipts", the

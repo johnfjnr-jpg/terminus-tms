@@ -13196,3 +13196,148 @@ does not run the injections; the calibrator remains the instrument for that.
 **Queued from this round:** John's Excel check of G1 and G5, then a one-commit
 stamp round; factoring on the term screen (spec v1.10 first); probe triage; the
 23 `harness_*` rules cleanup; the workflow `audit_log` gap.
+
+# PO FACTORING ON THE TERM SCREEN: ONE RULING SUPERSEDED, AND THREE DECISIONS WITH WHAT EACH RESTS ON
+
+**TERM_FACTORING round, 2026-11-15 to 2026-11-16, rulings R-TF1 to R-TF12 and
+the three phase sign-offs.** Spec v1.10 (`docs/pricing-spec.md`, sections 9.2
+to 9.7 and 11.6) is the arithmetic; this entry is the reasoning. Each decision
+names what its advantage DEPENDS ON (Verification 29), so a later round tests
+the premise rather than re-arguing the choice.
+
+## 1. "Factoring is an after-pricing adjustment to margin" is now ONE setting, not the rule
+
+**John, 2026-10-29, ruled in conversation:** factoring is an after-pricing
+adjustment to margin. It was never written into a markdown file, which the
+2026-11-15 investigation found by searching for it by date and by wording.
+Spec v1.10 section 9.3 is the first place it is written down.
+
+**It is kept, and it is no longer the only answer.** It is now the `absorb`
+treatment, the default: the price is unchanged and the factoring cost comes
+out of profit. Beside it, `pass_through` adds the cost to the price AT COST,
+so profit is unchanged and the margin falls by arithmetic (R-TF5).
+
+**What changed, so a reader can tell a premise failing from a preference
+changing:** no premise of the 2026-10-29 ruling was found false. R-TF5 adds a
+second treatment beside it, and the rulings record no further reason, so this
+is recorded as a choice John has made, not a premise that failed. The original
+ruling still describes Absorb exactly.
+
+**The consequence that had to be corrected in the spec (Phase 2 sign-off):**
+with factoring on, `total_cost` carries the factoring cost under BOTH
+treatments, so the deal stays the exact sum of its lines, and `gross_margin`
+is AFTER finance. That is the margin the floor reads under Absorb (Phase 1
+ruling 2). The before-finance figure is reported beside it, never instead of
+it.
+
+**AND IT SUPERSEDED T-6 FOR FACTORING ONLY** (Phase 3 sign-off, recorded beside
+T-6's text in spec 9.4). TP_TABS built the Pricing tab's price "from the units
+alone, so nothing on Payment terms can move or refuse it". Factoring may now
+MOVE it, because a passed-through cost is part of the approval value. **The
+refusal half stands:** a factoring input the engine refuses shows the price
+without factoring, the refusal on the factoring card, and the quote blocked.
+
+## 2. Re-implement plus parity, rather than share
+
+Commercials' loan schedule and cash flow (`buildLoanSchedule`,
+`buildCashFlowModel` in `src/lib/deal-calculator.js`) were the obvious thing to
+import. **They were not imported. They were re-implemented in the term engine
+and held to Commercials by a parity test** (R-TF9).
+
+**The options, and what each one's advantage depended on:**
+
+| option | its advantage | what that advantage depends on | held? |
+|---|---|---|---|
+| import Commercials' functions into the term engine | one implementation, no drift | R-TP1 allowing the term engine an import | **no**: R-TP1 is an empty import list, enforced by `term-pricing-isolation.test.mjs` |
+| move both into a shared exact helper both engines import | one implementation, exact | Commercials' float results not moving | **no**: moving Commercials to exact cents moves its cents, and the goldens pin 4,734 figures, including G3's whole factoring schedule. A golden figure moving was a STOP (R-TF9) |
+| re-implement in exact fractions, prove equal by test | exact money (Architecture 14), R-TP1 intact, Commercials untouched | a parity test that can tell the two apart | **yes**: `term-factoring-parity.test.mjs`, 36 tests, calibrated |
+
+**Verification 20 says a second reader of one value always drifts, and its
+remedy is the one taken:** where a second path is genuinely needed, it is
+PROVEN equal by a test, not asserted equal by a comment.
+
+**How the parity test is honest about floats, because that is where it could
+lie:**
+- per month, the engine's cents equal Commercials' float rounded to cents;
+- the total interest equals Commercials' monthly cents summed, and the float
+  total within `n x 0.005`, Verification 21's legitimate tolerance, refused
+  above it;
+- **no input may sit on a half cent**, checked against the engine's EXACT
+  fraction, so a cent agreement cannot be a coin toss. The calibration injected
+  a half-cent loan and the guard named it.
+
+It also proves TIMING, not only arithmetic: the advance in month 1 and the
+repayments in months 2 to n + 1, against `buildCashFlowModel`'s own rows.
+
+**The test is the ONE file allowed to import both engines**, recorded in the
+isolation test's allowlist with its reason. The engine itself still imports
+nothing.
+
+**What would re-open this:** Commercials moving to exact arithmetic (then a
+shared helper costs nothing), or R-TP1 being relaxed by ruling.
+
+## 3. Vendor payments and the factoring advance are SCHEDULES, with one entry
+
+R-TF12. The engine holds both as a list of `{month, amount}`. Today each list
+has exactly one entry, month 1, and the screen shows one amount for each. No
+staging UI was built.
+
+**Why the shape now, when only one entry is used:** staged drawdowns and
+staged vendor payments are queued, on the term screen and in Commercials.
+Built as single amounts, staging would be an ENGINE change, re-proving every
+figure. Built as schedules, it is a screen change.
+
+**The engine-level test is what makes that true rather than intended:** FA-9
+draws 600,000.00 in month 1 and 360,000.00 in month 7. Each entry is its own
+facility, repaid from the month after it is drawn, and the cash flow follows
+both. A vendor schedule of two entries moves the procurement row the same way.
+**A shape nothing exercises is a plan, not a capability** (Verification 25's
+corollary). One test is the difference.
+
+**What it rests on:** each drawdown being its own facility at the same rate,
+term and method. If a lender ever prices a later drawdown differently, the
+schedule entry needs its own terms, and that is a change to the shape.
+
+## 4. Off is ABSENT, not hidden
+
+With factoring off, the advance, rate, term, repayment method and treatment
+are not in the DOM at all, and the cash flow has no advance, principal or
+interest rows. The brief named three controls; all five go, and the figures
+with them.
+
+**The reason is Commercials' own, M11, and it is about what the screen
+claims:** a control that is merely hidden still says a choice exists. It is
+still answering queries, still reachable by anything that reads the DOM, and
+still able to carry a value into a payload that nobody on screen can see. An
+absent control makes the only claim that is true: there is no facility to
+configure.
+
+**And it is the same reasoning applied to rows:** a facility that does not
+exist has no principal, so a run of zeros under "Factoring principal" would be
+a confident zero for a thing that is not there (Verification 8's "a null
+wearing a default"). Commercials' `cashflow.ts` already refuses that, and the
+term rows follow it.
+
+**It was calibrated, which is what makes it a control:**
+`probe-factoring.mjs` injected the hidden-not-absent version (`hidden={!on}`
+on the fields) and eight claims went red by name.
+
+## Where it lives
+
+| what | where |
+|---|---|
+| the arithmetic and the rulings | `docs/pricing-spec.md` v1.10, sections 2, 4.3, 4.4, 6.3, 9.2 to 9.7, 11.6; T-6's supersession in 9.4 |
+| the engine | `src/lib/term-pricing.js` (`loanSchedule`, `factoringPlan`, `vendorPlan`, the allocation, the cash flow) |
+| FA-1 to FA-9, and factoring off proved field by field | `scripts/tests/term-pricing.test.mjs`, against `scripts/term-pricing/factoring-off-baseline.json` (132 cases captured BEFORE the change) |
+| parity with Commercials | `scripts/tests/term-factoring-parity.test.mjs` |
+| the screen | `frontend-react/src/term-pricing/factoring.tsx`, `TermPricingView.tsx` |
+| the screen, from the click | `scripts/term-pricing/probe-factoring.mjs`, UNWIRED (queued for probe triage) |
+
+**Queued from this round:**
+- Commercials drops repayments that fall past the contract's last month, so
+  its `facInterest` is short (top of the queue);
+- the CAPEX "subscription below hosting" warning reads the banded fee;
+- a note on the ladder that it excludes factoring;
+- a wired Term Pricing layout guard covering the factoring and cash flow cards;
+- the intermittent database-suite timeout (24,283ms failing against 57,555ms
+  passing; did not recur in Phase 3).

@@ -453,6 +453,14 @@ pass_through(m) = Σ_p units(p) × pt_p                                        m
 - **The client figures never name it.** The monthly fee rises; nothing on a client figure says factoring.
 - WHT and GST apply to it as to the rest of the invoice line it sits on (section 8).
 
+**T-6 SUPERSEDED FOR PO FACTORING ONLY (John, TERM_FACTORING Phase 3 sign-off, 2026-11-16).** T-6 is a TP_TABS ruling (`TP_TABS_BRIEF.md`, 2026-10-11) that was never written into this spec, so it is quoted here, left visible, with the supersession beside it.
+
+> T-6 (TP_TABS, as written): "Final TCV and Deal value appear ONLY on the Quote tab and ONLY when CPI is not None. The Pricing tab shows Base only. The old "Price, set by OPEX" card and Deal value card retire."
+>
+> As the screen built it (`TermPricingView.tsx`, at `654bc67`): "T-2, T-6: THE PRICE. The OPEX Base quote at the chosen term, from the units alone, so nothing on Payment terms can move or refuse it."
+
+**For PO factoring only, the first half no longer holds.** Factoring may MOVE the Pricing tab's price: under `pass_through`, Base TCV and the approval value (9.4); under `absorb`, the margin the floor reads (4.4, 9.3). **The refusal half stands:** a factoring input the engine refuses never refuses the price. The price is shown without factoring, the refusal is shown on the factoring card, and the quote is blocked until it is fixed. Every other Payment terms input still moves nothing on the Pricing tab, and T-6's placement of Final TCV and Deal value is unchanged.
+
 ### 9.5 The cash flow (v1.10, R-TF8, R-TF10, R-TF12)
 
 Months 0 to T. A month 0 appears only when the schedule has a month-0 invoice.
