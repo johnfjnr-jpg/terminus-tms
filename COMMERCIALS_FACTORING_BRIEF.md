@@ -78,3 +78,36 @@ QUEUED, NOT THIS ROUND: probe triage (incl. a Term Pricing layout
 guard); G1/G5 Excel check and stamp; term-screen CAPEX warning and ladder
 note; staged vendor payments; workflow audit_log gap; harness rules
 cleanup.
+
+PHASE 1 SIGN-OFF (John, 2026-11-16), appended at the phase it launches:
+
+Phase 1 ACCEPTED.
+
+JOHN RULES:
+R-CF1 CONFIRMED: finance cost always the full loan schedule's interest.
+R-CF2 CONFIRMED, NARROWED: refuse only when the save CHANGES duration,
+      factoring.termMonths or factoring.enabled and the result is over
+      (contract months - 1). An existing over-limit record stays saveable
+      on other fields.
+R-CF3 CONFIRMED with OPTION (a): one derivation; issued versions re-derive
+      under the corrected engine and carry the flag. Flag text: "Factoring
+      repayments run past the contract end (month N[ to M]): the finance
+      cost includes them; the cash flow and closing position do not."
+      Single month reads "month 37", a range "months 37 to 40". Slots:
+      statement sub-label, statement drawer note, approval page finance
+      note/basis. No stats-strip change.
+R-CF4 CONFIRMED, NARROWED: blank rate with factoring on prices NOTHING and
+      is flagged (a rate-missing state beside factoringTermMissing),
+      not refused on save. All three 1.5 defaults removed
+      (deal-inputs.js:719, deal-calculator.js:310,
+      numeric-payload.js:152), following Round 41 ruling 5 for the term.
+R-CF5 CONFIRMED with the four wordings in the report.
+
+QUEUED (high priority, its own round, before any real deal is approved):
+store the approved figures at approval (option c). An approval page must
+show the figures the approver signed; today an engine change moves them.
+QUEUED: FB1, recovery-period limits tested but not called live.
+
+Proceed to Phase 2. Prove each ruling, calibrate each fix, goldens
+unmoved, the issued SMARTC-003 v2.0 measured before/after (+483, flagged).
+Stop for sign-off.
