@@ -238,6 +238,14 @@ const AMBER_FAMILY = [
   '.opp-radar-spoke--low',
   '.opp-radar-label--low',
   '.opp-radar-key--low .opp-radar-swatch',
+  // ── TERM_FACTORING Phase 3, 2026-11-16 ─────────────────────────────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT: 37 bindings against 36, and the hook
+  // refused the commit. One site, the estate's one meaning: the cash flow's
+  // lowest balance WITHOUT factoring when it goes below zero, which is the
+  // figure the factoring exists to answer (the mockup's #E8B04B, a stand-in
+  // for this token by its own note).
+  '.tp-cf-attention .tp-v',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

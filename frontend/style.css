@@ -9792,6 +9792,44 @@ select:autofill {
      is now fitted to the row (--tp-fig), so a width step cannot decide it. */
 }
 
+/* ── TERM_FACTORING Phase 3: PO factoring and the cash flow ──────────────────
+   On Payment terms, below the payment sections (R-TF1), per the mockup of
+   record prototypes/term-factoring-mockup.html: a head row (title and note
+   left, the switch right), four inputs in a row, then a rule and the
+   treatment toggle with its note beside the figures. */
+.tp-fx-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.tp-h2.tp-fx-title { margin: 0 0 4px; }
+/* The mockup draws four EQUAL columns at its 1216px. Measured on the screen,
+   the flanked Repayment toggle needs more than a quarter of the card and ran
+   79px past its edge at 1240 and 29px at 1440, so the columns are sized to
+   their content, still one row (the probe's escape check found it). The
+   advance column takes the spare width, and its hardware note WRAPS within it
+   rather than widening it: on the three-product demo deal the note is about
+   100 characters and pushed the toggle 386px out at 1240. */
+.tp-fx-grid { display: grid; grid-template-columns: minmax(130px, 1fr) repeat(3, max-content); gap: 20px 40px; margin-top: 18px; }
+.tp-fx-field > .tp-small { contain: inline-size; align-self: stretch; }
+.tp-fx-field { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.tp-fx-field .tp-num.tp-money { width: 130px; }
+.tp-fx-field .tp-num.tp-pct2 { width: 72px; }
+.tp-fx-foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px 20px; flex-wrap: wrap; border-top: 1px solid var(--hairline); padding-top: 16px; margin-top: 18px; }
+.tp-fx-treatment { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: 420px; }
+.tp-fx-figs { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.tp-fx-figs > div { display: flex; flex-direction: column; gap: 6px; }
+.tp-fx-figs .tp-v { font-size: 13px; white-space: nowrap; }
+.tp-fx .tp-warn, .tp-fx .tp-error { margin-top: 12px; }
+@container (max-width: 760px) { .tp-fx-grid { grid-template-columns: minmax(130px, 1fr) max-content; } }
+.tp-cf-headline { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; }
+.tp-cf-headline .tp-v { font-size: 13px; }
+.tp-cf-attention .tp-v { color: var(--attention); }
+/* The shared CashFlowGrid's cell is 84px, sized for Commercials' whole
+   dollars. The term figures are cents, up to "−22,099,211.00" (14 mono
+   characters at 11px, plus padding). Scoped to this card, so no Commercials
+   rule changes (Phase 1 sign-off). */
+.tp-cashflow .cf-cell { width: 120px; flex: 0 0 120px; }
+/* The Pricing tab's one text line under a product passed through: a note,
+   so it wraps, where every figure cell in the table does not. */
+.tp-table tr.tp-pt-note td { white-space: normal; text-align: left; font-size: 12px; color: var(--muted); padding-top: 2px; }
+
 
 
 

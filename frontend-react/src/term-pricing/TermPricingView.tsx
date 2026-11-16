@@ -33,6 +33,8 @@ import type { CpiMode, Quote, AllocationPreview, ManualLadder } from '../../../s
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
 // TP_CAPEX (C-11): the milestone names, defined once and shared with Commercials.
 import { MILESTONE_NAMES } from '../../../src/lib/milestone-vocabulary.js'
+// TERM_FACTORING Phase 3: PO factoring and the cash flow (R-TF1).
+import { FactoringCard, CashFlowCard, signedMoney } from './factoring'
 
 export const TERM_PRICING_KEY = ['term-pricing'] as const
 
@@ -390,6 +392,18 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const [capexStructure, setCapexStructure] = useState<CapexStructure>('hybrid')
   const [milestones, setMilestones] = useState<MilestoneDraft[]>([DEFAULT_MILESTONE])
   const [recovery, setRecovery] = useState('12')
+  // TERM_FACTORING (R-TF3 to R-TF5): PO factoring, in screen state like every
+  // quote input (a quote is not saved). The advance is null until typed: null
+  // shows the hardware cost and sends a blank, so the engine's default follows
+  // the units (R-TF3). The term starts at 12, Commercials' initial value; the
+  // rate starts blank, because a rate nobody entered is not a rate (Phase 1
+  // ruling 6, and Commercials' `?? 1.5` fallback is the fault on the queue).
+  const [factoringOn, setFactoringOn] = useState(false)
+  const [fxAdvance, setFxAdvance] = useState<string | null>(null)
+  const [fxRate, setFxRate] = useState('')
+  const [fxTerm, setFxTerm] = useState('12')
+  const [fxMethod, setFxMethod] = useState<'straight' | 'declining'>('straight')
+  const [fxTreatment, setFxTreatment] = useState<'absorb' | 'pass_through'>('absorb')
   // N2: the settings card's own state, held here too so a draft survives a
   // switch of tab (T-1).
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -452,15 +466,40 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     catch (e) { return { error: (e as Error).message } }
   }, [params, manualPrices])
 
+  // The factoring input, as the engine takes it (spec 2). Blank fields go as
+  // null, so the ENGINE's refusal, in its own words, is what shows (ruling 6).
+  const factoringInput = useMemo(() => (factoringOn ? {
+    enabled: true,
+    ratePct: fxRate.trim() === '' ? null : fxRate.trim(),
+    termMonths: (fxTerm.trim() === '' ? null : isWhole(fxTerm) ? Number(fxTerm) : fxTerm.trim()) as number | null,
+    method: fxMethod,
+    treatment: fxTreatment,
+    advance: fxAdvance === null || fxAdvance.trim() === '' ? null : fxAdvance.replace(/,/g, '').trim(),
+  } : null), [factoringOn, fxRate, fxTerm, fxMethod, fxTreatment, fxAdvance])
+
   // T-2, T-6: THE PRICE. The OPEX Base quote at the chosen term, from the
-  // units alone, so nothing on Payment terms can move or refuse it. It feeds
-  // the Pricing tab, the header strip and the CAPEX Hardware amount.
+  // units alone, so nothing on Payment terms can REFUSE it. It feeds the
+  // Pricing tab, the header strip and the CAPEX Hardware amount.
+  //
+  // TERM_FACTORING (R-TF6): the one Payment terms input that MOVES it is PO
+  // factoring, because a passed-through cost enters Base TCV and the approval
+  // value, and under Absorb the profit and margin are after finance (Phase 2
+  // sign-off, spec 4.3). A factoring input the engine refuses does not refuse
+  // the price: the price is shown without factoring and the refusal is shown
+  // on the factoring card (and blocks the quote, as any refused input does).
   const price = useMemo(() => {
     if (!params?.ok) return null
     if (badUnits) return { error: `Units of ${badUnits.label} must be a whole number, 0 or more.` }
-    try { return { quote: priceQuote({ units: unitCounts, termMonths: term, paymentStructure: 'opex', cpiMode: 'none' }, params.p) } }
-    catch (e) { return { error: (e as Error).message } }
-  }, [params, unitCounts, badUnits, term])
+    const base = { units: unitCounts, termMonths: term, paymentStructure: 'opex' as const, cpiMode: 'none' as const }
+    try { return { quote: priceQuote({ ...base, factoring: factoringInput }, params.p), factoringError: null as string | null } }
+    catch (e) {
+      if (factoringInput && /FACTORING/.test(String((e as { code?: string }).code))) {
+        try { return { quote: priceQuote(base, params.p), factoringError: (e as Error).message } }
+        catch (e2) { return { error: (e2 as Error).message } }
+      }
+      return { error: (e as Error).message }
+    }
+  }, [params, unitCounts, badUnits, term, factoringInput])
 
   const capex = structure === 'capex'
   const result = useMemo(() => {
@@ -490,6 +529,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       whtSplit: whtMode === 'split',
       whtHwPct: whtMode === 'split' ? blankNull(whtHw) : null,
       whtSaasPct: whtMode === 'split' ? blankNull(whtSaas) : null,
+      factoring: factoringInput,
       ...(capex ? {
         capexAmount,
         // Thousands separators are formatting, not the amount (C-4 keeps the
@@ -518,7 +558,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       return { error: (e as Error).message }
     }
   }, [params, price, unitCounts, term, structure, capex, cpiMode, escalator, startYear, gst, whtMode, whtPct, grossUp, whtHw, whtSaas,
-    capexAmount, capexCustom, capexStructure, milestones, recovery])
+    capexAmount, capexCustom, capexStructure, milestones, recovery, factoringInput])
 
   const fitKey = useMemo(() => ({ result, tab, showTax }), [result, tab, showTax])
   const figuresRef = useFittedFigures(fitKey)
@@ -536,6 +576,19 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const upliftShown = !!q && q.cpiUpliftCents !== 0n
   const hardwareValueCents = p0?.hardwareValueCents ?? null
   const anchorTerm = params.ok ? params.p.anchorTerm : 36
+  // TERM_FACTORING: the pass-through is the same on every basis (it depends
+  // on the units, the term and the facility, never on how the client pays), so
+  // the price's figures serve the CAPEX subscription's display too.
+  const fxPrice = p0?.factoring ?? null
+  const ptMonthly = fxPrice?.passThroughMonthlyCents ?? 0n
+  const ptLastExtra = fxPrice?.passThroughLastExtraCents ?? 0n
+  const ptTotal = fxPrice?.passThroughCents ?? 0n
+  const factoringError = price && 'factoringError' in price ? price.factoringError ?? null : null
+  const pricedLines = p0 ? p0.lines.filter((l) => l.units > 0) : []
+  const perUnit = (l: { hardwareCostCents: bigint; units: number }) => money(l.hardwareCostCents / BigInt(l.units))
+  const hardwareNote = !p0 ? '' : pricedLines.length === 1
+    ? `Hardware cost: ${pricedLines[0].units} × ${perUnit(pricedLines[0])}`
+    : `Hardware cost: ${money(p0.hardwareCostCents)} (${pricedLines.map((l) => `${productLabel(l.product)} ${l.units} × ${perUnit(l)}`).join(', ')})`
 
   // T-4 and T-3: the quote is READY when it prices. Otherwise one reason,
   // named, on the readiness card and on the blocked Next and Quote tab.
@@ -678,6 +731,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                       <td>{productLabel(l.product)} total</td><td></td><td></td><td>{l.units}</td><td></td>
                       <td>{money(l.monthlyByYear[0])}</td><td>{money(l.tcvNetCents)}</td><td>{pct(l.grossMargin)}</td>
                     </tr>,
+                    // TERM_FACTORING (Phase 2 sign-off): under Pass through the
+                    // product total carries the pass-through and its bands do
+                    // not, so the total is not their sum. One text line says so.
+                    ...(l.passThrough ? [
+                      <tr key={`${l.product}-pt`} className="tp-pt-note" data-testid={`tp-breakdown-pt-${l.product}`}>
+                        <td colSpan={8}>{productLabel(l.product)} total includes the factoring cost passed through at cost: {money(l.passThrough.perUnitMonthlyCents)} per unit per month beside the bands{l.passThrough.remainderCents !== 0n ? `, month ${term} adjusted by ${signedMoney(money, l.passThrough.remainderCents)}` : ''}. The bands above are unchanged.</td>
+                      </tr>,
+                    ] : []),
                   ])}
                   <tr className="tp-subtotal tp-total" data-testid="tp-breakdown-total">
                     <td>Deal</td><td></td><td></td><td>{p0.lines.reduce((t, l) => t + l.units, 0)}</td><td></td>
@@ -705,7 +766,12 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <div className={p0.belowMarginFloor ? 'tp-chip tp-flag' : 'tp-ok tp-floor'} data-testid="tp-p-floor">
                 {p0.belowMarginFloor ? `Below the ${formatPct(p0.marginFloor, 1).replace(/\.0$/, '')}% margin floor` : `✓ Above the ${formatPct(p0.marginFloor, 1).replace(/\.0$/, '')}% margin floor`}
               </div>
-              <p className="tp-small tp-muted">This is the figure the deal is approved on. Payment terms change when the client pays, never this price.</p>
+              {fxPrice && (
+                <p className="tp-small tp-muted" data-testid="tp-p-factoring">{fxPrice.treatment === 'absorb'
+                  ? `After the factoring cost of ${money(fxPrice.costCents)}. Before it: ${money(fxPrice.profitBeforeFinanceCents ?? 0n)}, ${fxPrice.marginBeforeFinance ? pct(fxPrice.marginBeforeFinance) : '-'}.`
+                  : `Includes the factoring cost of ${money(fxPrice.costCents)}, passed through at cost.`}</p>
+              )}
+              <p className="tp-small tp-muted">This is the figure the deal is approved on. Payment terms change when the client pays, never this price{fxPrice ? ', except PO factoring' : ''}.</p>
             </section>
           )}
         </div>
@@ -840,8 +906,12 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <Sec title="Monthly subscription" note="Calculated: the rest of the price." testid="tp-sec-subscription">
                 {alloc ? (
                   <div className="tp-inline-row" data-testid="tp-subscription">
-                    <span className="tp-v tp-figure">{money(alloc.baseFeeCents)}</span>
-                    <span className="tp-small tp-muted tp-inline" data-testid="tp-subscription-note">({money(alloc.baseTcvCents)} − {money(alloc.capexCents)}) ÷ {term} months · month {term} is {money(alloc.lastBaseFeeCents)}</span>
+                    <span className="tp-v tp-figure">{money(alloc.baseFeeCents + ptMonthly)}</span>
+                    {/* TERM_FACTORING (spec 6.3): the pass-through is added AFTER the
+                        subscription is built from the banded remainder. */}
+                    <span className="tp-small tp-muted tp-inline" data-testid="tp-subscription-note">{ptTotal === 0n
+                      ? <>({money(alloc.baseTcvCents)} − {money(alloc.capexCents)}) ÷ {term} months · month {term} is {money(alloc.lastBaseFeeCents)}</>
+                      : <>({money(alloc.baseTcvCents - ptTotal)} − {money(alloc.capexCents)}) ÷ {term} months, plus {money(ptMonthly)} recovered at cost · month {term} is {money(alloc.lastBaseFeeCents + ptMonthly + ptLastExtra)}</>}</span>
                   </div>
                 ) : <span className="tp-small tp-muted">-</span>}
                 {alloc?.warnings.subscriptionBelowHosting && (
@@ -943,6 +1013,25 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             )}
           </Sec>
         </div>
+
+        {/* TERM_FACTORING (R-TF1): a section on Payment terms, then the cash
+            flow directly below it, per the mockup of record. */}
+        <FactoringCard money={money} pct={pct}
+          on={factoringOn} onToggle={() => setFactoringOn(!factoringOn)}
+          advance={fxAdvance ?? (p0 ? money(p0.hardwareCostCents) : '')}
+          advancePlaceholder={p0 ? money(p0.hardwareCostCents) : ''}
+          onAdvance={setFxAdvance} hardwareNote={hardwareNote}
+          rate={fxRate} onRate={setFxRate} term={fxTerm} onTerm={setFxTerm}
+          method={fxMethod} onMethod={() => setFxMethod(fxMethod === 'declining' ? 'straight' : 'declining')}
+          treatment={fxTreatment} onTreatment={() => setFxTreatment(fxTreatment === 'pass_through' ? 'absorb' : 'pass_through')}
+          error={factoringError}
+          figures={fxPrice}
+          monthlyCents={p0 ? p0.monthlyTotalCents : null}
+          grossProfitCents={p0 ? p0.grossProfitCents : null}
+          grossMargin={p0 ? p0.grossMargin : null} />
+        <CashFlowCard money={money} rows={q ? q.cashFlow.rows : null}
+          factoringOn={!!q?.factoring} headline={q ? q.cashFlow : null}
+          without={q?.factoring ? q.factoring.without : null} />
       </div>
 
       <div className="tp-side">
@@ -957,7 +1046,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             <>
               <div className="tp-line"><span className="tp-label">CAPEX</span><span className="tp-v" data-testid="tp-pays-capex">{!alloc ? '-'
                 : instalment && instalment.length ? `${money(instalment[0].cents as bigint)} × ${instalment.length}` : money(alloc.capexCents)}</span></div>
-              <div className="tp-line"><span className="tp-label">Subscription</span><span className="tp-v" data-testid="tp-pays-subscription">{alloc ? `${money(alloc.baseFeeCents)} × ${term}` : '-'}</span></div>
+              <div className="tp-line"><span className="tp-label">Subscription</span><span className="tp-v" data-testid="tp-pays-subscription">{alloc ? `${money(alloc.baseFeeCents + ptMonthly)} × ${term}` : '-'}</span></div>
               {instalment && instalment.length && alloc?.breakdown && alloc.breakdown.length > 1 ? (
                 <>
                   <div className="tp-line"><span className="tp-label">Months 1 to {instalment.length}</span><span className="tp-v">{money(alloc.breakdown[0].netCents)}</span></div>
@@ -1076,19 +1165,26 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           {/* N4 (amended): Product | Base TCV | Gross profit | Margin. Gross
               profit per product stays (John, 2026-10-09); units and cost go. */}
           <table className="tp-table tp-lines" data-testid="tp-profit">
-            <thead><tr><th>Product</th><th>Base TCV</th><th>Gross profit</th><th>Margin</th></tr></thead>
+            <thead><tr><th>Product</th><th>Base TCV</th>{q.factoring?.treatment === 'absorb' && <th>Factoring</th>}<th>Gross profit</th><th>Margin</th></tr></thead>
             <tbody>
               {q.lines.map((l) => (
                 <tr key={l.product} data-testid={`tp-profit-${l.product}`}>
-                  <td>{productLabel(l.product)}</td><td>{money(l.tcvNetCents)}</td><td>{money(l.grossProfitCents)}</td><td>{pct(l.grossMargin)}</td>
+                  <td>{productLabel(l.product)}</td><td>{money(l.tcvNetCents)}</td>{q.factoring?.treatment === 'absorb' && <td>{signedMoney(money, -l.factoringCostCents)}</td>}<td>{money(l.grossProfitCents)}</td><td>{pct(l.grossMargin)}</td>
                 </tr>
               ))}
               <tr className="tp-subtotal tp-total" data-testid="tp-profit-total">
-                <td>Deal</td><td>{money(q.tcvNetCents)}</td><td>{money(q.grossProfitCents)}</td><td>{pct(q.grossMargin)}</td>
+                <td>Deal</td><td>{money(q.tcvNetCents)}</td>{q.factoring?.treatment === 'absorb' && <td>{signedMoney(money, -q.factoring.costCents)}</td>}<td>{money(q.grossProfitCents)}</td><td>{pct(q.grossMargin)}</td>
               </tr>
             </tbody>
           </table>
           <div className="tp-line"><span className="tp-label">Gross profit</span><span className="tp-v" data-testid="tp-profit-gross">{money(q.grossProfitCents)}</span></div>
+          {q.factoring && (q.factoring.treatment === 'absorb' ? (
+            <div className="tp-line" data-testid="tp-profit-before-factoring"><span className="tp-label">Before factoring{q.factoring.marginBeforeFinance ? `, margin ${pct(q.factoring.marginBeforeFinance)}` : ''}</span>
+              <span className="tp-v">{money(q.factoring.profitBeforeFinanceCents ?? 0n)}</span></div>
+          ) : (
+            <div className="tp-line" data-testid="tp-profit-pass-through"><span className="tp-label">Factoring cost, passed through at cost</span>
+              <span className="tp-v">{money(q.factoring.costCents)}</span></div>
+          ))}
           {/* N5: the WHT Terminus bears, on the Base schedule, and what is
               left; the engine's own figures (Q4), shown when WHT is borne. */}
           {q.base.tax.whtBorneCents > 0n && (
