@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.9
+# Terminus Term Pricing: Specification v1.10
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -12,6 +12,7 @@
 **Amended (v1.7, John, 11 Oct 2026, TP_TABS, rulings T-4, C1 and C2):** per-band totals in section 4.3 (each band's Base TCV, cost, gross profit and margin, summing exactly to its product) (C1); the term ladder shows every column whatever the payment basis (section 4.5) (C2); the milestone allocation preview, which reports a Hybrid schedule whose shares are still being entered, and the excess named when they total above 100% (section 6.2) (T-4); test cases T4-G1 and B-1 to B-6 (section 11.3). **Every earlier figure is unchanged.**
 **Amended (v1.8, John, 12 Oct 2026, TP_BANDS, rulings TB-1 to TB-9):** volume bands are configured **per product**, 2 to 6 bands each, as a start and a discount, with "To" derived (section 3.1) (TB-1 to TB-5); the rules a band set must meet and the wording that refuses a broken one, shared by the editor and the server (section 3.2) (TB-6); the margin check, every band at every term, flagged against the floor and never refusing (section 10.4) (TB-7); test cases BG-1 to BG-5 (section 11.4). The rulings are cited TB-1 to TB-9 so they do not collide with test cases B-1 to B-6 of v1.7. **Every product is seeded with the v1.7 bands, so every earlier figure is unchanged** (BG-5).
 **Amended (v1.9, John, 12 Oct 2026, TP_MANUAL, rulings M-1 to M-9 and C1 to C11):** a manual ladder comparison, SafeSight per camera: the user types a monthly price for each term and sees it against the calculated one-camera fee, with margin, profit, client total and three checks (section 4.6); test cases MG-1 to MG-4 (section 11.5). **Comparison only: it never prices a quote, changes no setting and stores nothing, so every earlier figure is unchanged.**
+**Amended (v1.10, John, 2026-11-16, TERM_FACTORING, rulings R-TF1 to R-TF12 and the Phase 1 sign-off):** PO factoring on the quote: an advance that funds hardware procurement, a loan schedule (straight-line or declining balance, rate per month), and the factoring cost either ABSORBED (price unchanged, profit falls) or PASSED THROUGH at cost (price rises by exactly the cost, profit unchanged) (sections 9.2 to 9.4); the margin floor reads the margin after finance cost (4.4); the cash flow with its rows, receipts basis, timing, lowest balance with and without factoring, and month of payback (sections 9.5, 9.6); test cases FA-1 to FA-9 (section 11.6). **With factoring off, every earlier figure is unchanged** (FA-8).
 
 
 
@@ -49,6 +50,12 @@
 | `wht_gross_up` | yes/no | One switch for every invoice line (section 8) |
 | `wht_split` | yes/no | Off: `wht_pct` applies to every invoice line. On: `wht_hw_pct` and `wht_saas_pct` apply instead (section 8) |
 | `wht_hw_pct`, `wht_saas_pct` | percent each | With `wht_split` on: WHT on the hardware line and on the software-as-a-service line, each 0 up to but not including 100; blank is 0 |
+| `factoring` | yes/no (v1.10) | Default off. Off: no advance, no schedule, no factoring cost, and every figure is as v1.9 |
+| `factoring_advance` | money (v1.10) | Default `hardware_cost` (section 6.1), recomputed as units change until typed over. Any amount from 0, at most 2 decimals. Above `hardware_cost` a note shows; it never refuses. Not saved (a quote is not saved) |
+| `factoring_rate_pct` | percent PER MONTH (v1.10) | From 0 up to but not including 100, as Commercials. Blank is refused while factoring is on (a rate nobody entered is not 0) |
+| `factoring_term_months` | integer (v1.10) | 1 up to `T − 1`, so the last repayment, in month `term + 1`, falls inside the contract. Longer is refused. Blank is refused while factoring is on |
+| `factoring_method` | choice (v1.10) | `straight` (default) or `declining` |
+| `factoring_cost_treatment` | choice (v1.10) | `absorb` (default) or `pass_through` |
 
 ## 3. Configurable parameters (admin settings, never hard-coded)
 
@@ -160,6 +167,8 @@ band_margin(b)  = band_profit(b) / band_TCV(b) × 100
 
 They are display figures for the price breakdown, so the screen does no arithmetic on money; no other figure reads them.
 
+**Pass through (v1.10).** Under `pass_through` each product line carries a pass-through amount `F_p` (section 9.4) beside its bands. Then `product_TCV(p) = Σ its bands ( band_TCV ) + F_p`, and `product_cost(p) = units(p) × cost(T) + F_p` under BOTH treatments. The bands themselves are unchanged: a band's fee, units and totals are as 4.2 and above, so `Σ its bands + F_p = product_TCV(p)` exactly. `Base TCV = Σ products ( product_TCV )` holds as before. With factoring off, `F_p = 0` and this paragraph changes nothing.
+
 A product's TCV is the same under `opex` and `capex`: the payment structure changes when cash arrives, never what a line is worth (section 6). **WHT is never allocated to a product.** It is withheld per invoice, and an invoice is not a product, so WHT borne is reported for the whole deal only (gross profit after WHT, and the margin after WHT).
 
 **Base TCV and Final TCV (v1.6, C-1, C-2, Q1, Q5).** The figures above are written with the escalator applied; v1.6 separates the two:
@@ -181,6 +190,8 @@ SUPERSEDED by v1.6 and left visible: v1.4 wrote `product_TCV(p)` with `fee_year(
 ### 4.4 Margin floor
 
 `gross_margin` below `MARGIN_FLOOR` shows a visible flag. The quote still prices.
+
+**With factoring on (v1.10, Phase 1 ruling 2):** under `absorb` the flag reads the margin AFTER finance cost, `(gross_profit − F) / Base TCV` (9.3); under `pass_through` it reads the margin including the pass-through, which is `gross_margin` on the Base TCV that carries it (9.4). With factoring off both are `gross_margin`, so nothing moves.
 
 ### 4.5 Per camera, OPEX (v1.5)
 
@@ -307,6 +318,8 @@ sub(m)        = round_half_up( base_fee(m) × factor(k), 2 )         k = the con
 
 `factor(k)` is section 7's (`S`, `escalator_pct`), and is 1 for every year with no CPI. Month T escalates its OWN base by year k's factor. **CAPEX payments never escalate.**
 
+Under `pass_through` (v1.10, section 9.4), `sub(m) = round_half_up( base_fee(m) × factor(k), 2 ) + pass_through(m)`, with `base_fee` computed as above from Base TCV less `F` (the banded figure), so CPI never reaches the pass-through. Then `CAPEX + Σ_{m=1..T} sub(m) = Base TCV` on the Base schedule, exactly.
+
 ```
 CAPEX + Σ_{m=1..T} base_fee(m) = Base TCV       exactly (the Base schedule)
 CAPEX + Σ_{m=1..T} sub(m)      = Final TCV      (the Final schedule)
@@ -325,7 +338,7 @@ SUPERSEDED by v1.6, left visible so the change can be read (C-5, C-7 and Q2 stri
 >
 > **CAPEX with an escalator (section 7):** the monthly service fee escalates like the OPEX fee, and TCV stays identical to the OPEX TCV. `s = (TCV − hardware_upfront) / (12 × Σ_{k=1..years} factor(k))`; `service_year(k) = round_half_up( s × factor(k), 2 )`; `upfront = TCV − Σ_k ( 12 × service_year(k) )` (carries any rounding residue). `factor(k)` is section 7's. Before v1.3 it was written `(1 + escalator)^(k−1)`, which is `factor(k)` with `S` = 2.
 
-The TMS prototype maps `capex` onto its existing two-phase and hybrid payment structures. PO factoring stays in the cash flow (section 9).
+The TMS prototype maps `capex` onto its existing two-phase and hybrid payment structures. PO factoring stays in the cash flow (section 9), and v1.10 adds its pricing treatments (9.3, 9.4).
 
 ## 7. Optional annual escalator
 
@@ -379,11 +392,88 @@ GST is added per invoice line, on the line's invoice amount, rounded half-up.
 
 **Which schedule (v1.6, Q5):** every tax figure is computed per invoice on a schedule. The Final schedule's are what the client is invoiced (GST, gross-up, WHT, TCV incl. GST). The margin after WHT uses the WHT borne on the Base schedule, so it is on the same basis as the margin it reduces.
 
-## 9. Cash flow
+## 9. Cash flow and PO factoring
 
-The quote shows monthly receipts (net, by payment structure) against costs (hardware at deployment, hosting monthly), cumulative position, and month of payback. PO factoring, when switched on, shows its cost and its effect on timing. **Margin is reported before and after finance cost.**
+### 9.1 Purpose (v1.2, kept)
 
-**Cash in year 1 (v1.6, Q10):** the net invoices of months 0 to 12, before GST and WHT, on the schedule displayed (the Final schedule). Under `capex` it is shown against the OPEX figure for the same deal and CPI, the OPEX net invoices of months 1 to 12.
+The quote shows monthly receipts against costs, the running balance, and month of payback. PO factoring, when switched on, shows its cost and its effect on timing. **Margin is reported before and after finance cost** (under `absorb`, 9.3).
+
+SUPERSEDED in wording by v1.10, left visible: "The quote shows monthly receipts (net, by payment structure) against costs (hardware at deployment, hosting monthly), cumulative position, and month of payback." Receipts are now defined in 9.5.
+
+### 9.2 The advance and the loan schedule (v1.10, R-TF2 to R-TF4)
+
+Factoring the client PO funds hardware procurement. The advance `A` is `factoring_advance` (section 2). With rate `r = factoring_rate_pct / 100` per month and term `n`:
+
+```
+straight:   principal(i) = A / n                                   i = 1 … n
+            interest(i)  = r × balance before month i's repayment
+declining:  payment      = A × r / (1 − (1 + r)^−n)                 (A / n when r = 0)
+            interest(i)  = r × balance before month i's repayment
+            principal(i) = payment − interest(i); month n clears the balance
+```
+
+The schedule is held exactly. Each month's interest is rounded half-up to cents on its own; each month's principal is rounded half-up to cents and month `n` carries the remainder, so Σ principal = `A` exactly. **The factoring cost `F` = Σ the monthly interest cents.** These are Commercials' formulas (deal-calculator `buildLoanSchedule`), and a parity test holds the two to the cent (R-TF9).
+
+SUPERSEDED in wording, left visible: Commercials' help text calls "rate multiplied by term" the total cost. Neither method computes that; straight-line interest is `r × A × (n + 1) / 2`.
+
+### 9.3 Absorb (v1.10; the 2026-10-29 ruling)
+
+**John, 2026-10-29, ruled in conversation and first written down here: "factoring is an after-pricing adjustment to margin."** v1.10 keeps that ruling as the `absorb` treatment, the default, and it is no longer the only one.
+
+The price is unchanged: every fee, Base TCV, Final TCV and the schedule are as with factoring off. `F` is a cost:
+
+```
+profit after finance  = gross_profit − F
+margin before finance = gross_margin                     (4.3, unchanged)
+margin after finance  = (gross_profit − F) / Base TCV    the margin floor (4.4) reads this
+```
+
+Per product, `product_cost(p)` includes `F_p` (9.4), so the internal profit table shows the factoring cost by product.
+
+### 9.4 Pass through (v1.10, R-TF5 to R-TF7)
+
+The factoring cost is added to the price AT COST, with no markup. Profit is unchanged and the margin falls, by arithmetic and with no special margin handling.
+
+```
+F_p             = round_half_up( F × hardware_cost(p) / hardware_cost, 2 )   each product but the last, in line order
+F_last          = F − Σ the other F_p                                        by units if hardware_cost is 0
+pt_p            = round_half_up( F_p / ( units(p) × T ), 2 )                 per unit per month
+r_p             = F_p − pt_p × units(p) × T                                  on the last invoice; may be negative
+pass_through(m) = Σ_p units(p) × pt_p                                        m = 1 … T
+                + Σ_p r_p                                                    also, in month T
+```
+
+- **Not escalated by CPI**: it is a fixed cost recovered at cost. Under `opex` it is added to each month's fee after section 7; under `capex` to the subscription (6.3).
+- **It enters Base TCV**, the approval value, the margin floor check (4.4) and, under `locked`, the deal value. Volume bands are unaffected: they count units.
+- **The client figures never name it.** The monthly fee rises; nothing on a client figure says factoring.
+- WHT and GST apply to it as to the rest of the invoice line it sits on (section 8).
+
+### 9.5 The cash flow (v1.10, R-TF8, R-TF10, R-TF12)
+
+Months 0 to T. A month 0 appears only when the schedule has a month-0 invoice.
+
+| Row | Month by month |
+|---|---|
+| Hardware procurement | out: the vendor payment schedule, a list of {month, amount}; today one entry, month 1, `hardware_cost` |
+| Factoring advance | in: the advance schedule, a list of {month, amount}; today one entry, month 1, `A` |
+| Client payments | in: each invoice of the FINAL schedule as Terminus receives it, after WHT and excluding GST (`invoice − WHT`, section 8.1), month 0 included |
+| Hosting and service costs | out: `Σ products ( units × HOSTING_MONTHLY )`, months 1 … T |
+| Factoring principal | out: `principal(i)` in month `d + i`, for an advance drawn in month `d` |
+| Factoring interest | out: `interest(i)` in month `d + i` |
+| Net | the sum of the rows above, in less out |
+| Running balance | the cumulative net |
+
+**Each advance entry is its own facility** at the same rate, term and method, repaid from the month after it is drawn; `F` is the sum over entries. Today there is one entry in month 1, so repayments run months 2 … `n + 1` (R-TF10), and `n ≤ T − 1` keeps them inside the term.
+
+### 9.6 The headline (v1.10)
+
+- **Lowest balance with factoring**: the lowest running balance, months 0 … T, and its month (the earliest, on a tie).
+- **Lowest balance without factoring**: the same quote priced and run with factoring off. Under `pass_through` that is also the price without the pass-through.
+- **Month of payback**: the first month from which the running balance stays at or above 0 to the end of the term, reported for each run; "none within the term" if there is no such month.
+
+### 9.7 Cash in year 1 (v1.6, Q10, kept)
+
+**Cash in year 1 (v1.6, Q10):** the net invoices of months 0 to 12, before GST and WHT, on the schedule displayed (the Final schedule). Under `capex` it is shown against the OPEX figure for the same deal and CPI, the OPEX net invoices of months 1 to 12. Under `pass_through` (v1.10) it includes the pass-through, since it is invoiced.
 
 ## 10. Reference tables (the implementation must reproduce these exactly)
 
@@ -566,6 +656,22 @@ Summary: floor ok; client total ok; profit falls at 84, 96.
 | MG-3 | MG-1 with 36 blank | every vs 36 shows "-" | No anchor price |
 | MG-4 | MG-1 with 120 at 300.00 | client total 36,000.00, profit 4,000.00, margin 11.1%; flags, in order, "Below the floor", "Client total below 108 months", "Profit below 108 months" | All three checks on one row (C2) |
 
+### 11.6 v1.10 cases (TERM_FACTORING)
+
+T6 (SafeSight 120, 60 months, `opex`, no CPI, no tax: monthly 289,818.77, Base TCV 17,389,126.20, cost 2,400,000.00) and the 11.1 demo deal, the settings of section 3. Copied from the TERM_FACTORING Phase 1 report and its sign-off, computed by hand; never computed by the code under test.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| FA-1 | Loan 960,000.00, 1.0%/month, 12 months, straight | principal 80,000.00 every month; interest 9,600.00, 8,800.00 … 800.00 (800 × (13 − k)); F = 62,400.00 | Straight-line, opening balance |
+| FA-2 | Loan 960,000.00, 1.0%/month, 12 months, declining | month 1: principal 75,694.84, interest 9,600.00; month 2: 76,451.79, 8,843.05; month 12: 84,450.34, 844.50; Σ principal 960,000.00; F = 63,538.05 | Declining, level payment |
+| FA-3 | T6 with factoring on, advance default (960,000.00), FA-1's facility, `absorb` | Price unchanged: monthly 289,818.77, Base TCV 17,389,126.20. Profit 14,989,126.20 before finance, 14,926,726.20 after; margin 86.2% before, 85.8% after; the floor reads 85.8% | Absorb |
+| FA-4 | FA-3 with `pass_through` | pt 8.67 per unit per month; remainder −24.00 on month 60. Monthly 290,859.17 months 1..59, 290,835.17 month 60. Base TCV 17,451,526.20; cost 2,462,400.00; profit 14,989,126.20 (unchanged); margin 85.9%. SafeSight 1 to 9 band fee still 2,613.33 | Pass through at cost; bands untouched |
+| FA-5 | Demo deal, `opex`, advance default (1,240,000.00), 1.0%/month, 12 months, straight, `pass_through` | F = 80,600.00. F_p: SafeSight 62,400.00, AQ 5,200.00, HEMIR 13,000.00. pt: 8.67, 2.17, 108.33; remainders −24.00, −8.00, +0.40. Pass-through 1,343.86 a month, month 60 −31.60 more. Monthly 368,320.71 months 1..59, 368,289.11 month 60. Base TCV 22,099,211.00; profit 19,038,611.00 (T29's, unchanged); margin 86.2% (T29: 86.5%). Per product: SafeSight 17,451,526.20 / 85.9%; AQ 2,250,684.40 / 85.6%; HEMIR 2,397,000.40 / 88.6% | Allocation by hardware cost; per product |
+| FA-6 | FA-5 as `capex`, G-C1 (Hardware, Hybrid Contract start m0 100%) | CAPEX 1,550,000.00 m0. Subscription 342,487.38 months 1..59, 342,455.58 month 60 (G-C1's 341,143.52 / 341,143.32 plus the pass-through). Base TCV 22,099,211.00 | Pass through under CAPEX, outside CPI |
+| FA-7 | FA-3's cash flow | Month 1: client 289,818.77, hosting −24,000.00, procurement −960,000.00, advance +960,000.00, net 265,818.77. Month 2: principal −80,000.00, interest −9,600.00, net 176,218.77, balance 442,037.54. Month 13: interest −800.00, net 185,018.77, balance 2,433,244.01. Month 60 balance 14,926,726.20 (= profit after finance). Lowest with factoring 265,818.77 at month 1, payback month 1; without −694,181.23 at month 1, payback month 4 | Rows, timing, headline |
+| FA-8 | Every case in sections 10 and 11 with factoring off | every figure unchanged | Nothing moved |
+| FA-9 | Engine only: advance schedule [{month 1, 600,000.00}, {month 7, 360,000.00}], 1.0%/month, 12 months, straight | Facility 1: principal 50,000.00 months 2..13, interest 500 × (13 − k) = 6,000.00 … 500.00, total 39,000.00. Facility 2: principal 30,000.00 months 8..19, interest 300 × (13 − k) = 3,600.00 … 300.00, total 23,400.00. Advance row +600,000.00 month 1, +360,000.00 month 7. Month 8: principal 80,000.00 (50,000.00 + 30,000.00), interest 6,600.00 (3,000.00 + 3,600.00). F = 62,400.00 | The schedule shape for staging (R-TF12) |
+
 ## 12. Implementing in the TMS prototype
 
 - Built through the TMS round method, as a standalone Term Pricing screen first. It does not touch the existing Commercials engine or its golden deals.
@@ -585,3 +691,5 @@ Summary: floor ok; client total ok; profit falls at 84, 96.
 | ~~Per-camera columns under `capex` (hardware per camera, service fee per camera)~~ | **CLOSED (v1.6, C-10, Q12):** no per-camera CAPEX figure anywhere; ~~under `capex` the ladder shows the term and the OPEX per-camera fee only~~ (superseded by v1.7, C2: the ladder shows every column whatever the basis; section 4.5) |
 | Linking a quote to an opportunity's TCV | After the demo, with a "one deal, one price" rule |
 | A split OPEX invoice whose service line would fall below zero (the hardware line exceeds the month's fee, possible only with unusual admin margins) | The quote refuses with a clear error rather than invoice a negative line (implementation position, TERM_PRICING_2) |
+| Staged vendor payments and staged factoring drawdowns on the screen | The engine takes schedules (9.5); the screen shows one amount each (v1.10, R-TF12) |
+| Factoring timing other than month 1 | Month 1 for procurement and the advance, as Commercials (R-TF10) |

@@ -111,6 +111,41 @@ DESIGN_PRINCIPLES entry (the 2026-10-29 ruling's supersession; why
 re-implement plus parity rather than share; the schedule shape for
 staging). CURRENT_STATE if affected. Full gate. Push-ready SHA. STOP.
 
+PHASE 1 SIGN-OFF (John, 2026-11-16), appended at the phase it launches:
+
+Phase 1 ACCEPTED. Mockup moved to prototypes/ unchanged: accepted.
+Where the mockup's illustrative figures differ from the rulings (timing,
+per-unit spread, last repayment cents), the rulings govern.
+
+RULINGS (John):
+1. Fee shape APPROVED as item 2: pass-through on each product line beside
+   its bands; F_p by hardware cost (last takes the remainder; by units if
+   all hardware cost is 0); pt_p per unit per month to the cent;
+   remainder r_p on the last invoice; bands untouched; under CAPEX added
+   to sub(m) outside CPI.
+2. Margin floor (4.4) under ABSORB reads the margin AFTER finance cost.
+   Under Pass through it reads the margin including the pass-through.
+   Amend the draft spec text accordingly.
+3. Factoring term: 1 to T - 1; refuse longer. Commercials dropping
+   repayments past the contract (facInterest short) QUEUED as a
+   Commercials defect, top of the queue, not fixed here.
+4. Two rows: Factoring principal, Factoring interest.
+5. Payback reported for both runs, as drafted.
+6. Blank rate or term while factoring is on: refused, not 0.
+Also ACCEPTED: WHT on the pass-through as any fee; ladders exclude
+factoring; DealToggle for all three toggles (on/off, method, treatment);
+a term-side row builder emitting CFRow for CashFlowGrid, cents, R-TF8
+labels (second builder of the shape, recorded); term-scoped .cf-cell
+width rule, no Commercials CSS changed; parity test design incl. the
+no-tie assertion; the isolation test's ALLOWED_IMPORTERS gains the parity
+file with its reason.
+
+SPEC: the v1.10 draft APPROVED with ruling 2 applied. Commit it (docs
+only) as the first Phase 2 commit. FA-9's figures computed by hand and
+added before its test is written.
+
+Proceed to Phase 2 (engine). Stop for sign-off.
+
 QUEUED, NOT THIS ROUND: staged vendor payments and staged factoring
 drawdowns, on the term screen and in Commercials; Commercials wording
 faults (help text "rate x term", statement "factored receipts", the
