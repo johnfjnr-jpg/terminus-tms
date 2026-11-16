@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Term pricing: PO factoring and cash flow (approved mockup)</title>
+<!--
+  REFERENCE OF RECORD for the TERM FACTORING round.
+  Approved by John 2026-11-15. Shown: factoring ON, Pass through.
+  Absorb differs only in: switch knob left (Absorb active); note "Price unchanged.
+  The factoring cost comes out of profit."; fee 120.00; margin 69.4% -> 68.5%;
+  profit 500,000.00 -> 493,500.00; client payments 12,000.00/month; running
+  balance at M60 493,500.00.
+  Figures ILLUSTRATIVE (100 units, 60 months, 100,000.00 advance at 1.0%/month over
+  12 months, straight-line, hosting 2,000/month). Inter stands in for General Sans /
+  Satoshi; #E8B04B stands in for --attention. The cash flow table stands in for the
+  shared Commercials cash flow display.
+-->
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Inter:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#66CC99}a:hover{color:#8FDDB5}
+.lab{font-family:'JetBrains Mono',monospace;font-size:11px;color:#A8A9B0;text-transform:uppercase;letter-spacing:0.04em}
+.fig{font-family:'JetBrains Mono',monospace;font-size:13px;color:#F2F2F0}
+.cell{font-family:'JetBrains Mono',monospace;font-size:12px;padding:8px 10px;text-align:right;border-bottom:1px solid #23242C;white-space:nowrap}
+.rowh{font-family:Inter,sans-serif;font-size:13px;padding:8px 10px;text-align:left;border-bottom:1px solid #23242C;white-space:nowrap;color:#F2F2F0}
+</style>
+
+</head><body>
+
+<div style="box-sizing: border-box; background: #1A1B23; color: #F2F2F0; font-family: Inter, sans-serif; padding: 28px 32px; min-height: 1180px">
+<div style="max-width: 1216px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div class="lab">Term pricing</div>
+<h1 style="margin: 0; font-size: 22px; font-weight: 600">Example quote</h1>
+</div>
+
+<div role="tablist" aria-label="Term pricing" style="display: flex; gap: 24px; border-bottom: 1px solid #2C2D36; font-size: 14px">
+<button role="tab" aria-selected="false" style="background: none; border: 0; color: #A8A9B0; padding: 0 0 10px; font: inherit">Pricing</button>
+<button role="tab" aria-selected="true" style="background: none; border: 0; border-bottom: 2px solid #66CC99; color: #F2F2F0; padding: 0 0 8px; font: inherit">Payment terms</button>
+<button role="tab" aria-selected="false" style="background: none; border: 0; color: #A8A9B0; padding: 0 0 10px; font: inherit">Quote</button>
+</div>
+
+<section aria-label="Existing payment terms" style="border: 1px dashed #3A3B46; border-radius: 6px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div class="lab">Existing content, unchanged</div>
+<div style="font-size: 13px; color: #A8A9B0">Payment basis (OPEX), CAPEX amount and structure, CPI, tax and WHT</div>
+</div>
+<div class="fig">OPEX · 100 units · 60 months · 120.00 per unit per month</div>
+</section>
+
+<section aria-label="PO factoring" style="background: #15161C; border: 1px solid #2C2D36; border-radius: 6px; padding: 20px 24px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">PO factoring</h2>
+<div style="font-size: 12px; color: #A8A9B0">Advances cash against the client PO to fund hardware procurement. Internal only: never shown on the quote.</div>
+</div>
+<button aria-pressed="true" aria-label="PO factoring on" style="display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: #F2F2F0; min-height: 44px">
+<span style="position: relative; width: 44px; height: 24px; border-radius: 12px; background: #66CC99; display: inline-block"><span style="position: absolute; top: 3px; left: 23px; width: 18px; height: 18px; border-radius: 9px; background: #15161C"></span></span>
+<span class="fig">On</span>
+</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px">
+<label style="display: flex; flex-direction: column; gap: 6px">
+<span class="lab">Advance amount</span>
+<input value="100,000.00" style="width: 130px; background: #1A1B23; border: 1px solid #3A3B46; border-radius: 4px; color: #F2F2F0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 8px 10px">
+<span style="font-size: 11px; color: #A8A9B0">Hardware cost: 100 × 1,000.00</span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px">
+<span class="lab">Rate (% per month)</span>
+<input value="1.0" style="width: 60px; background: #1A1B23; border: 1px solid #3A3B46; border-radius: 4px; color: #F2F2F0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 8px 10px">
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px">
+<span class="lab">Term (months)</span>
+<input value="12" style="width: 50px; background: #1A1B23; border: 1px solid #3A3B46; border-radius: 4px; color: #F2F2F0; font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 8px 10px">
+</label>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lab">Repayment</span>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 36px">
+<span class="fig" style="color: #66CC99">Straight-line</span>
+<span aria-hidden="true" style="position: relative; width: 44px; height: 24px; border-radius: 12px; background: #3A3B46; display: inline-block"><span style="position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9px; background: #F2F2F0"></span></span>
+<span class="fig" style="color: #A8A9B0">Declining balance</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; border-top: 1px solid #23242C; padding-top: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span class="lab">Factoring cost</span>
+<div style="display: flex; align-items: center; gap: 8px; min-height: 36px">
+<span class="fig" style="color: #A8A9B0">Absorb</span>
+<span aria-hidden="true" style="position: relative; width: 44px; height: 24px; border-radius: 12px; background: #3A3B46; display: inline-block"><span style="position: absolute; top: 3px; left: 23px; width: 18px; height: 18px; border-radius: 9px; background: #F2F2F0"></span></span>
+<span class="fig" style="color: #66CC99">Pass through</span>
+</div>
+<span style="font-size: 12px; color: #A8A9B0; max-width: 420px">Factoring cost added to the price at cost, with no markup. Profit unchanged. The client sees a slightly higher fee, never a factoring line.</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, auto); gap: 6px 28px; align-items: baseline">
+<span class="lab">Factoring cost</span><span class="lab">Monthly fee</span><span class="lab">Margin</span><span class="lab">Profit</span>
+<span class="fig">6,500.00</span><span class="fig">120.00 → 121.08</span><span class="fig">69.4% → 68.8%</span><span class="fig">500,000.00 (unchanged)</span>
+</div>
+</div>
+</section>
+
+<section aria-label="Cash flow" style="background: #15161C; border: 1px solid #2C2D36; border-radius: 6px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 15px; font-weight: 600">Cash flow</h2>
+<div style="display: flex; gap: 24px; flex-wrap: wrap">
+<span class="fig"><span class="lab">Lowest balance with factoring </span>0.00 at M0</span>
+<span class="fig" style="color: #E8B04B"><span class="lab">Without factoring </span>−100,000.00 at M0</span>
+</div>
+</div>
+<div style="overflow-x: auto">
+<table style="border-collapse: collapse; width: 100%">
+<thead>
+<tr>
+<th class="rowh" style="color: #A8A9B0; font-weight: 400">USD</th>
+<th class="cell" style="color: #A8A9B0; font-weight: 400">M0</th><th class="cell" style="color: #A8A9B0; font-weight: 400">M1</th><th class="cell" style="color: #A8A9B0; font-weight: 400">M2</th><th class="cell" style="color: #A8A9B0; font-weight: 400">…</th><th class="cell" style="color: #A8A9B0; font-weight: 400">M12</th><th class="cell" style="color: #A8A9B0; font-weight: 400">M13</th><th class="cell" style="color: #A8A9B0; font-weight: 400">…</th><th class="cell" style="color: #A8A9B0; font-weight: 400">M60</th>
+</tr>
+</thead>
+<tbody>
+<tr><th class="rowh" style="font-weight: 400">Hardware procurement</th><td class="cell" style="font-weight: 400">−100,000.00</td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400"></td></tr><tr><th class="rowh" style="font-weight: 400">Factoring advance</th><td class="cell" style="font-weight: 400">100,000.00</td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400"></td></tr><tr><th class="rowh" style="font-weight: 400">Client payments</th><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">12,108.33</td><td class="cell" style="font-weight: 400">12,108.33</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">12,108.33</td><td class="cell" style="font-weight: 400">12,108.33</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">12,108.33</td></tr><tr><th class="rowh" style="font-weight: 400">Hosting and service costs</th><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">−2,000.00</td><td class="cell" style="font-weight: 400">−2,000.00</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">−2,000.00</td><td class="cell" style="font-weight: 400">−2,000.00</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">−2,000.00</td></tr><tr><th class="rowh" style="font-weight: 400">Factoring repayment</th><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">−9,333.33</td><td class="cell" style="font-weight: 400">−9,250.00</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">−8,416.67</td><td class="cell" style="font-weight: 400"></td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400"></td></tr><tr><th class="rowh" style="font-weight: 400">Net</th><td class="cell" style="font-weight: 400">0.00</td><td class="cell" style="font-weight: 400">775.00</td><td class="cell" style="font-weight: 400">858.33</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">1,691.67</td><td class="cell" style="font-weight: 400">10,108.33</td><td class="cell" style="font-weight: 400">…</td><td class="cell" style="font-weight: 400">10,108.33</td></tr><tr><th class="rowh" style="font-weight: 600">Running balance</th><td class="cell" style="font-weight: 600">0.00</td><td class="cell" style="font-weight: 600">775.00</td><td class="cell" style="font-weight: 600">1,633.33</td><td class="cell" style="font-weight: 600">…</td><td class="cell" style="font-weight: 600">14,800.00</td><td class="cell" style="font-weight: 600">24,908.33</td><td class="cell" style="font-weight: 600">…</td><td class="cell" style="font-weight: 600">500,000.00</td></tr></tbody>
+</table>
+</div>
+<div style="font-size: 12px; color: #A8A9B0">Same cash flow calculation and display as the Commercials tab (shared, not copied). Figures illustrative.</div>
+</section>
+
+</div>
+</div>
+</body></html>
