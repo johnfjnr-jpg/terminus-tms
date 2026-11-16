@@ -112,6 +112,30 @@ for (const method of METHODS) {
   }
 }
 
+// ── COMMERCIALS_FACTORING R-CF1 (John 2026-11-16): PAST THE CONTRACT ─────────
+//
+// Commercials' cash flow stops at the contract's last month. Before R-CF1 its
+// facInterest summed only those rows, so a loan running past the end was SHORT
+// (G3's 24-month loan on a 12-month contract: 49,426.62 of 72,525.69). The
+// finance cost is now the whole loan's, so it must agree with the term engine's
+// F for the same loan, whatever the contract length. Both methods.
+for (const method of METHODS) {
+  for (const months of [12, 24, 1]) {
+    test(`R-CF1 parity, ${method}: a 24-month loan on a ${months}-month contract carries the WHOLE loan's interest`, () => {
+      const advance = 124000000n
+      const engine = loanSchedule(advance, '1.4', 24, method)
+      const cf = buildCashFlowModel({ months, structure: 'single', recoveryMonths: months, annualInvoicing: false,
+        hardwarePriceAll: 0, hardwareCostAll: Number(advance) / 100, hostingMonthPrice: 0, hostingMonthCost: 0,
+        factoringEnabled: true, factoringRatePct: 1.4, factoringTermMonths: 24, factoringMethod: method })
+      assert.equal(cf.rows.length, months, 'the cash flow still ends at the contract')
+      const commercials = buildLoanSchedule(Number(advance) / 100, 0.014, 24, method)
+      assert.equal(Number(engine.interestCents), commercials.reduce((s, x) => s + floatCents(x.interest), 0))
+      assert.ok(Math.abs(Number(engine.interestCents) / 100 - cf.facInterest) <= 24 * 0.005,
+        `facInterest ${cf.facInterest} against the engine's F ${engine.interestCents} cents`)
+    })
+  }
+}
+
 const SEED = [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' }]
 const PARAMS = {
   TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120], ANCHOR_TERM: 36,

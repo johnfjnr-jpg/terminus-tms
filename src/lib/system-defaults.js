@@ -333,6 +333,31 @@ export function validateRecoveryAgainstDuration(payload) {
 }
 
 /**
+ * R-CF2 (COMMERCIALS_FACTORING, John 2026-11-16, narrowed): a factoring term
+ * must end inside the contract, so every repayment falls within it. Refused
+ * ONLY when the save CHANGES the duration, the factoring term or the factoring
+ * switch AND the result is over (duration - 1): a record already over the
+ * limit stays saveable on every other field, priced in full and flagged
+ * (R-CF1, R-CF3). The wording is the term screen's.
+ *
+ * Returns null when the save is acceptable, or the sentence when it is not.
+ * Absence on either side is not a violation: a blank term or duration is
+ * reported by the not-recorded path, a different control.
+ */
+export function validateFactoringTermAgainstDuration(before, after) {
+  const read = (p) => ({
+    d: String(p?.duration ?? ''), n: String(p?.factoring?.termMonths ?? ''), on: p?.factoring?.enabled === true,
+  });
+  const b = read(before); const a = read(after);
+  if (b.d === a.d && b.n === a.n && b.on === a.on) return null;
+  if (!a.on || a.d.trim() === '' || a.n.trim() === '') return null;
+  const T = Number(a.d); const n = Number(a.n);
+  if (!Number.isFinite(T) || !Number.isFinite(n) || T < 1 || n < 1) return null;
+  if (n <= T - 1) return null;
+  return `The factoring term must be a whole number of months from 1 to ${T - 1}, so every repayment falls inside the ${T}-month contract.`;
+}
+
+/**
  * The recovery period's state on a two-phase or hybrid deal, per the table in
  * DESIGN_PRINCIPLES.md.
  *

@@ -24,6 +24,16 @@
 import { milestoneUsd } from './milestone-schedule.js';
 
 /**
+ * A factoring rate nobody entered (COMMERCIALS_FACTORING R-CF4, John
+ * 2026-11-16). ABSENT, never 1.5 and never 0: a blank rate with factoring on
+ * prices nothing and is flagged, exactly as a blank term already is (Rule 32,
+ * Round 41 ruling 5). The 1.5 that stood behind it in three places is gone.
+ * One definition, read by buildCashFlowModel and calculateDeal alike.
+ */
+export const factoringRateAbsent = (v) =>
+  v === null || v === undefined || v === '' || !Number.isFinite(Number(v));
+
+/**
  * Builds a month-by-month loan repayment schedule.
  * Direct port of buildLoanSchedule(). This function was already pure
  * in the original file, no changes made beyond adding types/docs.
@@ -289,7 +299,7 @@ export function calculateTax(contractNet, whtPct, gstPct, grossUp) {
  * @param {number} p.lumpCost
  * @param {Array<{month: number, usd: number}>} p.contractorMilestones - only used when lumpSumDeal is true
  * @param {boolean} p.factoringEnabled
- * @param {number} p.factoringRatePct - e.g. 1.5 for 1.5% monthly, defaults to 1.5
+ * @param {number|null} p.factoringRatePct - e.g. 1.5 for 1.5% monthly; absent prices nothing (R-CF4)
  * @param {number} p.factoringTermMonths
  * @param {'straight'|'declining'} p.factoringMethod
  */
@@ -307,7 +317,7 @@ export function buildCashFlowModel({
   lumpCost,
   contractorMilestones = [],
   factoringEnabled,
-  factoringRatePct = 1.5,
+  factoringRatePct,
   factoringTermMonths,
   factoringMethod = 'straight',
 }) {
@@ -360,7 +370,12 @@ export function buildCashFlowModel({
     .map((m) => ({ ...m, usd: milestoneUsd(m.pct, hardwarePriceAll) }))
     .filter((m) => m.month > 0 && m.usd > 0);
 
-  const facRate = (factoringRatePct || 0) / 100;
+  // R-CF4: a blank rate is absent, so no schedule and no advance, and the
+  // facility is reported as incomplete beside a missing term. SUPERSEDED, left
+  // visible: `(factoringRatePct || 0) / 100` with a parameter default of 1.5,
+  // so a blank priced at 1.5% and an explicit null at 0%.
+  const factoringRateMissing = !!factoringEnabled && factoringRateAbsent(factoringRatePct);
+  const facRate = factoringRateMissing ? 0 : Number(factoringRatePct) / 100;
 
   // ── THE FACTORING TERM IS READ, NEVER SUBSTITUTED. Round 41 ruling 5 ─────
   //
@@ -422,7 +437,7 @@ export function buildCashFlowModel({
   const contractorTotal = contractorMs.reduce((s, x) => s + x.usd, 0);
   const upfrontCost = contractorStaged ? principal - contractorTotal : principal;
 
-  const schedule = factoringEnabled && facTerm !== null
+  const schedule = factoringEnabled && facTerm !== null && !factoringRateMissing
     ? buildLoanSchedule(principal, facRate, facTerm, factoringMethod)
     : [];
 
@@ -468,12 +483,12 @@ export function buildCashFlowModel({
     const plRevenue = hardwareIn + hostingIn;
     // No term, no facility: advancing the principal without ever repaying it
     // would report a cash position nobody has arranged.
-    const advance = (factoringEnabled && !factoringTermMissing && m === 1) ? principal : 0;
+    const advance = (factoringEnabled && !factoringTermMissing && !factoringRateMissing && m === 1) ? principal : 0;
     const cashIn = plRevenue + advance;
 
     const hwOut = m === 1 ? upfrontCost : 0;
     const contractorOut = contractorMs.filter((x) => x.month === m).reduce((s, x) => s + x.usd, 0);
-    const se = (factoringEnabled && facTerm !== null && m > 1 && m <= facTerm + 1) ? schedule[m - 2] : null;
+    const se = (schedule.length && m > 1 && m <= facTerm + 1) ? schedule[m - 2] : null;
     const facP = se ? se.principal : 0;
     const facI = se ? se.interest : 0;
     const plCost = hwOut + contractorOut + hostingMonthCost + facI;
@@ -493,7 +508,15 @@ export function buildCashFlowModel({
 
   const totRev = rows.reduce((s, r) => s + r.plRevenue, 0);
   const totCost = rows.reduce((s, r) => s + r.plCost, 0);
-  const facInterest = rows.reduce((s, r) => s + r.facI, 0);
+  // R-CF1 (John 2026-11-16): THE FINANCE COST IS THE WHOLE LOAN'S INTEREST,
+  // whatever the contract length. The rows stop at the contract's last month,
+  // so summing them dropped every repayment after it, silently: G3 shortened to
+  // 12 months reported 49,426.62 of 72,525.69. The cash flow still runs to the
+  // contract's last month; calculateDeal flags the months it leaves out.
+  // SUPERSEDED, left visible: `rows.reduce((s, r) => s + r.facI, 0)`. Summed
+  // in the same order from 0, so a schedule inside the contract (G3) is the
+  // same figure to the last bit.
+  const facInterest = schedule.reduce((s, x) => s + x.interest, 0);
 
   return {
     structure, recov, rows, totRev, totCost, totNet: totRev - totCost, annualInvoicing,
@@ -669,7 +692,20 @@ export function calculateDeal(input) {
   // here would say the facility costs nothing, and it would be folded into
   // total cost and into achieved margin without a mark, which is the recovery
   // period finding arriving through the other conditional field.
-  const financeCost = cashFlow.factoringTermMissing ? null : Math.round(cashFlow.facInterest || 0);
+  //
+  // R-CF4: a missing RATE is the same absence as a missing term. Both are
+  // reported here, at the top of the result and NOT on cashFlow, whose every
+  // field the golden deals pin (an added field there is an added figure).
+  const factoringRateMissing = !!factoringEnabled && factoringRateAbsent(factoringRatePct);
+  const factoringIncomplete = cashFlow.factoringTermMissing || factoringRateMissing;
+  const financeCost = factoringIncomplete ? null : Math.round(cashFlow.facInterest || 0);
+  // R-CF3: the repayments that fall after the contract's last month. Their
+  // interest is in financeCost (R-CF1); the cash flow and the closing position
+  // do not carry them, and the surfaces say so. Null when there is no contract
+  // length to be past, or no facility.
+  const lastRepayment = factoringEnabled && !factoringIncomplete && cashFlow.facTerm ? cashFlow.facTerm + 1 : null;
+  const factoringPastEnd = lastRepayment !== null && months > 0 && lastRepayment > months
+    ? { from: months + 1, to: lastRepayment } : null;
   const testBedCostAmount = testBedCost || 0;
   const totalDealCostAll = totals.totalDealCost + (financeCost ?? 0) + tax.whtBorne + testBedCostAmount;
   const achievedMargin = totals.contractNet
@@ -689,6 +725,10 @@ export function calculateDeal(input) {
     // The total and the margin above are computed WITHOUT the finance cost when
     // this is true, so a surface showing either must say the figure is
     // incomplete rather than presenting it as the achieved position.
-    costIncomplete: cashFlow.factoringTermMissing,
+    costIncomplete: factoringIncomplete,
+    // COMMERCIALS_FACTORING (R-CF3, R-CF4). Beside costIncomplete, not inside
+    // cashFlow: see above.
+    factoringRateMissing,
+    factoringPastEnd,
   };
 }

@@ -1,5 +1,5 @@
 import { createUserClient } from '../supabase.js'
-import { readSystemDefaults, defaultsForConditionalFields } from '../lib/system-defaults.js'
+import { readSystemDefaults, defaultsForConditionalFields, validateFactoringTermAgainstDuration } from '../lib/system-defaults.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
@@ -926,6 +926,25 @@ export default async function opportunitiesRoutes(app) {
       if (estClose && merged.estGoLive && merged.estGoLive < estClose) {
         return reply.code(400).send({ error: 'Est. Go Live cannot be before Est. Close Date' })
       }
+    }
+
+    // ── R-CF2 (COMMERCIALS_FACTORING): THE FACTORING TERM ENDS INSIDE THE CONTRACT ─
+    //
+    // Read from the MERGED values, as the date checks above are, because the
+    // violation is reachable from either end (a longer term or a shorter
+    // contract). The shared rule refuses only a save that CHANGES one of the
+    // three inputs, so a record already over the limit stays saveable for
+    // anything else. Its read feeds a validation only, and its error is refused.
+    if ('duration' in payload || 'factoring' in payload) {
+      const { data: prevRev, error: prevErr } = await db.from('record_revisions').select('payload')
+        .eq('record_id', record.id).order('revision_number', { ascending: false }).limit(1).maybeSingle()
+      if (prevErr) {
+        request.log.error({ err: prevErr }, 'failed to load current revision for the factoring term check')
+        return reply.code(500).send({ error: prevErr.message })
+      }
+      const before = prevRev?.payload ?? {}
+      const refusal = validateFactoringTermAgainstDuration(before, { ...before, ...payload })
+      if (refusal) return reply.code(400).send({ error: refusal })
     }
 
     // Round 17A Phase 1: the read that stood here existed only to build the

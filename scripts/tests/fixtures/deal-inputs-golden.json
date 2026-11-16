@@ -605,7 +605,7 @@
       "lumpCost": 0,
       "contractorMilestones": [],
       "factoringEnabled": false,
-      "factoringRatePct": 1.5,
+      "factoringRatePct": null,
       "factoringTermMonths": "__undefined__",
       "factoringMethod": "straight",
       "whtPct": 0,

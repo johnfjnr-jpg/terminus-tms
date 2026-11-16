@@ -35,7 +35,7 @@
  * caller passes. The route reads; this decides what the page says.
  */
 
-import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation, ratePresentation } from './deal-inputs.js';
+import { buildDealInputs, isSet, RAW_READERS, PRODUCT_UNITS, gstPresentation, ratePresentation, factoringPastEndSentence } from './deal-inputs.js';
 import { resolveRates, OVERRIDABLE_RATE_KEYS } from './rate-resolution.js';
 import { calculateDeal } from './deal-calculator.js';
 import { NUMERIC_DEFAULTS, defaultProvenance, toNumberOrNull } from './numeric-payload.js';
@@ -456,20 +456,27 @@ export function buildExposures(payload, result) {
     key: 'finance',
     label: 'Finance cost',
     amount: result.financeCost,
+    // R-CF4: the rate is read, never substituted. SUPERSEDED, left visible:
+    // `payload.factoring?.ratePct ?? NUMERIC_DEFAULTS.factoringRatePct`, which
+    // named a 1.5% nobody entered.
     basis: !(payload.factoring?.enabled ?? false) ? 'No factoring'
       : result.costIncomplete
-        ? `PO factoring at ${payload.factoring?.ratePct ?? NUMERIC_DEFAULTS.factoringRatePct}% per month, `
-          + 'over a term nobody has recorded'
-        : `PO factoring at ${payload.factoring?.ratePct ?? NUMERIC_DEFAULTS.factoringRatePct}% per month `
+        ? `PO factoring at ${result.factoringRateMissing ? 'a rate nobody has recorded' : `${payload.factoring?.ratePct}% per month`}, `
+          + (result.cashFlow.factoringTermMissing ? 'over a term nobody has recorded' : `for ${result.cashFlow.facTerm} months`)
+        : `PO factoring at ${payload.factoring?.ratePct}% per month `
           + `for ${result.cashFlow.facTerm} months`,
     // The note is the approver's, so it says what the figure they are reading
     // actually is. An unrecorded term means the cost is absent from total cost
     // and therefore from achieved margin, which is the same inflation the
     // unpriced-product block below exists to report.
     note: result.costIncomplete
-      ? 'The facility is on and its term is not recorded, so no interest is computed. '
+      ? `The facility is on and its ${[result.factoringRateMissing && 'rate', result.cashFlow.factoringTermMissing && 'term'].filter(Boolean).join(' and ')} `
+        + `${result.factoringRateMissing && result.cashFlow.factoringTermMissing ? 'are' : 'is'} not recorded, so no interest is computed. `
         + 'Total cost and achieved margin are both missing this amount.'
-      : 'Interest on financed working capital, already inside total cost.',
+      // R-CF3: the flag, in the approver's own slot.
+      : result.factoringPastEnd
+        ? `Interest on financed working capital, already inside total cost. ${factoringPastEndSentence(result.factoringPastEnd)}`
+        : 'Interest on financed working capital, already inside total cost.',
     bornByTerminus: true,
   });
 
@@ -666,6 +673,10 @@ export const ABSENCE_NOT_SUBSTITUTED = {
   recoveryMonths: 'The deal recovers no hardware and the cash flow shows none. '
     + 'Nothing is assumed in its place.',
   factoringTermMonths: 'The facility is on and no interest is computed, so total cost '
+    + 'and achieved margin are both missing that amount. Nothing is assumed in its place.',
+  // R-CF4 (John 2026-11-16), Round 41 ruling 5's move made for the RATE: it
+  // left NUMERIC_DEFAULTS, so its absence is reported, not a 1.5 assumed.
+  factoringRatePct: 'The facility is on and no interest is computed, so total cost '
     + 'and achieved margin are both missing that amount. Nothing is assumed in its place.',
 };
 

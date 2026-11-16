@@ -454,8 +454,11 @@ export function DealPanel({
   // a dot, which is why it belongs to the field rather than to the section.
   const HELP: Record<string, string> = {
     'deal-recoveryMonths': 'The number of months over which the upfront capital is recovered from contract revenue.',
-    'deal-factoring-ratePct': 'The monthly cost of factoring the hardware and installation spend. It both reduces margin and brings cash in earlier.',
-    'deal-factoring-termMonths': 'How long the factoring runs. Rate multiplied by term is the total financing cost.',
+    // R-CF5 (John 2026-11-16). SUPERSEDED, left visible: the rate's "hardware and
+    // installation spend" (warranty is advanced too) and the term's "Rate
+    // multiplied by term is the total financing cost", which neither method computes.
+    'deal-factoring-ratePct': 'The monthly cost of factoring the hardware, warranty and installation cost. It both reduces margin and brings cash in earlier.',
+    'deal-factoring-termMonths': 'How long the factoring runs, in months. Repayments start the month after the advance, and interest is charged each month on the balance still owed.',
     // ── R2d: THE EIGHT STRUCTURAL TERMS NOTES ────────────────────────────
     //
     // These were visible `pg-item-note` rows under each field in
@@ -697,7 +700,7 @@ export function DealPanel({
           closing={cashFlow ? closingCashText(cashFlow) : '--'}
           grid={cashFlow
             ? <CashFlowGrid months={cashFlow.rows.map((r) => r.m)}
-                rows={buildCashFlowRows(cashFlow)} scrollRef={cashFlowRef} />
+                rows={buildCashFlowRows({ ...cashFlow, factoringRateMissing: (result as { factoringRateMissing?: boolean } | null)?.factoringRateMissing ?? false })} scrollRef={cashFlowRef} />
             : null} />
       ))}
       {/* ── SECTION 4: DEAL SHEET SUMMARY ───────────────────────────────── */}

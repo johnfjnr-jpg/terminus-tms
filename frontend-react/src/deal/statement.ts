@@ -26,7 +26,7 @@
 import { money } from './rows'
 import { milestoneUsdFor } from './milestones'
 import {
-  durationPresentation, whtPresentation, gstPresentation, marginPresentation,
+  durationPresentation, whtPresentation, gstPresentation, marginPresentation, factoringPastEndSentence,
 } from '../../../src/lib/deal-inputs.js'
 import { numericOrDefault } from '../../../src/lib/numeric-payload.js'
 
@@ -62,6 +62,8 @@ export type StatementResult = {
   testBedCost: number
   achievedMargin: number
   costIncomplete?: boolean
+  // COMMERCIALS_FACTORING (R-CF3): months of repayment past the contract end.
+  factoringPastEnd?: { from: number, to: number } | null
 }
 
 export type DrawerRow = {
@@ -361,7 +363,11 @@ export function buildDealStatement(
       total: dur.recorded ? neg(hoCost) : dur.value, negative: true },
     {
       key: 'out-factoring', label: 'PO factoring interest',
-      sub: 'drivers: factored receipts and rate',
+      // R-CF5 (D4): the engine advances COST, not receipts. R-CF3: past the
+      // contract end, this visible line carries the flag. SUPERSEDED, left
+      // visible: 'drivers: factored receipts and rate'.
+      sub: factoringPastEndSentence(result.factoringPastEnd ?? null)
+        ?? 'drivers: the advanced cost (hardware, warranty, installation), rate and term',
       hardware: D, hosting: D, installation: D,
       // A dash means ZERO financing; "not recorded" means the facility is on
       // and nobody recorded its term. rows.ts's distinction, kept.
@@ -377,7 +383,10 @@ export function buildDealStatement(
           { cells: ['Method', String((payload.factoring as { method?: unknown })?.method ?? D)] },
           { cells: ['Interest', result.costIncomplete ? 'not recorded' : m(result.financeCost)], sum: true },
         ],
-        note: 'The interest is computed by the engine from the same payment schedule the revenue lines carry.',
+        // R-CF5: the interest comes from the LOAN schedule. SUPERSEDED, left
+        // visible: "from the same payment schedule the revenue lines carry".
+        note: [factoringPastEndSentence(result.factoringPastEnd ?? null), 'The interest is computed by the engine from the loan schedule.']
+          .filter(Boolean).join(' '),
       },
     },
     { key: 'out-testbed', label: 'Test Bed cost, carried from conversion',

@@ -175,6 +175,17 @@ export function marginPresentation(achievedMargin, payload) {
  * introduces no red, and the absence of green already carries below target. A
  * minus sign in front of a seven-figure number is not a subtle signal.
  */
+/**
+ * R-CF3 (John 2026-11-16): the repayments past the contract's last month, in
+ * words. calculateDeal's `factoringPastEnd` is { from, to } or null.
+ * "month 37" for one month, "months 37 to 40" for a range.
+ */
+export function factoringPastEndSentence(pastEnd) {
+  if (!pastEnd) return null;
+  const when = pastEnd.from === pastEnd.to ? `month ${pastEnd.from}` : `months ${pastEnd.from} to ${pastEnd.to}`;
+  return `Factoring repayments run past the contract end (${when}): the finance cost includes them; the cash flow and closing position do not.`;
+}
+
 export function closingCashPresentation(cashFlow) {
   const rows = cashFlow?.rows ?? [];
   if (!rows.length) return { value: null, text: 'not recorded' };
@@ -716,7 +727,9 @@ export function buildDealInputs(payload, { testBedCost = 0, rates } = {}) {
     factoringEnabled: factoring.enabled ?? false,
     // Through RAW_READERS, so the calculator and the approval page cannot
     // disagree about where this lives. See the note above.
-    factoringRatePct: RAW_READERS.factoringRatePct(payload) ?? 1.5,
+    // R-CF4: no fallback. SUPERSEDED, left visible: `?? 1.5`, which priced a
+    // rate nobody entered (Architecture 11).
+    factoringRatePct: RAW_READERS.factoringRatePct(payload) ?? null,
     factoringTermMonths: factoring.termMonths,
     factoringMethod: factoring.method ?? 'straight',
     whtPct: numericOrDefault(payload, 'whtPct'),

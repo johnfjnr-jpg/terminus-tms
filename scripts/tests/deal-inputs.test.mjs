@@ -20,6 +20,11 @@
 //
 // The one thing it cannot check is whether the OLD behaviour was right. That is
 // what cost.test.mjs and cost-preview.test.mjs are for; this locks the refactor.
+//
+// ONE FIELD CHANGED BY RULING, not by drift: COMMERCIALS_FACTORING R-CF4 (John
+// 2026-11-16) removed the `?? 1.5` behind the factoring rate, so the 'bare
+// payload' case, whose payload carries no rate, now expects `factoringRatePct:
+// null` where the capture held 1.5. Every case with a typed rate is unchanged.
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

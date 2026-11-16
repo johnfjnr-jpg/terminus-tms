@@ -149,7 +149,9 @@ export const NUMERIC_DEFAULTS = {
   whtPct: 0,
   gstPct: 0,
   fxContingency: 0,
-  factoringRatePct: 1.5,
+  // factoringRatePct REMOVED (COMMERCIALS_FACTORING R-CF4, John 2026-11-16):
+  // a blank rate is absent, priced as nothing and flagged, never 1.5. It is in
+  // approval-page.js ABSENCE_NOT_SUBSTITUTED beside factoringTermMonths.
   // Counts and money: absent means none.
   ssExisting: 0,
   ssNew: 0,

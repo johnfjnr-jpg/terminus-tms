@@ -936,7 +936,11 @@ test('the factoring selection is on the Payment Terms line', () => {
   // field id, rather than prose sitting beside the control in the markup.
   const helpSrc = readCode(new URL('../../frontend-react/src/deal/DealPanel.tsx', import.meta.url))
   assert.match(helpSrc, /'deal-factoring-ratePct':[^\n]*reduces margin and brings cash in earlier/)
-  assert.match(helpSrc, /'deal-factoring-termMonths':[^\n]*Rate multiplied by term is the total financing cost/)
+  // R-CF5 (COMMERCIALS_FACTORING, John 2026-11-16): the guidance kept, CORRECTED.
+  // SUPERSEDED, left visible: "Rate multiplied by term is the total financing
+  // cost", which neither method computes.
+  assert.match(helpSrc, /'deal-factoring-termMonths':[^\n]*interest is charged each month on the balance still owed/)
+  assert.doesNotMatch(helpSrc, /Rate multiplied by term/)
 })
 
 // ─────────────────────────────────────────────────────────────

@@ -24,6 +24,8 @@ export interface CashFlow {
   minCash?: number | null; minCashMonth?: number
   structure: string; annualInvoicing: boolean; factoringEnabled: boolean
   contractorStaged: boolean; factoringTermMissing: boolean
+  // R-CF4: carried in from calculateDeal's result (not a cashFlow field).
+  factoringRateMissing?: boolean
 }
 
 // ZERO RENDERS AS A DASH rather than "0". Cash-out categories are stored as
@@ -62,12 +64,16 @@ export function buildCashFlowRows(cf: CashFlow): CFRow[] {
   if (cf.contractorStaged) push('Contractor milestone payment', cells((r) => r.contractorOut, true))
   push('Hosting cost', cells((r) => r.hostOut, true))
 
-  if (cf.factoringEnabled && cf.factoringTermMissing) {
+  if (cf.factoringEnabled && (cf.factoringTermMissing || cf.factoringRateMissing)) {
     // THE THIRD SURFACE. With no term the schedule is empty, so principal and
     // interest would each print a full run of zeros for a facility that is
     // switched ON - a confident zero across the whole term. One row that says
     // so instead.
-    push('Factoring, term not recorded', cf.rows.map(() => ({ value: '', color: 'var(--muted)' })))
+    // R-CF4: the same row for a missing RATE, naming what is missing.
+    // Literal sentences, so a scan for the wording finds each one.
+    push(cf.factoringRateMissing && cf.factoringTermMissing ? 'Factoring, rate and term not recorded'
+      : cf.factoringRateMissing ? 'Factoring, rate not recorded' : 'Factoring, term not recorded',
+      cf.rows.map(() => ({ value: '', color: 'var(--muted)' })))
   } else if (cf.factoringEnabled) {
     push('Factoring principal repayment', cells((r) => r.facP, true))
     push('Factoring interest', cells((r) => r.facI, true))

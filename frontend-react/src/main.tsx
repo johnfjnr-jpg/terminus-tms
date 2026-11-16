@@ -22,6 +22,7 @@ import type { DealFormSeam } from './deal/seam'
 import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../src/lib/format-dates.js'
 import { assessSeries, lensRollupAt } from '../../src/lib/lens-rollup.js'
 import * as radar from '../../src/lib/radar.js'
+import { validateFactoringTermAgainstDuration } from '../../src/lib/system-defaults.js'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
 //
@@ -349,6 +350,10 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
               // `oppPatch` keeps owning the route, the expected_revision, the
               // 409 retry and the revision adoption. A refusal REJECTS, because
               // freezeCurrentState must be able to refuse the version.
+              // R-CF2: the shared rule, refused before the write with the
+              // server's own sentence. The server checks again.
+              const refusal = validateFactoringTermAgainstDuration(payload, { ...payload, ...p })
+              if (refusal) throw new Error(refusal)
               const r = await saveDeal(opp.id, p, window.oppPatch!)
               if (!r.ok) throw new Error(
                 (r.data as { error?: string } | undefined)?.error ?? 'The pricing could not be saved.')
