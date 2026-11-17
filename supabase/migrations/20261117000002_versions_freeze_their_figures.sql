@@ -160,12 +160,15 @@ begin
     raise exception 'kind must be transition or review, got %', p_kind using errcode = 'PT400';
   end if;
 
+  -- owner_id joins the columns this already reads. Derived, never accepted.
   select r.id, r.record_type, r.status, r.owner_id into v_rec
   from public.records r where r.id = p_record_id;
   if not found then
     raise exception 'no such record' using errcode = 'PT404';
   end if;
 
+  -- THE CHECK THIS FUNCTION NEVER HAD. Before the stage checks, so a non-owner
+  -- learns nothing about the record's state from the shape of the refusal.
   if v_rec.owner_id is distinct from v_caller then
     raise exception 'This record belongs to another user. You can view it, but only its owner can change it.'
       using errcode = '42501';
@@ -199,8 +202,13 @@ begin
     limit 1;
   end if;
 
+  -- DERIVED, never accepted. The caller says where it wants to go; the database
+  -- says what that costs.
   v_required := public.required_tracks_for(v_rec.record_type, v_rec.status);
 
+  -- ONLY A TRANSITION COMPLETES ITSELF. A review request is a request for
+  -- comment and has no completion condition of its own, so it stays open
+  -- whatever the tracks say, and is closed by withdrawing it.
   v_immediate := (p_kind = 'transition' and coalesce(array_length(v_required, 1), 0) = 0);
 
   insert into public.transition_requests
@@ -217,6 +225,9 @@ begin
      end)
   returning * into v_row;
 
+  -- AFTER the insert, and only because the row went in already closed: the
+  -- freeze reads `status = 'open'`, so an open row here would refuse this
+  -- update.
   if v_immediate then
     update public.records
       set status = p_to_stage, updated_at = now()
