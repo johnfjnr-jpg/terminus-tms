@@ -18,12 +18,26 @@
 // Verification 47: the capture is this committed script, named in the file's
 // own `source` field, and staleness is measured by recapture. A refusal is an
 // output too, so an input that throws is recorded with its code and message.
+//
+// ── v2.0 (TP_LADDER A8, and John's golden-figures ruling) ────────────────
+//
+// RECAPTURED THROUGH THE ORACLE, NOT THE ENGINE UNDER TEST. The baseline is
+// now every output of the FROZEN v1.10 engine (e123cf6) with only its
+// list-fee read swapped for the price ladder (scripts/term-pricing/
+// v1-oracle.mjs), on the v2.0 fixture ladders below. FA-8 then asks the v2.0
+// engine to reproduce it field by field with factoring off: the formula's
+// removal and the price ladder, the deal adjustment and COMPARE_TERM must move
+// nothing the engine returned. Capturing with the new engine would compare it
+// with itself. SUPERSEDED, left visible: captured at 0f493ae, the engine as at
+// TP_MANUAL, before PO factoring; that claim holds transitively, because
+// v1.10 reproduced it.
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import {
   priceQuote, capexAllocation, termLadder, unitEconomics, TermPricingError,
 } from '../../src/lib/term-pricing.js'
+import { buildOracle, ORACLE_COMMIT } from './v1-oracle.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const BASELINE_PATH = join(HERE, 'factoring-off-baseline.json')
@@ -33,12 +47,19 @@ const SEED = [
   { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' },
 ]
 const P4 = (v) => ({ safesight: v, 'TEST-B': v, air_quality: v, hemir: v })
+// v2.0: the fixture ladders of term-pricing.test.mjs (v1.x's list fees to the
+// cent; their derivation is recorded there). SUPERSEDED, left visible:
+// ANCHOR_TERM 36, ANCHOR_MARGIN and SHORT_TERM_MARGIN 90%, PROFIT_STEP 0.00.
+const LADDER = (s) => Object.fromEntries(s.trim().split(/\s+/).map((x) => x.split(':')))
 export const PARAMS = {
   TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120],
-  ANCHOR_TERM: 36,
-  ANCHOR_MARGIN: P4('90'),
-  SHORT_TERM_MARGIN: P4('90'),
-  PROFIT_STEP: '0.00',
+  COMPARE_TERM: 36,
+  PRICE_LADDER_BY_PRODUCT: {
+    safesight: LADDER('12:8666.67 24:5333.33 36:4222.22 48:3216.67 60:2613.33 72:2211.11 84:1923.81 96:1708.33 108:1540.74 120:1406.67'),
+    'TEST-B': LADDER('12:2166.67 24:1333.33 36:1055.56 48:804.17 60:653.33 72:552.78 84:480.95 96:427.08 108:385.19 120:351.67'),
+    air_quality: LADDER('12:2666.67 24:1833.33 36:1555.56 48:1191.67 60:973.33 72:827.78 84:723.81 96:645.83 108:585.19 120:536.67'),
+    hemir: LADDER('12:88333.33 24:46666.67 36:32777.78 48:24708.33 60:19866.67 72:16638.89 84:14333.33 96:12604.17 108:11259.26 120:10183.33'),
+  },
   VOLUME_BANDS_BY_PRODUCT: P4(SEED),
   HW_UPFRONT_MARGIN: '20',
   MARGIN_FLOOR: '25',
@@ -127,10 +148,11 @@ export function canonical(v) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const cases = population().map(([id, kind, input]) => ({ id, kind, output: canonical(run(kind, input)) }))
+  const oracle = await import(buildOracle(join(HERE, '../../.scratch/derive-v2/oracle-engine')))
+  const cases = population().map(([id, kind, input]) => ({ id, kind, output: canonical(run(kind, input, oracle)) }))
   writeFileSync(BASELINE_PATH, JSON.stringify({
     source: 'scripts/term-pricing/capture-factoring-off-baseline.mjs',
-    capturedAt: '0f493ae (engine as at TP_MANUAL, before PO factoring)',
+    capturedAt: `the v1.10 engine at ${ORACLE_COMMIT.slice(0, 7)} with only its list-fee read swapped for the price ladder (scripts/term-pricing/v1-oracle.mjs), on the v2.0 fixture ladders`,
     cases,
   }, null, 1) + '\n')
   const refused = cases.filter((c) => c.output?.refused).length

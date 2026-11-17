@@ -8,6 +8,30 @@
 //
 // The engine is src/lib/term-pricing.js. It must reproduce these exactly, to
 // the cent, and margins and savings to 1 dp.
+//
+// ── v2.0 (TP_LADDER): WHERE THESE FIGURES COME FROM NOW ──────────────────
+//
+// The formula is gone, so every product prices from its price ladder, and the
+// fixture ladders below carry v1.x's list fees to the cent. Discounted band
+// fees then round differently by a cent, which moves every case with units
+// beyond band 1. John ruled the re-derivation SPLIT (TP_LADDER_BRIEF.md,
+// "Ruling on the golden figures"):
+//
+//   PRICE ARITHMETIC (10.1 to 10.3, T1 to T14, T19, T23, T29, T31, B-1 to B-6,
+//   BG-1 to BG-3, TB-1, the bands flow, v1.5) is re-derived by an INDEPENDENT
+//   integer-cents pricer written from the spec alone,
+//   scripts/term-pricing/independent-price.mjs;
+//   MECHANICS (CAPEX, WHT, GST, CPI, factoring, the cash flow) is re-based
+//   through the FROZEN v1.10 engine at e123cf6 with only its list-fee read
+//   swapped for the price ladder, scripts/term-pricing/v1-oracle.mjs. Those
+//   figures are a labelled REGRESSION SNAPSHOT, not hand-checked: v1.x's hand
+//   derivation of the mechanics stands because that code is unchanged.
+//
+// scripts/term-pricing/derive-v2-goldens.mjs ran both over this file and
+// rewrote each moved literal; for every price case the two routes agreed.
+// THE HAND DERIVATIONS IN COMMENTS BELOW ARE v1.x's, on the formula's fee, and
+// are left as the record of how the mechanics were first proved; where one
+// names a figure, the assertion beside it carries the v2.0 figure.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -31,12 +55,33 @@ const SEED_BANDS = Object.freeze([
   { from: 50, discountPct: '10' },
   { from: 200, discountPct: '15' },
 ])
+// ── v2.0 (TP_LADDER A1): THE FIXTURE PRICE LADDERS ──────────────────────
+//
+// The formula is gone; every product prices from its price ladder. The spec
+// v2.0 reference fixture (section 10) carries, as each product's ladder, the
+// v1.x formula's band-1 list fee at each term TO THE CENT, so the reference
+// tables keep their meaning. These are fixture INPUTS, not expectations.
+// SafeSight's column is spec table 10.1's "Monthly fee", copied. TEST-B, AQ and
+// HEMIR were derived in integer cents from spec v1.x section 4.1 (90% margins,
+// anchor 36, PROFIT_STEP 0: price = 10 x cost(T) below 36, cost(T) + 9 x
+// cost(36) at and above; fee = price / T, half-up), and that derivation was
+// checked against table 10.1 (10 of 10 equal) and against the spec figures
+// it reaches elsewhere: TEST-B 36 = 1,055.56 (T12), AQ 60 = 973.33 (B-4),
+// HEMIR 60 = 19,866.67 (B-6). AQ and HEMIR are on the v1.x catalog costs
+// (100.00 and 500.00 a month hosting), the costs every figure below uses.
+const LADDER = (s) => Object.freeze(Object.fromEntries(s.trim().split(/\s+/).map((x) => x.split(':'))))
+const FIXTURE_LADDERS = Object.freeze({
+  safesight: LADDER('12:8666.67 24:5333.33 36:4222.22 48:3216.67 60:2613.33 72:2211.11 84:1923.81 96:1708.33 108:1540.74 120:1406.67'),
+  'TEST-B': LADDER('12:2166.67 24:1333.33 36:1055.56 48:804.17 60:653.33 72:552.78 84:480.95 96:427.08 108:385.19 120:351.67'),
+  air_quality: LADDER('12:2666.67 24:1833.33 36:1555.56 48:1191.67 60:973.33 72:827.78 84:723.81 96:645.83 108:585.19 120:536.67'),
+  hemir: LADDER('12:88333.33 24:46666.67 36:32777.78 48:24708.33 60:19866.67 72:16638.89 84:14333.33 96:12604.17 108:11259.26 120:10183.33'),
+})
 const SPEC_PARAMS = Object.freeze({
   TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120],
-  ANCHOR_TERM: 36,
-  ANCHOR_MARGIN: { safesight: '90', 'TEST-B': '90' },
-  SHORT_TERM_MARGIN: { safesight: '90', 'TEST-B': '90' },
-  PROFIT_STEP: '0.00',
+  // v2.0 (Q1): derives no price. SUPERSEDED, left visible: ANCHOR_TERM 36,
+  // ANCHOR_MARGIN and SHORT_TERM_MARGIN 90% each, PROFIT_STEP 0.00.
+  COMPARE_TERM: 36,
+  PRICE_LADDER_BY_PRODUCT: FIXTURE_LADDERS,
   VOLUME_BANDS_BY_PRODUCT: {
     safesight: SEED_BANDS, 'TEST-B': SEED_BANDS, air_quality: SEED_BANDS, hemir: SEED_BANDS,
   },
@@ -58,7 +103,7 @@ const LOCK = (rate, S) => ({ cpiMode: 'locked', escalatorPct: rate, ...(S ? { es
 const money = (c) => formatMoney(c)
 const pct = (r) => formatPct(r, 1)
 // The spec prints a premium as "+105.3%" and a saving as "−23.8%" (U+2212).
-const vsAnchor = (saving) => {
+const vsCompare = (saving) => {
   const premium = formatPct({ n: -saving.n, d: saving.d }, 1)
   return premium.startsWith('-') ? `−${premium.slice(1)}%` : `+${premium}%`
 }
@@ -84,7 +129,7 @@ for (const [T, fee, vs, tcv, cost, profit, margin] of T10_1) {
     const u = unitEconomics('safesight', T, SPEC_PARAMS)
     const b = u.bands[0]
     assert.equal(money(b.feeCents), fee, 'monthly fee')
-    assert.equal(T === 36 ? 'list' : vsAnchor(u.savingVsAnchor), vs, 'vs 36-month fee')
+    assert.equal(T === 36 ? 'list' : vsCompare(u.savingVsCompare), vs, 'vs 36-month fee')
     assert.equal(money(b.tcvCents), tcv, 'TCV per unit')
     assert.equal(money(u.costCents), cost, 'cost per unit')
     assert.equal(money(b.profitCents), profit, 'profit per unit')
@@ -99,16 +144,16 @@ for (const [T, fee, vs, tcv, cost, profit, margin] of T10_1) {
 // ── 10.2 Band fees ───────────────────────────────────────────────────────
 
 const T10_2 = [
-  [12, '8,666.67', '8,233.33', '7,800.00', '7,366.67'],
-  [24, '5,333.33', '5,066.67', '4,800.00', '4,533.33'],
+  [12, '8,666.67', '8,233.34', '7,800.00', '7,366.67'],
+  [24, '5,333.33', '5,066.66', '4,800.00', '4,533.33'],
   [36, '4,222.22', '4,011.11', '3,800.00', '3,588.89'],
-  [48, '3,216.67', '3,055.83', '2,895.00', '2,734.17'],
-  [60, '2,613.33', '2,482.67', '2,352.00', '2,221.33'],
-  [72, '2,211.11', '2,100.56', '1,990.00', '1,879.44'],
+  [48, '3,216.67', '3,055.84', '2,895.00', '2,734.17'],
+  [60, '2,613.33', '2,482.66', '2,352.00', '2,221.33'],
+  [72, '2,211.11', '2,100.55', '1,990.00', '1,879.44'],
   [84, '1,923.81', '1,827.62', '1,731.43', '1,635.24'],
-  [96, '1,708.33', '1,622.92', '1,537.50', '1,452.08'],
+  [96, '1,708.33', '1,622.91', '1,537.50', '1,452.08'],
   [108, '1,540.74', '1,463.70', '1,386.67', '1,309.63'],
-  [120, '1,406.67', '1,336.33', '1,266.00', '1,195.67'],
+  [120, '1,406.67', '1,336.34', '1,266.00', '1,195.67'],
 ]
 
 for (const [T, ...fees] of T10_2) {
@@ -155,14 +200,14 @@ test('T3 10 units, 36: TCV 1,512,399.24, margin 89.9%', () => {
 test('T4 and T5: 49 then 50 units at 60, no cliff', () => {
   const t4 = quote({ safesight: 49 }, 60)
   const t5 = quote({ safesight: 50 }, 60)
-  assert.equal(money(t4.tcvNetCents), '7,369,606.20')
-  assert.equal(money(t5.tcvNetCents), '7,510,726.20')
+  assert.equal(money(t4.tcvNetCents), '7,369,582.20')
+  assert.equal(money(t5.tcvNetCents), '7,510,702.20')
   assert.ok(t5.tcvNetCents > t4.tcvNetCents, 'T5 must be MORE than T4')
 })
 
-test('T6 120 units, 60: TCV 17,389,126.20, margin 86.2%', () => {
+test('T6 120 units, 60: TCV 17,389,102.20, margin 86.2%', () => {
   const q = quote({ safesight: 120 }, 60)
-  assert.equal(money(q.tcvNetCents), '17,389,126.20')
+  assert.equal(money(q.tcvNetCents), '17,389,102.20')
   assert.equal(pct(q.grossMargin), '86.2')
 })
 
@@ -174,9 +219,9 @@ test('T7 and T8: 199 then 200 units at 84, no cliff', () => {
   assert.ok(t8.tcvNetCents > t7.tcvNetCents, 'T8 must be MORE than T7')
 })
 
-test('T9 250 units, 120: TCV 38,039,088.00, margin 79.0%', () => {
+test('T9 250 units, 120: TCV 38,039,136.00, margin 79.0%', () => {
   const q = quote({ safesight: 250 }, 120)
-  assert.equal(money(q.tcvNetCents), '38,039,088.00')
+  assert.equal(money(q.tcvNetCents), '38,039,136.00')
   assert.equal(pct(q.grossMargin), '79.0')
 })
 
@@ -194,15 +239,15 @@ test('T12 TEST-B 1 unit, 36: TCV 38,000.16, monthly fee 1,055.56', () => {
   assert.equal(money(q.monthlyTotalCents), '1,055.56')
 })
 
-test('T13 TEST-B 30 units, 60: TCV 1,134,842.40, margin 86.8%', () => {
+test('T13 TEST-B 30 units, 60: TCV 1,134,829.80, margin 86.8%', () => {
   const q = quote({ 'TEST-B': 30 }, 60)
-  assert.equal(money(q.tcvNetCents), '1,134,842.40')
+  assert.equal(money(q.tcvNetCents), '1,134,829.80')
   assert.equal(pct(q.grossMargin), '86.8')
 })
 
-test('T14 T6 + T13 on one deal: TCV 18,523,968.60, bands count per line', () => {
+test('T14 T6 + T13 on one deal: TCV 18,523,932.00, bands count per line', () => {
   const q = quote({ safesight: 120, 'TEST-B': 30 }, 60)
-  assert.equal(money(q.tcvNetCents), '18,523,968.60')
+  assert.equal(money(q.tcvNetCents), '18,523,932.00')
   // Bands per line: TEST-B's 30 units sit in bands 1 and 2 only, not in band 3
   // as they would if the 150 units were pooled.
   const testB = q.lines.find((l) => l.product === 'TEST-B')
@@ -212,16 +257,16 @@ test('T14 T6 + T13 on one deal: TCV 18,523,968.60, bands count per line', () => 
 // v1.6: T15's figures are unchanged. The CAPEX amount is the Hardware figure
 // (C-4), paid by the default Hybrid row (Contract start, month 0, 100%), and
 // the subscription carries no residue because 16,189,126.20 / 60 is exact.
-test('T15 T6 as capex: CAPEX 1,200,000.00 + 269,818.77 x 60 = 17,389,126.20', () => {
+test('T15 T6 as capex: CAPEX 1,200,000.00 + 269,818.37 x 60 = 17,389,102.20', () => {
   const q = quote({ safesight: 120 }, 60, { paymentStructure: 'capex' })
   assert.equal(money(q.capex.capexCents), '1,200,000.00')
-  assert.equal(money(q.capex.baseFeeCents), '269,818.77')
-  assert.equal(money(q.capex.lastBaseFeeCents), '269,818.77', 'no residue in month 60')
-  assert.equal(money(q.tcvNetCents), '17,389,126.20')
+  assert.equal(money(q.capex.baseFeeCents), '269,818.37')
+  assert.equal(money(q.capex.lastBaseFeeCents), '269,818.37', 'no residue in month 60')
+  assert.equal(money(q.tcvNetCents), '17,389,102.20')
   assert.equal(q.capex.capexCents + q.capex.baseFeeCents * 59n + q.capex.lastBaseFeeCents, q.tcvNetCents, 'ties to Base TCV exactly')
   assert.equal(q.finalTcvCents, q.tcvNetCents, 'no CPI: Final = Base')
   assert.deepEqual(q.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.capexCents), money(r.subscriptionCents), money(r.netCents)]),
-    [[0, 0, '1,200,000.00', '0.00', '1,200,000.00'], [1, 60, '0.00', '269,818.77', '269,818.77']])
+    [[0, 0, '1,200,000.00', '0.00', '1,200,000.00'], [1, 60, '0.00', '269,818.37', '269,818.37']])
 })
 
 test('T16 1 unit, 60, CPI published 3%: Base 156,799.80 at 87.2%, Final (projected) 166,494.36, deal value Base', () => {
@@ -259,7 +304,7 @@ test('T18 all units 0: error, no units', () => {
 test('T19 T6 with MARGIN_FLOOR 90%: flag shown, quote still prices', () => {
   const q = quote({ safesight: 120 }, 60, {}, withParams({ MARGIN_FLOOR: '90' }))
   assert.equal(q.belowMarginFloor, true)
-  assert.equal(money(q.tcvNetCents), '17,389,126.20')
+  assert.equal(money(q.tcvNetCents), '17,389,102.20')
   // And the flag is OFF at the spec's own floor, so the flag is not constant.
   assert.equal(quote({ safesight: 120 }, 60).belowMarginFloor, false)
 })
@@ -267,9 +312,9 @@ test('T19 T6 with MARGIN_FLOOR 90%: flag shown, quote still prices', () => {
 test('T20 T6, WHT 10%, gross-up ON', () => {
   const q = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true })
   const m = q.schedule[0]
-  assert.equal(money(m.invoiceCents), '322,020.86', 'monthly invoice')
-  assert.equal(money(m.whtCents), '32,202.09', 'WHT')
-  assert.equal(money(m.receivedCents), '289,818.77', 'Terminus receives')
+  assert.equal(money(m.invoiceCents), '322,020.41', 'monthly invoice')
+  assert.equal(money(m.whtCents), '32,202.04', 'WHT')
+  assert.equal(money(m.receivedCents), '289,818.37', 'Terminus receives')
   assert.equal(m.receivedCents, q.monthlyTotalCents, '= T6 monthly total')
   assert.equal(m.whtBorne, false)
 })
@@ -277,10 +322,10 @@ test('T20 T6, WHT 10%, gross-up ON', () => {
 test('T21 T6, WHT 10%, gross-up OFF', () => {
   const q = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: false })
   const m = q.schedule[0]
-  assert.equal(money(m.invoiceCents), '289,818.77', 'monthly invoice')
-  assert.equal(money(m.whtCents), '28,981.88', 'WHT')
+  assert.equal(money(m.invoiceCents), '289,818.37', 'monthly invoice')
+  assert.equal(money(m.whtCents), '28,981.84', 'WHT')
   assert.equal(m.whtBorne, true, 'WHT borne')
-  assert.equal(money(m.receivedCents), '260,836.89', 'Terminus receives')
+  assert.equal(money(m.receivedCents), '260,836.53', 'Terminus receives')
 })
 
 test('T22 T6 as capex, CPI locked 3% (S 2): the subscription escalates, CAPEX does not', () => {
@@ -288,12 +333,12 @@ test('T22 T6 as capex, CPI locked 3% (S 2): the subscription escalates, CAPEX do
   assert.equal(money(q.capex.capexCents), '1,200,000.00')
   assert.deepEqual(q.capex.payments.map((p) => [p.month, money(p.cents)]), [[0, '1,200,000.00']], 'CAPEX month 0')
   assert.deepEqual(q.capex.subscriptionByYear.map(money),
-    ['269,818.77', '277,913.33', '286,250.73', '294,838.26', '303,683.40'])
-  assert.equal(money(q.capex.lastSubscriptionCents), '303,683.40', 'month 60, no residue')
-  assert.equal(money(q.tcvNetCents), '17,389,126.20', 'Base TCV')
+    ['269,818.37', '277,912.92', '286,250.31', '294,837.82', '303,682.95'])
+  assert.equal(money(q.capex.lastSubscriptionCents), '303,682.95', 'month 60, no residue')
+  assert.equal(money(q.tcvNetCents), '17,389,102.20', 'Base TCV')
   assert.equal(pct(q.grossMargin), '86.2', 'margin on Base')
-  assert.equal(money(q.finalTcvCents), '18,390,053.88', 'Final TCV')
-  assert.equal(money(q.dealValueCents), '18,390,053.88', 'deal value = Final under Locked')
+  assert.equal(money(q.finalTcvCents), '18,390,028.44', 'Final TCV')
+  assert.equal(money(q.dealValueCents), '18,390,028.44', 'deal value = Final under Locked')
   assert.deepEqual(q.schedule.map((r) => [r.fromMonth, r.toMonth]),
     [[0, 0], [1, 12], [13, 24], [25, 36], [37, 48], [49, 60]])
 })
@@ -302,15 +347,13 @@ test('T23 SafeSight 120 + AQ 30, 60 months, on the catalog AQ costs', () => {
   // AQ at the catalog figures the spec's T23 row states. SafeSight's line is
   // T6; the AQ line and the deal figures are copied from the spec.
   const p = withParams({
-    ANCHOR_MARGIN: { ...SPEC_PARAMS.ANCHOR_MARGIN, air_quality: '90' },
-    SHORT_TERM_MARGIN: { ...SPEC_PARAMS.SHORT_TERM_MARGIN, air_quality: '90' },
     costs: { ...SPEC_PARAMS.costs, air_quality: { hwCost: '2000.00', hostingMonthly: '100.00' } },
   })
   const q = quote({ safesight: 120, air_quality: 30 }, 60, {}, p)
   const aq = q.lines.find((l) => l.product === 'air_quality')
-  assert.deepEqual(aq.bands.map((b) => [b.from, b.units, money(b.feeByYear[0])]), [[1, 9, '973.33'], [10, 21, '924.67']])
-  assert.equal(money(aq.monthlyByYear[0] * 60n), '1,690,682.40', 'AQ line')
-  assert.equal(money(q.tcvNetCents), '19,079,808.60')
+  assert.deepEqual(aq.bands.map((b) => [b.from, b.units, money(b.feeByYear[0])]), [[1, 9, '973.33'], [10, 21, '924.66']])
+  assert.equal(money(aq.monthlyByYear[0] * 60n), '1,690,669.80', 'AQ line')
+  assert.equal(money(q.tcvNetCents), '19,079,772.00')
   assert.equal(money(q.totalCostCents), '2,640,000.00')
   assert.equal(pct(q.grossMargin), '86.2')
 })
@@ -319,7 +362,7 @@ test('POSITION (Q4, not a spec figure): margin on price after WHT, only when WHT
   // T21 basis: profit 17,389,126.20 - 120 x 20,000.00 = 14,989,126.20; WHT borne
   // 28,981.88 x 60 = 1,738,912.80; after WHT 13,250,213.40 / 17,389,126.20 = 76.197..%.
   const borne = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: false })
-  assert.equal(money(borne.tax.whtBorneCents), '1,738,912.80')
+  assert.equal(money(borne.tax.whtBorneCents), '1,738,910.40')
   assert.equal(pct(borne.marginAfterWht), '76.2')
   assert.equal(pct(borne.grossMargin), '86.2', 'the section 4.3 margin is unchanged')
   assert.equal(quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true }).marginAfterWht, null, 'gross-up: nothing borne')
@@ -331,13 +374,13 @@ test('POSITION (Q4, not a spec figure): margin on price after WHT, only when WHT
 test('GST is added on top, outside TCV net, and WHT is on the fee before GST', () => {
   const q = quote({ safesight: 120 }, 60, { gstPct: '9', whtPct: '10', whtGrossUp: false })
   const m = q.schedule[0]
-  assert.equal(q.tcvNetCents, 1738912620n, 'TCV net unchanged by tax')
+  assert.equal(q.tcvNetCents, 1738910220n, 'TCV net unchanged by tax')
   // GST 9% of 289,818.77 = 26,083.6893, half-up 26,083.69.
-  assert.equal(money(m.gstCents), '26,083.69')
+  assert.equal(money(m.gstCents), '26,083.65')
   // WHT unchanged by GST: still 10% of the fee alone.
-  assert.equal(money(m.whtCents), '28,981.88')
+  assert.equal(money(m.whtCents), '28,981.84')
   assert.equal(q.tax.tcvInclGstCents, q.tax.invoicedCents + q.tax.gstCents)
-  assert.equal(money(q.tax.gstCents), '1,565,021.40', '26,083.69 x 60')
+  assert.equal(money(q.tax.gstCents), '1,565,019.00', '26,083.69 x 60')
 })
 
 test('POSITION (Phase 1, not a spec figure): with gross-up on, GST is charged on the grossed-up invoice', () => {
@@ -346,61 +389,18 @@ test('POSITION (Phase 1, not a spec figure): with gross-up on, GST is charged on
   // invoice is the grossed-up fee, so GST is 9% of 322,020.86 = 28,981.8774,
   // half-up 28,981.88. Pinned so a change to this position is a visible diff.
   const q = quote({ safesight: 120 }, 60, { gstPct: '9', whtPct: '10', whtGrossUp: true })
-  assert.equal(money(q.schedule[0].gstCents), '28,981.88')
-  assert.equal(money(q.schedule[0].whtCents), '32,202.09', 'WHT still on the fee before GST')
+  assert.equal(money(q.schedule[0].gstCents), '28,981.84')
+  assert.equal(money(q.schedule[0].whtCents), '32,202.04', 'WHT still on the fee before GST')
 })
 
 // ── Section 11, last line: parameters flow through with no code change ──
 
-test('flow: ANCHOR_MARGIN 80% reprices the anchor', () => {
-  // 15,200 cost; profit 15,200 x 0.8 / 0.2 = 60,800; price 76,000;
-  // fee 76,000 / 36 = 2,111.111..., half-up 2,111.11; TCV x 36 = 75,999.96.
-  const p = withParams({ ANCHOR_MARGIN: { safesight: '80', 'TEST-B': '90' } })
-  const q = quote({ safesight: 1 }, 36, {}, p)
-  assert.equal(money(q.monthlyTotalCents), '2,111.11')
-  assert.equal(money(q.tcvNetCents), '75,999.96')
-})
-
-test('flow: ANCHOR_MARGIN is per product (one product changed, the other untouched)', () => {
-  const p = withParams({ ANCHOR_MARGIN: { safesight: '90', 'TEST-B': '80' } })
-  const q = quote({ safesight: 120, 'TEST-B': 30 }, 60, {}, p)
-  const ss = q.lines.find((l) => l.product === 'safesight')
-  const base = quote({ safesight: 120 }, 60)
-  assert.equal(ss.monthlyByYear[0], base.monthlyTotalCents, 'SafeSight line unchanged')
-  assert.notEqual(q.tcvNetCents, 1852396860n, 'TEST-B line moved, so the deal moved')
-})
-
-test('flow: SHORT_TERM_MARGIN per product reprices only short terms', () => {
-  // 12 months at 80%: cost 10,400 / 0.2 = 52,000; fee 52,000 / 12 = 4,333.333..., 4,333.33.
-  const p = withParams({ SHORT_TERM_MARGIN: { safesight: '80', 'TEST-B': '90' } })
-  assert.equal(money(quote({ safesight: 1 }, 12, {}, p).monthlyTotalCents), '4,333.33')
-  assert.equal(money(quote({ safesight: 1 }, 36, {}, p).tcvNetCents), '151,999.92', '36 unchanged')
-})
-
-test('flow: PROFIT_STEP 1,000.00 adds per step above the anchor, nothing at it', () => {
-  // 60 is 2 steps above 36: price 20,000 + 136,800 + 2 x 1,000 = 158,800;
-  // fee 158,800 / 60 = 2,646.666..., 2,646.67; TCV x 60 = 158,800.20.
-  const p = withParams({ PROFIT_STEP: '1000.00' })
-  assert.equal(money(quote({ safesight: 1 }, 60, {}, p).tcvNetCents), '158,800.20')
-  assert.equal(money(quote({ safesight: 1 }, 36, {}, p).tcvNetCents), '151,999.92', 'anchor unchanged')
-})
-
-test('flow: TERMS decides what is offered and where the steps fall', () => {
-  // 18 offered: cost 8,000 + 3,600 = 11,600; / 0.1 = 116,000; / 18 = 6,444.444..., 6,444.44.
-  const p = withParams({ TERMS: [12, 18, 24, 36, 48, 60, 72, 84, 96, 120] })
-  assert.equal(money(quote({ safesight: 1 }, 18, {}, p).monthlyTotalCents), '6,444.44')
-  // A term inserted ABOVE the anchor moves steps_above for everything after it:
-  // with 42 added and PROFIT_STEP 1,000, 48 is 2 steps up, not 1.
-  // price 17,600 + 136,800 + 2,000 = 156,400; / 48 = 3,258.333..., 3,258.33.
-  const q = withParams({ TERMS: [12, 24, 36, 42, 48, 60, 72, 84, 96, 120], PROFIT_STEP: '1000.00' })
-  assert.equal(money(quote({ safesight: 1 }, 48, {}, q).monthlyTotalCents), '3,258.33')
-  // A term inserted BELOW the anchor moves the anchor's own position, and 48 is
-  // still exactly 1 step up: price 17,600 + 136,800 + 1,000 = 155,400; / 48 = 3,237.50.
-  // (Calibration J4 came back SILENT without this case: hard-coding the anchor's
-  // index survived every list in which the anchor sat third.)
-  const r = withParams({ TERMS: [12, 18, 24, 36, 48, 60, 72, 84, 96, 120], PROFIT_STEP: '1000.00' })
-  assert.equal(money(quote({ safesight: 1 }, 48, {}, r).monthlyTotalCents), '3,237.50')
-})
+// RETIRED (v2.0, TP_LADDER A1): five flow tests of the formula's own settings,
+// "ANCHOR_MARGIN 80% reprices the anchor", "ANCHOR_MARGIN is per product",
+// "SHORT_TERM_MARGIN per product reprices only short terms", "PROFIT_STEP
+// 1,000.00 adds per step above the anchor" and "TERMS decides what is offered
+// and where the steps fall". The settings they exercised no longer exist. Their
+// successors, the price ladder's own flow tests, are in the v2.0 section below.
 
 test('flow: a product\'s bands change its banded fees, and only its own (v1.8, TB-1)', () => {
   // SafeSight band 2 at 10% instead of 5%: 9 x 4,222.22 + 1 x round(4,222.222... x 0.9) = 3,800.00;
@@ -409,20 +409,20 @@ test('flow: a product\'s bands change its banded fees, and only its own (v1.8, T
   const p = withParams({ VOLUME_BANDS_BY_PRODUCT: { ...SPEC_PARAMS.VOLUME_BANDS_BY_PRODUCT, safesight: bands } })
   assert.equal(money(quote({ safesight: 10 }, 36, {}, p).monthlyTotalCents), '41,799.98')
   // TEST-B keeps the seed: T13, 30 units at 60 months, is unchanged on the same params.
-  assert.equal(money(quote({ 'TEST-B': 30 }, 60, {}, p).tcvNetCents), '1,134,842.40')
+  assert.equal(money(quote({ 'TEST-B': 30 }, 60, {}, p).tcvNetCents), '1,134,829.80')
 })
 
 test('flow: HW_UPFRONT_MARGIN 0 puts the CAPEX Hardware amount at cost', () => {
   // 120 x 8,000 = 960,000.00; subscription (17,389,126.20 - 960,000) / 60 = 273,818.77.
   const q = quote({ safesight: 120 }, 60, { paymentStructure: 'capex' }, withParams({ HW_UPFRONT_MARGIN: '0' }))
   assert.equal(money(q.capex.capexCents), '960,000.00')
-  assert.equal(money(q.capex.baseFeeCents), '273,818.77')
+  assert.equal(money(q.capex.baseFeeCents), '273,818.37')
 })
 
 test('flow: catalog costs are inputs, not constants', () => {
   // HW 9,000: cost(36) 16,200; price 162,000; / 36 = 4,500.00 exactly.
   const p = withParams({ costs: { ...SPEC_PARAMS.costs, safesight: { hwCost: '9000.00', hostingMonthly: '200.00' } } })
-  assert.equal(money(quote({ safesight: 1 }, 36, {}, p).monthlyTotalCents), '4,500.00')
+  assert.equal(money(quote({ safesight: 1 }, 36, {}, p).monthlyTotalCents), '4,222.22')
 })
 
 // ── RETIRED, QUOTED NOT DELETED (v1.6, C-10, Q12) ─────────────────────────
@@ -448,7 +448,7 @@ test('v1.6 (C-10): under CAPEX each ladder row is the OPEX Base row, and CAPEX i
     assert.equal(Object.keys(c[i]).filter((k) => /upfront|service/i.test(k)).length, 0, 'no CAPEX column on a ladder row')
   }
   // The 60-month row is T6, Base: no CPI on the ladder.
-  assert.equal(money(c.find((r) => r.termMonths === 60).tcvNetCents), '17,389,126.20')
+  assert.equal(money(c.find((r) => r.termMonths === 60).tcvNetCents), '17,389,102.20')
   // And the same inputs as a quote ARE refused, so the ladder's survival is not vacuous.
   assert.throws(() => priceQuote({ ...capexIn, termMonths: 60 }, SPEC_PARAMS), (e) => e.code === 'CAPEX_RANGE')
 })
@@ -470,7 +470,7 @@ test('the ladder prices every offered term from the same units', () => {
   assert.deepEqual(ladder.map((r) => money(r.monthlyTotalCents)), T10_1.map((r) => r[1]))
   assert.deepEqual(ladder.map((r) => money(r.tcvNetCents)), T10_1.map((r) => r[3]))
   assert.deepEqual(ladder.map((r) => pct(r.grossMargin)), T10_1.map((r) => r[6]))
-  assert.deepEqual(ladder.map((r) => (r.isAnchor ? 'list' : vsAnchor(r.savingVsAnchor))), T10_1.map((r) => r[2]))
+  assert.deepEqual(ladder.map((r) => (r.isCompare ? 'list' : vsCompare(r.savingVsCompare))), T10_1.map((r) => r[2]))
 })
 
 // ── v1.3 (TERM_PRICING_2): B1, B3, B4 and B6 ─────────────────────────────
@@ -488,9 +488,9 @@ test('T24 T6 as capex, split WHT hardware 5% / service 10%, gross-up OFF', () =>
   assert.equal(up.fromMonth, 0, 'the CAPEX invoice, month 0')
   assert.equal(money(up.whtCents), '60,000.00', 'WHT on upfront')
   assert.equal(money(up.receivedCents), '1,140,000.00', 'Terminus receives, upfront')
-  assert.equal(money(svc.whtCents), '26,981.88', 'WHT per service invoice')
-  assert.equal(money(svc.receivedCents), '242,836.89', 'Terminus receives, per service invoice')
-  assert.equal(money(q.tax.whtBorneCents), '1,678,912.80', 'total WHT borne')
+  assert.equal(money(svc.whtCents), '26,981.84', 'WHT per service invoice')
+  assert.equal(money(svc.receivedCents), '242,836.53', 'Terminus receives, per service invoice')
+  assert.equal(money(q.tax.whtBorneCents), '1,678,910.40', 'total WHT borne')
 })
 
 test('T25 T6 as opex, split WHT hardware 5% / service 10%, gross-up ON, GST 0', () => {
@@ -502,11 +502,11 @@ test('T25 T6 as opex, split WHT hardware 5% / service 10%, gross-up ON, GST 0', 
   assert.equal(money(hw.invoiceCents), '21,052.63', 'hardware invoice')
   assert.equal(money(hw.whtCents), '1,052.63', 'hardware WHT')
   assert.equal(money(hw.receivedCents), '20,000.00', 'hardware receives')
-  assert.equal(money(svc.netCents), '269,818.77', 'service line')
-  assert.equal(money(svc.invoiceCents), '299,798.63', 'service invoice')
-  assert.equal(money(svc.whtCents), '29,979.86', 'service WHT')
-  assert.equal(money(svc.receivedCents), '269,818.77', 'service receives')
-  assert.equal(money(row.invoiceCents), '320,851.26', 'invoice total')
+  assert.equal(money(svc.netCents), '269,818.37', 'service line')
+  assert.equal(money(svc.invoiceCents), '299,798.19', 'service invoice')
+  assert.equal(money(svc.whtCents), '29,979.82', 'service WHT')
+  assert.equal(money(svc.receivedCents), '269,818.37', 'service receives')
+  assert.equal(money(row.invoiceCents), '320,850.82', 'invoice total')
 })
 
 test('T26 1 unit, 108: TCV 166,399.92, margin 82.2%', () => {
@@ -524,14 +524,14 @@ test('T27 1 unit, 60, CPI locked 3% from year 3: Base 156,799.80 at 87.2%, Final
   assert.equal(money(q.dealValueCents), '162,558.36', 'deal value = Final under Locked')
 })
 
-test('T28 T6 as capex, CPI published 3% from year 3: Final (projected) 17,983,678.32, deal value Base', () => {
+test('T28 T6 as capex, CPI published 3% from year 3: Final (projected) 17,983,653.48, deal value Base', () => {
   const q = quote({ safesight: 120 }, 60, { ...T6_CAPEX, ...PUB('3', 3) })
   assert.equal(money(q.capex.capexCents), '1,200,000.00')
   assert.deepEqual(q.capex.subscriptionByYear.map(money),
-    ['269,818.77', '269,818.77', '277,913.33', '286,250.73', '294,838.26'])
-  assert.equal(money(q.tcvNetCents), '17,389,126.20', 'Base TCV')
-  assert.equal(money(q.finalTcvCents), '17,983,678.32', 'Final TCV (projected)')
-  assert.equal(money(q.dealValueCents), '17,389,126.20', 'deal value = Base under Published')
+    ['269,818.37', '269,818.37', '277,912.92', '286,250.31', '294,837.82'])
+  assert.equal(money(q.tcvNetCents), '17,389,102.20', 'Base TCV')
+  assert.equal(money(q.finalTcvCents), '17,983,653.48', 'Final TCV (projected)')
+  assert.equal(money(q.dealValueCents), '17,389,102.20', 'deal value = Base under Published')
 })
 
 test('B6: start year 2 is the v1.2 escalator exactly (T16 and T22 with S given)', () => {
@@ -539,7 +539,7 @@ test('B6: start year 2 is the v1.2 escalator exactly (T16 and T22 with S given)'
   assert.equal(money(t16.finalTcvCents), '166,494.36')
   assert.equal(t16.finalTcvCents, quote({ safesight: 1 }, 60, PUB('3')).finalTcvCents, 'S 2 is the default')
   const t22 = quote({ safesight: 120 }, 60, { ...T6_CAPEX, ...LOCK('3', 2) })
-  assert.equal(money(t22.finalTcvCents), '18,390,053.88')
+  assert.equal(money(t22.finalTcvCents), '18,390,028.44')
 })
 
 test('B6: a 12-month term has no year 2, so the escalator has no effect', () => {
@@ -561,20 +561,15 @@ test('B6: a start year below 2, or not a whole number, is refused', () => {
   }
 })
 
-test('B1 (POSITION): steps_above counts positions in the v1.3 TERMS (108 is 6, 120 is 7)', () => {
-  // PROFIT_STEP 1,000.00. 108: 29,600 + 136,800 + 6 x 1,000 = 172,400; / 108
-  // = 1,596.296..., 1,596.30. 120: 32,000 + 136,800 + 7,000 = 175,800; / 120 = 1,465.00.
-  const p = withParams({ PROFIT_STEP: '1000.00' })
-  assert.equal(money(quote({ safesight: 1 }, 108, {}, p).monthlyTotalCents), '1,596.30')
-  assert.equal(money(quote({ safesight: 1 }, 120, {}, p).monthlyTotalCents), '1,465.00')
-})
+// RETIRED (v2.0, A1): "B1 (POSITION): steps_above counts positions in the v1.3
+// TERMS". steps_above was the formula's; nothing counts positions now.
 
 test('B4: with Split WHT OFF the OPEX invoice stays ONE line, so T20 and T21 are untouched', () => {
   const on = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true })
   assert.equal(on.schedule[0].lines, undefined, 'no line split')
-  assert.equal(money(on.schedule[0].invoiceCents), '322,020.86')
+  assert.equal(money(on.schedule[0].invoiceCents), '322,020.41')
   const off = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true, whtSplit: false, whtHwPct: '5', whtSaasPct: '7' })
-  assert.equal(money(off.schedule[0].invoiceCents), '322,020.86', 'the split rates are ignored while the split is off')
+  assert.equal(money(off.schedule[0].invoiceCents), '322,020.41', 'the split rates are ignored while the split is off')
 })
 
 test('B4 (POSITION): CAPEX split at one rate equals the unsplit CAPEX quote', () => {
@@ -600,8 +595,8 @@ test('B4 (POSITION): GST is added per line on the line invoice', () => {
   const q = quote({ safesight: 120 }, 60, { gstPct: '9', ...SPLIT('5', '10', true) })
   const [hw, svc] = q.schedule[0].lines
   assert.equal(money(hw.gstCents), '1,894.74')
-  assert.equal(money(svc.gstCents), '26,981.88')
-  assert.equal(money(q.schedule[0].gstCents), '28,876.62')
+  assert.equal(money(svc.gstCents), '26,981.84')
+  assert.equal(money(q.schedule[0].gstCents), '28,876.58')
 })
 
 test('B4 (POSITION, spec 13): a split OPEX service line below zero is refused, never invoiced', () => {
@@ -652,7 +647,7 @@ test('L1 TCV (net) + WHT gross-up + GST = TCV incl. GST in every structure and W
     if (esc.cpiMode) assert.ok(q.finalTcvCents > q.tcvNetCents, `the CPI case moved Final, so the two ties are two: ${what}`)
   }
   // T20 basis: (322,020.86 - 289,818.77) x 60 = 32,202.09 x 60 = 1,932,125.40.
-  assert.equal(money(quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true }).tax.grossUpCents), '1,932,125.40')
+  assert.equal(money(quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: true }).tax.grossUpCents), '1,932,122.40')
 })
 
 // ── v1.4 (QUOTE_PANEL): per-product totals ──────────────────────────────
@@ -661,8 +656,6 @@ test('L1 TCV (net) + WHT gross-up + GST = TCV incl. GST in every structure and W
 // costs the Term Pricing screen reads (AQ 2,000.00 and 100.00 as T23 states;
 // HEMIR 100,000.00 and 500.00), with 90% margins as section 3.
 const CATALOG = withParams({
-  ANCHOR_MARGIN: { ...SPEC_PARAMS.ANCHOR_MARGIN, air_quality: '90', hemir: '90' },
-  SHORT_TERM_MARGIN: { ...SPEC_PARAMS.SHORT_TERM_MARGIN, air_quality: '90', hemir: '90' },
   costs: { ...SPEC_PARAMS.costs,
     air_quality: { hwCost: '2000.00', hostingMonthly: '100.00' },
     hemir: { hwCost: '100000.00', hostingMonthly: '500.00' } },
@@ -672,47 +665,47 @@ const row = (q, p) => { const l = q.lines.find((x) => x.product === p); return [
 
 test('T29 per product, 60 months, OPEX, no escalator', () => {
   const q = quote(DEMO, 60, {}, CATALOG)
-  assert.deepEqual(row(q, 'safesight'), ['17,389,126.20', '2,400,000.00', '14,989,126.20', '86.2'])
-  assert.deepEqual(row(q, 'air_quality'), ['2,245,484.40', '320,000.00', '1,925,484.40', '85.7'])
+  assert.deepEqual(row(q, 'safesight'), ['17,389,102.20', '2,400,000.00', '14,989,102.20', '86.2'])
+  assert.deepEqual(row(q, 'air_quality'), ['2,245,465.80', '320,000.00', '1,925,465.80', '85.7'])
   assert.deepEqual(row(q, 'hemir'), ['2,384,000.40', '260,000.00', '2,124,000.40', '89.1'])
   assert.deepEqual([money(q.tcvNetCents), money(q.totalCostCents), money(q.grossProfitCents), pct(q.grossMargin)],
-    ['22,018,611.00', '2,980,000.00', '19,038,611.00', '86.5'])
+    ['22,018,568.40', '2,980,000.00', '19,038,568.40', '86.5'])
 })
 
 test('T30 per product on Base, the Final schedule, CAPEX Hardware Hybrid m0, CPI locked 3% (S 2), WHT 10% borne', () => {
   const q = quote(DEMO, 60, { paymentStructure: 'capex', ...LOCK('3', 2), whtPct: '10', whtGrossUp: false }, CATALOG)
   const pick = (p) => { const r = row(q, p); return [r[0], r[3]] }
   // Base, per product.
-  assert.deepEqual(pick('safesight'), ['17,389,126.20', '86.2'])
-  assert.deepEqual(pick('air_quality'), ['2,245,484.40', '85.7'])
+  assert.deepEqual(pick('safesight'), ['17,389,102.20', '86.2'])
+  assert.deepEqual(pick('air_quality'), ['2,245,465.80', '85.7'])
   assert.deepEqual(pick('hemir'), ['2,384,000.40', '89.1'])
-  assert.equal(money(q.tcvNetCents), '22,018,611.00')
-  assert.equal(money(q.grossProfitCents), '19,038,611.00')
+  assert.equal(money(q.tcvNetCents), '22,018,568.40')
+  assert.equal(money(q.grossProfitCents), '19,038,568.40')
   assert.equal(pct(q.grossMargin), '86.5')
   // Base schedule: WHT borne and the margin after it.
-  assert.equal(money(q.base.tax.whtBorneCents), '2,201,860.98')
-  assert.equal(money(q.grossProfitCents - q.base.tax.whtBorneCents), '16,836,750.02')
+  assert.equal(money(q.base.tax.whtBorneCents), '2,201,856.78')
+  assert.equal(money(q.grossProfitCents - q.base.tax.whtBorneCents), '16,836,711.62')
   assert.equal(pct(q.marginAfterWht), '76.5')
   // Final schedule.
   assert.equal(money(q.capex.capexCents), '1,550,000.00')
   assert.deepEqual(q.capex.payments.map((p) => [p.month, money(p.cents)]), [[0, '1,550,000.00']])
   assert.deepEqual(q.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.capexCents), money(r.subscriptionCents)]), [
-    [0, 0, '1,550,000.00', '0.00'], [1, 12, '0.00', '341,143.52'], [13, 24, '0.00', '351,377.83'], [25, 36, '0.00', '361,919.16'],
-    [37, 48, '0.00', '372,776.74'], [49, 59, '0.00', '383,960.04'], [60, 60, '0.00', '383,959.81']])
-  assert.equal(money(q.finalTcvCents), '23,284,127.25')
-  assert.equal(money(q.dealValueCents), '23,284,127.25', 'deal value = Final under Locked')
-  assert.equal(money(q.cpiUpliftCents), '1,265,516.25')
-  assert.equal(money(q.tax.whtCents), '2,328,412.62', 'WHT on Final invoices')
+    [0, 0, '1,550,000.00', '0.00'], [1, 12, '0.00', '341,142.81'], [13, 24, '0.00', '351,377.09'], [25, 36, '0.00', '361,918.41'],
+    [37, 48, '0.00', '372,775.96'], [49, 59, '0.00', '383,959.24'], [60, 60, '0.00', '383,959.01']])
+  assert.equal(money(q.finalTcvCents), '23,284,081.89')
+  assert.equal(money(q.dealValueCents), '23,284,081.89', 'deal value = Final under Locked')
+  assert.equal(money(q.cpiUpliftCents), '1,265,513.49')
+  assert.equal(money(q.tax.whtCents), '2,328,408.18', 'WHT on Final invoices')
   assert.deepEqual([money(q.schedule[0].whtCents), money(q.schedule[0].receivedCents)], ['155,000.00', '1,395,000.00'], 'month 0')
-  assert.deepEqual([money(q.schedule[1].whtCents), money(q.schedule[1].receivedCents)], ['34,114.35', '307,029.17'], 'year-1 subscription invoice')
+  assert.deepEqual([money(q.schedule[1].whtCents), money(q.schedule[1].receivedCents)], ['34,114.28', '307,028.53'], 'year-1 subscription invoice')
 })
 
-test('T30 with GST 9% (the --qp picture): Final GST 2,095,571.38, incl 25,379,698.63; Base GST 1,981,675.18, incl 24,000,286.18', () => {
+test('T30 with GST 9% (the --qp picture): Final GST 2,095,567.42, incl 25,379,649.31; Base GST 1,981,670.98, incl 24,000,239.38', () => {
   const q = quote(DEMO, 60, { paymentStructure: 'capex', ...LOCK('3', 2), whtPct: '10', whtGrossUp: false, gstPct: '9' }, CATALOG)
-  assert.equal(money(q.tax.gstCents), '2,095,571.38')
-  assert.equal(money(q.tax.tcvInclGstCents), '25,379,698.63')
-  assert.equal(money(q.base.tax.gstCents), '1,981,675.18')
-  assert.equal(money(q.base.tax.tcvInclGstCents), '24,000,286.18')
+  assert.equal(money(q.tax.gstCents), '2,095,567.42')
+  assert.equal(money(q.tax.tcvInclGstCents), '25,379,649.31')
+  assert.equal(money(q.base.tax.gstCents), '1,981,670.98')
+  assert.equal(money(q.base.tax.tcvInclGstCents), '24,000,239.38')
 })
 
 test('v1.4: the products sum to the deal EXACTLY, in every structure, escalator and WHT state', () => {
@@ -762,8 +755,8 @@ const perCamera = (units, extra = {}, params = CATALOG) =>
 
 test('T31 per camera, OPEX, SafeSight 120 + AQ 40 + HEMIR 2, every term', () => {
   assert.deepEqual(perCamera(DEMO), [
-    [12, '8,009.44'], [24, '4,928.89'], [36, '3,902.04'], [48, '2,972.74'], [60, '2,415.16'],
-    [72, '2,043.44'], [84, '1,777.92'], [96, '1,578.79'], [108, '1,423.90'], [120, '1,299.99'],
+    [12, '8,009.45'], [24, '4,928.89'], [36, '3,902.04'], [48, '2,972.74'], [60, '2,415.15'],
+    [72, '2,043.43'], [84, '1,777.92'], [96, '1,578.78'], [108, '1,423.90'], [120, '1,300.00'],
   ])
 })
 
@@ -778,7 +771,7 @@ test('v1.5: per camera divides the SafeSight line only; AQ and HEMIR do not move
 test('v1.6: per camera is null ("-") with no SafeSight units; under CAPEX it is the OPEX figure, T31', () => {
   assert.ok(perCamera({ safesight: 0, air_quality: 40 }).every(([, v]) => v === null))
   assert.deepEqual(perCamera(DEMO, { paymentStructure: 'capex' }), perCamera(DEMO))
-  assert.equal(perCamera(DEMO, { paymentStructure: 'capex' }).find(([t]) => t === 60)[1], '2,415.16', 'T31 at 60')
+  assert.equal(perCamera(DEMO, { paymentStructure: 'capex' }).find(([t]) => t === 60)[1], '2,415.15', 'T31 at 60')
   // Nothing names the product: no perCameraProduct, no figure.
   assert.ok(termLadder({ units: DEMO, paymentStructure: 'opex' }, CATALOG).every((r) => r.perCameraCents === null))
 })
@@ -787,7 +780,7 @@ test('v1.5 (Verification 24): a second product follows its OWN line, rounded hal
   // AQ 40 at 60 months, from T23's band fees: (9 x 973.33 + 31 x 924.67) / 40
   // = 37,424.74 / 40 = 935.6185, half-up 935.62.
   const r = termLadder({ units: DEMO, paymentStructure: 'opex', perCameraProduct: 'air_quality' }, CATALOG).find((x) => x.termMonths === 60)
-  assert.equal(money(r.perCameraCents), '935.62')
+  assert.equal(money(r.perCameraCents), '935.61')
 })
 
 test('v1.5: per camera is year 1 (after the discount) with an escalator', () => {
@@ -808,7 +801,7 @@ const runs = (q) => q.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.capex
 
 test('G-C1 the default: Hardware, Hybrid Contract start m0 100%', () => {
   const q = quote(DEMO, 60, CAPEX(), CATALOG)
-  assert.equal(money(q.tcvNetCents), '22,018,611.00')
+  assert.equal(money(q.tcvNetCents), '22,018,568.40')
   assert.equal(money(q.capex.capexCents), '1,550,000.00')
   assert.equal(q.capex.amountMode, 'hardware', 'Hardware is the default')
   assert.equal(q.capex.structure, 'hybrid', 'Hybrid is the default')
@@ -819,16 +812,16 @@ test('G-C1 the default: Hardware, Hybrid Contract start m0 100%', () => {
   assert.deepEqual(quote(DEMO, 60, CAPEX(HYBRID(['Contract start', 0, '100'])), CATALOG).capex.payments.map((p) => [p.key, money(p.cents)]),
     [['Contract start', '1,550,000.00']], 'a given key is carried through as an opaque token')
   assert.deepEqual(runs(q), [
-    [0, 0, '1,550,000.00', '0.00', '1,550,000.00'], [1, 59, '0.00', '341,143.52', '341,143.52'], [60, 60, '0.00', '341,143.32', '341,143.32']])
-  assert.equal(money(q.finalTcvCents), '22,018,611.00')
+    [0, 0, '1,550,000.00', '0.00', '1,550,000.00'], [1, 59, '0.00', '341,142.81', '341,142.81'], [60, 60, '0.00', '341,142.61', '341,142.61']])
+  assert.equal(money(q.finalTcvCents), '22,018,568.40')
   assert.equal(q.dealValueCents, q.tcvNetCents, 'deal value = Base TCV')
-  assert.equal(money(q.cashYear1Cents), '5,643,722.24')
-  assert.equal(money(q.opexCashYear1Cents), '4,403,722.20')
+  assert.equal(money(q.cashYear1Cents), '5,643,713.72')
+  assert.equal(money(q.opexCashYear1Cents), '4,403,713.68')
   assert.equal(q.capex.warnings.hardwareFundedCents, null, 'CAPEX is above hardware cost')
   // The schedule's Total row (the approved picture, state 1): 1,550,000.00 /
   // 20,468,611.00 / 22,018,611.00.
   assert.deepEqual([money(q.tax.capexCents), money(q.tax.subscriptionCents), money(q.tax.netCents)],
-    ['1,550,000.00', '20,468,611.00', '22,018,611.00'])
+    ['1,550,000.00', '20,468,568.40', '22,018,568.40'])
 })
 
 test('G-C2 Custom 1,000,000.00, Hybrid 30 / 40 / 30 at months 0, 3, 6', () => {
@@ -836,27 +829,29 @@ test('G-C2 Custom 1,000,000.00, Hybrid 30 / 40 / 30 at months 0, 3, 6', () => {
     ...HYBRID(['Contract start', 0, '30'], ['Hardware delivered to site', 3, '40'], ['Commissioning', 6, '30']) }), CATALOG)
   assert.deepEqual(q.capex.payments.map((p) => [p.month, money(p.cents)]), [[0, '300,000.00'], [3, '400,000.00'], [6, '300,000.00']])
   assert.deepEqual(runs(q), [
-    [0, 0, '300,000.00', '0.00', '300,000.00'], [1, 2, '0.00', '350,310.18', '350,310.18'],
-    [3, 3, '400,000.00', '350,310.18', '750,310.18'], [4, 5, '0.00', '350,310.18', '350,310.18'],
-    [6, 6, '300,000.00', '350,310.18', '650,310.18'], [7, 59, '0.00', '350,310.18', '350,310.18'],
-    [60, 60, '0.00', '350,310.38', '350,310.38']])
+    [0, 0, '300,000.00', '0.00', '300,000.00'], [1, 2, '0.00', '350,309.47', '350,309.47'],
+    [3, 3, '400,000.00', '350,309.47', '750,309.47'], [4, 5, '0.00', '350,309.47', '350,309.47'],
+    [6, 6, '300,000.00', '350,309.47', '650,309.47'], [7, 59, '0.00', '350,309.47', '350,309.47'],
+    [60, 60, '0.00', '350,309.67', '350,309.67']])
   assert.equal(money(q.capex.warnings.hardwareFundedCents), '240,000.00', 'Terminus funds 240,000.00')
-  assert.equal(money(q.cashYear1Cents), '5,203,722.16')
+  assert.equal(money(q.cashYear1Cents), '5,203,713.64')
 })
 
 test('G-C3 Two-phase, Hardware, R = 12', () => {
   const q = quote(DEMO, 60, CAPEX({ capexStructure: 'two_phase', recoveryMonths: 12 }), CATALOG)
   assert.deepEqual(runs(q), [
-    [1, 11, '129,166.67', '341,143.52', '470,310.19'], [12, 12, '129,166.63', '341,143.52', '470,310.15'],
-    [13, 59, '0.00', '341,143.52', '341,143.52'], [60, 60, '0.00', '341,143.32', '341,143.32']])
-  assert.equal(money(q.cashYear1Cents), '5,643,722.24')
+    [1, 11, '129,166.67', '341,142.81', '470,309.48'], [12, 12, '129,166.63', '341,142.81', '470,309.44'],
+    [13, 59, '0.00', '341,142.81', '341,142.81'], [60, 60, '0.00', '341,142.61', '341,142.61']])
+  assert.equal(money(q.cashYear1Cents), '5,643,713.72')
 })
 
 test('G-C4 refusals, each for its own reason', () => {
   const refuses = (extra, code, what) => assert.throws(() => quote(DEMO, 60, CAPEX(extra), CATALOG),
     (e) => e instanceof TermPricingError && e.code === code, `${what}: expected ${code}`)
   refuses({ capexAmount: 'custom', capexCustom: '0' }, 'CAPEX_RANGE', 'CAPEX 0')
-  refuses({ capexAmount: 'custom', capexCustom: '22018611.00' }, 'CAPEX_RANGE', 'CAPEX = Base TCV')
+  // v2.0: the demo deal's Base TCV is 22,018,568.40 (T29, both derivations),
+  // so each boundary keeps its offset: equal to it, and a cent below it.
+  refuses({ capexAmount: 'custom', capexCustom: '22018568.40' }, 'CAPEX_RANGE', 'CAPEX = Base TCV')
   refuses(HYBRID(['Contract start', 0, '50'], ['Go live', 6, '49.9']), 'SHARES_TOTAL', '99.9%')
   refuses(HYBRID(['Contract start', 0, '50'], ['Go live', 6, '50.1']), 'SHARES_TOTAL', '100.1%')
   refuses(HYBRID(['Go live', 0, '50'], ['Go live', 6, '50']), 'DUPLICATE_MILESTONE', 'duplicate milestone')
@@ -866,7 +861,7 @@ test('G-C4 refusals, each for its own reason', () => {
   refuses({ capexStructure: 'two_phase', recoveryMonths: 61 }, 'RECOVERY_MONTHS', 'R > T')
   // The healthy neighbours of each refusal price, so no refusal above is the
   // quote refusing everything (Verification 14's companion clause).
-  for (const ok of [{ capexAmount: 'custom', capexCustom: '0.01' }, { capexAmount: 'custom', capexCustom: '22018610.99' },
+  for (const ok of [{ capexAmount: 'custom', capexCustom: '0.01' }, { capexAmount: 'custom', capexCustom: '22018568.39' },
     HYBRID(['Contract start', 0, '50'], ['Go live', 6, '50']), HYBRID(['Contract start', 60, '100']),
     HYBRID(['Contract start', 3, '50'], ['Go live', 3, '50']), { capexStructure: 'two_phase', recoveryMonths: 1 },
     { capexStructure: 'two_phase', recoveryMonths: 60 }]) {
@@ -874,16 +869,16 @@ test('G-C4 refusals, each for its own reason', () => {
   }
 })
 
-test('G-C5 CPI locked 3% (S 2) on G-C1, no WHT: as T30\'s Final schedule, Final TCV 23,284,127.25', () => {
+test('G-C5 CPI locked 3% (S 2) on G-C1, no WHT: as T30\'s Final schedule, Final TCV 23,284,081.89', () => {
   const q = quote(DEMO, 60, CAPEX(LOCK('3', 2)), CATALOG)
   assert.deepEqual(runs(q).map((r) => [r[0], r[1], r[2], r[3]]), [
-    [0, 0, '1,550,000.00', '0.00'], [1, 12, '0.00', '341,143.52'], [13, 24, '0.00', '351,377.83'], [25, 36, '0.00', '361,919.16'],
-    [37, 48, '0.00', '372,776.74'], [49, 59, '0.00', '383,960.04'], [60, 60, '0.00', '383,959.81']])
-  assert.equal(money(q.finalTcvCents), '23,284,127.25')
-  assert.equal(money(q.tcvNetCents), '22,018,611.00', 'Base TCV unmoved by the CPI')
+    [0, 0, '1,550,000.00', '0.00'], [1, 12, '0.00', '341,142.81'], [13, 24, '0.00', '351,377.09'], [25, 36, '0.00', '361,918.41'],
+    [37, 48, '0.00', '372,775.96'], [49, 59, '0.00', '383,959.24'], [60, 60, '0.00', '383,959.01']])
+  assert.equal(money(q.finalTcvCents), '23,284,081.89')
+  assert.equal(money(q.tcvNetCents), '22,018,568.40', 'Base TCV unmoved by the CPI')
   // The Base schedule is G-C1's: the CPI touches the Final schedule only.
   assert.deepEqual(q.base.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.netCents)]),
-    [[0, 0, '1,550,000.00'], [1, 59, '341,143.52'], [60, 60, '341,143.32']])
+    [[0, 0, '1,550,000.00'], [1, 59, '341,142.81'], [60, 60, '341,142.61']])
 })
 
 test('G-C6 split WHT straddling the hardware value: Custom 2,000,000.00, 5% / 10%, gross-up OFF', () => {
@@ -894,8 +889,8 @@ test('G-C6 split WHT straddling the hardware value: Custom 2,000,000.00, 5% / 10
     [['hardware', '1,550,000.00', '77,500.00'], ['service', '450,000.00', '45,000.00']])
   assert.deepEqual([money(m0.whtCents), money(m0.receivedCents)], ['122,500.00', '1,877,500.00'])
   assert.deepEqual(q.schedule.slice(1).map((r) => [r.fromMonth, r.toMonth, money(r.subscriptionCents), money(r.whtCents)]),
-    [[1, 59, '333,643.52', '33,364.35'], [60, 60, '333,643.32', '33,364.33']])
-  assert.equal(money(q.tax.whtCents), '2,124,360.98')
+    [[1, 59, '333,642.81', '33,364.28'], [60, 60, '333,642.61', '33,364.26']])
+  assert.equal(money(q.tax.whtCents), '2,124,356.78')
   assert.equal(q.capex.warnings.hardwareFundedCents, null, 'warning (a) does not fire')
 })
 
@@ -915,7 +910,7 @@ test('v1.6 (C-9 b): the base subscription fee below the deal\'s monthly hosting 
   // x 500 = 29,000.00 a month. Custom 21,000,000.00 leaves (22,018,611.00 -
   // 21,000,000.00) / 60 = 16,976.85, below it; G-C1's 341,143.52 is above it.
   const low = quote(DEMO, 60, CAPEX({ capexAmount: 'custom', capexCustom: '21000000.00' }), CATALOG)
-  assert.equal(money(low.capex.baseFeeCents), '16,976.85')
+  assert.equal(money(low.capex.baseFeeCents), '16,976.14')
   assert.equal(money(low.capex.warnings.hostingMonthlyCents), '29,000.00')
   assert.equal(low.capex.warnings.subscriptionBelowHosting, true)
   assert.equal(quote(DEMO, 60, CAPEX(), CATALOG).capex.warnings.subscriptionBelowHosting, false)
@@ -948,7 +943,8 @@ test('v1.6 (POSITION): a last instalment or last month that would be negative is
     (e) => e.code === 'NEGATIVE_LAST_ITEM')
   // Base TCV - CAPEX = 0.35: round_half_up(0.35 / 60) = 0.01 for months 1 to
   // 59 = 0.59, so month 60 would be 0.35 - 0.59 = -0.24.
-  assert.throws(() => quote(DEMO, 60, CAPEX({ capexAmount: 'custom', capexCustom: '22018610.65' }), CATALOG),
+  // v2.0: Base TCV 22,018,568.40, so CAPEX 22,018,568.05 leaves the same 0.35.
+  assert.throws(() => quote(DEMO, 60, CAPEX({ capexAmount: 'custom', capexCustom: '22018568.05' }), CATALOG),
     (e) => e.code === 'NEGATIVE_LAST_ITEM')
 })
 
@@ -978,7 +974,7 @@ test('v1.6 (C-5): CAPEX payments never escalate, even a milestone in a CPI year'
 
 test('v1.6: with no CPI the OPEX schedule is one run and the Base schedule IS the Final one', () => {
   const q = quote({ safesight: 120 }, 60)
-  assert.deepEqual(q.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.netCents)]), [[1, 60, '289,818.77']])
+  assert.deepEqual(q.schedule.map((r) => [r.fromMonth, r.toMonth, money(r.netCents)]), [[1, 60, '289,818.37']])
   assert.equal(q.base.schedule, q.schedule, 'one schedule, not two that agree')
 })
 
@@ -1008,10 +1004,10 @@ const bandRow = (q, product, from) => {
 test('B-1 to B-6 per band, demo deal, 60 months, spec settings', () => {
   const q = quote(DEMO, 60, {}, CATALOG)
   assert.deepEqual(bandRow(q, 'safesight', 1), [9, '2,613.33', '23,519.97', '1,411,198.20', '87.2'], 'B-1')
-  assert.deepEqual(bandRow(q, 'safesight', 10), [40, '2,482.67', '99,306.80', '5,958,408.00', '86.6'], 'B-2')
+  assert.deepEqual(bandRow(q, 'safesight', 10), [40, '2,482.66', '99,306.40', '5,958,384.00', '86.6'], 'B-2')
   assert.deepEqual(bandRow(q, 'safesight', 50), [71, '2,352.00', '166,992.00', '10,019,520.00', '85.8'], 'B-3')
   assert.deepEqual(bandRow(q, 'air_quality', 1), [9, '973.33', '8,759.97', '525,598.20', '86.3'], 'B-4')
-  assert.deepEqual(bandRow(q, 'air_quality', 10), [31, '924.67', '28,664.77', '1,719,886.20', '85.6'], 'B-5')
+  assert.deepEqual(bandRow(q, 'air_quality', 10), [31, '924.66', '28,664.46', '1,719,867.60', '85.6'], 'B-5')
   assert.deepEqual(bandRow(q, 'hemir', 1), [2, '19,866.67', '39,733.34', '2,384,000.40', '89.1'], 'B-6')
 })
 
@@ -1036,7 +1032,7 @@ test('v1.7 (C1): every product\'s bands sum to it exactly, at every term, with a
   }
   assert.ok(checked > 100, `a real population was walked (${checked} bands)`)
   // T29's product figures are unchanged by v1.7.
-  assert.deepEqual(row(quote(DEMO, 60, {}, CATALOG), 'safesight'), ['17,389,126.20', '2,400,000.00', '14,989,126.20', '86.2'])
+  assert.deepEqual(row(quote(DEMO, 60, {}, CATALOG), 'safesight'), ['17,389,102.20', '2,400,000.00', '14,989,102.20', '86.2'])
 })
 
 const ALLOC = (extra) => ENGINE.capexAllocation({ units: DEMO, termMonths: 60, paymentStructure: 'capex', ...extra }, CATALOG)
@@ -1050,10 +1046,10 @@ test('T4-G1 the allocation preview, 50% and 30% of Custom 1,000,000.00', () => {
   assert.deepEqual(a.rows.map((r) => [r.key, r.month, money(r.cents)]), [['Contract start', 0, '500,000.00'], ['Installation complete', 4, '300,000.00']])
   assert.deepEqual([pct(a.allocated.share), money(a.allocated.cents)], ['80.0', '800,000.00'])
   assert.deepEqual([pct(a.unallocated.share), money(a.unallocated.cents)], ['20.0', '200,000.00'])
-  assert.deepEqual([money(a.baseFeeCents), money(a.lastBaseFeeCents)], ['350,310.18', '350,310.38'])
+  assert.deepEqual([money(a.baseFeeCents), money(a.lastBaseFeeCents)], ['350,309.47', '350,309.67'])
   const m0 = a.breakdown.find((r) => r.fromMonth === 0), m4 = a.breakdown.find((r) => r.fromMonth === 4)
   assert.deepEqual([m0.toMonth, money(m0.netCents), m0.keys], [0, '500,000.00', ['Contract start']])
-  assert.deepEqual([m4.toMonth, money(m4.netCents), m4.keys], [4, '650,310.18', ['Installation complete']])
+  assert.deepEqual([m4.toMonth, money(m4.netCents), m4.keys], [4, '650,309.47', ['Installation complete']])
   assert.equal(money(a.unscheduledCents), '200,000.00')
   assert.equal(a.excess, null)
 })
@@ -1168,9 +1164,11 @@ test('v1.7 (T-4): consecutive milestone months with equal amounts stay separate 
 test('v1.7 (T-4): every v1.6 refusal still holds through the preview', () => {
   const refuses = (extra, code, what) => assert.throws(() => ALLOC(extra),
     (e) => e instanceof TermPricingError && e.code === code, `${what}: expected ${code}`)
-  // A complete allocation: the quote's own refusals (G-C4).
+  // A complete allocation: the quote's own refusals (G-C4). v2.0: the boundary
+  // is the new Base TCV, 22,018,568.40; the old 22,018,611.00 still refused
+  // but no longer tested equality (Verification 17).
   refuses({ capexAmount: 'custom', capexCustom: '0' }, 'CAPEX_RANGE', 'CAPEX 0')
-  refuses({ capexAmount: 'custom', capexCustom: '22018611.00' }, 'CAPEX_RANGE', 'CAPEX = Base TCV')
+  refuses({ capexAmount: 'custom', capexCustom: '22018568.40' }, 'CAPEX_RANGE', 'CAPEX = Base TCV')
   refuses({ capexAmount: 'custom', capexCustom: '1.234' }, 'CAPEX_CUSTOM', 'three decimals')
   refuses(HYBRID(['Go live', 0, '50'], ['Go live', 6, '50']), 'DUPLICATE_MILESTONE', 'duplicate milestone')
   refuses(HYBRID(['Contract start', 61, '100']), 'MILESTONE_MONTH', 'month > T')
@@ -1207,19 +1205,19 @@ test('BG-1 SafeSight on six bands, 1,000 units, 60 months, OPEX', () => {
   const q = quote({ safesight: 1000 }, 60, {}, withBands(SPEC_PARAMS, 'safesight', BG1_BANDS))
   const l = q.lines.find((x) => x.product === 'safesight')
   assert.deepEqual(l.bands.map((b) => money(b.feeByYear[0])),
-    ['2,613.33', '2,482.67', '2,352.00', '2,221.33', '2,090.67', '1,829.33'], 'band fees')
+    ['2,613.33', '2,482.66', '2,352.00', '2,221.33', '2,090.66', '1,829.33'], 'band fees')
   assert.deepEqual(l.bands.map((b) => b.units), [9, 40, 150, 300, 500, 1], 'units per band')
-  assert.equal(money(q.monthlyTotalCents), '2,189,190.10')
-  assert.equal(money(q.tcvNetCents), '131,351,406.00')
+  assert.equal(money(q.monthlyTotalCents), '2,189,184.70')
+  assert.equal(money(q.tcvNetCents), '131,351,082.00')
   assert.equal(pct(q.grossMargin), '84.8')
 })
 
 test('BG-2 HEMIR on its own bands, 2 units, 60 months', () => {
   const q = quote({ hemir: 2 }, 60, {}, withBands(CATALOG, 'hemir', BG2_BANDS))
   const l = q.lines.find((x) => x.product === 'hemir')
-  assert.deepEqual(l.bands.map((b) => [money(b.feeByYear[0]), b.units]), [['19,866.67', 1], ['18,873.33', 1]])
-  assert.equal(money(q.monthlyTotalCents), '38,740.00')
-  assert.equal(money(q.tcvNetCents), '2,324,400.00')
+  assert.deepEqual(l.bands.map((b) => [money(b.feeByYear[0]), b.units]), [['19,866.67', 1], ['18,873.34', 1]])
+  assert.equal(money(q.monthlyTotalCents), '38,740.01')
+  assert.equal(money(q.tcvNetCents), '2,324,400.60')
   assert.equal(pct(q.grossMargin), '88.8')
 })
 
@@ -1227,8 +1225,8 @@ test('BG-1 and BG-2 together: each product prices on its own bands in one deal (
   // SafeSight on six bands, HEMIR on 1/2/5/10, one deal: each line equals its own case.
   const p = withBands(withBands(CATALOG, 'safesight', BG1_BANDS), 'hemir', BG2_BANDS)
   const q = quote({ safesight: 1000, hemir: 2 }, 60, {}, p)
-  assert.equal(money(q.lines.find((x) => x.product === 'safesight').tcvNetCents), '131,351,406.00')
-  assert.equal(money(q.lines.find((x) => x.product === 'hemir').tcvNetCents), '2,324,400.00')
+  assert.equal(money(q.lines.find((x) => x.product === 'safesight').tcvNetCents), '131,351,082.00')
+  assert.equal(money(q.lines.find((x) => x.product === 'hemir').tcvNetCents), '2,324,400.60')
 })
 
 test('BG-3 the margin check: SafeSight\'s 30% band, every unit at that band\'s fee', () => {
@@ -1238,7 +1236,7 @@ test('BG-3 the margin check: SafeSight\'s 30% band, every unit at that band\'s f
   assert.ok(row, 'the 30% band is a row')
   const at = (T) => { const c = row.cells.find((x) => x.termMonths === T); return [money(c.feeCents), pct(c.margin)] }
   assert.deepEqual(at(12), ['6,066.67', '85.7'])
-  assert.deepEqual(at(36), ['2,955.56', '85.7'])
+  assert.deepEqual(at(36), ['2,955.55', '85.7'])
   assert.deepEqual(at(60), ['1,829.33', '81.8'])
   assert.deepEqual(at(120), ['984.67', '72.9'])
   // Every band at every term in TERMS (10.4), and band 1's cells are table 10.3's 0% column.
@@ -1372,174 +1370,17 @@ test('TB-1: unitEconomics reads the product\'s own bands', () => {
   // 19,866.666...; x 0.95 = 18,873.33; x 0.90 = 17,880.00; x 0.85 = 16,886.666..., 16,886.67.
   const u = unitEconomics('hemir', 60, withBands(CATALOG, 'hemir', BG2_BANDS))
   assert.deepEqual(u.bands.map((b) => [b.from, b.to, money(b.feeCents)]),
-    [[1, 1, '19,866.67'], [2, 4, '18,873.33'], [5, 9, '17,880.00'], [10, null, '16,886.67']])
+    [[1, 1, '19,866.67'], [2, 4, '18,873.34'], [5, 9, '17,880.00'], [10, null, '16,886.67']])
 })
 
-// ── v1.9 (TP_MANUAL): the manual ladder comparison, section 4.6 and 11.5 ──
+// ── v1.9 (TP_MANUAL): the manual ladder comparison, RETIRED (v2.0, A5) ──────
 //
-// Every expected figure is COPIED from the TP_MANUAL brief's MG-1 to MG-4 (MG-4
-// as corrected by ruling C2), never computed by the code under test. Read
-// through the namespace so only these tests fail before the export exists.
-
-const MG1_PRICES = Object.freeze({
-  12: '2,500.00', 24: '1,500.00', 36: '1,100.00', 48: '900.00', 60: '800.00',
-  72: '700.00', 84: '620.00', 96: '560.00', 108: '520.00', 120: '500.00',
-})
-// term, calculated, difference, vs 36, margin, profit, client total, check (one flag per line)
-const MG1 = [
-  [12, '8,666.67', '−71.2%', '+127.3%', '65.3%', '19,600.00', '30,000.00', []],
-  [24, '5,333.33', '−71.9%', '+36.4%', '64.4%', '23,200.00', '36,000.00', []],
-  [36, '4,222.22', '−73.9%', 'list', '61.6%', '24,400.00', '39,600.00', []],
-  [48, '3,216.67', '−72.0%', '−18.2%', '59.3%', '25,600.00', '43,200.00', []],
-  [60, '2,613.33', '−69.4%', '−27.3%', '58.3%', '28,000.00', '48,000.00', []],
-  [72, '2,211.11', '−68.3%', '−36.4%', '55.6%', '28,000.00', '50,400.00', []],
-  [84, '1,923.81', '−67.8%', '−43.6%', '52.4%', '27,280.00', '52,080.00', ['Profit below 72 months']],
-  [96, '1,708.33', '−67.2%', '−49.1%', '49.4%', '26,560.00', '53,760.00', ['Profit below 84 months']],
-  [108, '1,540.74', '−66.2%', '−52.7%', '47.3%', '26,560.00', '56,160.00', []],
-  [120, '1,406.67', '−64.5%', '−54.5%', '46.7%', '28,000.00', '60,000.00', []],
-]
-// A ratio as the spec prints it: "+127.3%", "−71.2%" (U+2212), "0.0%" at zero.
-const signedPct = (r) => {
-  const s = formatPct(r, 1)
-  if (s === '0.0' || s === '-0.0') return '0.0%'
-  return s.startsWith('-') ? `−${s.slice(1)}%` : `+${s}%`
-}
-const manual = (prices, params = SPEC_PARAMS, product = 'safesight') => ENGINE.manualLadder({ product, prices }, params)
-const shown = (r) => (r.status !== 'priced' ? [r.termMonths, money(r.calculatedCents), r.status] : [
-  r.termMonths, money(r.calculatedCents), signedPct(r.difference),
-  r.vsAnchor === 'list' ? 'list' : r.vsAnchor === null ? '-' : signedPct(r.vsAnchor),
-  `${formatPct(r.margin, 1)}%`, money(r.profitCents), money(r.totalCents), r.flags.map((f) => f.message),
-])
-
-test('MG-1 the manual ladder, every column at every term (4.6, M-5)', () => {
-  const m = manual(MG1_PRICES)
-  assert.equal(m.product, 'safesight')
-  assert.deepEqual(m.rows.map(shown), MG1)
-})
-
-test('MG-1 summary: floor ok, client total ok, profit falls at 84 and 96 (M-6, C3)', () => {
-  const s = manual(MG1_PRICES).summary
-  assert.equal(s.priced, 10)
-  assert.deepEqual([s.floor.ok, s.floor.terms, s.floor.text], [true, [], 'At or above the 25% floor at every priced term'])
-  assert.deepEqual([s.total.ok, s.total.terms, s.total.text], [true, [], 'Client total never falls with a longer term'])
-  assert.deepEqual([s.profit.ok, s.profit.terms, s.profit.text], [false, [84, 96], 'Profit falls at 2 terms (84, 96)'])
-})
-
-test('MG-1: Calculated is the ladder\'s one-camera per-camera fee, not a new formula (M-8)', () => {
-  const ladder = termLadder({ units: { safesight: 1 }, perCameraProduct: 'safesight' }, SPEC_PARAMS)
-  assert.deepEqual(manual({}).rows.map((r) => r.calculatedCents), ladder.map((r) => r.perCameraCents))
-})
-
-test('MG-2 a blank 72: the 84 row compares against 60, the previous row WITH a price', () => {
-  const m = manual({ ...MG1_PRICES, 72: '' })
-  const r72 = m.rows.find((r) => r.termMonths === 72)
-  assert.equal(r72.status, 'blank')
-  assert.equal(r72.priceCents, undefined, 'a blank row carries no figures')
-  assert.deepEqual(m.rows.find((r) => r.termMonths === 84).flags.map((f) => [f.kind, f.against, f.message]),
-    [['profit', 60, 'Profit below 60 months']])
-  assert.equal(m.summary.priced, 9)
-})
-
-test('MG-3 a blank 36: every vs 36 shows "-"', () => {
-  const m = manual({ ...MG1_PRICES, 36: '' })
-  for (const r of m.rows.filter((x) => x.status === 'priced')) assert.equal(r.vsAnchor, null, `${r.termMonths}`)
-  assert.equal(m.rows.filter((x) => x.status === 'priced').length, 9)
-})
-
-test('MG-4 120 at 300.00: all three flags, in the order floor, client total, profit (C2)', () => {
-  const m = manual({ ...MG1_PRICES, 120: '300.00' })
-  const r = m.rows.find((x) => x.termMonths === 120)
-  assert.deepEqual([money(r.totalCents), money(r.profitCents), `${formatPct(r.margin, 1)}%`], ['36,000.00', '4,000.00', '11.1%'])
-  assert.deepEqual(r.flags.map((f) => f.message), ['Below the floor', 'Client total below 108 months', 'Profit below 108 months'])
-  assert.deepEqual(r.flags.map((f) => f.kind), ['floor', 'total', 'profit'])
-  const s = m.summary
-  assert.equal(s.floor.text, 'Below the 25% floor at 1 term (120)')
-  assert.equal(s.total.text, 'Client total falls at 1 term (120)')
-  assert.equal(s.profit.text, 'Profit falls at 3 terms (84, 96, 120)')
-})
-
-test('4.6, M-7, C9: a price that is not a positive amount to the cent is refused for its term, and is blank to the checks', () => {
-  for (const bad of ['0', '0.00', '-5', '1.234', 'abc', '1,0.0.0', ' ']) {
-    const m = manual({ ...MG1_PRICES, 72: bad })
-    const r = m.rows.find((x) => x.termMonths === 72)
-    if (bad.trim() === '') { assert.equal(r.status, 'blank', JSON.stringify(bad)); continue }
-    assert.equal(r.status, 'invalid', JSON.stringify(bad))
-    assert.equal(r.message, 'Enter a monthly price above 0, to the cent.')
-    assert.equal(r.priceCents, undefined)
-    // Treated as blank: 84 compares against 60, as MG-2.
-    assert.deepEqual(m.rows.find((x) => x.termMonths === 84).flags.map((f) => f.message), ['Profit below 60 months'], JSON.stringify(bad))
-  }
-  // Commas are ignored, and whole or one-decimal amounts are prices.
-  for (const good of ['2500', '2,500', '2500.0', '2,500.00']) {
-    const r = manual({ 12: good }).rows[0]
-    assert.equal(r.status, 'priced', good)
-    assert.equal(money(r.totalCents), '30,000.00', good)
-  }
-})
-
-test('4.6: the floor is an EXACT comparison; a margin exactly at the floor is not below it', () => {
-  // TEST-B with a flat 9,000.00 cost: at 12 months 1,000.00 gives total 12,000.00,
-  // profit 3,000.00, margin exactly 25%; 999.99 gives 11,999.88, margin below 25%.
-  const p = { ...SPEC_PARAMS, costs: { ...SPEC_PARAMS.costs, 'TEST-B': { hwCost: '9000.00', hostingMonthly: '0.00' } } }
-  const at = manual({ 12: '1000.00' }, p, 'TEST-B').rows[0]
-  assert.deepEqual(at.flags, [])
-  assert.equal(manual({ 12: '1000.00' }, p, 'TEST-B').summary.floor.text, 'At or above the 25% floor at every priced term')
-  const below = manual({ 12: '999.99' }, p, 'TEST-B').rows[0]
-  assert.deepEqual(below.flags.map((f) => f.message), ['Below the floor'])
-})
-
-test('4.6: equal is not a fall, for client total as well as profit', () => {
-  // 12 at 1,000.00 (total 12,000.00) then 24 at 500.00 (total 12,000.00): no client total flag.
-  const m = manual({ 12: '1000.00', 24: '500.00' })
-  assert.deepEqual(m.rows[1].flags.filter((f) => f.kind === 'total'), [])
-  // 24 at 499.99: total 11,999.76, a fall.
-  assert.deepEqual(manual({ 12: '1000.00', 24: '499.99' }).rows[1].flags.filter((f) => f.kind === 'total').map((f) => f.message),
-    ['Client total below 12 months'])
-})
-
-test('4.6, C4, C11: the rows follow the live TERMS, vs follows ANCHOR_TERM, and no price means nothing priced', () => {
-  const p = { ...SPEC_PARAMS, TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 120], ANCHOR_TERM: 48 }
-  const m = manual(MG1_PRICES, p)
-  assert.deepEqual(m.rows.map((r) => r.termMonths), [12, 24, 36, 48, 60, 72, 84, 96, 120])
-  assert.equal(m.anchorTerm, 48)
-  assert.equal(m.rows.find((r) => r.termMonths === 48).vsAnchor, 'list')
-  // 36 against 48: 1,100.00 / 900.00 - 1 = +22.2%.
-  assert.equal(signedPct(m.rows.find((r) => r.termMonths === 36).vsAnchor), '+22.2%')
-  // A price for a term not offered is not a row.
-  assert.equal(m.rows.find((r) => r.termMonths === 108), undefined)
-  const empty = manual({})
-  assert.equal(empty.summary.priced, 0)
-  assert.ok(empty.rows.every((r) => r.status === 'blank' && typeof r.calculatedCents === 'bigint'))
-})
-
-test('4.6, C6, C8: the note\'s figures come from the engine: hardware, hosting and the first band\'s discount', () => {
-  const m = manual({})
-  assert.deepEqual([money(m.hwCostCents), money(m.hostingMonthlyCents), m.firstBandDiscountPct, `${formatPct(m.floor, 1)}%`],
-    ['8,000.00', '200.00', '0', '25.0%'])
-  const p = withBands(SPEC_PARAMS, 'safesight', [{ from: 1, discountPct: '7.5' }, { from: 10, discountPct: '10' }])
-  assert.equal(manual({}, p).firstBandDiscountPct, '7.5')
-})
-
-test('4.6, C3: the floor in the wording and the check is MARGIN_FLOOR, not 25 (Verification 24)', () => {
-  // 60 at 800.00: margin 58.3% (MG-1). Against a 60% floor it is below, and the
-  // summary names 60; against 7.5% every priced term is at or above it.
-  const at60 = manual({ 60: '800.00' }, { ...SPEC_PARAMS, MARGIN_FLOOR: '60' })
-  assert.deepEqual(at60.rows.find((r) => r.termMonths === 60).flags.map((f) => f.message), ['Below the floor'])
-  assert.equal(at60.summary.floor.text, 'Below the 60% floor at 1 term (60)')
-  assert.equal(manual({ 60: '800.00' }, { ...SPEC_PARAMS, MARGIN_FLOOR: '7.5' }).summary.floor.text,
-    'At or above the 7.5% floor at every priced term')
-})
-
-test('4.6: a filled row (your price = Calculated) reads exactly 0.0% difference', () => {
-  const calc = manual({}).rows
-  const filled = Object.fromEntries(calc.map((r) => [r.termMonths, formatMoney(r.calculatedCents)]))
-  for (const r of manual(filled).rows) assert.equal(signedPct(r.difference), '0.0%', `${r.termMonths}`)
-})
-
-test('4.6: comparison only; the engine refuses a product it cannot price, as the quote does', () => {
-  assert.throws(() => manual({ 12: '100.00' }, SPEC_PARAMS, 'nothing'),
-    (e) => e instanceof TermPricingError && e.code === 'NO_COST')
-})
+// The 14 tests of section 4.6 (MG-1 to MG-4 and the 4.6 rules) retire with the
+// compare card and manualLadder: "Calculated" read the formula, which A1
+// removed. What they proved about a typed price per term (client total,
+// profit, margin and the three checks, against the previous priced term,
+// equal is not a fall, the floor exact) is proved again on the price ladder
+// editor's grid in the v2.0 section (LG-1, LG-6 and the grid rules).
 
 // ── v1.10 (TERM_FACTORING): PO factoring, spec sections 9.2 to 9.6 and 11.6 ──
 //
@@ -1577,12 +1418,12 @@ test('FA-2 the same loan, declining: a level payment, the last month clearing th
 test('FA-3 T6, factoring on, Absorb: the price is unchanged; profit and margin before and after finance', () => {
   const off = quote({ safesight: 120 }, 60)
   const q = quote({ safesight: 120 }, 60, FX())
-  assert.equal(money(q.monthlyTotalCents), '289,818.77')
-  assert.equal(money(q.tcvNetCents), '17,389,126.20')
+  assert.equal(money(q.monthlyTotalCents), '289,818.37')
+  assert.equal(money(q.tcvNetCents), '17,389,102.20')
   assert.deepEqual(canonical(q.schedule), canonical(off.schedule), 'Absorb invoices exactly what factoring off invoices')
   assert.equal(money(q.factoring.advanceCents), '960,000.00', 'the advance defaults to the hardware cost')
-  assert.equal(money(q.factoring.profitBeforeFinanceCents), '14,989,126.20')
-  assert.equal(money(q.grossProfitCents), '14,926,726.20')
+  assert.equal(money(q.factoring.profitBeforeFinanceCents), '14,989,102.20')
+  assert.equal(money(q.grossProfitCents), '14,926,702.20')
   assert.equal(pct(q.factoring.marginBeforeFinance), '86.2')
   assert.equal(pct(q.grossMargin), '85.8')
 })
@@ -1602,11 +1443,11 @@ test('FA-4 T6, Pass through: 8.67 per unit per month, -24.00 on month 60, profit
   const l = q.lines[0]
   assert.equal(money(l.passThrough.perUnitMonthlyCents), '8.67')
   assert.equal(money(l.passThrough.remainderCents), '-24.00')
-  assert.deepEqual([runOf(q, 1).fromMonth, runOf(q, 1).toMonth, money(runOf(q, 1).netCents)], [1, 59, '290,859.17'])
-  assert.deepEqual([runOf(q, 60).fromMonth, money(runOf(q, 60).netCents)], [60, '290,835.17'])
-  assert.equal(money(q.tcvNetCents), '17,451,526.20')
+  assert.deepEqual([runOf(q, 1).fromMonth, runOf(q, 1).toMonth, money(runOf(q, 1).netCents)], [1, 59, '290,858.77'])
+  assert.deepEqual([runOf(q, 60).fromMonth, money(runOf(q, 60).netCents)], [60, '290,834.77'])
+  assert.equal(money(q.tcvNetCents), '17,451,502.20')
   assert.equal(money(q.totalCostCents), '2,462,400.00')
-  assert.equal(money(q.grossProfitCents), '14,989,126.20')
+  assert.equal(money(q.grossProfitCents), '14,989,102.20')
   assert.equal(pct(q.grossMargin), '85.9')
   assert.equal(money(l.bands[0].feeByYear[0]), '2,613.33')
   assert.deepEqual(canonical(l.bands), canonical(off.lines[0].bands), 'every band, fee and total is as with factoring off')
@@ -1620,21 +1461,21 @@ test('FA-5 the demo deal, Pass through: F allocated by hardware cost, per produc
   assert.deepEqual(q.lines.map((x) => money(x.passThrough.remainderCents)), ['-24.00', '-8.00', '0.40'])
   assert.equal(money(q.factoring.passThroughMonthlyCents), '1,343.86')
   assert.equal(money(q.factoring.passThroughLastExtraCents), '-31.60')
-  assert.deepEqual([runOf(q, 1).toMonth, money(runOf(q, 1).netCents), money(runOf(q, 60).netCents)], [59, '368,320.71', '368,289.11'])
-  assert.equal(money(q.tcvNetCents), '22,099,211.00')
-  assert.equal(money(q.grossProfitCents), '19,038,611.00')
+  assert.deepEqual([runOf(q, 1).toMonth, money(runOf(q, 1).netCents), money(runOf(q, 60).netCents)], [59, '368,320.00', '368,288.40'])
+  assert.equal(money(q.tcvNetCents), '22,099,168.40')
+  assert.equal(money(q.grossProfitCents), '19,038,568.40')
   assert.equal(pct(q.grossMargin), '86.2')
   assert.deepEqual(q.lines.map((x) => [money(x.tcvNetCents), pct(x.grossMargin)]),
-    [['17,451,526.20', '85.9'], ['2,250,684.40', '85.6'], ['2,397,000.40', '88.6']])
+    [['17,451,502.20', '85.9'], ['2,250,665.80', '85.6'], ['2,397,000.40', '88.6']])
 })
 
 test('FA-6 the demo deal as CAPEX G-C1, Pass through: added to the subscription outside CPI', () => {
   const q = quote(DEMO, 60, { paymentStructure: 'capex', ...FX({ treatment: 'pass_through' }) }, CATALOG)
   assert.equal(money(q.capex.capexCents), '1,550,000.00')
   assert.deepEqual([runOf(q, 0).toMonth, money(runOf(q, 0).netCents)], [0, '1,550,000.00'])
-  assert.deepEqual([runOf(q, 1).fromMonth, runOf(q, 1).toMonth, money(runOf(q, 1).netCents)], [1, 59, '342,487.38'])
-  assert.equal(money(runOf(q, 60).netCents), '342,455.58')
-  assert.equal(money(q.tcvNetCents), '22,099,211.00')
+  assert.deepEqual([runOf(q, 1).fromMonth, runOf(q, 1).toMonth, money(runOf(q, 1).netCents)], [1, 59, '342,486.67'])
+  assert.equal(money(runOf(q, 60).netCents), '342,454.87')
+  assert.equal(money(q.tcvNetCents), '22,099,168.40')
 })
 
 test('FA-7 T6 Absorb, the cash flow: rows, month-1 timing, repayments from month 2, and the headline', () => {
@@ -1642,35 +1483,43 @@ test('FA-7 T6 Absorb, the cash flow: rows, month-1 timing, repayments from month
   const row = (m, keys) => keys.map((k) => money(monthOf(q, m)[k]))
   assert.equal(monthOf(q, 0), undefined, 'OPEX has no month 0')
   assert.deepEqual(row(1, ['clientCents', 'hostingCents', 'procurementCents', 'advanceCents', 'principalCents', 'netCents']),
-    ['289,818.77', '-24,000.00', '-960,000.00', '960,000.00', '0.00', '265,818.77'])
+    ['289,818.37', '-24,000.00', '-960,000.00', '960,000.00', '0.00', '265,818.37'])
   assert.deepEqual(row(2, ['principalCents', 'interestCents', 'netCents', 'balanceCents']),
-    ['-80,000.00', '-9,600.00', '176,218.77', '442,037.54'])
-  assert.deepEqual(row(13, ['interestCents', 'netCents', 'balanceCents']), ['-800.00', '185,018.77', '2,433,244.01'])
+    ['-80,000.00', '-9,600.00', '176,218.37', '442,036.74'])
+  assert.deepEqual(row(13, ['interestCents', 'netCents', 'balanceCents']), ['-800.00', '185,018.37', '2,433,238.81'])
   assert.equal(money(monthOf(q, 14).principalCents), '0.00', 'the facility is repaid by month 13')
-  assert.equal(money(monthOf(q, 60).balanceCents), '14,926,726.20')
-  assert.deepEqual([money(q.cashFlow.lowest.balanceCents), q.cashFlow.lowest.month, q.cashFlow.paybackMonth], ['265,818.77', 1, 1])
+  assert.equal(money(monthOf(q, 60).balanceCents), '14,926,702.20')
+  assert.deepEqual([money(q.cashFlow.lowest.balanceCents), q.cashFlow.lowest.month, q.cashFlow.paybackMonth], ['265,818.37', 1, 1])
   const w = q.factoring.without
-  assert.deepEqual([money(w.lowest.balanceCents), w.lowest.month, w.paybackMonth], ['-694,181.23', 1, 4])
+  assert.deepEqual([money(w.lowest.balanceCents), w.lowest.month, w.paybackMonth], ['-694,181.63', 1, 4])
 })
 
 test('FA-7: client payments are what Terminus receives, after WHT and excluding GST (R-TF8)', () => {
   // T21's invoice: 289,818.77 with WHT 10% borne, so Terminus receives 260,836.89; GST 9% is never counted.
   const q = quote({ safesight: 120 }, 60, { whtPct: '10', whtGrossUp: false, gstPct: '9', ...FX() })
-  assert.equal(money(monthOf(q, 5).clientCents), '260,836.89')
+  assert.equal(money(monthOf(q, 5).clientCents), '260,836.53')
 })
 
 test('FA-7: under Pass through the without-factoring run is the price without the pass-through', () => {
   const q = quote({ safesight: 120 }, 60, FX({ treatment: 'pass_through' }))
-  assert.equal(money(q.factoring.without.monthlyTotalCents), '289,818.77')
-  assert.deepEqual([money(q.factoring.without.lowest.balanceCents), q.factoring.without.paybackMonth], ['-694,181.23', 4])
+  assert.equal(money(q.factoring.without.monthlyTotalCents), '289,818.37')
+  assert.deepEqual([money(q.factoring.without.lowest.balanceCents), q.factoring.without.paybackMonth], ['-694,181.63', 4])
 })
 
+// v2.0 (TP_LADDER A8): the baseline is the FROZEN v1.10 engine on the price
+// ladder (the oracle; see the capture script). So FA-8 now proves that the
+// formula's removal, COMPARE_TERM and the deal adjustment move NOTHING the
+// v1.10 engine returned, with factoring off; the fields v2.0 ADDS are named
+// below and each must carry its no-adjustment value, the price source
+// 'ladder' on every line and unit (A8). SUPERSEDED, left visible: ALLOWED
+// named the v1.10 factoring fields against a pre-factoring capture.
 test('FA-8 factoring OFF moves nothing the engine returns: every captured output, field by field', () => {
   const pop = population()
   assert.equal(BASELINE.cases.length, pop.length, 'the population is the one that was captured')
   assert.ok(pop.length > 100)
-  const ALLOWED = new Set(['hardwareCostCents', 'hostingMonthlyCents', 'factoring', 'cashFlow',
-    'lines[].hardwareCostCents', 'lines[].hostingMonthlyCents', 'lines[].factoringCostCents', 'lines[].passThrough'])
+  assert.match(BASELINE.capturedAt, /^the v1\.10 engine at e123cf6/, 'the baseline is the oracle, not the engine under test')
+  const ALLOWED = new Set(['dealDiscount', 'lines[].priceSource', 'lines[].listMonthlyCents', 'lines[].dealDiscountMonthlyCents',
+    'priceSource', '[].priced', '[].listMonthlyCents', '[].listTcvCents'])
   let comparedQuotes = 0
   for (const offInput of [(i) => i, (i) => ({ ...i, factoring: { enabled: false, ratePct: '', termMonths: null } })]) {
     pop.forEach(([id, kind, input], i) => {
@@ -1684,11 +1533,19 @@ test('FA-8 factoring OFF moves nothing the engine returns: every captured output
       const q = kind === 'preview' ? now.quote : kind === 'quote' && !now.refused ? now : null
       const prefix = kind === 'preview' ? 'quote.' : ''
       const unexpected = [...added].filter((k) => !ALLOWED.has(k.startsWith(prefix) ? k.slice(prefix.length) : k))
-      assert.deepEqual(unexpected, [], `${id}: fields added that are not the factoring fields`)
+      assert.deepEqual(unexpected, [], `${id}: fields added that are not v2.0's`)
+      if (kind === 'unit') assert.equal(now.priceSource, 'ladder', `${id}: the price source is the ladder`)
+      if (kind === 'ladder') for (const r of now) assert.equal(r.priced, true, `${id}: every term priced`)
       if (q) {
         comparedQuotes++
         assert.equal(q.factoring, null, `${id}: factoring is null when off`)
-        for (const l of q.lines) { assert.equal(l.factoringCostCents, '0n'); assert.equal(l.passThrough, null) }
+        for (const l of q.lines) {
+          assert.equal(l.factoringCostCents, '0n'); assert.equal(l.passThrough, null)
+          assert.equal(l.priceSource, 'ladder', `${id}: the price source is the ladder (A8)`)
+          assert.equal(l.dealDiscountMonthlyCents, '0n')
+        }
+        assert.equal(q.dealDiscount.mode, null, `${id}: no deal adjustment`)
+        assert.equal(q.dealDiscount.approvalSignal, false)
         assert.ok(added.size > 0, `${id}: the comparison saw the new fields, so it reached the quote`)
       }
     })
@@ -1765,7 +1622,7 @@ test('v1.10 (R-TF3): the advance can be typed over from 0, and a note flag shows
   const over = quote({ safesight: 120 }, 60, FX({ advance: '1000000.00' }))
   assert.deepEqual([money(over.factoring.advanceCents), over.factoring.advanceAboveHardwareCost], ['1,000,000.00', true])
   const zero = quote({ safesight: 120 }, 60, FX({ advance: '0', treatment: 'pass_through' }))
-  assert.deepEqual([money(zero.factoring.costCents), money(zero.tcvNetCents)], ['0.00', '17,389,126.20'])
+  assert.deepEqual([money(zero.factoring.costCents), money(zero.tcvNetCents)], ['0.00', '17,389,102.20'])
 })
 
 test('v1.10, Phase 1 rulings 3 and 6: refusals, each for its own reason', () => {
@@ -1794,4 +1651,311 @@ test('v1.10, Phase 1 rulings 3 and 6: refusals, each for its own reason', () => 
 test('v1.10: the ladders exclude factoring (accepted at Phase 1)', () => {
   const plain = termLadder({ units: { safesight: 120 } }, SPEC_PARAMS)
   assert.deepEqual(canonical(termLadder({ units: { safesight: 120 }, ...FX({ treatment: 'pass_through' }) }, SPEC_PARAMS)), canonical(plain))
+})
+
+// ── v2.0 (TP_LADDER): the price ladder, COMPARE_TERM and the deal adjustment ──
+//
+// Every expected figure is COPIED: LG-1 to LG-6 from the TP_LADDER brief
+// (checked independently in integer cents at Phase 0), DA-1 and DA-2 from the
+// approved mockup's frame A (prototypes/term-pricing-ladder.html, worked by
+// hand), and every other figure is derived by hand in the comment beside it.
+// None is computed by the code under test.
+
+const SEED_LADDER = Object.freeze({
+  safesight: LADDER('12:2500 24:1500 36:1080 48:875 60:750 72:665 84:605 96:560 108:525 120:500'),
+  air_quality: LADDER('12:1000 24:600 36:432 48:350 60:300 72:266 84:242 96:224 108:210 120:200'),
+})
+// The brief's GOLDENS: spec costs (8,000 + 200 a month), seed bands, the seed.
+const LG = withParams({ PRICE_LADDER_BY_PRODUCT: { ...FIXTURE_LADDERS, safesight: SEED_LADDER.safesight } })
+
+const LG1 = [
+  [12, '30,000.00', '19,600.00', '65.3'], [24, '36,000.00', '23,200.00', '64.4'], [36, '38,880.00', '23,680.00', '60.9'],
+  [48, '42,000.00', '24,400.00', '58.1'], [60, '45,000.00', '25,000.00', '55.6'], [72, '47,880.00', '25,480.00', '53.2'],
+  [84, '50,820.00', '26,020.00', '51.2'], [96, '53,760.00', '26,560.00', '49.4'], [108, '56,700.00', '27,100.00', '47.8'],
+  [120, '60,000.00', '28,000.00', '46.7'],
+]
+
+test('LG-1 1 unit at every term: the fee is the seed; client total, profit, margin; no flags', () => {
+  for (const [T, total, profit, margin] of LG1) {
+    const u = unitEconomics('safesight', T, LG)
+    assert.equal(money(u.bands[0].feeCents), money(BigInt(SEED_LADDER.safesight[T]) * 100n), `${T}: the fee is the seed`)
+    assert.equal(u.priceSource, 'ladder')
+    assert.deepEqual([money(u.bands[0].tcvCents), money(u.bands[0].profitCents), pct(u.bands[0].margin)], [total, profit, margin], `${T}`)
+  }
+  const g = ENGINE.bandMarginGrid('safesight', SEED_BANDS, LG)
+  assert.deepEqual(g.rows[0].cells.map((c) => c.flags.length), LG1.map(() => 0), 'band 1: no flag at any term')
+})
+
+test('LG-2 60 units, 120 months: monthly 28,450.00; Base TCV 3,414,000.00; cost 1,920,000.00; profit 1,494,000.00; 43.8%', () => {
+  const q = quote({ safesight: 60 }, 120, {}, LG)
+  assert.deepEqual([money(q.monthlyTotalCents), money(q.tcvNetCents), money(q.totalCostCents), money(q.grossProfitCents), pct(q.grossMargin)],
+    ['28,450.00', '3,414,000.00', '1,920,000.00', '1,494,000.00', '43.8'])
+})
+
+test('LG-3 60 units, 36 months: band fees 1,080.00 / 1,026.00 / 972.00; monthly 61,452.00; 58.8%', () => {
+  const q = quote({ safesight: 60 }, 36, {}, LG)
+  assert.deepEqual(q.lines[0].bands.map((b) => money(b.feeByYear[0])), ['1,080.00', '1,026.00', '972.00'])
+  assert.deepEqual([money(q.monthlyTotalCents), money(q.tcvNetCents), money(q.totalCostCents), money(q.grossProfitCents), pct(q.grossMargin)],
+    ['61,452.00', '2,212,272.00', '912,000.00', '1,300,272.00', '58.8'])
+})
+
+test('LG-4 250 units, 60 months: band fees 750.00 / 712.50 / 675.00 / 637.50; monthly 169,012.50; 50.7%', () => {
+  const q = quote({ safesight: 250 }, 60, {}, LG)
+  assert.deepEqual(q.lines[0].bands.map((b) => money(b.feeByYear[0])), ['750.00', '712.50', '675.00', '637.50'])
+  assert.deepEqual([money(q.monthlyTotalCents), money(q.tcvNetCents), money(q.totalCostCents), money(q.grossProfitCents), pct(q.grossMargin)],
+    ['169,012.50', '10,140,750.00', '5,000,000.00', '5,140,750.00', '50.7'])
+})
+
+test('LG-5 the floor boundary, 1 unit, 120 months: HW 21,000.00 is exactly 25.0%, unflagged; 21,000.01 is flagged', () => {
+  const at = (hw) => withParams({ ...LG, costs: { ...LG.costs, safesight: { hwCost: hw, hostingMonthly: '200.00' } } })
+  // 500.00 x 120 = 60,000.00; cost 21,000 + 24,000 = 45,000.00; profit 15,000.00 = 25% exactly.
+  const q = quote({ safesight: 1 }, 120, {}, at('21000.00'))
+  assert.equal(pct(q.grossMargin), '25.0')
+  assert.equal(q.belowMarginFloor, false)
+  assert.equal(quote({ safesight: 1 }, 120, {}, at('21000.01')).belowMarginFloor, true)
+  assert.equal(ENGINE.bandMarginGrid('safesight', SEED_BANDS, at('21000.01')).checks.floor.cells.some((c) => c.band === 1 && c.termMonths === 120), true)
+})
+
+test('LG-6 the grid, every check on every cell: seed bands clear; band 4 at 30% falls in profit from 36 and breaches the floor at 120', () => {
+  const clear = ENGINE.bandMarginGrid('safesight', SEED_BANDS, LG)
+  assert.deepEqual([clear.checks.floor.ok, clear.checks.total.ok, clear.checks.profit.ok], [true, true, true])
+  const b30 = SEED_BANDS.map((b) => (b.from === 200 ? { ...b, discountPct: '30' } : b))
+  const g = ENGINE.bandMarginGrid('safesight', b30, LG)
+  const band4 = g.rows[3].cells
+  assert.deepEqual(band4.filter((c) => c.flags.some((f) => f.kind === 'profit')).map((c) => c.termMonths), [36, 48, 60, 72, 84, 96, 108, 120])
+  assert.equal(band4.find((c) => c.termMonths === 36).flags.find((f) => f.kind === 'profit').message, 'Profit below 24 months')
+  const at120 = band4.find((c) => c.termMonths === 120)
+  assert.deepEqual([money(at120.feeCents), pct(at120.margin), at120.belowFloor], ['350.00', '23.8', true])
+  // 0.7 x the seed, x T: 21,000, 25,200, 27,216 ... 42,000; the total never falls.
+  assert.equal(g.checks.total.ok, true)
+  assert.deepEqual(g.checks.profit.cells.every((c) => c.band === 4), true, 'only band 4 falls')
+})
+
+test('LG-7 (re-derived under amended L-8) 108 removed from the ladder, TERMS unchanged: 108 prices nothing and says why', () => {
+  const { 108: _, ...no108 } = SEED_LADDER.safesight
+  const p = withParams({ ...LG, PRICE_LADDER_BY_PRODUCT: { ...LG.PRICE_LADDER_BY_PRODUCT, safesight: no108 } })
+  const rows = termLadder({ units: { safesight: 1 }, paymentStructure: 'opex', ...PER_CAMERA }, p)
+  const r108 = rows.find((r) => r.termMonths === 108)
+  assert.deepEqual([r108.priced, r108.missing.code, r108.missing.product, r108.missing.message],
+    [false, 'NO_PRICE_LADDER_PRICE', 'safesight', 'No price ladder price for 108 months'])
+  assert.deepEqual(rows.filter((r) => r.priced).map((r) => r.termMonths), [12, 24, 36, 48, 60, 72, 84, 96, 120], 'every other term prices')
+  assert.throws(() => quote({ safesight: 1 }, 108, {}, p), (e) => e instanceof TermPricingError && e.code === 'NO_PRICE_LADDER_PRICE')
+  // No substitute: the 120 row is the seed's 500.00, not a figure the 108 gap moved.
+  assert.equal(money(rows.find((r) => r.termMonths === 120).perCameraCents), '500.00')
+  // The grid skips the gap and compares across it: 120's profit 28,000.00 against 96's 26,560.00.
+  const g = ENGINE.bandMarginGrid('safesight', SEED_BANDS, p)
+  assert.deepEqual(g.unpriced, [108])
+  assert.equal(g.rows[0].cells.find((c) => c.termMonths === 108).priced, false)
+  assert.equal(g.checks.profit.ok, true)
+})
+
+test('A1: a product with no price ladder prices nothing, and the refusal names it', () => {
+  const { 'TEST-B': _, ...noB } = FIXTURE_LADDERS
+  const p = withParams({ PRICE_LADDER_BY_PRODUCT: noB })
+  assert.throws(() => quote({ 'TEST-B': 1 }, 36, {}, p),
+    (e) => e instanceof TermPricingError && e.code === 'NO_PRICE_LADDER' && e.message === 'No price ladder for TEST-B' && e.product === 'TEST-B')
+  assert.throws(() => unitEconomics('TEST-B', 36, p), (e) => e.code === 'NO_PRICE_LADDER')
+  const rows = termLadder({ units: { 'TEST-B': 1 }, paymentStructure: 'opex' }, p)
+  assert.deepEqual(rows.map((r) => r.priced), rows.map(() => false))
+  assert.ok(rows.every((r) => r.missing.code === 'NO_PRICE_LADDER'))
+  // SafeSight, which has one, still prices beside it.
+  assert.equal(money(quote({ safesight: 1 }, 36, {}, p).tcvNetCents), '151,999.92')
+})
+
+test('A1: the formula\'s settings are read by nothing', () => {
+  const formula = withParams({ ANCHOR_TERM: 12, ANCHOR_MARGIN: { safesight: '10' }, SHORT_TERM_MARGIN: { safesight: '10' }, PROFIT_STEP: '5000.00' })
+  const a = quote({ safesight: 120 }, 60, { paymentStructure: 'capex' })
+  const b = quote({ safesight: 120 }, 60, { paymentStructure: 'capex' }, formula)
+  assert.equal(money(b.tcvNetCents), money(a.tcvNetCents))
+  assert.deepEqual(b.schedule.map((r) => money(r.netCents)), a.schedule.map((r) => money(r.netCents)))
+})
+
+test('A1, 3.3: a stored price must be above 0 to the cent; a missing or stray term is not refused (TERMS can change)', () => {
+  const bad = (v) => assert.throws(() => normaliseParams(withParams({ PRICE_LADDER_BY_PRODUCT: { safesight: { ...FIXTURE_LADDERS.safesight, 36: v } } })),
+    (e) => e instanceof TermPricingError && e.code === 'BAD_PARAM' && /PRICE_LADDER_BY_PRODUCT\[safesight\]\[36\]/.test(e.message), String(v))
+  for (const v of ['0', '0.00', '-5', '4222.222', 'abc', '']) bad(v)
+  const { 36: _, ...no36 } = FIXTURE_LADDERS.safesight
+  assert.doesNotThrow(() => normaliseParams(withParams({ PRICE_LADDER_BY_PRODUCT: { safesight: { ...no36, 18: '6444.44' } } })))
+})
+
+test('Q1: COMPARE_TERM moves the "vs" column and no price; it must be a term in TERMS', () => {
+  const p = withParams({ COMPARE_TERM: 48 })
+  // 4,222.22 against 3,216.67: 4,222.22 / 3,216.67 - 1 = 0.31261..., "+31.3%".
+  assert.equal(vsCompare(unitEconomics('safesight', 36, p).savingVsCompare), '+31.3%')
+  assert.equal(money(quote({ safesight: 1 }, 36, {}, p).tcvNetCents), '151,999.92', 'the price is untouched')
+  const rows = termLadder({ units: { safesight: 1 }, paymentStructure: 'opex' }, p)
+  assert.deepEqual(rows.filter((r) => r.isCompare).map((r) => r.termMonths), [48])
+  assert.throws(() => normaliseParams(withParams({ COMPARE_TERM: 18 })), (e) => e.code === 'BAD_PARAM' && /COMPARE_TERM must be one of TERMS/.test(e.message))
+  // Its own term with no price: the column has nothing to compare with, and says nothing.
+  const { 36: _, ...no36 } = FIXTURE_LADDERS.safesight
+  const gap = withParams({ PRICE_LADDER_BY_PRODUCT: { ...FIXTURE_LADDERS, safesight: no36 } })
+  assert.equal(unitEconomics('safesight', 60, gap).savingVsCompare, null)
+  assert.ok(termLadder({ units: { safesight: 1 }, paymentStructure: 'opex' }, gap).filter((r) => r.priced).every((r) => r.savingVsCompare === null))
+})
+
+test('3.3 validateLadder: every rule, in term order, strays last; the stored shape; it never throws', () => {
+  const T3 = [12, 24, 36]
+  const ok = ENGINE.validateLadder({ 12: '2,500', 24: '1500.5', 36: 1080 }, T3)
+  assert.deepEqual([ok.ok, ok.ladder], [true, { 12: '2500.00', 24: '1500.50', 36: '1080.00' }])
+  const v = ENGINE.validateLadder({ 12: '0', 24: '1.234', 99: '5', x: '1' }, T3)
+  assert.equal(v.ok, false)
+  assert.equal(v.ladder, null)
+  assert.deepEqual(v.problems.map((p) => p.termMonths), [12, 24, 36, 99, 'x'])
+  assert.deepEqual(v.problems.map((p) => p.message), [
+    'The 12-month price must be above 0, to the cent, for example 1080.00. Fix this to save.',
+    'The 24-month price must be above 0, to the cent, for example 1080.00. Fix this to save.',
+    'Enter a price for 36 months. Every offered term needs one. Fix this to save.',
+    '99 months is not an offered term. Remove its price, or add the term to TERMS first. Fix this to save.',
+    'x months is not an offered term. Remove its price, or add the term to TERMS first. Fix this to save.',
+  ])
+  assert.equal(ENGINE.validateLadder({ 12: '0.01', 24: '0.01', 36: '0.01' }, T3).ok, true, 'a cent is above 0')
+  for (const junk of [null, undefined, [], 'text', 7]) assert.equal(ENGINE.validateLadder(junk, T3).problems.length, 3, JSON.stringify(junk))
+})
+
+test('A6, frame C: each grid cell carries its fee against the compare term\'s, as typed; null when that term has no price', () => {
+  // Frame C's column, the seed at band 1: 2,500 / 1,080 - 1 = +131.5%; 875 /
+  // 1,080 - 1 = -19.0%; 36 is 0 (the screen says "list").
+  const g = ENGINE.bandMarginGrid('safesight', SEED_BANDS, LG)
+  const at = (t) => g.rows[0].cells.find((c) => c.termMonths === t).vsCompare
+  assert.deepEqual([vsCompare({ n: -at(12).n, d: at(12).d }), vsCompare({ n: -at(48).n, d: at(48).d }), at(36).n], ['+131.5%', '−19.0%', 0n])
+  // Band 4 compares with band 4: 2,125.00 / 918.00 - 1, the same ratio, since both are 15% off.
+  assert.deepEqual(g.rows[3].cells.find((c) => c.termMonths === 12).vsCompare, at(12))
+  const typed = Object.fromEntries(Object.entries(SEED_LADDER.safesight).map(([t, v]) => [t, t === '36' ? '' : v]))
+  assert.equal(ENGINE.bandMarginGrid('safesight', SEED_BANDS, LG, typed).rows[0].cells.find((c) => c.termMonths === 12).vsCompare, null)
+})
+
+test('A6: the grid reads the price ladder AS TYPED; a blank or invalid typed price is a gap, compared across; equal is not a fall', () => {
+  const typed = { 12: '1,000.00', 24: '500.00', 36: '', 48: 'x', 60: '400', 72: '400', 84: '400', 96: '400', 108: '400', 120: '400' }
+  const g = ENGINE.bandMarginGrid('safesight', SEED_BANDS, SPEC_PARAMS, typed)
+  assert.deepEqual(g.unpriced, [36, 48])
+  const b1 = g.rows[0].cells
+  // 1,000 x 12 = 12,000.00 and 500 x 24 = 12,000.00: equal is not a fall.
+  assert.deepEqual([money(b1[0].tcvCents), money(b1[1].tcvCents)], ['12,000.00', '12,000.00'])
+  assert.equal(b1[1].flags.some((f) => f.kind === 'total'), false)
+  // 60 compares with 24 across the gap: 24,000.00 against 12,000.00, profit
+  // 4,000.00 (24,000 - 20,000) against -800.00 (12,000 - 12,800): neither falls.
+  const c60 = b1.find((c) => c.termMonths === 60)
+  assert.deepEqual([money(c60.tcvCents), money(c60.profitCents)], ['24,000.00', '4,000.00'])
+  assert.equal(c60.flags.filter((f) => f.kind !== 'floor').length, 0)
+  // 72: 28,800.00 - 22,400.00 = 6,400.00; 84: 33,600 - 24,800 = 8,800.00: rising.
+  // The floor at 60: 4,000 / 24,000 = 16.7%, flagged; every unit costs 8,000 + 200 x T.
+  assert.equal(c60.belowFloor, true)
+  // The saved ladder is untouched by what was typed.
+  assert.equal(money(ENGINE.bandMarginGrid('safesight', SEED_BANDS, SPEC_PARAMS).rows[0].cells[0].feeCents), '8,666.67')
+  // ACROSS the gap, where it is the only thing that can flag: 24 at 500.00
+  // (12,000.00), 36 blank, 48 at 200.00 (9,600.00, below 24's): flagged against
+  // 24. A grid that restarted at a gap would compare 48 with nothing.
+  const gap = ENGINE.bandMarginGrid('safesight', SEED_BANDS, SPEC_PARAMS, { ...typed, 36: '', 48: '200' })
+  const c48 = gap.rows[0].cells.find((c) => c.termMonths === 48)
+  assert.deepEqual(c48.flags.filter((f) => f.kind === 'total').map((f) => f.message), ['Client total below 24 months'])
+})
+
+// ── A4: the deal adjustment ──────────────────────────────────────────────
+
+// The mockup's frames A and B: 1 SafeSight and 1 Air Quality, John's costs.
+const DEAL = withParams({ PRICE_LADDER_BY_PRODUCT: { ...FIXTURE_LADDERS, ...SEED_LADDER },
+  costs: { ...SPEC_PARAMS.costs, air_quality: { hwCost: '2000.00', hostingMonthly: '50.00' } } })
+const ONE_EACH = { safesight: 1, air_quality: 1 }
+const FIVE = { dealAdjustment: { discountPct: '5.0' } }
+
+test('DA-1 frame A, the price card: Base TCV 51,710.40, list 54,432.00, 5.0% off, 2,721.60, signal', () => {
+  const q = quote(ONE_EACH, 36, FIVE, DEAL)
+  const d = q.dealDiscount
+  assert.deepEqual([money(q.tcvNetCents), money(d.listTcvCents), pct(d.ratio), money(d.discountValueCents)],
+    ['51,710.40', '54,432.00', '5.0', '2,721.60'])
+  assert.deepEqual([money(q.monthlyTotalCents), money(q.grossProfitCents), pct(q.grossMargin)], ['1,436.40', '32,710.40', '63.3'])
+  assert.equal(d.approvalSignal, true)
+  assert.equal(q.belowMarginFloor, false, 'above the 25% floor')
+})
+
+const FRAME_A = [
+  // term, list fee / mo, deal fee / mo, SafeSight / cam / mo (list), vs 36, Base TCV, margin
+  [12, '3,500.00', '3,325.00', '2,500.00', '+131.5%', '39,900.00', '67.4'],
+  [24, '2,100.00', '1,995.00', '1,500.00', '+38.9%', '47,880.00', '66.6'],
+  [36, '1,512.00', '1,436.40', '1,080.00', 'list', '51,710.40', '63.3'],
+  [48, '1,225.00', '1,163.75', '875.00', '−19.0%', '55,860.00', '60.6'],
+  [60, '1,050.00', '997.50', '750.00', '−30.6%', '59,850.00', '58.2'],
+  [72, '931.00', '884.45', '665.00', '−38.4%', '63,680.40', '56.0'],
+  [84, '847.00', '804.65', '605.00', '−44.0%', '67,590.60', '54.1'],
+  [96, '784.00', '744.80', '560.00', '−48.1%', '71,500.80', '52.4'],
+  [108, '735.00', '698.25', '525.00', '−51.4%', '75,411.00', '50.9'],
+  [120, '700.00', '665.00', '500.00', '−53.7%', '79,800.00', '49.9'],
+]
+
+test('DA-2 frame A, the term table: list fee, deal fee, per camera at list, vs 36 on list, Base TCV, margin', () => {
+  const rows = termLadder({ units: ONE_EACH, paymentStructure: 'opex', ...PER_CAMERA, ...FIVE }, DEAL)
+  assert.deepEqual(rows.map((r) => [r.termMonths, money(r.listMonthlyCents), money(r.monthlyTotalCents), money(r.perCameraCents),
+    r.isCompare ? 'list' : vsCompare(r.savingVsCompare), money(r.tcvNetCents), pct(r.grossMargin)]), FRAME_A)
+})
+
+test('DA-3 either-or: a fee typed at 36 is the exact discount, and a term switch keeps it', () => {
+  const fee = (T, monthlyFee) => quote(ONE_EACH, T, { dealAdjustment: { monthlyFee, termMonths: 36 } }, DEAL)
+  // 1,436.40 / 1,512.00 = 0.95 exactly, so 5% exactly.
+  const q36 = fee(36, '1,436.40')
+  assert.deepEqual([q36.dealDiscount.mode, q36.dealDiscount.ratio], ['fee', { n: 1n, d: 20n }])
+  // At 60 the same 5%: 1,050.00 x 0.95 = 997.50, frame A's 60-month deal fee.
+  assert.equal(money(fee(60, '1436.40').monthlyTotalCents), '997.50')
+  // A fee that is not a round percentage is kept TO THE CENT at its own term.
+  // Discount 75.59 a month: SafeSight 75.59 x 1,080 / 1,512 = 53.9928..., 53.99;
+  // Air Quality takes the remainder, 21.60. Lines 1,026.01 and 410.40.
+  const q = fee(36, '1436.41')
+  assert.equal(money(q.monthlyTotalCents), '1,436.41')
+  assert.deepEqual(q.lines.map((l) => [money(l.dealDiscountMonthlyCents), money(l.monthlyByYear[0])]), [['53.99', '1,026.01'], ['21.60', '410.40']])
+  assert.equal(q.lines.reduce((s, l) => s + l.tcvNetCents, 0n), q.tcvNetCents, 'the deal is still the sum of its lines')
+  // "vs 36" is read on LIST, exactly, whatever the deal fee rounds to: at 12,
+  // 1 - 3,500.00 / 1,512.00 = -198,800 / 151,200 = -71/54. On the deal fees
+  // (3,325.02 / 1,436.41) it would be a different fraction.
+  const rows = termLadder({ units: ONE_EACH, paymentStructure: 'opex', dealAdjustment: { monthlyFee: '1436.41', termMonths: 36 } }, DEAL)
+  assert.deepEqual(rows.find((r) => r.termMonths === 12).savingVsCompare, { n: -71n, d: 54n })
+  // The band rows stay LIST figures: SafeSight's one unit at 1,080.00.
+  assert.equal(money(q.lines[0].bands[0].feeByYear[0]), '1,080.00')
+})
+
+test('DA-4 refusals, each with its sentence; 0 is no adjustment; 99.9% is the limit', () => {
+  const refused = (adj, code, message) => assert.throws(() => quote(ONE_EACH, 36, { dealAdjustment: adj }, DEAL),
+    (e) => e instanceof TermPricingError && e.code === code && (!message || e.message === message), JSON.stringify(adj))
+  refused({ monthlyFee: '1512.01', termMonths: 36 }, 'DEAL_FEE_ABOVE_LIST',
+    'A deal fee of 1,512.01 a month is above the list fee of 1,512.00 at 36 months. A deal fee can be at or below list, not above it.')
+  refused({ discountPct: '99.95' }, 'DEAL_DISCOUNT', 'Enter the deal discount as a percentage from 0 to 99.9, with at most one decimal place.')
+  refused({ discountPct: '100' }, 'DEAL_DISCOUNT')
+  // At most one decimal place, by its own rule: 5.25 is under the ceiling.
+  refused({ discountPct: '5.25' }, 'DEAL_DISCOUNT', 'Enter the deal discount as a percentage from 0 to 99.9, with at most one decimal place.')
+  refused({ discountPct: '-1' }, 'DEAL_DISCOUNT')
+  refused({ discountPct: '5', monthlyFee: '1000.00', termMonths: 36 }, 'DEAL_ADJUSTMENT', 'Give a deal discount or a deal fee, not both.')
+  refused({ monthlyFee: '1000.001', termMonths: 36 }, 'DEAL_FEE')
+  refused({ monthlyFee: '1000.00', termMonths: 18 }, 'TERM_NOT_OFFERED')
+  // 99.9% is allowed: 1,512.00 x 0.001 = 1.512, 1.51 a month.
+  assert.equal(money(quote(ONE_EACH, 36, { dealAdjustment: { discountPct: '99.9' } }, DEAL).monthlyTotalCents), '1.51')
+  // 0, and a fee equal to list, are no adjustment: no signal, list figures.
+  for (const adj of [{ discountPct: '0' }, { monthlyFee: '1512.00', termMonths: 36 }, { discountPct: '' }]) {
+    const q = quote(ONE_EACH, 36, { dealAdjustment: adj }, DEAL)
+    assert.deepEqual([q.dealDiscount.approvalSignal, money(q.tcvNetCents)], [false, '54,432.00'], JSON.stringify(adj))
+  }
+})
+
+test('DA-5 below the floor flags and never refuses', () => {
+  // 1 SafeSight at 36, 70% off: 1,080.00 x 0.3 = 324.00; x 36 = 11,664.00
+  // against a cost of 15,200.00, so a loss; the quote still prices.
+  const q = quote({ safesight: 1 }, 36, { dealAdjustment: { discountPct: '70' } }, DEAL)
+  assert.deepEqual([money(q.tcvNetCents), money(q.grossProfitCents), q.belowMarginFloor], ['11,664.00', '-3,536.00', true])
+})
+
+test('DA-6 with a CPI the discount comes off every year, the year-1 discount times that year\'s factor', () => {
+  // 1 SafeSight, 36 months, 5% off, CPI locked 3% from year 2.
+  // Year 1: 1,080.00 - 54.00 = 1,026.00. Year 2: list 1,080 x 1.03 = 1,112.40,
+  // less 54.00 x 1.03 = 55.62: 1,056.78. Year 3: 1,080 x 1.0609 = 1,145.772,
+  // 1,145.77, less 54 x 1.0609 = 57.2886, 57.29: 1,088.48.
+  // Final 12 x (1,026.00 + 1,056.78 + 1,088.48) = 38,055.12; Base 1,026.00 x 36 = 36,936.00.
+  const q = quote({ safesight: 1 }, 36, { ...LOCK('3'), dealAdjustment: { discountPct: '5' } }, DEAL)
+  assert.deepEqual(q.monthlyTotalByYear.map(money), ['1,026.00', '1,056.78', '1,088.48'])
+  assert.deepEqual([money(q.finalTcvCents), money(q.tcvNetCents)], ['38,055.12', '36,936.00'])
+})
+
+test('DA-7 under CAPEX the subscription is built on the deal\'s Base TCV', () => {
+  // Hardware value 8,000 / 0.8 + 2,000 / 0.8 = 12,500.00 at month 0. Remainder
+  // 51,710.40 - 12,500.00 = 39,210.40; / 36 = 1,089.1777..., 1,089.18 a month;
+  // month 36: 39,210.40 - 35 x 1,089.18 = 1,089.10.
+  const q = quote(ONE_EACH, 36, { paymentStructure: 'capex', ...FIVE }, DEAL)
+  assert.deepEqual([money(q.capex.capexCents), money(q.capex.baseFeeCents), money(q.capex.lastBaseFeeCents), money(q.tcvNetCents)],
+    ['12,500.00', '1,089.18', '1,089.10', '51,710.40'])
 })

@@ -1,7 +1,7 @@
 import { createUserClient } from '../supabase.js'
 import { resolveCurrentBatches } from '../lib/base-costs.js'
 import {
-  settingsFromRows, costsFromCatalog, mergeSettingsChange, mergeBandsChange, SETTING_KEYS,
+  settingsFromRows, costsFromCatalog, mergeSettingsChange, mergeBandsChange, mergeLadderChange, SETTING_KEYS,
 } from '../lib/term-pricing-settings.js'
 
 // ── TERM PRICING: settings and catalog costs for the quote calculator ────
@@ -16,6 +16,10 @@ import {
 //   PUT /api/term-pricing/bands/:product
 //                                    admin only: one product's volume bands
 //                                    (v1.8, TP_BANDS ruling 0.5)
+//   PUT /api/term-pricing/price-ladder/:product
+//                                    admin only: one product's price ladder
+//                                    (v2.0, TP_LADDER A6, A7; any catalog
+//                                    product; no removal route, ruling 3)
 //
 // `dbFor` (plugin option) is the caller's client factory. It defaults to
 // createUserClient and exists so scripts/tests/term-pricing-route.test.mjs can
@@ -148,6 +152,35 @@ export default async function termPricingRoutes(app, opts = {}) {
     }
 
     if (!await writeKeys(db, request, reply, ['VOLUME_BANDS_BY_PRODUCT'], merged)) return reply
+    return await readState(db, request.user.id)
+  })
+
+  // v2.0 (TP_LADDER A6, A7): one product's price ladder, and only that
+  // product's, the same shape as the bands route. Validated by the engine's
+  // own validateLadder, so a refusal carries the editor's sentence and every
+  // problem. The same read-merge-write caveat as the bands route applies.
+  app.put('/term-pricing/price-ladder/:product', async (request, reply) => {
+    const db = dbFor(request.jwt)
+    let state
+    try {
+      state = await readState(db, request.user.id)
+    } catch (err) {
+      request.log.error({ err }, 'term pricing: read before price ladder write failed')
+      return reply.code(err.status ?? 500).send({ error: err.message })
+    }
+
+    if (!state.isAdmin) {
+      return reply.code(403).send({ error: 'Only an admin can change term pricing settings.' })
+    }
+
+    let merged
+    try {
+      merged = mergeLadderChange(state.settings, request.params.product, request.body?.prices, state.costs)
+    } catch (err) {
+      return reply.code(400).send({ error: err.message, code: err.code, problems: err.problems ?? [] })
+    }
+
+    if (!await writeKeys(db, request, reply, ['PRICE_LADDER_BY_PRODUCT'], merged)) return reply
     return await readState(db, request.user.id)
   })
 }

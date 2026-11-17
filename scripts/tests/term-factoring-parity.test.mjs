@@ -138,8 +138,11 @@ for (const method of METHODS) {
 
 const SEED = [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' }]
 const PARAMS = {
-  TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120], ANCHOR_TERM: 36,
-  ANCHOR_MARGIN: { safesight: '90' }, SHORT_TERM_MARGIN: { safesight: '90' }, PROFIT_STEP: '0.00',
+  // v2.0 (TP_LADDER): the price ladder replaces the formula. The figures here
+  // are timing and parity, which no price reaches; the ladder is the v1.x fees
+  // to the cent, as term-pricing.test.mjs's fixture.
+  TERMS: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120], COMPARE_TERM: 36,
+  PRICE_LADDER_BY_PRODUCT: { safesight: Object.fromEntries('12:8666.67 24:5333.33 36:4222.22 48:3216.67 60:2613.33 72:2211.11 84:1923.81 96:1708.33 108:1540.74 120:1406.67'.split(' ').map((x) => x.split(':'))) },
   VOLUME_BANDS_BY_PRODUCT: { safesight: SEED }, HW_UPFRONT_MARGIN: '20', MARGIN_FLOOR: '25', CURRENCY: 'USD',
   costs: { safesight: { hwCost: '8000.00', hostingMonthly: '200.00' } },
 }

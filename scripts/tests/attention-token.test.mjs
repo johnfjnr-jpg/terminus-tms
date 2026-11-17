@@ -218,16 +218,11 @@ const AMBER_FAMILY = [
   // binds the token once.
   '.tp-amber td',
   '.tp-ready',
-  // ── TP_MANUAL (M-6, C3), 2026-10-12 ────────────────────────────────────
+  // ── TP_MANUAL (M-6, C3), 2026-10-12, RETIRED by TP_LADDER A5 ─────────────
   //
-  // ADDED BECAUSE THIS TEST CAUGHT IT: 33 bindings against 29. Four sites, one
-  // meaning: a manual price whose row fails a check. The flag text, the warn
-  // chip's mark, and two TRANSLUCENT sites (the warn chip's border and the
-  // flagged row's wash), which derive from the token as the hover wash does.
-  '.tp-manual-chip.is-warn',
-  '.tp-manual-chip.is-warn .tp-manual-mark',
-  '.tp-manual-flag',
-  '.tp-table.tp-manual-table tr.tp-manual-flagged td',
+  // The four sites of the manual ladder comparison (the flag text, the warn
+  // chip's mark, the chip's border and the flagged row's wash) left with the
+  // card on 2026-11-17: the stylesheet no longer carries them.
   // ── DEAL RADAR Phase 3, 2026-11-14 ─────────────────────────────────────
   //
   // ADDED BECAUSE THIS TEST CAUGHT IT: 36 bindings against 33, and the hook
@@ -246,6 +241,13 @@ const AMBER_FAMILY = [
   // figure the factoring exists to answer (the mockup's #E8B04B, a stand-in
   // for this token by its own note).
   '.tp-cf-attention .tp-v',
+  // ── TP_LADDER Phase 2, 2026-11-17 ──────────────────────────────────────
+  //
+  // ONE site, minted on purpose so the census moves by one: a figure that
+  // departs from list (the deal fee, Base TCV, the discount, the inputs), the
+  // approval signal, a term with no price, and a failing check's mark. All one
+  // meaning: this needs the eye before approval. Borders follow currentColor.
+  '.tp-amber-fig',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries
@@ -298,17 +300,12 @@ test('R-V7 11: the translucent sites DERIVE from the token, not from a literal',
     const rule = css.match(new RegExp(`${esc}\\s*\\{([^}]*)\\}`))
     assert.ok(rule, `${sel} has no rule`)
   }
-  // TP_MANUAL adds two: the warn chip's border and the flagged row's wash. Each
-  // translucent site is NAMED and must carry the mix, so the count cannot be
-  // met by a mix somewhere else.
-  for (const sel of ['.tp-manual-chip.is-warn', '.tp-table.tp-manual-table tr.tp-manual-flagged td']) {
-    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const rule = css.match(new RegExp(`${esc}\\s*\\{([^}]*)\\}`))
-    assert.ok(rule && /color-mix\(in srgb, var\(--attention\)/.test(rule[1]), `${sel} does not derive from the token`)
-  }
+  // TP_MANUAL's two (the warn chip's border and the flagged row's wash) retired
+  // with the compare card (TP_LADDER A5), so the glow and the hover wash are
+  // the only translucent sites.
   const mixes = (css.match(/color-mix\(in srgb, var\(--attention\)/g) ?? []).length
-  assert.equal(mixes, 4,
-    `expected the glow, the hover wash and TP_MANUAL's chip border and row wash to derive from the token, found ${mixes}`)
+  assert.equal(mixes, 2,
+    `expected the glow and the hover wash to derive from the token, found ${mixes}`)
 })
 
 // AND NO LITERAL OF THE RETIRED COLOUR SURVIVES ANYWHERE. A site can drift back

@@ -1,6 +1,6 @@
 // ── THE TERM PRICING ENGINE ──────────────────────────────────────────────
 //
-// Implements docs/pricing-spec.md (Specification v1.10) exactly. CLAUDE.md
+// Implements docs/pricing-spec.md (Specification v2.0) exactly. CLAUDE.md
 // Architecture rule 14: no hard-coded parameters, no floats for money. That
 // rule does not govern the deal-sheet engine, and this file is not part of it.
 //
@@ -192,6 +192,61 @@ export function validateBands(bands) {
   return { ok, problems, rows, bands: ok ? list.map((_, i) => ({ from: starts[i], discountPct: texts[i] })) : null }
 }
 
+// ── The price ladder: the rules a set must meet (spec 3.3, v2.0) ─────────
+//
+// TP_LADDER A1 (John, 2026-11-17): THE FORMULA IS REMOVED. Every product
+// prices from its price ladder, the LIST price per unit per month at each
+// term. ONE FUNCTION FOR THE EDITOR AND THE SERVER (L-5, as TB-6 for bands):
+// the editor runs it as an admin types, the route runs it before writing, so
+// the 400 carries the sentence the editor showed. It never throws.
+//
+// Refused: a term in TERMS with no price, a price that is not above 0 to the
+// cent, and a price for a term NOT in TERMS (a stray term is a typo; Phase 0
+// P3, revisitable). Commas are allowed as typed ("2,500.00").
+
+const LADDER_PRICE = /^\d+(\.\d{1,2})?$/
+
+/** A price as typed or stored to its plain text ("2500.00"), or null. */
+function ladderPriceText(v) {
+  const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.replace(/,/g, '').trim() : ''
+  return LADDER_PRICE.test(s) && cmp(parseDecimal(s), ZERO) > 0 ? s : null
+}
+
+/** "2500" -> "2500.00", "7.5" -> "7.50": the stored shape, two decimals. */
+const twoDp = (s) => {
+  const [whole, part = ''] = s.split('.')
+  return `${BigInt(whole)}.${(part + '00').slice(0, 2)}`
+}
+
+/**
+ * validateLadder(prices, terms) -> { ok, problems: [{ termMonths, message }], ladder }
+ *
+ * `prices` maps a term to a price as typed or stored. `ladder` is the set in
+ * its stored shape ({ "12": "2500.00", ... }, every term in TERMS) when ok,
+ * else null. Problems are in term order, strays last.
+ */
+export function validateLadder(prices, terms) {
+  const given = prices && typeof prices === 'object' && !Array.isArray(prices) ? prices : {}
+  const list = Array.isArray(terms) ? terms : []
+  const problems = []
+  const ladder = {}
+  for (const T of list) {
+    const raw = given[T] ?? given[String(T)]
+    const blankRaw = raw == null || (typeof raw === 'string' && raw.trim() === '')
+    const s = blankRaw ? null : ladderPriceText(raw)
+    if (blankRaw) problems.push({ termMonths: T, message: `Enter a price for ${T} months. Every offered term needs one. Fix this to save.` })
+    else if (s === null) problems.push({ termMonths: T, message: `The ${T}-month price must be above 0, to the cent, for example 1080.00. Fix this to save.` })
+    else ladder[String(T)] = twoDp(s)
+  }
+  for (const k of Object.keys(given)) {
+    if (!list.includes(Number(k)) || !/^\d+$/.test(k)) {
+      problems.push({ termMonths: /^\d+$/.test(k) ? Number(k) : k, message: `${k} months is not an offered term. Remove its price, or add the term to TERMS first. Fix this to save.` })
+    }
+  }
+  const ok = problems.length === 0
+  return { ok, problems, ladder: ok ? ladder : null }
+}
+
 /** A validated set, in the stored shape, to the engine's bands with "To" derived. */
 function engineBands(stored, product) {
   return stored.map((b, i, a) => ({
@@ -208,13 +263,20 @@ function engineBands(stored, product) {
  * Validates and converts the admin parameters and catalog costs.
  *
  * params = {
- *   TERMS: [12, 24, ...], ANCHOR_TERM: 36,
- *   ANCHOR_MARGIN: { safesight: '90', ... }, SHORT_TERM_MARGIN: { ... },
- *   PROFIT_STEP: '0.00',
+ *   TERMS: [12, 24, ...], COMPARE_TERM: 36,
+ *   PRICE_LADDER_BY_PRODUCT: { safesight: { '12': '2500.00', '24': '1500.00', ... }, ... },
  *   VOLUME_BANDS_BY_PRODUCT: { safesight: [{ from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, ...], ... },
  *   HW_UPFRONT_MARGIN: '20', MARGIN_FLOOR: '25', CURRENCY: 'USD',
  *   costs: { safesight: { hwCost: '8000.00', hostingMonthly: '200.00' }, ... },
  * }
+ *
+ * v2.0 (TP_LADDER A1, Q1): SUPERSEDED, left visible: v1.x took ANCHOR_TERM,
+ * ANCHOR_MARGIN, SHORT_TERM_MARGIN and PROFIT_STEP and derived every price from
+ * them (section 4.1's formula). They are gone. COMPARE_TERM replaces
+ * ANCHOR_TERM and DERIVES NO PRICE: it only sets the "vs N months" column.
+ * A product with no price ladder, or no price at a term, prices nothing
+ * (amended L-8); a stored price that is not above 0 to the cent is refused,
+ * but a missing or stray term is not, because TERMS can change after a save.
  */
 export function normaliseParams(params) {
   if (!params || typeof params !== 'object') throw new TermPricingError('NO_PARAMS', 'parameters are required')
@@ -224,19 +286,22 @@ export function normaliseParams(params) {
     if (terms[i] < 1) throw new TermPricingError('BAD_PARAM', 'every term must be at least 1 month')
     if (i && terms[i] <= terms[i - 1]) throw new TermPricingError('BAD_PARAM', 'TERMS must be strictly ascending')
   }
-  const anchorTerm = safeInt(params.ANCHOR_TERM, 'ANCHOR_TERM')
-  if (!terms.includes(anchorTerm)) throw new TermPricingError('BAD_PARAM', 'ANCHOR_TERM must be one of TERMS')
+  const compareTerm = safeInt(params.COMPARE_TERM, 'COMPARE_TERM')
+  if (!terms.includes(compareTerm)) throw new TermPricingError('BAD_PARAM', 'COMPARE_TERM must be one of TERMS')
 
-  const margins = (obj, what) => {
-    const out = {}
-    for (const [k, v] of Object.entries(obj ?? {})) {
-      const r = pctToRatio(v, `${what}[${k}]`)
-      if (cmp(r, ZERO) < 0 || cmp(r, ONE) >= 0) {
-        throw new TermPricingError('BAD_PARAM', `${what}[${k}] must be at least 0% and below 100%`)
-      }
-      out[k] = r
+  const priceLadder = {}
+  for (const [k, ladder] of Object.entries(params.PRICE_LADDER_BY_PRODUCT ?? {})) {
+    if (!ladder || typeof ladder !== 'object' || Array.isArray(ladder)) {
+      throw new TermPricingError('BAD_PARAM', `PRICE_LADDER_BY_PRODUCT[${k}] must map terms to prices`)
     }
-    return out
+    const out = {}
+    for (const [t, v] of Object.entries(ladder)) {
+      if (!/^\d+$/.test(t)) throw new TermPricingError('BAD_PARAM', `PRICE_LADDER_BY_PRODUCT[${k}] has a term that is not a whole number: ${t}`)
+      const s = ladderPriceText(v)
+      if (s === null) throw new TermPricingError('BAD_PARAM', `PRICE_LADDER_BY_PRODUCT[${k}][${t}] must be a price above 0, to the cent`)
+      out[Number(t)] = parseDecimal(s)
+    }
+    priceLadder[k] = out
   }
 
   // v1.8 (TP_BANDS, TB-1): bands are PER PRODUCT. Each product's list is held
@@ -264,10 +329,8 @@ export function normaliseParams(params) {
 
   return {
     terms,
-    anchorTerm,
-    anchorMargin: margins(params.ANCHOR_MARGIN, 'ANCHOR_MARGIN'),
-    shortTermMargin: margins(params.SHORT_TERM_MARGIN, 'SHORT_TERM_MARGIN'),
-    profitStep: parseDecimal(params.PROFIT_STEP, 'PROFIT_STEP'),
+    compareTerm,
+    priceLadder,
     bandsByProduct,
     hwUpfrontMargin: hwUpfront,
     marginFloor: pctToRatio(params.MARGIN_FLOOR, 'MARGIN_FLOOR'),
@@ -276,7 +339,7 @@ export function normaliseParams(params) {
   }
 }
 
-const isNormalised = (p) => p && Array.isArray(p.terms) && p.bandsByProduct && typeof p.bandsByProduct === 'object'
+const isNormalised = (p) => p && Array.isArray(p.terms) && p.bandsByProduct && typeof p.bandsByProduct === 'object' && p.priceLadder && typeof p.priceLadder === 'object'
 const norm = (p) => (isNormalised(p) ? p : normaliseParams(p))
 
 /**
@@ -301,30 +364,39 @@ function requireTerm(p, T) {
 function productParams(p, product) {
   const cost = p.costs[product]
   if (!cost) throw new TermPricingError('NO_COST', `No catalog cost for ${product}`)
-  const am = p.anchorMargin[product]
-  const sm = p.shortTermMargin[product]
-  if (!am) throw new TermPricingError('NO_PARAM', `No ANCHOR_MARGIN for ${product}`)
-  if (!sm) throw new TermPricingError('NO_PARAM', `No SHORT_TERM_MARGIN for ${product}`)
-  // v1.8 (TB-1): the product's own bands. A product with none is refused, as a
-  // missing margin is, rather than borrowing another product's.
+  // v1.8 (TB-1): the product's own bands. A product with none is refused
+  // rather than borrowing another product's.
   const bands = p.bandsByProduct[product]
   if (!bands) throw new TermPricingError('NO_PARAM', `No volume bands for ${product}`)
-  return { cost, am, sm, bands }
+  return { cost, bands }
 }
 
-// ── Section 4.1: the list fee per unit, full precision ───────────────────
+// ── Section 4.1 (v2.0): the list fee per unit is the price ladder's ──────
+//
+// SUPERSEDED, left visible: v1.x computed it here from ANCHOR_MARGIN,
+// SHORT_TERM_MARGIN and PROFIT_STEP (priceAt). TP_LADDER A1 removed that
+// formula; the list fee is now READ, never derived, and an absent one is not
+// substituted (amended L-8, R-CF4's principle): the error names what is
+// missing, and termLadder turns it into a row that prices nothing.
 
 const costAt = (c, T) => add(c.hw, mul(c.hosting, fromInt(T)))
 
-function priceAt(p, product, T) {
-  const { cost, am, sm } = productParams(p, product)
-  if (T < p.anchorTerm) return div(costAt(cost, T), sub(ONE, sm))
-  const anchorProfit = div(mul(costAt(cost, p.anchorTerm), am), sub(ONE, am))
-  const stepsAbove = p.terms.indexOf(T) - p.terms.indexOf(p.anchorTerm)
-  return add(add(costAt(cost, T), anchorProfit), mul(p.profitStep, fromInt(stepsAbove)))
+export const NO_LADDER_CODES = Object.freeze(['NO_PRICE_LADDER', 'NO_PRICE_LADDER_PRICE'])
+
+function listFeeAt(p, product, T) {
+  const ladder = p.priceLadder[product]
+  if (!ladder) {
+    throw Object.assign(new TermPricingError('NO_PRICE_LADDER', `No price ladder for ${product}`), { product, termMonths: null })
+  }
+  const price = ladder[T]
+  if (!price) {
+    throw Object.assign(new TermPricingError('NO_PRICE_LADDER_PRICE', `No price ladder price for ${T} months`), { product, termMonths: T })
+  }
+  return price
 }
 
-const listFeeAt = (p, product, T) => div(priceAt(p, product, T), fromInt(T))
+/** The list fee at the compare term, or null when it has no price. */
+const compareFeeOf = (p, product) => p.priceLadder[product]?.[p.compareTerm] ?? null
 
 // ── Section 4.2: band fees, rounded to cents FIRST ───────────────────────
 
@@ -348,12 +420,14 @@ export function unitEconomics(product, termMonths, params) {
   const { cost, bands } = productParams(p, product)
   const listFee = listFeeAt(p, product, T)
   const costCents = roundHalfUp(costAt(cost, T), 2)
+  const compareFee = compareFeeOf(p, product)
   return {
     product,
     termMonths: T,
     listFee,
+    priceSource: 'ladder',
     costCents,
-    savingVsAnchor: sub(ONE, div(listFee, listFeeAt(p, product, p.anchorTerm))),
+    savingVsCompare: compareFee ? sub(ONE, div(listFee, compareFee)) : null,
     bands: bands.map((b) => {
       const feeCents = bandFeeCents(listFee, b)
       const tcvCents = feeCents * BigInt(T)
@@ -374,35 +448,98 @@ export function unitEconomics(product, termMonths, params) {
 const FEE_TABLE_TERMS = [36, 60, 84, 120]
 
 /**
- * bandMarginGrid(product, bands, params): the margin check for one product on
- * the bands AS TYPED. Every band at every term in TERMS, each cell the 10.3
- * worst case (every unit at that band's fee), flagged by an EXACT comparison
- * with MARGIN_FLOOR. A breach warns; nothing here refuses.
+ * bandMarginGrid(product, bands, params, prices?): the margin check for one
+ * product on the bands AS TYPED and, when `prices` is given, on the price
+ * ladder AS TYPED (the price ladder editor, A6); otherwise the saved one.
+ * Every band at every term in TERMS, each cell the 10.3 worst case (every unit
+ * at that band's fee).
  *
- * -> { ok: true, floor, terms, feeTerms, rows: [{ band, from, to, discountPct,
- *        cells: [{ termMonths, feeCents, margin, belowFloor }] }],
- *      breaches: [{ band, termMonths, feeCents, margin }] }
- * -> { ok: false, problems } while the set breaks a 3.2 rule: no figures.
+ * v2.0 (TP_LADDER A6, L-7): THREE CHECKS, ON EVERY CELL, in the order floor,
+ * client total, profit. The floor is an EXACT comparison with MARGIN_FLOOR;
+ * client total and profit compare each cell with the same band's previous
+ * term WITH a price; equal is not a fall. SUPERSEDED, left visible: v1.8
+ * flagged the floor only, and Phase 0's 74-case PROFIT_STEP finding is moot
+ * because the formula is gone. A warning never refuses.
+ *
+ * A term with no price (blank or invalid as typed, or missing from the saved
+ * ladder) is a cell with `priced: false` and no figures; it is skipped by the
+ * checks, which then compare across it.
+ *
+ * -> { ok: true, floor, terms, feeTerms, compareTerm, rows: [{ band, from, to, discountPct,
+ *        cells: [{ termMonths, priced, feeCents?, tcvCents?, costCents?, profitCents?, margin?,
+ *                  belowFloor?, flags?: [{ kind, against?, message }] }] }],
+ *      breaches: [{ band, termMonths, feeCents, margin }],
+ *      checks: { floor, total, profit: { ok, cells: [{ band, termMonths }] } },
+ *      unpriced: [termMonths] }
+ * -> { ok: false, problems } while the bands break a 3.2 rule: no figures.
  */
-export function bandMarginGrid(product, bands, params) {
+export function bandMarginGrid(product, bands, params, prices) {
   const v = validateBands(bands)
   if (!v.ok) return { ok: false, problems: v.problems }
   const base = norm(params)
-  const p = { ...base, bandsByProduct: { ...base.bandsByProduct, [product]: engineBands(v.bands, product) } }
+  let ladder = base.priceLadder[product]
+  if (prices !== undefined) {
+    ladder = {}
+    for (const T of base.terms) {
+      const s = ladderPriceText(prices?.[T] ?? prices?.[String(T)])
+      if (s !== null) ladder[T] = parseDecimal(s)
+    }
+  }
+  const p = {
+    ...base,
+    bandsByProduct: { ...base.bandsByProduct, [product]: engineBands(v.bands, product) },
+    priceLadder: { ...base.priceLadder, [product]: ladder ?? {} },
+  }
   const rows = p.bandsByProduct[product].map((b, i) => ({
     band: i + 1, from: b.from, to: b.to, discountPct: b.discountPct, cells: [],
   }))
+  const unpriced = []
   for (const T of p.terms) {
-    unitEconomics(product, T, p).bands.forEach((u, i) => {
-      rows[i].cells.push({ termMonths: T, feeCents: u.feeCents, margin: u.margin, belowFloor: cmp(u.margin, p.marginFloor) < 0 })
+    if (!p.priceLadder[product][T]) {
+      unpriced.push(T)
+      rows.forEach((r) => r.cells.push({ termMonths: T, priced: false }))
+      continue
+    }
+    const u = unitEconomics(product, T, p)
+    u.bands.forEach((b, i) => {
+      rows[i].cells.push({
+        termMonths: T, priced: true, feeCents: b.feeCents, tcvCents: b.tcvCents, costCents: u.costCents,
+        profitCents: b.profitCents, margin: b.margin, belowFloor: cmp(b.margin, p.marginFloor) < 0, flags: [],
+      })
     })
+  }
+  // The editor's "vs N months" column (frame C), on the price as typed: each
+  // cell's fee against the SAME band's fee at COMPARE_TERM; null when that term
+  // has no price. Here so the screen does no arithmetic on money.
+  for (const r of rows) {
+    const cmpCell = r.cells.find((c) => c.termMonths === p.compareTerm && c.priced)
+    for (const c of r.cells) if (c.priced) c.vsCompare = cmpCell ? frac(c.feeCents - cmpCell.feeCents, cmpCell.feeCents) : null
+  }
+  const checks = { floor: [], total: [], profit: [] }
+  for (const r of rows) {
+    let prev = null
+    for (const c of r.cells) {
+      if (!c.priced) continue
+      if (c.belowFloor) { c.flags.push({ kind: 'floor', message: 'Below the floor' }); checks.floor.push({ band: r.band, termMonths: c.termMonths }) }
+      if (prev && c.tcvCents < prev.tcvCents) {
+        c.flags.push({ kind: 'total', against: prev.termMonths, message: `Client total below ${prev.termMonths} months` })
+        checks.total.push({ band: r.band, termMonths: c.termMonths })
+      }
+      if (prev && c.profitCents < prev.profitCents) {
+        c.flags.push({ kind: 'profit', against: prev.termMonths, message: `Profit below ${prev.termMonths} months` })
+        checks.profit.push({ band: r.band, termMonths: c.termMonths })
+      }
+      prev = c
+    }
   }
   const breaches = rows.flatMap((r) => r.cells.filter((c) => c.belowFloor)
     .map((c) => ({ band: r.band, termMonths: c.termMonths, feeCents: c.feeCents, margin: c.margin })))
+  const summary = (list) => ({ ok: list.length === 0, cells: list })
   return {
-    ok: true, floor: p.marginFloor, terms: p.terms,
+    ok: true, floor: p.marginFloor, terms: p.terms, compareTerm: p.compareTerm,
     feeTerms: FEE_TABLE_TERMS.filter((t) => p.terms.includes(t)),
-    rows, breaches,
+    rows, breaches, unpriced,
+    checks: { floor: summary(checks.floor), total: summary(checks.total), profit: summary(checks.profit) },
   }
 }
 
@@ -626,6 +763,68 @@ export function capexAllocation(input, params) {
   return quoteCore(input, params, true)
 }
 
+// ── v2.0 section 4.7: the deal adjustment (TP_LADDER A4) ─────────────────
+//
+// Either-or (R-O7): a deal discount %, or a deal fee per month typed at a
+// term. Order: list, then volume band, then the deal discount, applied at
+// DEAL level to the year-1 banded monthly total, so a typed fee is kept to the
+// cent (a per-band discount would round each unit's fee and drift by up to a
+// cent a unit). The discount is the of-record value: a fee typed at T0
+// becomes the exact ratio 1 - fee / banded(T0), and every other term applies
+// that ratio, so switching term keeps the discount. 0 to 99.9%; a fee above
+// list is refused (no premiums this round). Screen-only: nothing is stored.
+
+const DEAL_PCT = /^\d+(\.\d)?$/
+const MAX_DEAL_DISCOUNT = frac(999n, 1000n)
+
+/** The year-1 banded monthly total of these units at T, from the price ladder. */
+function bandedMonthlyCents(p, entries, T) {
+  let total = 0n
+  for (const [product, units] of entries) {
+    if (units < 1) continue
+    const { bands } = productParams(p, product)
+    const listFee = listFeeAt(p, product, T)
+    for (const { band, units: bu } of splitIntoBands(bands, units)) if (bu > 0) total += BigInt(bu) * bandFeeCents(listFee, band)
+  }
+  return total
+}
+
+/**
+ * -> null (no adjustment) or { mode: 'discount' | 'fee', ratio, atTerm }
+ * `ratio` is the EXACT discount, so a fee typed at `atTerm` prices back to
+ * itself there to the cent.
+ */
+function dealAdjustmentOf(raw, p, entries) {
+  if (raw == null) return null
+  if (typeof raw !== 'object') throw new TermPricingError('DEAL_ADJUSTMENT', 'The deal adjustment must be a discount or a deal fee.')
+  const hasPct = !blank(raw.discountPct)
+  const hasFee = !blank(raw.monthlyFee)
+  if (hasPct && hasFee) throw new TermPricingError('DEAL_ADJUSTMENT', 'Give a deal discount or a deal fee, not both.')
+  if (!hasPct && !hasFee) return null
+  if (hasPct) {
+    const s = typeof raw.discountPct === 'string' ? raw.discountPct.trim() : ''
+    const message = 'Enter the deal discount as a percentage from 0 to 99.9, with at most one decimal place.'
+    if (!DEAL_PCT.test(s)) throw new TermPricingError('DEAL_DISCOUNT', message)
+    const ratio = div(parseDecimal(s), HUNDRED)
+    if (cmp(ratio, MAX_DEAL_DISCOUNT) > 0) throw new TermPricingError('DEAL_DISCOUNT', message)
+    return cmp(ratio, ZERO) === 0 ? null : { mode: 'discount', ratio, atTerm: null }
+  }
+  const atTerm = safeInt(raw.termMonths, 'the deal fee\'s term')
+  requireTerm(p, atTerm)
+  const s = typeof raw.monthlyFee === 'string' ? raw.monthlyFee.replace(/,/g, '').trim() : ''
+  const feeCents = moneyCents(s, 'DEAL_FEE', 'Enter the deal fee per month in USD, to the cent, for example 1436.40.')
+  const listCents = bandedMonthlyCents(p, entries, atTerm)
+  if (feeCents > listCents) {
+    throw new TermPricingError('DEAL_FEE_ABOVE_LIST',
+      `A deal fee of ${formatMoney(feeCents)} a month is above the list fee of ${formatMoney(listCents)} at ${atTerm} months. A deal fee can be at or below list, not above it.`)
+  }
+  const ratio = sub(ONE, frac(feeCents, listCents))
+  if (cmp(ratio, MAX_DEAL_DISCOUNT) > 0) {
+    throw new TermPricingError('DEAL_FEE', `A deal fee of ${formatMoney(feeCents)} a month is more than 99.9% below the list fee of ${formatMoney(listCents)}.`)
+  }
+  return cmp(ratio, ZERO) === 0 ? null : { mode: 'fee', ratio, atTerm }
+}
+
 function quoteCore(input, params, preview) {
   const p = norm(params)
   const T = safeInt(input?.termMonths, 'term_months')
@@ -709,9 +908,13 @@ function quoteCore(input, params, preview) {
     // escalated fee of each contract year here.
     const tcvNetCents = monthlyByYear[0] * BigInt(T)
     const costCents = BigInt(units) * costPerUnitCents
+    const compareFee = compareFeeOf(p, product)
     return {
-      product, units, listFee,
-      savingVsAnchor: sub(ONE, div(listFee, listFeeAt(p, product, p.anchorTerm))),
+      product, units, listFee, priceSource: 'ladder',
+      savingVsCompare: compareFee ? sub(ONE, div(listFee, compareFee)) : null,
+      // v2.0 (A4): the line's banded year-1 monthly BEFORE the deal discount.
+      listMonthlyCents: monthlyByYear[0],
+      dealDiscountMonthlyCents: 0n,
       costPerUnitCents,
       hwCostPerUnit: cost.hw,
       bands, monthlyByYear,
@@ -719,6 +922,50 @@ function quoteCore(input, params, preview) {
       grossMargin: tcvNetCents === 0n ? ZERO : frac(tcvNetCents - costCents, tcvNetCents),
     }
   })
+
+  // ── v2.0 (A4): the deal adjustment, on the banded lines, before factoring ──
+  //
+  // The discount comes off the year-1 banded monthly total and is allocated to
+  // the lines by their banded monthly (the last line takes the remainder), so
+  // the deal is still the exact sum of its lines. Each later contract year's
+  // discount is the line's year-1 discount times that year's CPI factor,
+  // rounded once. With no adjustment every amount here is 0n and no v1.x
+  // figure moves. The band rows stay LIST figures.
+  const listMonthlyCents = lines.reduce((s, l) => s + l.listMonthlyCents, 0n)
+  const adj = dealAdjustmentOf(input.dealAdjustment, p, entries)
+  let dealMonthlyCents = listMonthlyCents
+  if (adj) {
+    // A typed fee needs no branch of its own: the ratio is exactly
+    // 1 - fee / list(T0), so at T0 this IS the fee, to the cent. A branch that
+    // returned the typed fee there was written first and removed when its
+    // calibration came back SILENT: removing it could change nothing.
+    dealMonthlyCents = roundHalfUp(mul(fromCents(listMonthlyCents), sub(ONE, adj.ratio)), 2)
+    const discountCents = listMonthlyCents - dealMonthlyCents
+    let allocated = 0n
+    lines.forEach((l, i) => {
+      const share = i < lines.length - 1
+        ? roundHalfUp(div(mul(fromCents(discountCents), fromCents(l.listMonthlyCents)), fromCents(listMonthlyCents)), 2)
+        : discountCents - allocated
+      allocated += share
+      l.dealDiscountMonthlyCents = share
+      l.monthlyByYear = l.monthlyByYear.map((c, k) => c - (k === 0 ? share : roundHalfUp(mul(fromCents(share), factor(k + 1)), 2)))
+      l.tcvNetCents = l.monthlyByYear[0] * BigInt(T)
+      l.grossProfitCents = l.tcvNetCents - l.costCents
+      l.grossMargin = l.tcvNetCents === 0n ? ZERO : frac(l.grossProfitCents, l.tcvNetCents)
+    })
+  }
+  const dealDiscount = {
+    mode: adj?.mode ?? null,
+    ratio: adj?.ratio ?? ZERO,
+    atTerm: adj?.atTerm ?? null,
+    listMonthlyCents,
+    dealMonthlyCents,
+    discountMonthlyCents: listMonthlyCents - dealMonthlyCents,
+    listTcvCents: listMonthlyCents * BigInt(T),
+    discountValueCents: (listMonthlyCents - dealMonthlyCents) * BigInt(T),
+    // "Approval signal: N% below list" (A4): any discount off list.
+    approvalSignal: !!adj,
+  }
 
   // ── v1.10 (TERM_FACTORING): hardware and hosting cost, under BOTH bases ──
   //
@@ -1293,6 +1540,8 @@ function quoteCore(input, params, preview) {
     whtSplit: split,
     currency: p.currency,
     lines,
+    // v2.0 (A4): list, the deal adjustment, and the approval signal.
+    dealDiscount,
     monthlyTotalCents: monthlyTotalByYear[0],
     // The OPEX fee of each contract year with the CPI (Final); year 1 is Base's.
     monthlyTotalByYear,
@@ -1342,8 +1591,15 @@ function quoteCore(input, params, preview) {
  * refuse it. SUPERSEDED, left visible: v1.5 priced each row as the full quote
  * at that term and, under CAPEX, carried the upfront and the service fee.
  *
- * The saving or premium compares year-1 OPEX fees with the anchor term's
- * (section 7: the client-facing saving always quotes year-1 fees).
+ * v2.0 (TP_LADDER Q1): the saving or premium compares year-1 LIST fees (banded,
+ * before any deal discount) with COMPARE_TERM's, which derives no price.
+ * SUPERSEDED, left visible: v1.x compared with ANCHOR_TERM, the formula's
+ * anchor. A term with no price ladder price is a row that prices nothing and
+ * says why (amended L-8); every other row still prices. With no price at
+ * COMPARE_TERM the column is null on every row.
+ *
+ * v2.0 (A4): `dealAdjustment` applies to every row (a discount is kept across
+ * terms); the per-camera fee is LIST.
  *
  * v1.5 section 4.5: each row carries the per-camera fee, the year-1 monthly
  * total of the line `input.perCameraProduct` names, divided by that line's
@@ -1353,22 +1609,35 @@ function quoteCore(input, params, preview) {
  */
 export function termLadder(input, params) {
   const p = norm(params)
-  const opexBase = { units: input?.units, paymentStructure: 'opex', cpiMode: 'none' }
-  const anchor = priceQuote({ ...opexBase, termMonths: p.anchorTerm }, p)
+  const opexBase = { units: input?.units, paymentStructure: 'opex', cpiMode: 'none', dealAdjustment: input?.dealAdjustment ?? null }
+  const priced = new Map(p.terms.map((T) => {
+    try {
+      return [T, { q: priceQuote({ ...opexBase, termMonths: T }, p) }]
+    } catch (e) {
+      if (!NO_LADDER_CODES.includes(e?.code)) throw e
+      return [T, { missing: { code: e.code, product: e.product, termMonths: e.termMonths, message: e.message } }]
+    }
+  }))
+  const compare = priced.get(p.compareTerm).q ?? null
   const perCameraOf = (q) => {
     if (!input?.perCameraProduct) return null
     const line = q.lines.find((l) => l.product === input.perCameraProduct)
     if (!line) return null
-    return roundHalfUp(div(fromCents(line.monthlyByYear[0]), fromInt(line.units)), 2)
+    return roundHalfUp(div(fromCents(line.listMonthlyCents), fromInt(line.units)), 2)
   }
   return p.terms.map((T) => {
-    const q = priceQuote({ ...opexBase, termMonths: T }, p)
+    const { q, missing } = priced.get(T)
+    const isCompare = T === p.compareTerm
+    if (!q) return { termMonths: T, priced: false, isCompare, missing }
     return {
-      perCameraCents: perCameraOf(q),
       termMonths: T,
-      isAnchor: T === p.anchorTerm,
+      priced: true,
+      isCompare,
+      perCameraCents: perCameraOf(q),
+      listMonthlyCents: q.dealDiscount.listMonthlyCents,
       monthlyTotalCents: q.monthlyTotalCents,
-      savingVsAnchor: sub(ONE, frac(q.monthlyTotalCents, anchor.monthlyTotalCents)),
+      savingVsCompare: compare ? sub(ONE, frac(q.dealDiscount.listMonthlyCents, compare.dealDiscount.listMonthlyCents)) : null,
+      listTcvCents: q.dealDiscount.listTcvCents,
       tcvNetCents: q.tcvNetCents,
       grossMargin: q.grossMargin,
       belowMarginFloor: q.belowMarginFloor,
@@ -1377,100 +1646,14 @@ export function termLadder(input, params) {
 }
 
 
-// ── Section 4.6: the manual ladder comparison (v1.9, TP_MANUAL) ──────────
-
-const MANUAL_PRICE = /^\d+(\.\d{1,2})?$/
-const MANUAL_REFUSAL = 'Enter a monthly price above 0, to the cent.'
-// A percentage as an admin typed it: "25", "7.5", never "25.0" (the mockup's "25%").
-const plainPct = (ratio) => formatPct(ratio, 6).replace(/\.?0+$/, '')
-const termsText = (terms) => `${terms.length} term${terms.length === 1 ? '' : 's'} (${terms.join(', ')})`
-
-/**
- * manualLadder({ product, prices }, params): COMPARISON ONLY (M-2). It never
- * prices a quote and changes nothing. One unit of `product` at every term in
- * TERMS, Base, no CPI. `prices` maps a term to the monthly price as typed
- * ("2,500.00"); blank or missing skips the term. The screen names the product
- * (C1), as it does for termLadder.
- *
- * "Calculated" is termLadder's per-camera fee at ONE camera (M-8, T31's basis),
- * not a new formula: one unit sits in the first band, so it is that band's fee.
- *
- * -> { product, anchorTerm, floor, hwCostCents, hostingMonthlyCents, firstBandDiscountPct,
- *      rows: [{ termMonths, calculatedCents, status: 'blank' | 'invalid' | 'priced',
- *               message?, priceCents?, totalCents?, costCents?, profitCents?,
- *               difference?, vsAnchor?: Fraction | 'list' | null, margin?,
- *               flags?: [{ kind: 'floor' | 'total' | 'profit', against?, message }] }],
- *      summary: { priced, floor, total, profit: { ok, terms, text } } }
- */
-export function manualLadder(input, params) {
-  const p = norm(params)
-  const product = input?.product
-  const { cost, bands } = productParams(p, product)
-  const ladder = termLadder({ units: { [product]: 1 }, perCameraProduct: product }, p)
-  const typed = input?.prices ?? {}
-
-  const rows = ladder.map((l) => {
-    const T = l.termMonths
-    const raw = String(typed[T] ?? '').replace(/,/g, '').trim()
-    if (raw === '') return { termMonths: T, calculatedCents: l.perCameraCents, status: 'blank' }
-    const price = MANUAL_PRICE.test(raw) ? parseDecimal(raw) : null
-    if (!price || cmp(price, ZERO) <= 0) {
-      return { termMonths: T, calculatedCents: l.perCameraCents, status: 'invalid', message: MANUAL_REFUSAL }
-    }
-    const priceCents = roundHalfUp(price, 2)
-    const totalCents = priceCents * BigInt(T)
-    const costCents = roundHalfUp(costAt(cost, T), 2)
-    const profitCents = totalCents - costCents
-    return {
-      termMonths: T, calculatedCents: l.perCameraCents, status: 'priced',
-      priceCents, totalCents, costCents, profitCents,
-      difference: sub(frac(priceCents, l.perCameraCents), ONE),
-      margin: frac(profitCents, totalCents),
-    }
-  })
-
-  const anchor = rows.find((r) => r.termMonths === p.anchorTerm)
-  const anchorCents = anchor?.status === 'priced' ? anchor.priceCents : null
-  let prev = null
-  for (const r of rows) {
-    if (r.status !== 'priced') continue
-    r.vsAnchor = r.termMonths === p.anchorTerm ? 'list' : anchorCents === null ? null : sub(frac(r.priceCents, anchorCents), ONE)
-    // The checks, in the order ruled (C2): floor, client total, profit. Each
-    // against the previous row WITH a price; equal is not a fall.
-    r.flags = []
-    if (cmp(r.margin, p.marginFloor) < 0) r.flags.push({ kind: 'floor', message: 'Below the floor' })
-    if (prev && r.totalCents < prev.totalCents) {
-      r.flags.push({ kind: 'total', against: prev.termMonths, message: `Client total below ${prev.termMonths} months` })
-    }
-    if (prev && r.profitCents < prev.profitCents) {
-      r.flags.push({ kind: 'profit', against: prev.termMonths, message: `Profit below ${prev.termMonths} months` })
-    }
-    prev = r
-  }
-
-  const priced = rows.filter((r) => r.status === 'priced')
-  const flagged = (kind) => priced.filter((r) => r.flags.some((f) => f.kind === kind)).map((r) => r.termMonths)
-  const floorPct = plainPct(p.marginFloor)
-  const check = (kind, okText, failText) => {
-    const terms = flagged(kind)
-    return { ok: terms.length === 0, terms, text: terms.length === 0 ? okText : `${failText} ${termsText(terms)}` }
-  }
-  return {
-    product,
-    anchorTerm: p.anchorTerm,
-    floor: p.marginFloor,
-    hwCostCents: roundHalfUp(cost.hw, 2),
-    hostingMonthlyCents: roundHalfUp(cost.hosting, 2),
-    firstBandDiscountPct: bands[0].discountPct,
-    rows,
-    summary: {
-      priced: priced.length,
-      floor: check('floor', `At or above the ${floorPct}% floor at every priced term`, `Below the ${floorPct}% floor at`),
-      total: check('total', 'Client total never falls with a longer term', 'Client total falls at'),
-      profit: check('profit', 'Profit never falls with a longer term', 'Profit falls at'),
-    },
-  }
-}
+// ── Section 4.6: the manual ladder comparison, RETIRED (v2.0, TP_LADDER A5) ──
+//
+// SUPERSEDED, left visible in the spec rather than here: v1.9's manualLadder
+// compared a typed price per term with "Calculated", the formula's fee at one
+// camera. A1 removed the formula, so "Calculated" has nothing to read, and the
+// price ladder editor (A6) now holds what the comparison was for: a typed
+// price per term, its client total, profit and margin, and the three checks
+// (bandMarginGrid, above). The compare card retires with it.
 
 // ── Formatting at the edge ───────────────────────────────────────────────
 

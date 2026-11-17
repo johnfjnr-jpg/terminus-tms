@@ -33,12 +33,19 @@ const { default: termPricingRoutes } = await import('../../src/routes/term-prici
 const SEED = [
   { from: 1, discountPct: '0' }, { from: 10, discountPct: '5' }, { from: 50, discountPct: '10' }, { from: 200, discountPct: '15' },
 ]
+// v2.0 (TP_LADDER): the rows 20261117000001 leaves. The formula's keys are
+// dropped, ANCHOR_TERM is COMPARE_TERM, and A2's three price ladders are
+// seeded. VOLUME_BANDS is the retired single list, still a row (TB-1).
+const LADDER = (s) => Object.fromEntries(s.trim().split(/\s+/).map((x) => x.split(':')))
+const A2 = {
+  safesight: LADDER('12:2500.00 24:1500.00 36:1080.00 48:875.00 60:750.00 72:665.00 84:605.00 96:560.00 108:525.00 120:500.00'),
+  air_quality: LADDER('12:1000.00 24:600.00 36:432.00 48:350.00 60:300.00 72:266.00 84:242.00 96:224.00 108:210.00 120:200.00'),
+  hemir: LADDER('12:15000.00 24:9000.00 36:6480.00 48:5250.00 60:4500.00 72:3990.00 84:3630.00 96:3360.00 108:3150.00 120:3000.00'),
+}
 const SETTINGS_ROWS = () => [
   { key: 'TERMS', value: [12, 24, 36, 48, 60, 72, 84, 96, 108, 120] },
-  { key: 'ANCHOR_TERM', value: 36 },
-  { key: 'ANCHOR_MARGIN', value: { safesight: '90', air_quality: '90', hemir: '90' } },
-  { key: 'SHORT_TERM_MARGIN', value: { safesight: '90', air_quality: '90', hemir: '90' } },
-  { key: 'PROFIT_STEP', value: '0.00' },
+  { key: 'COMPARE_TERM', value: 36 },
+  { key: 'PRICE_LADDER_BY_PRODUCT', value: A2 },
   { key: 'VOLUME_BANDS', value: SEED },
   { key: 'VOLUME_BANDS_BY_PRODUCT', value: { safesight: SEED, air_quality: SEED, hemir: SEED } },
   { key: 'HW_UPFRONT_MARGIN', value: '20' },
@@ -49,8 +56,8 @@ const SETTINGS_ROWS = () => [
 // base_cost_batches as the route selects it: figures already ::text.
 const CATALOG_ROWS = [
   { id: 'b-ss', product: 'safesight', batch_label: 'Initial catalog', effective_from: '2026-08-27', unit_cost: '8000.00', hosting_cost_month: '200.00', install_cost_existing: '0.00', install_cost_new: '0.00' },
-  { id: 'b-aq', product: 'air_quality', batch_label: 'Initial catalog', effective_from: '2026-08-27', unit_cost: '2000.00', hosting_cost_month: '100.00', install_cost_existing: '0.00', install_cost_new: '0.00' },
-  { id: 'b-he', product: 'hemir', batch_label: 'Initial catalog', effective_from: '2026-08-27', unit_cost: '100000.00', hosting_cost_month: '500.00', install_cost_existing: '0.00', install_cost_new: '0.00' },
+  { id: 'b-aq', product: 'air_quality', batch_label: 'John 2026-11-17, TP_LADDER', effective_from: '2026-11-17', unit_cost: '2000.00', hosting_cost_month: '50.00', install_cost_existing: '0.00', install_cost_new: '0.00' },
+  { id: 'b-he', product: 'hemir', batch_label: 'John 2026-11-17, TP_LADDER', effective_from: '2026-11-17', unit_cost: '100000.00', hosting_cost_month: '200.00', install_cost_existing: '0.00', install_cost_new: '0.00' },
 ]
 
 /**
@@ -192,5 +199,79 @@ test('TB-1: the settings save refuses the retired single list, and GET serves ba
   const get = await app.inject({ method: 'GET', url: '/api/term-pricing' })
   assert.equal(get.statusCode, 200)
   assert.deepEqual(Object.keys(get.json().settings.VOLUME_BANDS_BY_PRODUCT).sort(), ['air_quality', 'hemir', 'safesight'])
+  await app.close()
+})
+
+// ── v2.0 (TP_LADDER A6, A7, ruling 9 and 10): the price ladder route ─────
+//
+// Ruling 9: the admin SUCCESS path over HTTP against this recording database;
+// the live probe is the non-admin's 403 and the admin's save is proved in the
+// browser. Ruling 10 (A7 stands): any catalog product, and the success proved
+// for air_quality.
+
+const AQ_TYPED = { 12: '1,100', 24: '650.5', 36: '440', 48: '355', 60: '305', 72: '270', 84: '245', 96: '226', 108: '212', 120: '201.25' }
+const AQ_STORED = { 12: '1100.00', 24: '650.50', 36: '440.00', 48: '355.00', 60: '305.00', 72: '270.00', 84: '245.00', 96: '226.00', 108: '212.00', 120: '201.25' }
+const putLadder = (app, product, prices) => app.inject({ method: 'PUT', url: `/api/term-pricing/price-ladder/${product}`, payload: { prices } })
+
+test('A7 success: an admin saves Air Quality\'s price ladder over HTTP, and only that product changes', async () => {
+  const f = fakeDb({ admin: true })
+  const app = await appWith(f.db)
+  const res = await putLadder(app, 'air_quality', AQ_TYPED)
+  assert.equal(res.statusCode, 200, res.body)
+  assert.equal(f.writes.length, 1, 'exactly one write')
+  const [w] = f.writes
+  assert.equal(w.table, 'term_pricing_settings')
+  assert.deepEqual(w.rows.map((r) => r.key), ['PRICE_LADDER_BY_PRODUCT'], 'one row, the price ladder key, nothing else')
+  assert.deepEqual(w.rows[0].value.air_quality, AQ_STORED, 'stored to two decimals, every term')
+  assert.deepEqual(w.rows[0].value.safesight, A2.safesight, 'SafeSight untouched')
+  assert.deepEqual(w.rows[0].value.hemir, A2.hemir, 'HEMIR untouched')
+  assert.equal(w.rows[0].updated_by, 'user-1', 'the writer is the caller, read from the session')
+  // The answer is the state after the write, read back through the same route.
+  assert.deepEqual(res.json().settings.PRICE_LADDER_BY_PRODUCT.air_quality, AQ_STORED)
+  await app.close()
+})
+
+test('A6 refusals: a non-admin 403 before anything; an invalid set 400 with every problem; RLS zero rows 403', async () => {
+  const nonAdmin = fakeDb({ admin: false })
+  let app = await appWith(nonAdmin.db)
+  const r403 = await putLadder(app, 'air_quality', AQ_TYPED)
+  assert.equal(r403.statusCode, 403)
+  assert.equal(r403.json().error, 'Only an admin can change term pricing settings.')
+  assert.equal(nonAdmin.writes.length, 0)
+  await app.close()
+
+  const f = fakeDb({ admin: true })
+  app = await appWith(f.db)
+  const { 36: _, ...no36 } = AQ_TYPED
+  const bad = await putLadder(app, 'air_quality', { ...no36, 60: '0', 18: '5' })
+  assert.equal(bad.statusCode, 400)
+  assert.deepEqual(bad.json().problems.map((p) => p.message), [
+    'Enter a price for 36 months. Every offered term needs one. Fix this to save.',
+    'The 60-month price must be above 0, to the cent, for example 1080.00. Fix this to save.',
+    '18 months is not an offered term. Remove its price, or add the term to TERMS first. Fix this to save.',
+  ])
+  assert.equal(bad.json().error, bad.json().problems[0].message)
+  const unknown = await putLadder(app, 'not_a_product', AQ_TYPED)
+  assert.equal(unknown.statusCode, 400)
+  assert.equal(f.writes.length, 0)
+  await app.close()
+
+  const rls = fakeDb({ admin: true, rlsRefuses: true })
+  app = await appWith(rls.db)
+  const r = await putLadder(app, 'air_quality', AQ_TYPED)
+  assert.equal(r.statusCode, 403)
+  assert.equal(rls.writes.length, 1, 'the write was attempted')
+  await app.close()
+})
+
+test('P3, ruling 3: the settings save refuses the price ladder (one write path), and there is no removal route', async () => {
+  const f = fakeDb({ admin: true })
+  const app = await appWith(f.db)
+  const res = await app.inject({ method: 'PUT', url: '/api/term-pricing/settings', payload: { settings: { PRICE_LADDER_BY_PRODUCT: A2 } } })
+  assert.equal(res.statusCode, 400)
+  assert.match(res.json().error, /PRICE_LADDER_BY_PRODUCT is saved by its own editor/)
+  const del = await app.inject({ method: 'DELETE', url: '/api/term-pricing/price-ladder/air_quality' })
+  assert.equal(del.statusCode, 404, 'no route removes a price ladder')
+  assert.equal(f.writes.length, 0)
   await app.close()
 })
