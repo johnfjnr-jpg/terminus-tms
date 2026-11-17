@@ -107,13 +107,33 @@ try {
   check('R-FF1: today\'s engine agrees with every stored figure at that moment', pg?.frozen?.state === 'frozen' && Object.keys(pg.frozen.today).length === 0, JSON.stringify(pg?.frozen?.today))
 
   // ── R-FF5: UPDATING A SUBMITTED ROW ──────────────────────────────────────
-  await refused('R-FF5 update a submitted row\'s figures, OWNER', () => owner.from('deal_sheet_versions').update({ frozen_figures: { forged: true } }).eq('id', v1.id).select('id'), /is issued and cannot be changed|row-level security|0 rows/)
+  // THE OWNER IS STOPPED ONE LAYER EARLIER, BY RLS, AND RLS DOES NOT ERROR.
+  // deal_sheet_versions_update_draft reaches drafts only, so the update
+  // matches ZERO rows and PostgREST answers an empty success; the trigger
+  // never runs. Found on the first run (the check demanded an error). A zero
+  // counts only when the owner can SELECT that very row, so the zero is the
+  // policy and not a wrong id (Verification 14), and nothing moved.
+  {
+    const before = await fpVersions()
+    const seen = must(await owner.from('deal_sheet_versions').select('id').eq('id', v1.id), 'owner select')
+    const { data, error } = await owner.from('deal_sheet_versions').update({ frozen_figures: { forged: true } }).eq('id', v1.id).select('id')
+    const after = await fpVersions()
+    const how = error ? `trigger: ${error.message.slice(0, 80)}` : `RLS: ${data?.length ?? 'null'} rows updated`
+    check('R-FF5 update a submitted row\'s figures, OWNER', seen.length === 1 && before === after &&
+      (error ? /is issued and cannot be changed/.test(error.message) : Array.isArray(data) && data.length === 0),
+      `${how}; owner sees the row: ${seen.length === 1}${before === after ? '' : ' / FINGERPRINT MOVED'}`)
+  }
   await refused('R-FF5 update a submitted row\'s figures, SERVICE ROLE', () => svc.from('deal_sheet_versions').update({ frozen_figures: { forged: true } }).eq('id', v1.id).select('id'), /is issued and cannot be changed/)
 
   // ── R-FF5: INSERTING A ROW ALREADY SUBMITTED, OR CARRYING FIGURES ────────
   const base = { record_id: oppId, major: 9, minor: 1, reason: 'forged', inputs: v1.inputs, rates: v1.rates, sections: [], revision_number: v1.revision_number, created_by: OWNER_ID }
-  await refused('R-FF5 insert a row already issued, OWNER', () => owner.from('deal_sheet_versions').insert({ ...base, status: 'issued', frozen_figures: ff }).select('id'), /created as a draft with no frozen figures/)
-  await refused('R-FF5 insert a row already issued, SERVICE ROLE', () => svc.from('deal_sheet_versions').insert({ ...base, status: 'issued', frozen_figures: ff }).select('id'), /created as a draft with no frozen figures/)
+  // ISSUED WITH NO FIGURES, and a complete issuer, so the ONLY thing that can
+  // refuse it is the born-draft rule's issued branch. Found by planning the
+  // calibration: carrying figures here, the figures branch refused it too, so
+  // removing the issued branch could never make this check fire.
+  const issuedRow = { ...base, status: 'issued', frozen_figures: null, issued_by: OWNER_ID, issued_at: new Date().toISOString() }
+  await refused('R-FF5 insert a row already issued, OWNER', () => owner.from('deal_sheet_versions').insert(issuedRow).select('id'), /created as a draft with no frozen figures/)
+  await refused('R-FF5 insert a row already issued, SERVICE ROLE', () => svc.from('deal_sheet_versions').insert(issuedRow).select('id'), /created as a draft with no frozen figures/)
   await refused('R-FF5 insert a draft carrying figures, OWNER', () => owner.from('deal_sheet_versions').insert({ ...base, status: 'draft', frozen_figures: ff }).select('id'), /created as a draft with no frozen figures/)
   await refused('R-FF5 insert a draft carrying figures, SERVICE ROLE', () => svc.from('deal_sheet_versions').insert({ ...base, status: 'draft', frozen_figures: ff }).select('id'), /created as a draft with no frozen figures/)
 
