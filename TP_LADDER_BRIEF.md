@@ -217,3 +217,19 @@ the catalog.
 
 Proceed with the A1 to A8 build per the addendum. Stop for sign-off
 after Phase 2.
+
+## Ruling on the golden figures (John, 2026-11-17, Phase 1), recorded at the phase it launches
+
+Asked in Phase 1: removing the formula moves 63 golden-test cases by cents
+(the fixture ladder is v1.x's list fee to the cent, and discounted band fees
+then round differently, 2,613.33 x 0.95 = 2,482.66 not 2,482.67, which
+cascades through T6 into CAPEX, WHT, CPI and factoring). 24 cases are price
+arithmetic; 39 are mechanics on top of the price.
+
+John's answer: SPLIT. Price arithmetic is re-derived by an independent
+integer-cents script, committed. Mechanics are re-based through the frozen
+v1.10 engine from e123cf6 with only its list-fee read swapped for the price
+ladder, run by a committed derivation script. The spec and the tests say
+which figures came from which. The new mechanics figures are a labelled
+regression snapshot, not hand-checked; v1.x's hand derivation of the
+mechanics stands, because that code is unchanged.
