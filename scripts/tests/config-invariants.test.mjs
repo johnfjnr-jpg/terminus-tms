@@ -747,10 +747,17 @@ test('INVARIANT 12: Pain Owner is on its own axis, so a Pain Owner who is a Bloc
 // test could fail, and git log -S on the string returned only the commit that
 // wrote it. A catalog of numbers maintained by hand in the Supabase editor is
 // the same exposure with a shorter fuse.
+// TP_LADDER A3 (John, 2026-11-17): a new batch for Air Quality and HEMIR,
+// "John 2026-11-17, TP_LADDER", effective 2026-11-17, hosting 100 -> 50 and
+// 500 -> 200, hardware and install unchanged. Written through the batch table,
+// append-only. THIS INVARIANT FIRED ON THE LIVE WRITE before this line was
+// touched ("the current air_quality batch has drifted"), which is its job.
+// SUPERSEDED, left visible: Round 36's supply, air_quality hosting_cost_month
+// 100 and hemir 500; those rows stay in the table as the earlier batch.
 const CATALOG = {
   safesight:   { unit_cost: 8000,   install_cost_existing: 2000, install_cost_new: 20000, hosting_cost_month: 200 },
-  air_quality: { unit_cost: 2000,   install_cost_existing: 500,  install_cost_new: 1000,  hosting_cost_month: 100 },
-  hemir:       { unit_cost: 100000, install_cost_existing: 5000, install_cost_new: 10000, hosting_cost_month: 500 },
+  air_quality: { unit_cost: 2000,   install_cost_existing: 500,  install_cost_new: 1000,  hosting_cost_month: 50 },
+  hemir:       { unit_cost: 100000, install_cost_existing: 5000, install_cost_new: 10000, hosting_cost_month: 200 },
 }
 
 test('INVARIANT 13: the base cost catalog carries exactly the figures the business supplied', () => {
@@ -778,7 +785,7 @@ test('INVARIANT 13: the base cost catalog carries exactly the figures the busine
       install_cost_existing: current.install_cost_existing,
       install_cost_new: current.install_cost_new,
       hosting_cost_month: current.hosting_cost_month,
-    }, expected, `the current ${product} batch has drifted from the figures the business supplied in Round 36`)
+    }, expected, `the current ${product} batch has drifted from the figures the business last supplied (Round 36; Air Quality and HEMIR hosting 2026-11-17)`)
   }
 })
 

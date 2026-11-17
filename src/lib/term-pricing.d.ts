@@ -10,10 +10,10 @@ export class TermPricingError extends Error {
 
 export interface EngineParamsInput {
   TERMS: number[]
-  ANCHOR_TERM: number
-  ANCHOR_MARGIN: Record<string, string>
-  SHORT_TERM_MARGIN: Record<string, string>
-  PROFIT_STEP: string
+  /** v2.0 (Q1): sets the "vs N months" column; derives no price. */
+  COMPARE_TERM: number
+  /** v2.0 (A1): the LIST price per unit per month, by term, per product. */
+  PRICE_LADDER_BY_PRODUCT: Record<string, Record<string, string>>
   /** v1.8 (TB-1): one ordered list per product. */
   VOLUME_BANDS_BY_PRODUCT: Record<string, StoredBand[]>
   HW_UPFRONT_MARGIN: string
@@ -35,15 +35,27 @@ export interface BandValidation {
   bands: StoredBand[] | null
 }
 
-export interface BandGridCell { termMonths: number; feeCents: bigint; margin: Fraction; belowFloor: boolean }
+export interface GridFlag { kind: 'floor' | 'total' | 'profit'; against?: number; message: string }
+/** v2.0 (A6): `priced` false is a term with no price; it carries no figures. */
+export interface BandGridCell {
+  termMonths: number; priced: boolean
+  feeCents?: bigint; tcvCents?: bigint; costCents?: bigint; profitCents?: bigint
+  margin?: Fraction; belowFloor?: boolean; flags?: GridFlag[]
+}
 export interface BandGridRow { band: number; from: number; to: number | null; discountPct: string; cells: BandGridCell[] }
+export interface GridCheck { ok: boolean; cells: Array<{ band: number; termMonths: number }> }
 export type BandGrid =
-  | { ok: true; floor: Fraction; terms: number[]; feeTerms: number[]; rows: BandGridRow[]; breaches: Array<{ band: number; termMonths: number; feeCents: bigint; margin: Fraction }> }
+  | { ok: true; floor: Fraction; terms: number[]; feeTerms: number[]; compareTerm: number; rows: BandGridRow[]
+      breaches: Array<{ band: number; termMonths: number; feeCents: bigint; margin: Fraction }>
+      unpriced: number[]; checks: { floor: GridCheck; total: GridCheck; profit: GridCheck } }
   | { ok: false; problems: BandProblem[] }
+
+export interface LadderProblem { termMonths: number | string; message: string }
+export interface LadderValidation { ok: boolean; problems: LadderProblem[]; ladder: Record<string, string> | null }
 
 export interface NormalisedParams {
   terms: number[]
-  anchorTerm: number
+  compareTerm: number
   marginFloor: Fraction
   currency: string
   [k: string]: unknown
@@ -74,7 +86,27 @@ export interface QuoteInput {
   factoring?: FactoringInput | null
   /** v1.10 (9.5, R-TF12), engine level: default one entry, month 1, the hardware cost. */
   vendorPayments?: Array<{ month: number; amount: string }>
+  /** v2.0 (A4): either-or. A fee is typed at `termMonths`; other terms keep its discount. */
+  dealAdjustment?: DealAdjustmentInput | null
 }
+
+export type DealAdjustmentInput =
+  | { discountPct: string; monthlyFee?: undefined }
+  | { monthlyFee: string; termMonths: number; discountPct?: undefined }
+
+/** v2.0 (A4): list, the deal adjustment and the approval signal. */
+export interface DealDiscount {
+  mode: 'discount' | 'fee' | null
+  /** The exact discount off the banded list. */
+  ratio: Fraction
+  atTerm: number | null
+  listMonthlyCents: bigint; dealMonthlyCents: bigint; discountMonthlyCents: bigint
+  listTcvCents: bigint; discountValueCents: bigint
+  approvalSignal: boolean
+}
+
+/** v2.0 (amended L-8): why a term or product prices nothing. */
+export interface MissingPrice { code: 'NO_PRICE_LADDER' | 'NO_PRICE_LADDER_PRICE'; product: string; termMonths: number | null; message: string }
 
 export interface FactoringInput {
   enabled: boolean
@@ -122,7 +154,13 @@ export interface QuoteBand {
   monthlyCents: bigint; tcvNetCents: bigint; costCents: bigint; grossProfitCents: bigint; grossMargin: Fraction
 }
 export interface QuoteLine {
-  product: string; units: number; listFee: Fraction; savingVsAnchor: Fraction
+  product: string; units: number; listFee: Fraction
+  /** v2.0: always 'ladder'; the formula is gone. */
+  priceSource: 'ladder'
+  /** v2.0 (Q1): against COMPARE_TERM; null when that term has no price. */
+  savingVsCompare: Fraction | null
+  /** v2.0 (A4): the banded year-1 monthly before the deal discount, and the line's share of it. */
+  listMonthlyCents: bigint; dealDiscountMonthlyCents: bigint
   costPerUnitCents: bigint; bands: QuoteBand[]; monthlyByYear: bigint[]
   // v1.4: per-product totals; they sum to the deal exactly. No WHT field: WHT is never per product.
   tcvNetCents: bigint; costCents: bigint; grossProfitCents: bigint; grossMargin: Fraction
@@ -198,6 +236,7 @@ export interface Quote {
   whtSplit: boolean
   currency: string
   lines: QuoteLine[]
+  dealDiscount: DealDiscount
   monthlyTotalCents: bigint
   monthlyTotalByYear: bigint[]
   /** v1.6: BASE TCV (no CPI). It carries approval: margin, floor, profit table. */
@@ -229,14 +268,19 @@ export interface Quote {
   /** The Base schedule (no CPI): approval's WHT and the Base tie. */
   base: { tcvNetCents: bigint; schedule: ScheduleRow[]; tax: Tax }
 }
-/** v1.6 (C-10): every row is the OPEX Base row, in both structures. */
-export interface LadderRow {
-  termMonths: number; isAnchor: boolean
-  monthlyTotalCents: bigint
-  savingVsAnchor: Fraction; tcvNetCents: bigint; grossMargin: Fraction; belowMarginFloor: boolean
-  /** v1.5 section 4.5, v1.6 C-10: null with no product named, or no units. */
+/** v1.6 (C-10): every row is the OPEX Base row, in both structures. v2.0: a term with no price is a row that prices nothing. */
+export type LadderRow = PricedLadderRow | MissingLadderRow
+export interface PricedLadderRow {
+  termMonths: number; priced: true; isCompare: boolean
+  /** v2.0 (A4): banded, before the deal discount; and the deal fee. */
+  listMonthlyCents: bigint; monthlyTotalCents: bigint
+  /** v2.0 (Q1): list against COMPARE_TERM's list; null when it has no price. */
+  savingVsCompare: Fraction | null
+  listTcvCents: bigint; tcvNetCents: bigint; grossMargin: Fraction; belowMarginFloor: boolean
+  /** v1.5 section 4.5: LIST, per camera. Null with no product named, or no units. */
   perCameraCents: bigint | null
 }
+export interface MissingLadderRow { termMonths: number; priced: false; isCompare: boolean; missing: MissingPrice }
 
 export function parseDecimal(value: string | bigint, what?: string): Fraction
 export function roundHalfUp(x: Fraction, places?: number): bigint
@@ -248,33 +292,11 @@ export function capexAllocation(input: QuoteInput, params: EngineParamsInput | N
 export function termLadder(input: Omit<QuoteInput, 'termMonths'> & { termMonths?: number; perCameraProduct?: string }, params: EngineParamsInput | NormalisedParams): LadderRow[]
 /** v1.8 (spec 3.2, TB-6): never throws; every broken rule, in band order. */
 export function validateBands(bands: unknown): BandValidation
-/** v1.8 (spec 10.4, TB-7): the margin check on the bands as typed. */
-export function bandMarginGrid(product: string, bands: unknown, params: EngineParamsInput | NormalisedParams): BandGrid
-/** v1.9 (spec 4.6, TP_MANUAL): a check on one priced row, in the order floor, total, profit. */
-export interface ManualFlag { kind: 'floor' | 'total' | 'profit'; against?: number; message: string }
-export interface ManualRow {
-  termMonths: number
-  /** termLadder's per-camera fee at one unit (M-8). */
-  calculatedCents: bigint | null
-  status: 'blank' | 'invalid' | 'priced'
-  /** 'invalid' only: the field error (C9). */
-  message?: string
-  priceCents?: bigint; totalCents?: bigint; costCents?: bigint; profitCents?: bigint
-  difference?: Fraction
-  /** 'list' at ANCHOR_TERM; null when the anchor term has no price (MG-3). */
-  vsAnchor?: Fraction | 'list' | null
-  margin?: Fraction
-  flags?: ManualFlag[]
-}
-export interface ManualCheck { ok: boolean; terms: number[]; text: string }
-export interface ManualLadder {
-  product: string; anchorTerm: number; floor: Fraction
-  hwCostCents: bigint; hostingMonthlyCents: bigint; firstBandDiscountPct: string
-  rows: ManualRow[]
-  summary: { priced: number; floor: ManualCheck; total: ManualCheck; profit: ManualCheck }
-}
-/** v1.9 (spec 4.6): comparison only; it prices nothing and changes nothing. */
-export function manualLadder(input: { product: string; prices: Record<number, string | undefined> }, params: EngineParamsInput | NormalisedParams): ManualLadder
+/** v1.8 (spec 10.4, TB-7), v2.0 (A6): the margin check on the bands, and optionally the price ladder, as typed. */
+export function bandMarginGrid(product: string, bands: unknown, params: EngineParamsInput | NormalisedParams, prices?: Record<string | number, string | undefined>): BandGrid
+/** v2.0 (spec 3.3, L-5): never throws; every broken rule, in term order. */
+export function validateLadder(prices: unknown, terms: number[]): LadderValidation
+export const NO_LADDER_CODES: readonly ['NO_PRICE_LADDER', 'NO_PRICE_LADDER_PRICE']
 export function formatMoney(cents: bigint): string
 export function loanSchedule(advanceCents: bigint, ratePct: string, termMonths: number, method?: 'straight' | 'declining'): LoanSchedule
 export function formatPct(ratio: Fraction, places?: number): string

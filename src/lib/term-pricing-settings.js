@@ -13,7 +13,7 @@
 // Allowlisted as an importer of the engine in
 // scripts/tests/term-pricing-isolation.test.mjs.
 
-import { normaliseParams, validateBands, TermPricingError } from './term-pricing.js'
+import { normaliseParams, validateBands, validateLadder, TermPricingError } from './term-pricing.js'
 
 /**
  * The spec section 3 keys held in term_pricing_settings, in display order.
@@ -22,14 +22,33 @@ import { normaliseParams, validateBands, TermPricingError } from './term-pricing
  * old row stays in the table until the removal migration applied after the
  * push, because the code deployed until then still reads it; nothing here
  * reads it, and a change naming it is refused as unknown.
+ *
+ * v2.0 (TP_LADDER A1, Q1): ANCHOR_MARGIN, SHORT_TERM_MARGIN and PROFIT_STEP
+ * are gone with the formula; ANCHOR_TERM is renamed COMPARE_TERM ("Compare
+ * terms against"), which derives no price; PRICE_LADDER_BY_PRODUCT is REQUIRED
+ * (absent from the table = nothing prices, so the loader refuses rather than
+ * pricing nothing silently). HW_UPFRONT_MARGIN STAYS: CAPEX's hardware value
+ * reads it (term-pricing.js, section 6.1). The migration renames and drops the
+ * rows; until it is applied this loader refuses with SETTINGS_MISSING.
  */
 export const SETTING_KEYS = [
-  'TERMS', 'ANCHOR_TERM', 'ANCHOR_MARGIN', 'SHORT_TERM_MARGIN', 'PROFIT_STEP',
+  'TERMS', 'COMPARE_TERM', 'PRICE_LADDER_BY_PRODUCT',
   'VOLUME_BANDS_BY_PRODUCT', 'HW_UPFRONT_MARGIN', 'MARGIN_FLOOR', 'CURRENCY',
 ]
 
-/** The keys whose value is one value per catalog product. */
-export const PER_PRODUCT_KEYS = ['ANCHOR_MARGIN', 'SHORT_TERM_MARGIN', 'VOLUME_BANDS_BY_PRODUCT']
+/**
+ * v2.0 (Phase 0 P3): the price ladder is written ONLY by its own route, one
+ * product at a time, so the key has one write path. Nothing else changes: the
+ * settings save still takes every other key, the bands included, as before.
+ */
+export const OWN_ROUTE_KEYS = ['PRICE_LADDER_BY_PRODUCT']
+
+/**
+ * The keys whose value is one value per catalog product, and must cover every
+ * one. The price ladder is per product too but NOT required per product: a
+ * product without one prices nothing and says so (amended L-8).
+ */
+export const PER_PRODUCT_KEYS = ['VOLUME_BANDS_BY_PRODUCT']
 
 /** term_pricing_settings rows to { KEY: value }. Every key must be present. */
 export function settingsFromRows(rows) {
@@ -70,10 +89,8 @@ export function costsFromCatalog(current, rawRows) {
 export function buildParams(settings, costs) {
   return {
     TERMS: settings.TERMS,
-    ANCHOR_TERM: settings.ANCHOR_TERM,
-    ANCHOR_MARGIN: settings.ANCHOR_MARGIN,
-    SHORT_TERM_MARGIN: settings.SHORT_TERM_MARGIN,
-    PROFIT_STEP: settings.PROFIT_STEP,
+    COMPARE_TERM: settings.COMPARE_TERM,
+    PRICE_LADDER_BY_PRODUCT: settings.PRICE_LADDER_BY_PRODUCT,
     VOLUME_BANDS_BY_PRODUCT: settings.VOLUME_BANDS_BY_PRODUCT,
     HW_UPFRONT_MARGIN: settings.HW_UPFRONT_MARGIN,
     MARGIN_FLOOR: settings.MARGIN_FLOOR,
@@ -86,12 +103,12 @@ export function buildParams(settings, costs) {
  * Validates an admin's change. Returns the merged settings, or throws a
  * TermPricingError whose message is fit to show the admin.
  *
- * - only the nine keys, and at least one;
+ * - only the keys in SETTING_KEYS, and at least one; never the price ladder,
+ *   which has its own route (OWN_ROUTE_KEYS);
  * - the merged result must normalise in the ENGINE (decimals as strings,
- *   ascending terms containing the anchor, margins below 100%, every
- *   product's bands meeting spec 3.2);
- * - per-product keys (margins, and v1.8's bands) must cover every product
- *   the catalog prices.
+ *   ascending terms containing COMPARE_TERM, every product's bands meeting
+ *   spec 3.2, every stored price above 0 to the cent);
+ * - the bands must cover every product the catalog prices.
  */
 export function mergeSettingsChange(current, patch, costs) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
@@ -101,6 +118,8 @@ export function mergeSettingsChange(current, patch, costs) {
   if (!keys.length) throw new TermPricingError('BAD_CHANGE', 'nothing to change')
   const unknown = keys.filter((k) => !SETTING_KEYS.includes(k))
   if (unknown.length) throw new TermPricingError('BAD_CHANGE', `unknown setting: ${unknown.join(', ')}`)
+  const ownRoute = keys.filter((k) => OWN_ROUTE_KEYS.includes(k))
+  if (ownRoute.length) throw new TermPricingError('BAD_CHANGE', `${ownRoute.join(', ')} is saved by its own editor, one product at a time`)
 
   const merged = { ...current, ...patch }
   if (typeof merged.CURRENCY !== 'string' || !/^[A-Z]{3}$/.test(merged.CURRENCY)) {
@@ -132,6 +151,33 @@ export function mergeBandsChange(current, product, bands, costs) {
   const merged = {
     ...current,
     VOLUME_BANDS_BY_PRODUCT: { ...current.VOLUME_BANDS_BY_PRODUCT, [product]: v.bands },
+  }
+  normaliseParams(buildParams(merged, costs))
+  return merged
+}
+
+/**
+ * v2.0 (TP_LADDER A6, A7, ruling 10): an admin saves ONE product's price
+ * ladder. ANY catalog product, from day one: nothing here or in the route
+ * assumes SafeSight. Returns the merged settings with only that product's
+ * ladder changed, in the stored shape (two decimals, every term in TERMS), or
+ * throws:
+ *
+ * - BAD_PRODUCT for a product the catalog does not price;
+ * - BAD_PRICE_LADDER for a set breaking a spec 3.3 rule, its message the
+ *   FIRST problem and `problems` every one, in the editor's own wording.
+ *
+ * There is no removal (ruling 3): an empty set is refused like any other.
+ */
+export function mergeLadderChange(current, product, prices, costs) {
+  if (typeof product !== 'string' || !(product in costs)) {
+    throw new TermPricingError('BAD_PRODUCT', `No catalog product ${JSON.stringify(product)} to set a price ladder for.`)
+  }
+  const v = validateLadder(prices, current.TERMS)
+  if (!v.ok) throw Object.assign(new TermPricingError('BAD_PRICE_LADDER', v.problems[0].message), { problems: v.problems })
+  const merged = {
+    ...current,
+    PRICE_LADDER_BY_PRODUCT: { ...current.PRICE_LADDER_BY_PRODUCT, [product]: v.ladder },
   }
   normaliseParams(buildParams(merged, costs))
   return merged
