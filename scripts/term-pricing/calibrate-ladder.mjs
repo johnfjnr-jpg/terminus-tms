@@ -36,6 +36,9 @@ const INJECTIONS = [
     find: `      if (prev && c.tcvCents < prev.tcvCents) {`, put: `      if (prev && c.tcvCents <= prev.tcvCents) {`, expect: 'A6: the grid reads' },
   { id: 'A6: the grid restarts at a gap', file: E,
     find: `      if (!c.priced) continue\n      if (c.belowFloor)`, put: `      if (!c.priced) { prev = null; continue }\n      if (c.belowFloor)`, expect: 'A6: the grid reads' },
+  { id: 'A6: the editor\'s "vs" read against band 1 for every band', file: E,
+    find: `    const cmpCell = r.cells.find((c) => c.termMonths === p.compareTerm && c.priced)`,
+    put: `    const cmpCell = rows[0].cells.find((c) => c.termMonths === p.compareTerm && c.priced)`, expect: 'A6, frame C' },
   { id: 'A6: the typed prices ignored', file: E,
     find: `  if (prices !== undefined) {\n    ladder = {}`, put: `  if (false) {\n    ladder = {}`, expect: 'A6: the grid reads' },
   // The first injection here removed a branch returning the typed fee at its

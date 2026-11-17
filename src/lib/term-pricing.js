@@ -508,6 +508,13 @@ export function bandMarginGrid(product, bands, params, prices) {
       })
     })
   }
+  // The editor's "vs N months" column (frame C), on the price as typed: each
+  // cell's fee against the SAME band's fee at COMPARE_TERM; null when that term
+  // has no price. Here so the screen does no arithmetic on money.
+  for (const r of rows) {
+    const cmpCell = r.cells.find((c) => c.termMonths === p.compareTerm && c.priced)
+    for (const c of r.cells) if (c.priced) c.vsCompare = cmpCell ? frac(c.feeCents - cmpCell.feeCents, cmpCell.feeCents) : null
+  }
   const checks = { floor: [], total: [], profit: [] }
   for (const r of rows) {
     let prev = null

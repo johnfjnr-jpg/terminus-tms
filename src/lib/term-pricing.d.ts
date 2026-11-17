@@ -41,6 +41,8 @@ export interface BandGridCell {
   termMonths: number; priced: boolean
   feeCents?: bigint; tcvCents?: bigint; costCents?: bigint; profitCents?: bigint
   margin?: Fraction; belowFloor?: boolean; flags?: GridFlag[]
+  /** v2.0 (frame C): fee / fee at COMPARE_TERM - 1; null when that term has no price. */
+  vsCompare?: Fraction | null
 }
 export interface BandGridRow { band: number; from: number; to: number | null; discountPct: string; cells: BandGridCell[] }
 export interface GridCheck { ok: boolean; cells: Array<{ band: number; termMonths: number }> }

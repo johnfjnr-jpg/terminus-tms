@@ -9579,6 +9579,38 @@ select:autofill {
    the card by TP_LADDER A5 (2026-11-17). Its amber sites leave the token's
    census with it (attention-token.test.mjs). */
 .tp-pct-field { display: inline-flex; align-items: center; gap: 6px; }
+/* TP_LADDER (A4, A6; mockup prototypes/term-pricing-ladder.html, frames A to D).
+   AMBER IS ONE CLASS: a figure that departs from list, the approval signal, and
+   a term with no price all take .tp-amber-fig, one --attention binding (the
+   token's census counts it); an input's border follows its colour. */
+.tp-amber-fig { color: var(--attention); font-weight: 600; }
+.tp-num.tp-amber-fig { border-color: currentColor; }
+.tp-deal-row { display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap; }
+.tp-deal-field { display: flex; flex-direction: column; gap: 6px; }
+.tp-num.tp-deal-input { width: 110px; text-align: right; }
+.tp-deal-or { color: var(--muted); padding-bottom: 8px; }
+.tp-deal-note { max-width: 420px; margin: 0; }
+.tp-signal { font-size: 12.5px; margin: 6px 0 0; }
+.tp-price-grid.tp-price-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 14px; }
+.tp-srcline { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: center; border-top: 1px solid var(--hairline); padding-top: 12px; margin-top: 10px; font-size: 13px; }
+.tp-ladder-missing td { cursor: default; }
+.tp-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; margin-top: 14px; border-top: 1px solid var(--hairline); padding-top: 14px; }
+.tp-chart-svg { width: 100%; height: auto; display: block; }
+.tp-chart-title { fill: var(--white); font-family: var(--mono); font-size: 12px; }
+.tp-chart-axis { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+.tp-chart-grid { stroke: var(--hairline); }
+.tp-chart-line { fill: none; stroke: var(--green); stroke-width: 1.4; }
+.tp-chart-line.tp-chart-lead { stroke-width: 2.4; }
+.tp-chart-dot { fill: var(--green); }
+.tp-chart-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.tp-chart-key i { display: inline-block; width: 16px; height: 2px; margin-right: 6px; vertical-align: middle; background: var(--green); }
+.tp-chart-key i.tp-chart-key-lead { height: 3px; }
+.tp-check-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+.tp-check-chip { border: 1px solid var(--hairline-strong); border-radius: 14px; padding: 5px 12px; font-size: 12.5px; color: var(--white); }
+.tp-check-chip.is-warn { border-color: currentColor; }
+.tp-num.tp-pl-input { width: 110px; text-align: right; }
+.tp-pl { margin-bottom: 28px; }
+.tp-pl-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 28px; margin-top: 14px; align-items: start; }
 .tp-table.tp-milestones td { vertical-align: middle; }
 .tp-table.tp-milestones td:first-child { font-family: var(--body); }
 .tp-carries { margin-left: 6px; }

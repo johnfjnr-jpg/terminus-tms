@@ -27,9 +27,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useShell } from '../ShellContext'
 import {
   priceQuote, capexAllocation, termLadder, normaliseParams, formatMoney, formatPct,
-  validateBands, bandMarginGrid,
+  validateBands, bandMarginGrid, validateLadder,
 } from '../../../src/lib/term-pricing.js'
-import type { CpiMode, Quote, AllocationPreview } from '../../../src/lib/term-pricing.js'
+import type { CpiMode, Quote, AllocationPreview, BandGrid, DealAdjustmentInput } from '../../../src/lib/term-pricing.js'
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
 // TP_CAPEX (C-11): the milestone names, defined once and shared with Commercials.
 import { MILESTONE_NAMES } from '../../../src/lib/milestone-vocabulary.js'
@@ -347,6 +347,21 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   useEffect(() => {
     if (data) setBandDrafts((d) => refreshBandDrafts(d, data.settings))
   }, [data?.settings])
+  // TP_LADDER A4 (frame A): the deal adjustment, screen state only (P5).
+  // Either-or (R-O7): the field typed last is the input; the other shows what
+  // the ENGINE derived. A fee carries the term it was typed at, so switching
+  // term keeps its discount (spec 4.7).
+  const [dealMode, setDealMode] = useState<'none' | 'discount' | 'fee'>('none')
+  const [dealPct, setDealPct] = useState('')
+  const [dealFee, setDealFee] = useState('')
+  const [dealFeeTerm, setDealFeeTerm] = useState(36)
+  // Frames C and D: the price ladder editor's product and one draft per
+  // product, held here so they survive a switch of tab (T-1).
+  const [ladderProduct, setLadderProduct] = useState<string>(PRODUCTS[0].key)
+  const [ladderDrafts, setLadderDrafts] = useState<LadderDrafts>({})
+  useEffect(() => {
+    if (data) setLadderDrafts((d) => refreshLadderDrafts(d, data.settings))
+  }, [data?.settings])
   const chooseTerm = (t: number) => {
     setTerm(t)
     setStartYear((s) => Math.max(2, Math.min(s, lastYearOf(t))))
@@ -365,11 +380,25 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
   // v1.6 (C-10), v1.7 (C2): the ladder is the OPEX Base row at every term,
   // from the units alone, whatever the payment basis.
+  const dealAdjustment = useMemo<DealAdjustmentInput | null>(() => (dealMode === 'discount'
+    ? { discountPct: dealPct.trim() }
+    : dealMode === 'fee' ? { monthlyFee: dealFee.replace(/,/g, '').trim(), termMonths: dealFeeTerm } : null),
+  [dealMode, dealPct, dealFee, dealFeeTerm])
+  const isDealRefusal = (e: unknown) => /^DEAL_/.test(String((e as { code?: string }).code))
+
+  // v2.0 (A4): the ladder carries the deal adjustment; a refused one prices
+  // the ladder at list and is shown on the deal card (as factoring is).
   const ladderResult = useMemo(() => {
     if (!params?.ok || badUnits) return null
-    try { return { ladder: termLadder({ units: unitCounts, perCameraProduct: PER_CAMERA_PRODUCT }, params.p) } }
-    catch (e) { return { error: (e as Error).message } }
-  }, [params, unitCounts, badUnits])
+    const base = { units: unitCounts, perCameraProduct: PER_CAMERA_PRODUCT }
+    try { return { ladder: termLadder({ ...base, dealAdjustment }, params.p) } }
+    catch (e) {
+      if (dealAdjustment && isDealRefusal(e)) {
+        try { return { ladder: termLadder(base, params.p) } } catch (e2) { return { error: (e2 as Error).message } }
+      }
+      return { error: (e as Error).message }
+    }
+  }, [params, unitCounts, badUnits, dealAdjustment])
 
   // The factoring input, as the engine takes it (spec 2). Blank fields go as
   // null, so the ENGINE's refusal, in its own words, is what shows (ruling 6).
@@ -396,15 +425,23 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     if (!params?.ok) return null
     if (badUnits) return { error: `Units of ${badUnits.label} must be a whole number, 0 or more.` }
     const base = { units: unitCounts, termMonths: term, paymentStructure: 'opex' as const, cpiMode: 'none' as const }
-    try { return { quote: priceQuote({ ...base, factoring: factoringInput }, params.p), factoringError: null as string | null } }
-    catch (e) {
-      if (factoringInput && /FACTORING/.test(String((e as { code?: string }).code))) {
-        try { return { quote: priceQuote(base, params.p), factoringError: (e as Error).message } }
-        catch (e2) { return { error: (e2 as Error).message } }
+    // v2.0 (A4): a refused deal adjustment, like a refused factoring input,
+    // does not refuse the price: the price shows at list and the refusal shows
+    // on the deal card, in the engine's sentence (and blocks the quote).
+    let dealError: string | null = null
+    let factoringError: string | null = null
+    let deal = dealAdjustment
+    let fx = factoringInput
+    for (let i = 0; i < 3; i++) {
+      try { return { quote: priceQuote({ ...base, factoring: fx, dealAdjustment: deal }, params.p), factoringError, dealError } }
+      catch (e) {
+        if (deal && isDealRefusal(e)) { dealError = (e as Error).message; deal = null; continue }
+        if (fx && /FACTORING/.test(String((e as { code?: string }).code))) { factoringError = (e as Error).message; fx = null; continue }
+        return { error: (e as Error).message }
       }
-      return { error: (e as Error).message }
     }
-  }, [params, unitCounts, badUnits, term, factoringInput])
+    return { error: 'The price could not be computed.' }
+  }, [params, unitCounts, badUnits, term, factoringInput, dealAdjustment])
 
   const capex = structure === 'capex'
   const result = useMemo(() => {
@@ -435,6 +472,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       whtHwPct: whtMode === 'split' ? blankNull(whtHw) : null,
       whtSaasPct: whtMode === 'split' ? blankNull(whtSaas) : null,
       factoring: factoringInput,
+      dealAdjustment,
       ...(capex ? {
         capexAmount,
         // Thousands separators are formatting, not the amount (C-4 keeps the
@@ -463,7 +501,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       return { error: (e as Error).message }
     }
   }, [params, price, unitCounts, term, structure, capex, cpiMode, escalator, startYear, gst, whtMode, whtPct, grossUp, whtHw, whtSaas,
-    capexAmount, capexCustom, capexStructure, milestones, recovery, factoringInput])
+    capexAmount, capexCustom, capexStructure, milestones, recovery, factoringInput, dealAdjustment])
 
   const fitKey = useMemo(() => ({ result, tab, showTax }), [result, tab, showTax])
   const figuresRef = useFittedFigures(fitKey)
@@ -489,6 +527,10 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const ptLastExtra = fxPrice?.passThroughLastExtraCents ?? 0n
   const ptTotal = fxPrice?.passThroughCents ?? 0n
   const factoringError = price && 'factoringError' in price ? price.factoringError ?? null : null
+  const dealError = price && 'dealError' in price ? price.dealError ?? null : null
+  const deal = p0?.dealDiscount ?? null
+  const signal = !!deal?.approvalSignal
+  const floorShownPct = formatPct(params.ok ? params.p.marginFloor : { n: 0n, d: 1n }, 1).replace(/\.0$/, '')
   const pricedLines = p0 ? p0.lines.filter((l) => l.units > 0) : []
   const perUnit = (l: { hardwareCostCents: bigint; units: number }) => money(l.hardwareCostCents / BigInt(l.units))
   const hardwareNote = !p0 ? '' : pricedLines.length === 1
@@ -562,6 +604,37 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             </div>
           </section>
 
+          {/* Frame A: the deal adjustment, under Units (A4). */}
+          {params.ok && (
+            <section className="tp-card tp-deal" aria-label="Deal adjustment" data-testid="tp-deal">
+              <div className="tp-card-head">
+                <h2 className="tp-h2">Deal adjustment</h2>
+                <button type="button" className="btn-ghost" data-testid="tp-deal-reset" disabled={dealMode === 'none'}
+                  onClick={() => { setDealMode('none'); setDealPct(''); setDealFee('') }}>Reset to list</button>
+              </div>
+              <div className="tp-deal-row">
+                <label className="tp-deal-field">
+                  <span className="tp-label">Deal discount</span>
+                  <span className="tp-pct-field">
+                    <input className={`tp-num tp-deal-input${signal ? ' tp-amber-fig' : ''}`} inputMode="decimal" data-testid="tp-deal-pct"
+                      aria-label="Deal discount, percent" placeholder="0.0"
+                      value={dealMode === 'discount' ? dealPct : dealMode === 'fee' && deal && signal ? formatPct(deal.ratio, 1) : ''}
+                      onChange={(e) => { setDealMode('discount'); setDealPct(e.target.value) }} /> %</span>
+                </label>
+                <span className="tp-deal-or">or</span>
+                <label className="tp-deal-field">
+                  <span className="tp-label" data-testid="tp-deal-fee-label">Deal fee / mo at {term} months</span>
+                  <input className={`tp-num tp-money tp-deal-input${signal ? ' tp-amber-fig' : ''}`} inputMode="decimal" data-testid="tp-deal-fee"
+                    aria-label={`Deal fee per month at ${term} months`} placeholder={deal ? money(deal.listMonthlyCents) : ''}
+                    value={dealMode === 'fee' && dealFeeTerm === term ? dealFee : dealMode !== 'none' && deal && signal ? money(deal.dealMonthlyCents) : ''}
+                    onChange={(e) => { setDealMode('fee'); setDealFee(e.target.value); setDealFeeTerm(term) }} />
+                </label>
+                <p className="tp-small tp-muted tp-deal-note">Type either one; the other fills in. Amber means the price departs from list. A discount off list is an approval signal. Below the {floorShownPct}% floor flags, never refuses.</p>
+              </div>
+              {dealError && <p className="tp-error" role="alert" data-testid="tp-deal-error">{dealError}</p>}
+            </section>
+          )}
+
           {!params.ok && <section className="tp-card"><p className="tp-error" role="alert">The settings cannot be priced: {params.message}</p></section>}
           {price && 'error' in price && <section className="tp-card"><p className="tp-error" role="alert" data-testid="tp-error">{price.error}</p></section>}
           {ladderResult && 'error' in ladderResult && !(price && 'error' in price) && (
@@ -576,8 +649,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                   "OPEX / cam / mo" only (C-10). */}
               <table className="tp-table" data-testid="tp-ladder">
                 <thead><tr>
-                  <th>Term</th><th>Monthly fee (yr 1)</th><th>SafeSight / cam / mo</th>
-                  <th>vs {compareTerm} months</th><th>Base TCV</th><th>Margin</th>
+                  <th>Term</th><th>List fee / mo</th><th>Deal fee / mo</th><th>SafeSight / cam / mo (list)</th>
+                  <th data-testid="tp-ladder-vs-head">vs {compareTerm} months</th><th>Base TCV</th><th>Margin</th>
                 </tr></thead>
                 <tbody>
                   {ladder.map((r) => {
@@ -585,12 +658,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                     // prices nothing, cannot be chosen, and says why.
                     if (!r.priced) {
                       return (
-                        <tr key={r.termMonths} className="tp-ladder tp-ladder-missing" data-testid={`tp-ladder-${r.termMonths}`} data-priced="false">
+                        <tr key={r.termMonths} className="tp-ladder tp-ladder-missing" data-testid={`tp-ladder-${r.termMonths}`} data-priced="false" aria-disabled="true">
                           <td>{r.termMonths} months</td>
-                          <td colSpan={5} className="tp-warn-text" data-testid={`tp-ladder-missing-${r.termMonths}`}>
+                          <td className="tp-muted">-</td>
+                          <td colSpan={2} className="tp-amber-fig" data-testid={`tp-ladder-missing-${r.termMonths}`}>
                             ⚠ {r.missing.code === 'NO_PRICE_LADDER' ? `No price ladder for ${productLabel(r.missing.product)}`
                               : `No price ladder price for ${r.termMonths} months (${productLabel(r.missing.product)})`}
                           </td>
+                          <td className="tp-muted">-</td><td className="tp-muted">-</td><td className="tp-muted">-</td>
                         </tr>
                       )
                     }
@@ -601,17 +676,25 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                         data-testid={`tp-ladder-${r.termMonths}`} aria-selected={on}
                         onClick={() => chooseTerm(r.termMonths)} onKeyDown={(e) => onLadderKey(e, r.termMonths)}>
                         <td>{r.termMonths} months{on && <span className="tp-tick" aria-hidden="true"> ✓</span>}</td>
-                        <td>{money(r.monthlyTotalCents)}</td>
+                        <td className="tp-muted" data-testid={`tp-ladder-list-${r.termMonths}`}>{money(r.listMonthlyCents)}</td>
+                        <td className={signal ? 'tp-amber-fig' : undefined} data-testid={`tp-ladder-deal-${r.termMonths}`}>{money(r.monthlyTotalCents)}</td>
                         <td data-testid={`tp-ladder-percam-${r.termMonths}`}>{r.perCameraCents === null ? '-' : money(r.perCameraCents)}</td>
-                        <td className={v.kind === 'saving' ? 'tp-saving' : v.kind === 'premium' ? 'tp-premium' : undefined}>{v.text}</td>
-                        <td>{money(r.tcvNetCents)}</td>
-                        <td>{pct(r.grossMargin)}</td>
+                        <td className={v.kind === 'saving' ? 'tp-saving' : v.kind === 'premium' ? 'tp-premium' : undefined} data-testid={`tp-ladder-vs-${r.termMonths}`}>{v.text}</td>
+                        <td data-testid={`tp-ladder-base-${r.termMonths}`}>{money(r.tcvNetCents)}</td>
+                        <td data-testid={`tp-ladder-margin-${r.termMonths}`}>{pct(r.grossMargin)}</td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
-              <p className="tp-small tp-muted" data-testid="tp-ladder-note">Click a row to quote it. Longer terms lower the monthly fee and raise total profit.</p>
+              <p className="tp-small tp-muted" data-testid="tp-ladder-note">Click a row to quote it. Deal fee = list, less volume bands, less the deal discount. The deal discount applies at every term, so switching term keeps it.</p>
+              {/* Ruling 7: the source sits where a fee shows. */}
+              <div className="tp-srcline" data-testid="tp-srcline">
+                <span className="tp-label">Price source</span>
+                {PRODUCTS.map((p) => (unitCounts[p.key] > 0
+                  ? <span key={p.key} data-testid={`tp-src-${p.key}`}>{p.label} <span className="tp-tag tp-tag-go">Price ladder</span></span>
+                  : <span key={p.key} className="tp-muted" data-testid={`tp-src-${p.key}`}>{p.label} not quoted</span>))}
+              </div>
             </section>
           )}
 
@@ -644,6 +727,14 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                     // TERM_FACTORING (Phase 2 sign-off): under Pass through the
                     // product total carries the pass-through and its bands do
                     // not, so the total is not their sum. One text line says so.
+                    // TP_LADDER A4: the deal discount comes off the product's
+                    // total, and its bands stay LIST (spec 4.7), so the total is
+                    // not their sum. Said in one line, as the pass-through is.
+                    ...(l.dealDiscountMonthlyCents > 0n ? [
+                      <tr key={`${l.product}-deal`} className="tp-pt-note" data-testid={`tp-breakdown-deal-${l.product}`}>
+                        <td colSpan={8}>{productLabel(l.product)} total is after its share of the deal discount, {money(l.dealDiscountMonthlyCents)} a month. The bands above are at list.</td>
+                      </tr>,
+                    ] : []),
                     ...(l.passThrough ? [
                       <tr key={`${l.product}-pt`} className="tp-pt-note" data-testid={`tp-breakdown-pt-${l.product}`}>
                         <td colSpan={8}>{productLabel(l.product)} total includes the factoring cost passed through at cost: {money(l.passThrough.perUnitMonthlyCents)} per unit per month beside the bands{l.passThrough.remainderCents !== 0n ? `, month ${term} adjusted by ${signedMoney(money, l.passThrough.remainderCents)}` : ''}. The bands above are unchanged.</td>
@@ -665,9 +756,15 @@ export function TermPricingView({ navToken }: { navToken: number }) {
             <section className="tp-card tp-price-card" aria-label="The price" data-testid="tp-price">
               <h2 className="tp-h2">The price <span className="tp-tag tp-tag-go" data-testid="tp-approval-tag">Approval</span></h2>
               <div className="tp-label">Base TCV</div>
-              <div className="tp-v tp-big" data-testid="tp-p-base">{money(p0.tcvNetCents)}</div>
+              <div className={`tp-v tp-big${signal ? ' tp-amber-fig' : ''}`} data-testid="tp-p-base">{money(p0.tcvNetCents)}</div>
+              {/* Frame A (A4): list, the discount, and what it is worth. */}
+              <div className="tp-price-grid tp-price-grid3">
+                <div><div className="tp-label">List TCV</div><div className="tp-v" data-testid="tp-p-list">{money(p0.dealDiscount.listTcvCents)}</div></div>
+                <div><div className="tp-label">Deal discount</div><div className={`tp-v${signal ? ' tp-amber-fig' : ''}`} data-testid="tp-p-discount">{signal ? `${formatPct(p0.dealDiscount.ratio, 1)}%` : '-'}</div></div>
+                <div><div className="tp-label">Discount value</div><div className="tp-v" data-testid="tp-p-discount-value">{signal ? money(p0.dealDiscount.discountValueCents) : '-'}</div></div>
+              </div>
               <div className="tp-price-grid">
-                <div><div className="tp-label">Monthly fee (yr 1)</div><div className="tp-v" data-testid="tp-p-monthly">{money(p0.monthlyTotalCents)}</div></div>
+                <div><div className="tp-label">Deal fee (yr 1)</div><div className={`tp-v${signal ? ' tp-amber-fig' : ''}`} data-testid="tp-p-monthly">{money(p0.monthlyTotalCents)}</div></div>
                 <div><div className="tp-label">Term</div><div className="tp-v" data-testid="tp-p-term">{term} months</div></div>
                 <div><div className="tp-label">Gross profit</div><div className="tp-v" data-testid="tp-p-profit">{money(p0.grossProfitCents)}</div></div>
                 <div><div className="tp-label">Margin on price</div><div className="tp-v" data-testid="tp-p-margin">{pct(p0.grossMargin)}</div></div>
@@ -676,6 +773,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <div className={p0.belowMarginFloor ? 'tp-chip tp-flag' : 'tp-ok tp-floor'} data-testid="tp-p-floor">
                 {p0.belowMarginFloor ? `Below the ${formatPct(p0.marginFloor, 1).replace(/\.0$/, '')}% margin floor` : `✓ Above the ${formatPct(p0.marginFloor, 1).replace(/\.0$/, '')}% margin floor`}
               </div>
+              {signal && <p className="tp-amber-fig tp-signal" data-testid="tp-p-signal">⚑ Approval signal: {formatPct(p0.dealDiscount.ratio, 1)}% below list</p>}
               {fxPrice && (
                 <p className="tp-small tp-muted" data-testid="tp-p-factoring">{fxPrice.treatment === 'absorb'
                   ? `After the factoring cost of ${money(fxPrice.costCents)}. Before it: ${money(fxPrice.profitBeforeFinanceCents ?? 0n)}, ${fxPrice.marginBeforeFinance ? pct(fxPrice.marginBeforeFinance) : '-'}.`
@@ -694,6 +792,9 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       <SettingsCard state={data} open={settingsOpen} onToggle={() => setSettingsOpen(!settingsOpen)}
         draft={draft ?? draftFrom(data.settings)} setDraft={setDraft}
         onSaved={() => qc.invalidateQueries({ queryKey: TERM_PRICING_KEY })}
+        ladder={<PriceLadderEditor state={data} product={ladderProduct} onProduct={setLadderProduct}
+          drafts={ladderDrafts} setDrafts={setLadderDrafts}
+          onSaved={(next) => qc.setQueryData([...TERM_PRICING_KEY, navToken], next)} />}
         bands={<BandEditor state={data} product={bandProduct} onProduct={setBandProduct}
           drafts={bandDrafts} setDrafts={setBandDrafts}
           onSaved={(next) => qc.setQueryData([...TERM_PRICING_KEY, navToken], next)} />} />
@@ -1199,9 +1300,9 @@ function changesFrom(s: Settings, d: Draft): Settings {
   return out
 }
 
-function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft, bands }: {
+function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft, ladder, bands }: {
   state: ServerState; open: boolean; onToggle: () => void; onSaved: () => void; draft: Draft; setDraft: (d: Draft) => void
-  bands: ReactNode
+  ladder: ReactNode; bands: ReactNode
 }) {
   const shell = useShell()
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -1257,6 +1358,8 @@ function SettingsCard({ state, open, onToggle, onSaved, draft, setDraft, bands }
               <button type="button" className="btn-primary" data-testid="tp-settings-save" disabled={!dirty || saving} onClick={save}>{saving ? 'Saving...' : 'Save settings'}</button>
             </div>
           )}
+          {/* Frames C and D: above "Volume discount bands" (A6). */}
+          {ladder}
           {bands}
         </div>
       )}
@@ -1502,4 +1605,291 @@ function BandEditor({ state, product, onProduct, drafts, setDrafts, onSaved }: {
       </div>
     </section>
   )
+}
+
+
+// ── THE PRICE LADDER EDITOR (TP_LADDER A6, mockup frames C and D) ──────────
+//
+// Built to prototypes/term-pricing-ladder.html, frames C (SafeSight) and D
+// (HEMIR). Content, order, labels and behaviour are binding; type and colour
+// are the estate's tokens, as every Term Pricing surface (C13).
+//
+// Every figure is the ENGINE'S: the rules are validateLadder (3.3), run as
+// the admin types and again by the server; the table, the checks, the margin
+// grid and BOTH CHARTS are one bandMarginGrid on the bands as stored and the
+// prices AS TYPED, so a chart point is the grid's own figure, never a second
+// computation (A6: "prove each chart's points equal the grid's figures").
+// Any catalog product (A7, ruling 10); no removal (ruling 3). A non-admin reads
+// the same editor, disabled.
+
+type LadderDrafts = Record<string, { rows: Record<string, string>; base: Record<string, string> }>
+
+const storedLadders = (s: Settings) => (s.PRICE_LADDER_BY_PRODUCT ?? {}) as Record<string, Record<string, string>>
+const termsOf = (s: Settings) => (s.TERMS ?? []) as number[]
+/** A stored price as the editor shows it: "2500.00" -> "2,500.00". */
+const shownPrice = (v: string | undefined) => {
+  if (v === undefined) return ''
+  const [whole, part] = v.split('.')
+  return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${part === undefined ? '' : `.${part}`}`
+}
+const ladderRowsFrom = (stored: Record<string, string> | undefined, terms: number[]) =>
+  Object.fromEntries(terms.map((t) => [String(t), shownPrice(stored?.[String(t)])]))
+const sameLadder = (rows: Record<string, string>, terms: number[], base: Record<string, string> | undefined) => {
+  const v = validateLadder(rows, terms)
+  if (!base) return terms.every((t) => (rows[String(t)] ?? '').trim() === '')
+  return v.ok && terms.every((t) => v.ladder![String(t)] === base[String(t)])
+}
+
+/** On a reload, a product's draft is refreshed only if it held no unsaved change. */
+function refreshLadderDrafts(prev: LadderDrafts, s: Settings): LadderDrafts {
+  const out: LadderDrafts = {}
+  const terms = termsOf(s)
+  for (const [p, stored] of Object.entries(storedLadders(s))) {
+    const d = prev[p]
+    out[p] = d && !sameLadder(d.rows, terms, d.base) ? d : { rows: ladderRowsFrom(stored, terms), base: stored }
+  }
+  for (const [p, d] of Object.entries(prev)) if (!(p in out)) out[p] = d
+  return out
+}
+
+/** A figure on a chart axis: whole units, "15k" from 10,000. */
+const axisMoney = (units: number) => (Math.abs(units) >= 10000
+  ? `${Math.round(units / 1000)}k`
+  : Math.round(units).toLocaleString('en-US'))
+
+const BAND_OPACITY = [1, 0.6, 0.4, 0.25, 0.18, 0.12]
+
+/**
+ * One chart, plain SVG (A6: no chart library). `series` is one line per band;
+ * each point is a grid cell's own figure in cents, carried on the circle as
+ * data-cents so a probe can hold it against the grid. A term with no price is
+ * a gap in the line, never a zero.
+ */
+function LadderChart({ title, testid, terms, series }: {
+  title: string; testid: string; terms: number[]
+  series: Array<{ band: number; label: string; points: Array<{ term: number; cents: bigint | null }> }>
+}) {
+  const W = 520, H = 230, X0 = 58, X1 = 506, YT = 26, YB = 196
+  const values = series.flatMap((s) => s.points.flatMap((p) => (p.cents === null ? [] : [Number(p.cents) / 100])))
+  const hi = values.length ? Math.max(...values, 0) : 1
+  const lo = values.length ? Math.min(...values, 0) : 0
+  const top = hi === lo ? lo + 1 : hi + (hi - lo) * 0.08
+  const bottom = lo < 0 ? lo - (hi - lo) * 0.08 : 0
+  const x = (i: number) => (terms.length < 2 ? X0 : X0 + (i * (X1 - X0)) / (terms.length - 1))
+  const y = (v: number) => YB - ((v - bottom) / (top - bottom)) * (YB - YT)
+  const ticks = [0, 1, 2, 3, 4].map((k) => bottom + ((top - bottom) * k) / 4)
+  return (
+    <div className="tp-chart" data-testid={testid}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="tp-chart-svg" role="img" aria-label={title}>
+        <text x={X0} y={14} className="tp-chart-title">{title}</text>
+        {ticks.map((t, k) => (
+          <g key={k}>
+            <line x1={X0} x2={X1} y1={y(t)} y2={y(t)} className="tp-chart-grid" />
+            <text x={X0 - 6} y={y(t) + 4} className="tp-chart-axis" textAnchor="end">{axisMoney(t)}</text>
+          </g>
+        ))}
+        {terms.map((t, i) => <text key={t} x={x(i)} y={216} className="tp-chart-axis" textAnchor="middle">{t}</text>)}
+        <text x={(X0 + X1) / 2} y={229} className="tp-chart-axis" textAnchor="middle">term, months</text>
+        {series.map((s, si) => {
+          const opacity = BAND_OPACITY[si] ?? 0.12
+          const runs: string[][] = [[]]
+          s.points.forEach((p, i) => {
+            if (p.cents === null) { runs.push([]); return }
+            runs[runs.length - 1].push(`${x(i).toFixed(1)},${y(Number(p.cents) / 100).toFixed(1)}`)
+          })
+          return (
+            <g key={s.band} data-testid={`${testid}-band-${s.band}`} style={{ opacity }}>
+              {runs.filter((r) => r.length > 1).map((r, k) => <polyline key={k} points={r.join(' ')} className={`tp-chart-line${si === 0 ? ' tp-chart-lead' : ''}`} />)}
+              {s.points.map((p, i) => (p.cents === null ? null : (
+                <circle key={p.term} cx={x(i).toFixed(1)} cy={y(Number(p.cents) / 100).toFixed(1)} r={si === 0 ? 2.6 : 1.8}
+                  className="tp-chart-dot" data-band={s.band} data-term={p.term} data-cents={String(p.cents)} />
+              )))}
+            </g>
+          )
+        })}
+      </svg>
+      <div className="tp-chart-legend">
+        {series.map((s, si) => (
+          <span key={s.band} className="tp-chart-key"><i style={{ opacity: BAND_OPACITY[si] ?? 0.12 }} className={si === 0 ? 'tp-chart-key-lead' : undefined} />{s.label}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PriceLadderEditor({ state, product, onProduct, drafts, setDrafts, onSaved }: {
+  state: ServerState; product: string; onProduct(p: string): void
+  drafts: LadderDrafts; setDrafts(f: (d: LadderDrafts) => LadderDrafts): void; onSaved(next: ServerState): void
+}) {
+  const shell = useShell()
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string; problems?: string[] } | null>(null)
+  const admin = state.isAdmin
+  const terms = termsOf(state.settings)
+  // A7: every catalog product, with or without a price ladder yet.
+  const offered = PRODUCTS.filter((p) => state.costs[p.key])
+  const stored = storedLadders(state.settings)[product]
+  const rows = drafts[product]?.rows ?? ladderRowsFrom(stored, terms)
+  const v = validateLadder(rows, terms)
+  const dirty = !sameLadder(rows, terms, stored)
+  const name = productLabel(product)
+  const bands = storedBands(state.settings)[product] ?? []
+  const grid: BandGrid = useMemo(() => {
+    try { return bandMarginGrid(product, bands, buildParams(state.settings, state.costs), rows) }
+    catch (e) { return { ok: false as const, problems: [{ band: null, field: 'count' as const, message: (e as Error).message }] } }
+  }, [product, JSON.stringify(rows), state])
+  const cost = state.costs[product]
+
+  const setRows = (next: Record<string, string>) => {
+    setDrafts((d) => ({ ...d, [product]: { rows: next, base: d[product]?.base ?? stored ?? {} } }))
+    setMessage(null)
+  }
+  const discard = () => { setDrafts((d) => ({ ...d, [product]: { rows: ladderRowsFrom(stored, terms), base: stored ?? {} } })); setMessage(null) }
+
+  async function save() {
+    if (!admin || !dirty || !v.ok || saving) return
+    setSaving(true)
+    const r = await shell.api<ServerState & { error?: string; problems?: Array<{ message: string }> }>(
+      'PUT', `/api/term-pricing/price-ladder/${product}`, { prices: rows })
+    setSaving(false)
+    if (!r.ok) {
+      setMessage({ kind: 'error', text: r.data?.error ?? `The price ladder was not saved (${r.status ?? 'network'}).`,
+        problems: r.data?.problems?.map((p) => p.message) })
+      return
+    }
+    // The route answers with the state AFTER the write (as the bands save).
+    const saved = r.data?.settings ? storedLadders(r.data.settings)[product] : undefined
+    if (saved) setDrafts((d) => ({ ...d, [product]: { rows: ladderRowsFrom(saved, terms), base: saved } }))
+    setMessage({ kind: 'ok', text: `Saved. Every quote priced from now on uses this ${name} price ladder.` })
+    if (r.data?.settings) onSaved(r.data)
+  }
+
+  const cellAt = (band: number, t: number) => (grid.ok ? grid.rows[band - 1]?.cells.find((c) => c.termMonths === t) : undefined)
+  const series = (field: 'feeCents' | 'profitCents') => (grid.ok ? grid.rows.map((r) => ({
+    band: r.band, label: `Band ${r.band} · ${r.discountPct}%`,
+    points: terms.map((t) => { const c = r.cells.find((x) => x.termMonths === t); return { term: t, cents: c?.priced ? (c[field] ?? null) : null } }),
+  })) : [])
+  const shownErrors = message?.kind === 'error' ? (message.problems?.length ? message.problems : [message.text]) : v.problems.map((p) => p.message)
+  const floor = grid.ok ? formatPct(grid.floor, 1).replace(/\.0$/, '') : ''
+  const chip = (key: 'floor' | 'total' | 'profit', okText: string, failText: string) => {
+    if (!grid.ok) return null
+    const c = grid.checks[key]
+    const where = c.cells.map((x) => `band ${x.band} at ${x.termMonths}`).join(', ')
+    return (
+      <span key={key} className={`tp-check-chip${c.ok ? '' : ' is-warn'}`} data-testid={`tp-pl-chip-${key}`}>
+        <span className={c.ok ? 'tp-ok' : 'tp-amber-fig'} aria-hidden="true">{c.ok ? '✓' : '⚠'}</span> {c.ok ? okText : `${failText}: ${where}`}
+      </span>
+    )
+  }
+
+  return (
+    <section className="tp-bands tp-pl" aria-label="Price ladder" data-testid="tp-pl">
+      <div className="tp-bands-head">
+        <div>
+          {admin && <div className="tp-small tp-muted" data-testid="tp-pl-eyebrow">Term Pricing · Settings · Admin edits</div>}
+          <h3 className="tp-h2">Price ladder</h3>
+        </div>
+        {admin && (
+          <div className="tp-bands-actions">
+            <button type="button" className="btn-ghost" data-testid="tp-pl-discard" disabled={!dirty || saving} onClick={discard}>Discard</button>
+            <button type="button" className="btn-primary" data-testid="tp-pl-save" disabled={!dirty || !v.ok || saving} onClick={save}>{saving ? 'Saving...' : 'Save price ladder'}</button>
+          </div>
+        )}
+      </div>
+      {!admin && <p className="tp-small tp-muted" data-testid="tp-pl-readonly">Only an admin can change these.</p>}
+
+      <div className="tp-inline-row tp-bands-product">
+        <span className="tp-label tp-inline-label">Product</span>
+        <Seg<string> label="Price ladder product" testid="tp-pl-product" value={product} onChoose={(p) => { onProduct(p); setMessage(null) }}
+          options={offered.map((p) => ({ key: p.key, label: p.label }))} />
+        <span className="tp-small tp-muted">Each product has its own price ladder: the list price. A product without one prices nothing. Volume bands apply on top.</span>
+      </div>
+      {cost && (
+        <div className="tp-inline-row" data-testid="tp-pl-costs">
+          <span className="tp-label tp-inline-label">Costs (catalog)</span>
+          <span className="tp-small tp-muted">hardware {Number(cost.hwCost).toLocaleString('en-US')} per unit · hosting {Number(cost.hostingMonthly).toLocaleString('en-US')} per unit per month</span>
+        </div>
+      )}
+
+      {grid.ok && (
+        <>
+          <div className="tp-charts" data-testid="tp-pl-charts">
+            <LadderChart title={`${name} · list price per unit per month, by band`} testid="tp-pl-chart-price" terms={terms} series={series('feeCents')} />
+            <LadderChart title={`${name} · profit per unit over the contract, by band`} testid="tp-pl-chart-profit" terms={terms} series={series('profitCents')} />
+          </div>
+          <p className="tp-small tp-muted">Both charts redraw as you type. The left shows the price curve; the right shows whether a longer term still earns Terminus more. A line that dips is the same warning the checks give.</p>
+        </>
+      )}
+
+      {/* Frame C: the table beside the checks and the grid, two columns that
+          fall to one where two do not fit. */}
+      <div className="tp-pl-cols">
+        <div data-testid="tp-pl-editor">
+          <div className="tp-sec-title">{name} price ladder, {state.settings.CURRENCY as string} per unit per month</div>
+          <table className="tp-table tp-pl-table">
+            <thead><tr><th>Term</th><th>Price / unit / mo</th><th data-testid="tp-pl-vs-head">vs {grid.ok ? grid.compareTerm : ''} months</th><th>Client total, 1 unit</th><th>Profit, 1 unit</th></tr></thead>
+            <tbody>{terms.map((t) => {
+              const c = cellAt(1, t)
+              const bad = v.problems.some((p) => p.termMonths === t)
+              const vs = !c?.priced ? '' : t === (grid.ok ? grid.compareTerm : -1) ? 'list' : c.vsCompare ? signed(c.vsCompare) : '-'
+              return (
+                <tr key={t} data-testid={`tp-pl-row-${t}`}>
+                  <td>{t} months</td>
+                  <td><input className="tp-num tp-money tp-pl-input" inputMode="decimal" aria-label={`${name} price per unit per month, ${t} months`}
+                    data-testid={`tp-pl-price-${t}`} value={rows[String(t)] ?? ''} disabled={!admin} aria-invalid={bad || undefined}
+                    onChange={(e) => setRows({ ...rows, [String(t)]: e.target.value })} /></td>
+                  <td data-testid={`tp-pl-vs-${t}`}>{vs}</td>
+                  <td data-testid={`tp-pl-total-${t}`}>{c?.priced && c.tcvCents !== undefined ? money(c.tcvCents) : '-'}</td>
+                  <td data-testid={`tp-pl-profit-${t}`}>{c?.priced && c.profitCents !== undefined ? money(c.profitCents) : '-'}</td>
+                </tr>
+              )
+            })}</tbody>
+          </table>
+          {shownErrors.length > 0 && (
+            <div className="tp-bands-problems" role="alert" data-testid="tp-pl-problems">
+              {shownErrors.map((m, i) => <p key={i} className="tp-error">{m}</p>)}
+            </div>
+          )}
+          <p className="tp-small tp-muted">Refused on save: a missing term, a price of 0 or less, more than 2 decimals.</p>
+          {message?.kind === 'ok' && <p className="tp-small" role="status" data-testid="tp-pl-message">{message.text}</p>}
+        </div>
+
+        <div className="tp-bands-check">
+          <div className="tp-sec-title">Checks · every band, every term</div>
+          {grid.ok && (
+            <div className="tp-check-chips" data-testid="tp-pl-chips">
+              {chip('floor', `Above the ${floor}% floor at every band`, `Below the ${floor}% floor at`)}
+              {chip('total', 'Client total never falls with a longer term', 'Client total falls at')}
+              {chip('profit', 'Profit never falls with a longer term', 'Profit falls at')}
+            </div>
+          )}
+          <div className="tp-sec-title">Margin per band · floor {floor}%</div>
+          {grid.ok ? (
+            <table className="tp-table tp-bands-margins" data-testid="tp-pl-grid">
+              <thead><tr><th>Band</th>{terms.map((t) => <th key={t}>{t}</th>)}</tr></thead>
+              <tbody>{grid.rows.map((r) => (
+                <tr key={r.band} data-testid={`tp-pl-grid-row-${r.band}`}>
+                  <td>{r.band} · {r.discountPct}%</td>
+                  {r.cells.map((c) => (
+                    <td key={c.termMonths} data-testid={`tp-pl-grid-${r.band}-${c.termMonths}`} data-below={c.belowFloor ? 'true' : undefined}
+                      data-fee-cents={c.priced ? String(c.feeCents) : undefined} data-profit-cents={c.priced ? String(c.profitCents) : undefined}>
+                      {!c.priced || !c.margin ? '-' : c.belowFloor ? <span className="tp-chip tp-flag tp-bands-cell">{formatPct(c.margin, 1)}</span> : formatPct(c.margin, 1)}
+                    </td>
+                  ))}
+                </tr>
+              ))}</tbody>
+            </table>
+          ) : <div className="tp-small tp-muted">Fix the band rules to see the checks.</div>}
+          <div className="tp-small tp-muted">Margin on price, %, at the prices as typed. Warnings never block a save.</div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** A change as the ladder prints it: "+131.5%", "−19.0%" (U+2212). */
+function signed(r: { n: bigint; d: bigint }) {
+  const s = formatPct(r, 1)
+  if (s === '0.0' || s === '-0.0') return '0.0%'
+  return s.startsWith('-') ? `−${s.slice(1)}%` : `+${s}%`
 }

@@ -241,6 +241,13 @@ const AMBER_FAMILY = [
   // figure the factoring exists to answer (the mockup's #E8B04B, a stand-in
   // for this token by its own note).
   '.tp-cf-attention .tp-v',
+  // ── TP_LADDER Phase 2, 2026-11-17 ──────────────────────────────────────
+  //
+  // ONE site, minted on purpose so the census moves by one: a figure that
+  // departs from list (the deal fee, Base TCV, the discount, the inputs), the
+  // approval signal, a term with no price, and a failing check's mark. All one
+  // meaning: this needs the eye before approval. Borders follow currentColor.
+  '.tp-amber-fig',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

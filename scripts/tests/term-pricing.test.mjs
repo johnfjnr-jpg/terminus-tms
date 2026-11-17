@@ -1812,6 +1812,18 @@ test('3.3 validateLadder: every rule, in term order, strays last; the stored sha
   for (const junk of [null, undefined, [], 'text', 7]) assert.equal(ENGINE.validateLadder(junk, T3).problems.length, 3, JSON.stringify(junk))
 })
 
+test('A6, frame C: each grid cell carries its fee against the compare term\'s, as typed; null when that term has no price', () => {
+  // Frame C's column, the seed at band 1: 2,500 / 1,080 - 1 = +131.5%; 875 /
+  // 1,080 - 1 = -19.0%; 36 is 0 (the screen says "list").
+  const g = ENGINE.bandMarginGrid('safesight', SEED_BANDS, LG)
+  const at = (t) => g.rows[0].cells.find((c) => c.termMonths === t).vsCompare
+  assert.deepEqual([vsCompare({ n: -at(12).n, d: at(12).d }), vsCompare({ n: -at(48).n, d: at(48).d }), at(36).n], ['+131.5%', '−19.0%', 0n])
+  // Band 4 compares with band 4: 2,125.00 / 918.00 - 1, the same ratio, since both are 15% off.
+  assert.deepEqual(g.rows[3].cells.find((c) => c.termMonths === 12).vsCompare, at(12))
+  const typed = Object.fromEntries(Object.entries(SEED_LADDER.safesight).map(([t, v]) => [t, t === '36' ? '' : v]))
+  assert.equal(ENGINE.bandMarginGrid('safesight', SEED_BANDS, LG, typed).rows[0].cells.find((c) => c.termMonths === 12).vsCompare, null)
+})
+
 test('A6: the grid reads the price ladder AS TYPED; a blank or invalid typed price is a gap, compared across; equal is not a fall', () => {
   const typed = { 12: '1,000.00', 24: '500.00', 36: '', 48: 'x', 60: '400', 72: '400', 84: '400', 96: '400', 108: '400', 120: '400' }
   const g = ENGINE.bandMarginGrid('safesight', SEED_BANDS, SPEC_PARAMS, typed)
