@@ -103,3 +103,58 @@ RIDER as proposed (state-dump reads the current batch per product).
 Proceed through the build. Migration: draft in supabase/migrations,
 John applies it before the push wrapped in begin/commit, as last time.
 Stop for sign-off after the build is proved, before Phase 3.
+
+## Migration applied, and the post-apply order (John, 2026-11-17), appended verbatim
+
+MIGRATION 20261117000002 APPLIED by John, wrapped in begin/commit;
+ledger row recorded by hand. Confirm the column, both triggers and the
+raise function's definition match the file.
+
+ORDER:
+1. Run the FULL database suite and all HTTP probes first. They passed
+   before the triggers existed. If any fixture or probe creates a
+   version already 'issued', or updates one, it now fails: FIX THE
+   FIXTURE (born draft, submitted through the route or the service
+   role with figures). Never loosen a trigger. Report each fixture
+   changed and why.
+2. Run probe-frozen-figures-db.mjs, then calibrate it as planned: drop
+   the INSERT trigger's issued branch, the service-role check, the
+   owner check, and the Closed Won derivation; each must fire its named
+   claim; restore byte-identical; reverted run green. Calibration edits
+   to database functions run in a transaction you roll back, never
+   left applied.
+3. R-FF1 over HTTP on a fixture: submit, read frozen_figures, the
+   approval page renders them, today's engine agrees.
+
+QUEUED, add to the list: the headline TCV ($227,138) vs Commercials
+contract net ($270,587) disagreement on a fixture, measured in its own
+round; PRICING_KEY_LABELS lagging six pricing keys.
+
+Then the sign-off report. Stop before Phase 3.
+
+## Calibration result and build sign-off (John, 2026-11-17), appended verbatim at the phase it launches
+
+CALIBRATION RUN by John in the SQL editor, wrapped begin/rollback:
+DEF 3/3 match the file; column jsonb; both triggers present;
+INJ 5/5 FIRED; REV 5/5 REFUSED (R-FF4 froze V1 425e27bb as expected).
+Post-run check: deal_sheet_versions_immutable still holds the service
+and owner guards (both true). Record this result verbatim in the brief.
+
+BUILD SIGN-OFF: FROZEN_FIGURES. Build ACCEPTED.
+Tear down ffsqlcal and show zero residue.
+
+Proceed to PHASE 3:
+- DESIGN_PRINCIPLES: frozen_figures as the rule-6 audit-snapshot
+  exception to Architecture 2; supersede COMMERCIALS FACTORING
+  decision 4 (option a) with its reasoning left visible; record that a
+  database guard is calibrated by SQL in one rolled-back block, because
+  PostgREST cannot observe a rolled-back function (this round's
+  finding); record the engine-id caveat (commit = HEAD at server start;
+  the calculator sha256 pins the code).
+- CURRENT_STATE regenerated (now with base_cost_batches).
+- Full gate, all 27 stages, none skipped.
+- Merge to main, report "ready for John's push" with the SHA.
+Stop there. Do not push.
+
+Recorded at the close of the build: ffsqlcal torn down, zero live records
+carrying the tag (the same scan read 5 for a known live name).
