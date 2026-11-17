@@ -115,3 +115,78 @@ SEQUENCE: close and push COMMERCIALS_FACTORING first. Return the checkout
 to commercials-factoring now for its Phase 2 sign-off. TP_LADDER resumes
 after that push, and builds nothing until John approves the mockup
 (prototypes/term-pricing-ladder.html).
+
+## Phase 0 addendum (John, 2026-11-17), appended verbatim at the phase it launches
+
+PHASE 0 ADDENDUM: TP_LADDER (John, 2026-11-17). SUPERSEDES the Phase 0
+sign-off where they conflict. Append verbatim to TP_LADDER_BRIEF.md as
+its own commit first.
+
+PRECONDITION: git ls-remote origin refs/heads/main must read e123cf6
+(COMMERCIALS_FACTORING pushed). If not, STOP. Then switch to tp-ladder
+and rebase it onto e123cf6; hook green; report the base.
+
+MOCKUP APPROVED: prototypes/term-pricing-ladder.html (John placed it in
+the working tree; commit it unchanged as the picture of record, v2,
+Air Quality option a). Its figures are illustrative; the engine computes.
+
+A1. THE FORMULA IS REMOVED. Every product prices from its price ladder
+    (the LIST price). A product with no price ladder, or no price at a
+    term, prices NOTHING and is flagged (amended L-8 extends to whole
+    products: "No price ladder for <product>"). Remove ANCHOR_TERM,
+    ANCHOR_MARGIN, SHORT_TERM_MARGIN, PROFIT_STEP from the engine,
+    settings, Settings card and spec. HW_UPFRONT_MARGIN: list every
+    reader first; if CAPEX or anything live reads it, KEEP it and say so;
+    otherwise remove it too. PRICE_LADDER_BY_PRODUCT becomes REQUIRED
+    for the screen to price (L-10's "absent = formula" is withdrawn;
+    absent = not priced). The 74-case PROFIT_STEP finding is closed as
+    moot.
+A2. SEEDS, all three in the migration (USD per unit per month):
+    safesight   12:2500 24:1500 36:1080 48:875 60:750 72:665 84:605
+                96:560 108:525 120:500
+    air_quality 12:1000 24:600 36:432 48:350 60:300 72:266 84:242
+                96:224 108:210 120:200
+    hemir       12:15000 24:9000 36:6480 48:5250 60:4500 72:3990
+                84:3630 96:3360 108:3150 120:3000
+    The migration drops the removed keys and narrows the key allowlist.
+    Its rollback restores them with the values read live in Phase 0.
+    John applies it after his push; ledger row by hand.
+A3. CATALOG COSTS (John's figures): SafeSight hardware 8,000, hosting
+    200/mo; Air Quality hardware 2,000, hosting 50/mo; HEMIR hardware
+    100,000, hosting 200/mo. Read the live catalog. Where it differs,
+    John rules GO AHEAD: issue ONE new cost batch through the existing
+    batch mechanism (append-only, reason "John 2026-11-17, TP_LADDER"),
+    never edit a batch in place. Before writing it, measure and report
+    which live Opportunities' figures move and by how much. STOP if any
+    CONFIRMED golden moves or any issued version's figures move.
+A4. DEAL ADJUSTMENT (Pricing tab, per mockup frame A): a "Deal
+    adjustment" card under Units. Either-or (R-O7): a deal discount %
+    OR a deal fee per month at the chosen term; typing one derives the
+    other. Order: list, then volume band, then deal discount. The
+    discount applies at every term, so a term switch keeps it. Range
+    0 to 99.9%; a deal fee above list is refused with a sentence
+    (no premiums this round). Amber where a figure departs from list.
+    Price card: Base TCV (deal), List TCV, Deal discount, Discount
+    value, and "Approval signal: N% below list". Below 25% floor flags,
+    never refuses. Screen-only: nothing is stored (P5 stands).
+A5. COMPARE CARD RETIRED, with its tests and probe assertions
+    re-pointed or removed, each with a stated reason.
+A6. PRICE LADDER EDITOR (frames C and D): above Volume discount bands.
+    Product picker, ten inputs, Discard / Save price ladder, catalog
+    costs line, the checks chips and margin-per-band grid (L-7's checks
+    on ALL cells now), and TWO CHARTS redrawn as you type: list price
+    per unit per month by term, and profit per unit over the contract
+    by term, one line per volume band. Plain SVG, no chart library.
+    Prove each chart's points equal the grid's figures.
+A7. Ruling 10 stands (any catalog product editable via the route), and
+    the build proves an air_quality save against the recording database.
+    No removal route (ruling 3 stands).
+A8. Spec v2.0: OPEX price = price ladder; formula sections withdrawn
+    and left visible as superseded; LG-1 to LG-7 re-derived on the
+    price ladder; FA-8 asserts 'ladder' as the source.
+
+PHASES: Phase 1 = engine, settings, migration draft, catalog
+measurement (A3), with unit tests. Phase 2 = screen per mockup, proved
+from the click. Phase 3 = DESIGN_PRINCIPLES, CURRENT_STATE, full gate,
+merge, "ready for John's push". Continue between phases unless a STOP
+condition fires; stop for John's sign-off after Phase 2.
