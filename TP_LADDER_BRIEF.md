@@ -233,3 +233,26 @@ ladder, run by a committed derivation script. The spec and the tests say
 which figures came from which. The new mechanics figures are a labelled
 regression snapshot, not hand-checked; v1.x's hand derivation of the
 mechanics stands, because that code is unchanged.
+
+## Phase 1 sign-off and the Phase 2 launch (John, 2026-11-17), appended verbatim
+
+MIGRATION 20261117000001 APPLIED by John, wrapped in begin/commit;
+ledger row recorded by hand. Confirm by reading term_pricing_settings
+(7 keys, three ladders as seeded) and GET /api/term-pricing answering
+200 on the served tree.
+
+Phase 1 ACCEPTED.
+
+Proceed to PHASE 2: the screen to the approved mockup
+(prototypes/term-pricing-ladder.html), proved from the click:
+- frame A: deal adjustment either-or, amber, price card with list TCV,
+  discount, approval signal; a fee above list refused with its sentence;
+- frame B: a no-price term row (drive it on a fixture, not live);
+- frames C and D: the price ladder editor above Volume discount bands,
+  both charts redrawn as typed, chart points equal to grid figures (A6),
+  checks and margin grid; an admin save proved in the browser on a
+  value you restore afterwards, a non-admin refused;
+- re-point the probes this needs; the rest go to probe triage.
+Phase 3 housekeeping: correct the migration header's "apply after the
+push" to record that it was applied before, on John's ruling.
+Stop for sign-off after Phase 2.
