@@ -404,3 +404,27 @@ describe('C1: the statement equals the derivation layer', () => {
     expect(dr.second!.rows[0].cells[3]).not.toBe('-')
   })
 })
+
+// ── CONTRACT_VALUE ruling 2: AN UNPRICED DEAL'S CONTRACT VALUE READS "--" ──
+//
+// The headline's own rule ("zero is not a contract value, it is an unpriced
+// deal"), applied by the same function. Built the system's way, with nothing
+// priced: no units, no lump sum, no factoring, no Test Bed cost.
+describe('CONTRACT_VALUE: the unpriced deal', () => {
+  const unpriced = build({ ssExisting: 0, ssNew: 0, aqm: 0, hemir: 0, lumpSumCost: 0,
+    installResp: 'Terminus', milestones: [], factoring: { enabled: false } }, true, 0)
+
+  test('the precondition: the engine really prices this at zero', () => {
+    expect(unpriced.result.totals.contractNet).toBe(0)
+  })
+  test('the revenue line\'s contract value and the strip read "--", never "$0"', () => {
+    expect(unpriced.st.revenue.total).toBe('--')
+    expect(unpriced.st.strip.revenue).toBe('--')
+  })
+  test('and a priced deal still reads its figure (the other half)', () => {
+    const priced = build()
+    expect(priced.result.totals.contractNet).toBeGreaterThan(0)
+    expect(priced.st.revenue.total).toMatch(/^\$[\d,]+$/)
+    expect(priced.st.strip.revenue).toBe(priced.st.revenue.total)
+  })
+})

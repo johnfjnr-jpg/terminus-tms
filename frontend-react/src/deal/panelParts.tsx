@@ -4,6 +4,7 @@ import type { ReconciliationView, MilestoneOption } from './milestones'
 import { milestoneUsd } from '../../../src/lib/milestone-schedule.js'
 import type { InstallVisibility, StructureVisibility, ToggleState } from './installation'
 import { money } from './rows'
+import { contractValueOf, UNPRICED } from '../../../src/lib/contract-value.js'
 import { SizedInput, useTrackWidths } from './useFieldWidth'
 // The SAME reader the vanilla paints the accent from. Verification 20.
 import { marginPresentation } from '../../../src/lib/deal-inputs.js'
@@ -359,7 +360,9 @@ export function StatsStrip({ result, payload }: {
   return (
     <div className="stats-grid stats-grid--deal" data-testid="deal-stats-strip">
       {cell('Achieved margin', 'deal-achieved-margin', mp.text, true, mp.state)}
-      {cell('Contract net', 'deal-contract-net', money0(result?.totals?.contractNet))}
+      {/* CONTRACT_VALUE ruling 2: an unpriced deal reads "--", by the headline's
+          own test (contractValueOf), never "$0". */}
+      {cell('Contract net', 'deal-contract-net', contractValueOf(result?.totals?.contractNet) === null ? UNPRICED : money0(result?.totals?.contractNet))}
       {cell('Total deal cost', 'deal-total-cost', money0(result?.totalDealCostAll))}
       {/* money(null) is $NaN, and the absence has a wording of its own because
           the figure it replaces is one somebody prices against. */}

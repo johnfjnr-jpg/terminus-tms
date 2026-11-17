@@ -25,6 +25,7 @@ import { resolveRates } from './rate-resolution.js';
 import { pricingChanged } from './version-pricing.js';
 import { workingVersionLabel, versionLabel } from './version-label.js';
 import { WON_STAGE } from './pricing-keys.js';
+import { contractValueOf } from './contract-value.js';
 // R-L4a: the evaluator the ENFORCEMENT calls, asked rather than re-derived.
 import { versionApprovalState, wasSigned } from './version-approval.js';
 
@@ -39,19 +40,10 @@ export function totalContractValue(payload, catalog, testBedCost = 0) {
   try {
     const { rates } = resolveRates(payload, catalog);
     const result = calculateDeal(buildDealInputs(payload, { testBedCost, rates }));
-    const net = result?.totals?.contractNet;
-    if (!Number.isFinite(net)) return null;
-    // ── ZERO IS NOT A CONTRACT VALUE, IT IS AN UNPRICED DEAL ─────────────
-    //
-    // The calculator returns 0 for a payload carrying no units, no lump sum and
-    // no hosting, which is every opportunity nobody has priced yet. Rendering
-    // that as "$0" puts a confident figure where there is no figure, and
-    // CLAUDE.md rule 10 records this exact fault: one card carrying a bright
-    // zero and a dim zero, meaning a value and a placeholder.
-    //
-    // A deal genuinely worth nothing is not a state this business has, so the
-    // ambiguity costs nothing to resolve this way and the screen says "--".
-    return net === 0 ? null : net;
+    // ZERO IS NOT A CONTRACT VALUE, IT IS AN UNPRICED DEAL. The rule and its
+    // reasoning live in ONE place, src/lib/contract-value.js (CONTRACT_VALUE
+    // ruling 2), which the Commercials cell and statement now call too.
+    return contractValueOf(result?.totals?.contractNet);
   } catch {
     // A payload the calculator cannot price is not an error worth failing a
     // LIST over. It reads as "no value yet", which is what an unpriced deal is.
@@ -123,10 +115,9 @@ export function wonHeadline({ status, wonVersion, liveTcv, testBedCost = 0 }) {
   if (status !== WON_STAGE) return { tcv: liveTcv, note: null, source: 'live' };
   if (!wonVersion) return { tcv: liveTcv, note: NO_WON_VERSION_NOTE, source: 'live' };
   const label = versionLabel(wonVersion);
-  const nonZero = (n) => (Number.isFinite(n) && n !== 0 ? n : null);
   if (wonVersion.frozen_figures) {
     return {
-      tcv: nonZero(wonVersion.frozen_figures.result?.totals?.contractNet),
+      tcv: contractValueOf(wonVersion.frozen_figures.result?.totals?.contractNet),
       note: `The won version's figures (${label}), frozen when it was submitted.`,
       source: 'won-version',
     };
@@ -135,7 +126,7 @@ export function wonHeadline({ status, wonVersion, liveTcv, testBedCost = 0 }) {
     const { rates } = resolveRates(wonVersion.inputs ?? {}, wonVersion.rates?.rates ?? {});
     const result = calculateDeal(buildDealInputs(wonVersion.inputs ?? {}, { testBedCost, rates }));
     return {
-      tcv: nonZero(result?.totals?.contractNet),
+      tcv: contractValueOf(result?.totals?.contractNet),
       note: `The won version's figures (${label}), recomputed by today's engine: it was submitted before figures were frozen.`,
       source: 'won-version-legacy',
     };
