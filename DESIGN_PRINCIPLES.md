@@ -13699,6 +13699,77 @@ as "approximately when", and the hash as "exactly what".
 **Queued from this round:** the headline total contract value against the
 Commercials contract net on one fixture ($227,138 against $270,587; the approval
 page and the engine also give $227,138, so the screen that disagrees is
-Commercials), measured in its own round; `PRICING_KEY_LABELS` lagging six
+Commercials), measured in its own round [WITHDRAWN by the CONTRACT_VALUE
+round: the $270,587 was an unsaved 12-unit edit, and no screen disagrees; see
+CONTRACT VALUE, below]; `PRICING_KEY_LABELS` lagging six
 pricing keys (`paymentMode`, `priceOverrides`, `hostingPriceMode`,
 `hostingUnitFees`, `opexUnitFees`, `opexUnitMargins`).
+
+---
+
+# CONTRACT VALUE: ONE QUANTITY, AND A PREMISE WITHDRAWN
+
+**CONTRACT_VALUE round, 2026-11-17, John's Phase 0 sign-off.**
+
+## 1. The round's finding: there were never two contract values
+
+The round was queued on a reported disagreement: the headline said $227,138
+and Commercials said $270,587 on one fixture. **The premise was withdrawn.**
+The $270,587 was Commercials pricing a refused, UNSAVED 12-unit edit (the
+FROZEN_FIGURES click probe types 12 into a Closed Won deal to prove the
+refusal, and the B1 ruling keeps a refused value in the form); the headline
+priced the stored 10. The engine gives exactly $227,138 at 10 units and
+$270,587 at 12. A census of all 20 live opportunities, calibrated on a
+known-equal and a known-different case, found **0 DIFFERENT**.
+
+**Ruling 1, affirmed: "contract value" is `totals.contractNet`**, as the
+headline strip decision already said. Every surface reads that one field.
+
+**THE LESSON, AND IT IS A RULE: COMPARE FIGURES ONLY AT EQUAL INPUTS.** Two
+figures are a disagreement only when they price the SAME inputs. Before
+reporting that two surfaces disagree, establish that both are pricing the same
+payload: saved or unsaved, the record or a version, live or won. Three
+surfaces in TMS legitimately price different inputs, by design:
+
+- Commercials prices the FORM, including unsaved edits; the headline and the
+  list price what is SAVED;
+- the approval page prices the VERSION; the headline prices the record now;
+- a Closed Won headline prices the WON version (R-FF4).
+
+The report that started this round compared a dirty form with a saved record
+from one screenshot, whose own deal sheet read "12 UNITS". The inputs were on
+the image and were not read. Same family as Verification 26: the measured half
+of a sentence ("these two figures differ") lent authority to the inferred half
+("so the screens disagree").
+
+## 2. An unpriced deal reads "--", by one definition
+
+**Ruling 2.** `src/lib/contract-value.js` holds the one test: zero (or a
+non-number) is not a contract value, it is an unpriced deal. The headline, the
+won headline, the list, the Commercials stats cell, the statement's revenue
+total and its strip all call it, and a test forbids any of those sites testing
+a value against zero itself. Only the CONTRACT VALUE changes: an unpriced
+deal's margin, cost and component columns are untouched.
+
+**A correction to the Phase 0 report, recorded so it is not repeated:** the
+headline strip prints "not recorded" for an unpriced deal (its generic absent
+text), not "--"; only the list column and now Commercials print "--". The
+VALUE is decided by one function everywhere; the WORDING of its absence still
+differs between the headline and the rest. Not ruled; on the list below.
+
+**What it rests on:** every surface that shows a contract value calling
+`contractValueOf`. A new surface that formats `contractNet` directly brings
+"$0" back.
+
+## 3. Every pricing key carries a label
+
+**The rider.** `PRICING_KEY_LABELS` names the six keys it lagged
+(`paymentMode`, `priceOverrides`, `hostingPriceMode`, `hostingUnitFees`,
+`opexUnitFees`, `opexUnitMargins`). The screen names their columns, not the
+controls, so the six were composed from those headers and are revisitable. A
+test fails when any key in `src/lib/pricing-keys.js` has no label, and when a
+label names a key that is not pricing.
+
+**Parked:** (c) a marker on the Commercials figures while the form holds
+unsaved edits, for a mockup. **On the list:** the headline's "not recorded"
+against "--" for an unpriced deal's contract value and weighted amount.

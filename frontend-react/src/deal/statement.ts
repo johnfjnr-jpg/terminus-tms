@@ -24,6 +24,7 @@
 // matching `buildDealRows` cell on a driven fixture, so the two presentations
 // cannot drift.
 import { money } from './rows'
+import { contractValueOf, UNPRICED } from '../../../src/lib/contract-value.js'
 import { milestoneUsdFor } from './milestones'
 import {
   durationPresentation, whtPresentation, gstPresentation, marginPresentation, factoringPastEndSentence,
@@ -345,10 +346,14 @@ export function buildDealStatement(
     },
   ]
 
+  // CONTRACT_VALUE ruling 2: the contract value of an unpriced deal reads
+  // "--", by the headline's own test. Only the CONTRACT VALUE changes: the
+  // component columns stay as they are.
+  const contractValueText = contractValueOf(contractNet) === null ? UNPRICED : m(contractNet)
   const revenue: StatementLine = {
     key: 'revenue', label: 'Revenue, contract value net',
     hardware: m(hwPrice), hosting: dur.recorded ? m(hoPrice) : dur.value,
-    installation: m(inPrice), total: m(contractNet),
+    installation: m(inPrice), total: contractValueText,
   }
 
   const moneyOut: StatementLine[] = [
@@ -465,7 +470,7 @@ export function buildDealStatement(
     profit: m(profitValue),
     margin: mp,
     strip: {
-      revenue: m(contractNet), cost: m(result.totalDealCostAll), profit: m(profitValue),
+      revenue: contractValueText, cost: m(result.totalDealCostAll), profit: m(profitValue),
       margin: mp.text, state: mp.state,
       target: `TARGET ${numericOrDefault(payload, 'targetMargin')}%`,
     },

@@ -198,6 +198,17 @@ export const PRICING_KEY_LABELS = Object.freeze({
   milestones: 'Payment milestones',
   marginOverrides: 'Per-line margin overrides',
   lumpSumCost: 'Lump sum installation cost',
+  // CONTRACT_VALUE rider (John 2026-11-17): the six pricing keys this map
+  // lagged. The screen names their COLUMNS ("Monthly fee", "Margin %") and not
+  // the controls, so these were composed from those headers and from
+  // "Per-line margin overrides" above, and are revisitable. A test now fails
+  // when any key in src/lib/pricing-keys.js has no label here.
+  paymentMode: 'Payment mode (CAPEX or OPEX)',
+  priceOverrides: 'Per-line price overrides',
+  hostingPriceMode: 'Hosting priced by margin or by monthly fee',
+  hostingUnitFees: 'Hosting monthly fee per unit',
+  opexUnitFees: 'OPEX monthly fee per unit',
+  opexUnitMargins: 'OPEX margin % per unit',
 });
 
 /** What an unlabelled key reads as. NEVER the raw key. F1, ruled. */
