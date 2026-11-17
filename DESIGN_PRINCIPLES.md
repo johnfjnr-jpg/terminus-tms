@@ -13341,3 +13341,129 @@ on the fields) and eight claims went red by name.
 - a wired Term Pricing layout guard covering the factoring and cash flow cards;
 - the intermittent database-suite timeout (24,283ms failing against 57,555ms
   passing; did not recur in Phase 3).
+
+# COMMERCIALS FACTORING: FOUR DECISIONS, AND WHAT EACH RESTS ON
+
+**COMMERCIALS_FACTORING round, 2026-11-16 to 2026-11-17, rulings R-CF1 to
+R-CF5 and the Phase 1 and Phase 2 sign-offs.** The defects came from the
+TERM_FACTORING round's own queue: Commercials dropped the repayments that fall
+past the contract's last month, and a blank factoring rate priced at 1.5%.
+Each decision names what it DEPENDS ON (Verification 29), so a later round
+tests the premise rather than re-arguing the choice.
+
+## 1. The finance cost is the whole loan's interest, never the rows the cash flow happens to show
+
+**The defect (D1).** `buildCashFlowModel` built rows only to the contract's
+last month, and `facInterest` was summed from those rows. A facility running
+past the contract lost its later repayments' interest, so the finance cost was
+SHORT, and nothing said so: a schedule truncated to its window understated a
+cost silently. The issued TT-SGP-SMARTC-003 v2.0 (a 36-month term on a
+36-month contract) re-derives 258,493 to 258,976, +483, the interest on the one
+repayment in month 37.
+
+**R-CF1: `facInterest` is the loan schedule summed, every repayment, whatever
+the contract length.** The cash flow still ends at the contract, because it is
+a statement about the contract's months; the cost is a statement about the
+loan. Two questions, and the rows answer only the first.
+
+**R-CF3, the flag that keeps the two honest beside each other:** where
+repayments fall past the end, `factoringPastEnd` names the months and the
+statement sub-label, its drawer note and the approval page's finance note say
+so in the ruled sentence ("Factoring repayments run past the contract end
+(month 37): the finance cost includes them; the cash flow and closing position
+do not."). No stats-strip change.
+
+**What it rests on:** the term engine's `loanSchedule` and Commercials'
+`buildLoanSchedule` agreeing, which `term-factoring-parity.test.mjs` proves for
+a term past the contract, straight and declining. If a lender's facility ever
+truly ends at the contract (an early settlement charge, say), the cost stops
+being the whole schedule and this is re-taken.
+
+## 2. An absent rate is not substituted
+
+**The defect (D2).** A blank factoring rate priced at 1.5% from three places:
+`deal-inputs.js` (`?? 1.5`), the calculator's parameter default, and
+`numeric-payload.js`. That is a fallback in the CALCULATION, which
+Architecture 11 forbids: an initial value lives in the record, never in the
+arithmetic.
+
+**R-CF4: all three are gone.** With factoring on and no rate, the facility
+prices NOTHING and is flagged (`factoringRateMissing`, beside the existing
+missing-term flag), and the save is not refused. The rate joins the term in
+`ABSENCE_NOT_SUBSTITUTED` (`src/lib/approval-page.js`), so the approval page
+tells the approver what the price is missing rather than assuming it. This is
+Round 41 ruling 5, made for the term, applied to the rate.
+
+**What it rests on:** a priced-nothing facility being visible wherever the
+price is read: the statement, the cash flow grid ("Factoring, rate not
+recorded") and the approval page. A new surface that shows the finance cost and
+not the flag would turn the absence back into a silent zero.
+
+## 3. A cross-field refusal fires only when the save CHANGES a field it governs
+
+**R-CF2, narrowed by John at Phase 1.** A factoring term must end inside the
+contract (at most contract months minus 1, so every repayment falls inside).
+The refusal fires only when a save CHANGES the duration, the factoring term or
+the factoring switch and the result is over the limit. One shared rule,
+`validateFactoringTermAgainstDuration` (`src/lib/system-defaults.js`), called by
+the server PATCH (`src/routes/opportunities.js`) and by the client before its
+write (`frontend-react/src/main.tsx`), in the term screen's words.
+
+**Why "changes" and not "is over the limit":** legacy records already over the
+limit (SMARTC-003 is one) must stay saveable on every other field. A rule
+evaluated on the result alone would lock a record against an unrelated edit,
+and the person editing a margin would be told about a facility they did not
+touch. The client re-sends unchanged values on every save, so "changes" is
+compared as values, not as keys present: a number and its string are the same
+value.
+
+**And a refusal must reach a person (Phase 3, B1).** Driven from the click,
+the Phase 2 client refusal threw the ruled sentence and nothing caught it:
+every save route ran `void saveRef.current()`, and `#deal-feedback` had had no
+writer since `deal-feedback.js` retired. The panel's save now writes a refusal
+to `#deal-feedback`, does not re-baseline (so the refused value is not shown as
+saved), and clears before each attempt. **A refusal nobody can see is a write
+that silently did not happen**, which is the Verification 8 shape arriving
+from the validation side. The browser proof is calibrated by moving the check
+after the write: only "no PATCH left the browser" separates the client half
+from the server's identical refusal.
+
+**What it rests on:** every write to these three fields passing through the
+Opportunity PATCH. A new writer (an import, a bulk edit, a definer function)
+must call the same rule, or the limit holds only on the screen.
+
+## 4. Approved versions re-derive through today's engine, and that is QUEUED to change
+
+**R-CF3 option (a), ruled at Phase 1:** one derivation. Issued and approved
+versions store their inputs, not their figures, so they re-derive under the
+corrected engine and carry the flag. SMARTC-003 v2.0 moved +483 and is
+flagged "month 37".
+
+**This is right for a defect fix and wrong as a standing property.** An
+approval page must show the figures the approver signed. Today an engine
+change moves them, which is exactly what this round did to an issued version.
+**Option (c), storing the approved figures at approval, is QUEUED HIGH
+PRIORITY, its own round, before any real deal is approved** (John, Phase 1 and
+Phase 2 sign-offs).
+
+**What option (a) rests on:** no real deal having been approved. Every
+approved version in the estate today is test data. The first real approval
+makes the premise false, and from then on an engine change silently rewrites
+what somebody signed: the decision is re-taken then, not re-weighed.
+
+## Where it lives
+
+| what | where |
+|---|---|
+| the full-schedule finance cost, the past-end months | `src/lib/deal-calculator.js` (`calculateDeal`, `buildCashFlowModel`, `factoringPastEnd`) |
+| parity with the term engine, past the contract | `scripts/tests/term-factoring-parity.test.mjs` |
+| the absent rate | `factoringRateAbsent` in `deal-calculator.js`; `ABSENCE_NOT_SUBSTITUTED` in `src/lib/approval-page.js` |
+| the refusal rule | `validateFactoringTermAgainstDuration`, `src/lib/system-defaults.js`; `scripts/tests/commercials-factoring.test.mjs` |
+| the refusal over HTTP | `scripts/probe-factoring-term-refusal.mjs`, UNWIRED |
+| the refusal from the click | `scripts/probe-factoring-term-refusal-click.mjs`, UNWIRED; gated half in `frontend-react/src/__tests__/deal-save-routes.test.tsx` |
+| the statement and grid wording | `frontend-react/src/deal/statement.ts`, `cashflow.ts`; `src/lib/approval-page.js` |
+
+**Queued from this round:** option (c), storing approved figures at approval
+(HIGH, before any real deal is approved); FB1, the recovery-period limits
+tested but not called live; the per-record clear of `#deal-feedback` in
+`main.tsx`, unasserted; probe triage (these two probes join it).
