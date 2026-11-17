@@ -64,3 +64,54 @@ After rulings: spec v2.0 first, tests fail first in their own commit, engine, ca
 4. Finish the report edit you stopped, commit the Phase 0 report, and STOP as briefed. No build work before the rulings.
 
 Applied: ls-remote origin main read a5b8e80b592511e173e2243e67fc801e2a4a86a6; b5f2b7c is its ancestor (git merge-base --is-ancestor, exit 0). tp-ladder branched from main at a5b8e80.
+
+---
+
+## Phase 0 sign-off (John, 2026-11-17), appended at the phase it launches
+
+PHASE 0 SIGN-OFF: TP_LADDER
+
+Phase 0 ACCEPTED.
+
+JOHN RULES:
+1. L-7: the two new checks ('total', 'profit') apply only to cells whose
+   term AND previous term are both price-ladder priced. The floor check
+   stays everywhere. QUEUED finding: the formula's discounted bands lose
+   profit with term under PROFIT_STEP 0 (74 cases measured).
+2. L-6 / M-8: the comparison reads the formula fee at one camera (band 1)
+   directly, not termLadder. M-8's basis superseded for this, left visible
+   in the spec. The comparison is WORDED "Formula" everywhere ("Formula,
+   1 camera", "Fill from formula"); "Calculated" keeps its existing CAPEX
+   remainder meaning only.
+3. No route removes a product's price ladder this round; the spec says so.
+4. FA-8: extend ALLOWED with the source fields and assert the no-ladder
+   value 'formula'. FA-8 is then also the L-10 proof.
+5. L-8 AMENDED: a product WITH a price ladder but no price at a term in
+   TERMS prices NOTHING at that term and is flagged, source
+   'ladder-missing', label "No price ladder price for N months". No
+   formula fallback (same principle as R-CF4 and Round 41 ruling 5:
+   absence is not substituted). Products with NO price ladder use the
+   formula as today. Re-derive LG-7 under this ruling.
+6. Naming: the new thing is always "price ladder" (priceLadder,
+   PRICE_LADDER_BY_PRODUCT), never bare "ladder".
+7. Source labels sit where a fee shows, not on totals. The mockup governs
+   placement.
+8. Migration draft accepted as written: it seeds SafeSight ONLY. It lands
+   in supabase/migrations in the build phase; John applies it after his
+   push, ledger row by hand as a separate statement.
+9. P11.7 accepted: admin success path over HTTP against the recording
+   database, live probe as non-admin (403, nothing landed), admin save
+   proved in the browser.
+10. AIR QUALITY AND HEMIR GET PRICE LADDERS. Terminus supplies the prices.
+    They are entered by an admin through the price ladder editor after
+    this round lands, NOT seeded by migration. Until then both stay on the
+    formula. The editor and route must therefore accept any catalog
+    product from day one (no SafeSight-only assumption anywhere), and the
+    build proves a save for air_quality against the recording database.
+    The spec records AQ and HEMIR as "price ladder pending, formula until
+    entered".
+
+SEQUENCE: close and push COMMERCIALS_FACTORING first. Return the checkout
+to commercials-factoring now for its Phase 2 sign-off. TP_LADDER resumes
+after that push, and builds nothing until John approves the mockup
+(prototypes/term-pricing-ladder.html).
