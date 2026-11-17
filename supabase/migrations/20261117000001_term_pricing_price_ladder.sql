@@ -1,6 +1,11 @@
 -- Term pricing: THE FORMULA IS REMOVED; every product prices from its price
 -- ladder. TP_LADDER, Phase 0 addendum A1 and A2 and the Q1 ruling (John,
--- 2026-11-17). WRITTEN IN PHASE 1, NOT APPLIED. John applies it after his push.
+-- 2026-11-17). WRITTEN IN PHASE 1. APPLIED BEFORE THE PUSH, on John's ruling
+-- (Phase 1 sign-off, 2026-11-17): applied by John, wrapped in begin/commit,
+-- with the ledger row recorded by hand as a separate statement, so that Phase 2
+-- could be proved from the click on the migrated settings while tp-ladder was
+-- the served tree. SUPERSEDED, left visible: "NOT APPLIED. John applies it
+-- after his push."
 --
 -- ── WHAT IT DOES ─────────────────────────────────────────────────────────
 --
@@ -29,7 +34,10 @@
 -- COMPARE_TERM and PRICE_LADDER_BY_PRODUCT (settingsFromRows requires every
 -- key). So between John's push and this apply the Term Pricing screen shows
 -- SETTINGS_MISSING, and nothing else in TMS reads this table. Apply it straight
--- after the push.
+-- after the push. (SUPERSEDED: it was applied BEFORE the push, above. While it
+-- stood applied and main was not yet pushed, main's v1.10 Term Pricing screen
+-- would have read SETTINGS_MISSING had main been served; it was not, because
+-- tp-ladder held the one checkout.)
 --
 -- AFTER 20261012000002. Idempotent: the rename and the deletes find nothing on
 -- a replay, the seed is guarded, and the constraint is dropped and re-added

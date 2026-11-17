@@ -256,3 +256,42 @@ Proceed to PHASE 2: the screen to the approved mockup
 Phase 3 housekeeping: correct the migration header's "apply after the
 push" to record that it was applied before, on John's ruling.
 Stop for sign-off after Phase 2.
+
+## Phase 2 sign-off and the admin walk (John, 2026-11-17), appended verbatim
+
+PHASE 2 SIGN-OFF: TP_LADDER
+
+Phase 2 ACCEPTED. probe-ladder 96/96 against the mockup's own tables,
+view sweep 9/9, engine sweep 26/26.
+
+ADMIN SAVE: OPTION (a). John walked it in the browser as the admin:
+SafeSight 120 months 500.00 -> 501.00 saved and survived a reload, then
+restored to 500.00 and saved. Before Phase 3, read
+PRICE_LADDER_BY_PRODUCT and confirm safesight 120 is "500.00" and
+updated_by is John's user. Record the walk in the round report as the
+proof of the admin save. No admin grant to any test account.
+
+Proceed to PHASE 3 as briefed:
+- migration header: record that it was applied BEFORE the push, on
+  John's ruling, wrapped in begin/commit;
+- DESIGN_PRINCIPLES entries: (1) list price comes from the price ladder,
+  absence prices nothing; (2) the deal adjustment order (list, band,
+  discount) and that a discount off list is an approval signal; (3) a
+  chart must be proved to plot the grid's own figures;
+- CURRENT_STATE; full gate, all stages, none skipped;
+- merge to main, report "ready for John's push" with the SHA.
+Stop there. Do not push.
+
+(The first read after that sign-off found updated_by null and updated_at
+09:49:29Z, the migration's insert, so Phase 3 stopped. John re-walked:)
+
+ADMIN WALK DONE (John, signed in as himself, on tp-ladder 321e124):
+SafeSight 120 -> 501.00 saved, survived reload; -> 500.00 saved.
+Re-read PRICE_LADDER_BY_PRODUCT: expect safesight 120 "500.00",
+updated_by 75425a02-..., updated_at after the walk. If it matches,
+record the walk as the admin-save proof and proceed to Phase 3 exactly
+as already briefed. If it does not match, STOP and report.
+
+(Read 2026-11-17 11:13:53Z: safesight 120 "500.00"; updated_by
+75425a02-4750-470b-bcdc-fe83d0b01ac2, the one admin; updated_at
+2026-11-17T11:13:05.989Z; all three ladders equal the seed. Matched.)
