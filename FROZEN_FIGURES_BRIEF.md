@@ -57,3 +57,49 @@ PHASE 0 (read-only, STOP for rulings):
 STOP conditions: any CONFIRMED golden moves; any route can write stored
 figures after approval; any live non-test record found.
 Do not push.
+
+## Phase 0 sign-off (John, 2026-11-17), appended verbatim at the phase it launches
+
+PHASE 0 SIGN-OFF: FROZEN_FIGURES
+
+Phase 0 ACCEPTED. The correction is recorded: versions DID freeze
+rates.batches (6,357 of 6,375); the approval page's Array.isArray
+reader was blind to the object shape; H3 had no test.
+
+JOHN RULES:
+1. R-FF1: freeze at SUBMISSION, in the issue route, by the server, in
+   the same UPDATE as the relabel. The stored figures are produced by
+   the SAME builder the approval page uses (buildApprovalPage and the
+   calculateDeal output it reads), so stored equals what the page
+   would have shown at that moment; prove it on a fixture.
+2. R-FF5: the trigger as drafted (set once on the relabel, service
+   role only, required on issue, refused on drafts). ADD: prove an
+   INSERT cannot create a row already 'issued' or carrying
+   frozen_figures, as owner and as service role. Two database tests
+   per path, fingerprinted before and after. version-guard names
+   frozen_figures EXEMPT with the drafted reason.
+3. R-FF4: the terminal Won raise derives and freezes the latest
+   APPROVED version into frozen_version_id (Architecture 12). The
+   headline of a Closed Won record reads that version's
+   frozen_figures, labelled as the won version's. No won version:
+   live figures with "No approved version was won; these are today's
+   figures."
+   PLUS: PRICING edits to a Closed Won record are REFUSED, server and
+   client, with a sentence ("This deal is Closed Won; its pricing is
+   the won version's and cannot change."). Non-pricing fields stay
+   editable. The refusal must reach the person (Commercials factoring
+   B1 lesson): prove it from the click.
+4. R-FF6: NO backfill. Legacy versions re-derive and carry the head
+   line as proposed.
+5. R-FF2 wording as proposed, both sentences.
+6. LIVE RECORDS: John confirms all 19 live Opportunities are test data.
+7. R-FF3 rescoped: fix the approval page's batches reader for the
+   object shape, and give H3 its first test, calibrated.
+DECISIONS OF RECORD: record frozen_figures as the rule-6 exception to
+Architecture 2; supersede COMMERCIALS FACTORING decision 4 (option a)
+with its reasoning left visible.
+RIDER as proposed (state-dump reads the current batch per product).
+
+Proceed through the build. Migration: draft in supabase/migrations,
+John applies it before the push wrapped in begin/commit, as last time.
+Stop for sign-off after the build is proved, before Phase 3.
