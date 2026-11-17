@@ -111,3 +111,37 @@ QUEUED: FB1, recovery-period limits tested but not called live.
 Proceed to Phase 2. Prove each ruling, calibrate each fix, goldens
 unmoved, the issued SMARTC-003 v2.0 measured before/after (+483, flagged).
 Stop for sign-off.
+
+---
+
+## Phase 2 sign-off (John, 2026-11-17), appended at the phase it launches
+
+PHASE 2 SIGN-OFF: COMMERCIALS FACTORING FIXES
+
+Phase 2 ACCEPTED. All five rulings proved and calibrated (12 of 12),
+goldens exact (4734), SMARTC-003 v2.0 +483 flagged as ruled.
+
+ADDED TO PHASE 3 (from-the-click rule):
+B1. Drive R-CF2's client half in the browser on a test record you
+    create and tear down by tag: type a factoring term equal to the
+    contract duration, save. Prove (a) the ruled sentence shows in the
+    save feedback, (b) no revision landed, (c) the field shows the
+    refusal state, not a saved value, (d) a valid term then saves.
+    Calibrate: move the client check after the write and show B1 fails.
+
+PHASE 3 as briefed:
+- DESIGN_PRINCIPLES entries:
+  (1) finance cost is the whole loan's interest, never the rows the
+      cash flow happens to show;
+  (2) an absent rate is not substituted (joins the term under
+      ABSENCE_NOT_SUBSTITUTED);
+  (3) a cross-field refusal fires only when the save CHANGES a field it
+      governs, so legacy records stay saveable;
+  (4) approved versions re-derive through today's engine; option (c),
+      storing approved figures at approval, is QUEUED HIGH PRIORITY
+      before any real deal is approved.
+- CURRENT_STATE check.
+- Full gate, all stages run, none skipped.
+- Merge to main, report "ready for John's push" with the SHA.
+
+Stop there. Do not push. Do not touch tp-ladder.
