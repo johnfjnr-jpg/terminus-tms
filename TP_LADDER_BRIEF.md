@@ -190,3 +190,30 @@ measurement (A3), with unit tests. Phase 2 = screen per mockup, proved
 from the click. Phase 3 = DESIGN_PRINCIPLES, CURRENT_STATE, full gate,
 merge, "ready for John's push". Continue between phases unless a STOP
 condition fires; stop for John's sign-off after Phase 2.
+
+## Rulings on Q1 and Q3 (John, 2026-11-17), appended verbatim at the phase they launch
+
+TP_LADDER RULINGS (John, 2026-11-17)
+
+Q1: OPTION (a). ANCHOR_TERM is renamed COMPARE_TERM, labelled "Compare
+terms against" in the Settings card, default 36, must be a term in
+TERMS. It derives no price; it only sets the "vs N months" column on
+the Pricing tab and in the price ladder editor, and that column header
+reads the setting ("vs 36 months" today). The other formula settings go
+as A1 says. Migration renames the key (value kept); rollback renames it
+back.
+
+Q3: GO. The cost-basis block re-dating on issued versions is NOT a
+figure move under A3's STOP. It is a pre-existing defect: any catalog
+change re-dates it, because no version froze rates.batches. Write the
+one batch (Air Quality hosting 100 -> 50, HEMIR hosting 500 -> 200,
+reason "John 2026-11-17, TP_LADDER"), report the 11 moved Opportunities
+before and after, and record in the round report that the 3,792 issued
+versions' cost-basis block now names the new batch.
+QUEUED, joined to the option (c) round (HIGH, before any real deal is
+approved): versions freeze their batch reference at issue; the approval
+page dates its cost basis from it; Closed Won figures do not move with
+the catalog.
+
+Proceed with the A1 to A8 build per the addendum. Stop for sign-off
+after Phase 2.
