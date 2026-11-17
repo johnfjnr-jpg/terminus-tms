@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v1.10
+# Terminus Term Pricing: Specification v2.0
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -13,10 +13,11 @@
 **Amended (v1.8, John, 12 Oct 2026, TP_BANDS, rulings TB-1 to TB-9):** volume bands are configured **per product**, 2 to 6 bands each, as a start and a discount, with "To" derived (section 3.1) (TB-1 to TB-5); the rules a band set must meet and the wording that refuses a broken one, shared by the editor and the server (section 3.2) (TB-6); the margin check, every band at every term, flagged against the floor and never refusing (section 10.4) (TB-7); test cases BG-1 to BG-5 (section 11.4). The rulings are cited TB-1 to TB-9 so they do not collide with test cases B-1 to B-6 of v1.7. **Every product is seeded with the v1.7 bands, so every earlier figure is unchanged** (BG-5).
 **Amended (v1.9, John, 12 Oct 2026, TP_MANUAL, rulings M-1 to M-9 and C1 to C11):** a manual ladder comparison, SafeSight per camera: the user types a monthly price for each term and sees it against the calculated one-camera fee, with margin, profit, client total and three checks (section 4.6); test cases MG-1 to MG-4 (section 11.5). **Comparison only: it never prices a quote, changes no setting and stores nothing, so every earlier figure is unchanged.**
 **Amended (v1.10, John, 2026-11-16, TERM_FACTORING, rulings R-TF1 to R-TF12 and the Phase 1 sign-off):** PO factoring on the quote: an advance that funds hardware procurement, a loan schedule (straight-line or declining balance, rate per month), and the factoring cost either ABSORBED (price unchanged, profit falls) or PASSED THROUGH at cost (price rises by exactly the cost, profit unchanged) (sections 9.2 to 9.4); the margin floor reads the margin after finance cost (4.4); the cash flow with its rows, receipts basis, timing, lowest balance with and without factoring, and month of payback (sections 9.5, 9.6); test cases FA-1 to FA-9 (section 11.6). **With factoring off, every earlier figure is unchanged** (FA-8).
+**Amended (v2.0, John, 2026-11-17, TP_LADDER: the Phase 0 sign-off, its addendum A1 to A8, and the rulings on Q1 and on the golden figures):** **THE FORMULA IS REMOVED.** Every product prices from its **price ladder**, the LIST price per unit per month at each term, set by an admin per product (sections 3, 3.3, 4.1). A product with no price ladder, or no price at a term, prices nothing and says so (4.1, amended L-8). `ANCHOR_TERM` is renamed `COMPARE_TERM` and derives no price: it only sets the "vs N months" column (Q1). `ANCHOR_MARGIN`, `SHORT_TERM_MARGIN` and `PROFIT_STEP` are withdrawn; `HW_UPFRONT_MARGIN` stays, because CAPEX reads it. A **deal adjustment**, a deal discount or a deal fee, either-or, after the bands, with an approval signal (4.7, A4). The manual ladder comparison is retired (4.6, A5). The margin check gains the client-total and profit checks on every cell and reads a price ladder as typed (10.4, A6). **Figures that move:** every case with units beyond band 1, by cents, because a discounted band fee is now rounded from a list fee that is itself to the cent (section 10's preamble says how each was re-derived). Test cases LG-1 to LG-7 and DA-1 to DA-7 (section 11.7).
 
 
 
-**Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
+**Purpose:** Price a Terminus deal so that longer contracts give the client a visibly lower monthly fee while Terminus earns at least as much profit as on a 36-month contract. **v2.0 (L-12, A1):** the list price of each product at each term is now the admin's price ladder rather than a formula, so "earns at least as much" is a property the ladder is checked for (the margin check's profit check, 10.4) rather than one the arithmetic guarantees. The price sets the deal's Total Contract Value (TCV). How the client pays (monthly OPEX, or hardware upfront on a CAPEX budget) changes when cash arrives, never what the deal is worth.
 
 ---
 
@@ -63,13 +64,15 @@
 |---|---|---|
 | `HW_COST[product]` | from the TMS catalog | Hardware cost per unit, one-off |
 | `HOSTING_MONTHLY[product]` | from the TMS catalog | Hosting cost per unit per month |
-| `TERMS` | 12, 24, 36, 48, 60, 72, 84, 96, 108, 120 months | The terms offered. `steps_above` counts positions in this list. This is the default; the live setting is an admin's to change |
-| `ANCHOR_TERM` | 36 months | The list-price term |
-| `ANCHOR_MARGIN[product]` | 90% each product | Margin on price at the anchor term, per product |
-| `SHORT_TERM_MARGIN[product]` | 90% each product | Margin on price for terms below the anchor, per product |
-| `PROFIT_STEP` | 0.00 USD per unit per term step | Extra profit per step above 36 months. 0 = level profit |
+| `TERMS` | 12, 24, 36, 48, 60, 72, 84, 96, 108, 120 months | The terms offered. This is the default; the live setting is an admin's to change |
+| `PRICE_LADDER[product]` | see 3.3 | v2.0: the LIST price per unit per month at each term in `TERMS`, per product. Stored as `PRICE_LADDER_BY_PRODUCT`. REQUIRED for a product to price: a product without one prices nothing (4.1) |
+| `COMPARE_TERM` | 36 months | v2.0 (Q1): "Compare terms against". Sets the "vs N months" column (4.5) and DERIVES NO PRICE. Must be one of `TERMS` |
+| ~~`ANCHOR_TERM`~~ | ~~36 months~~ | SUPERSEDED by v2.0, renamed `COMPARE_TERM` with its value kept. Was "the list-price term" of the formula |
+| ~~`ANCHOR_MARGIN[product]`~~ | ~~90% each product~~ | WITHDRAWN by v2.0 (A1) with the formula. Was margin on price at the anchor term |
+| ~~`SHORT_TERM_MARGIN[product]`~~ | ~~90% each product~~ | WITHDRAWN by v2.0 (A1). Was margin on price below the anchor |
+| ~~`PROFIT_STEP`~~ | ~~0.00~~ | WITHDRAWN by v2.0 (A1). Was extra profit per term step above 36 months |
 | `VOLUME_BANDS[product]` | see 3.1 | Banded discount on the monthly fee, per product (v1.8, TB-1). Stored as `VOLUME_BANDS_BY_PRODUCT` |
-| `HW_UPFRONT_MARGIN` | 20% | Margin on the hardware price in the CAPEX option. 0 = at cost |
+| `HW_UPFRONT_MARGIN` | 20% | Margin on the hardware price in the CAPEX option. 0 = at cost. v2.0: KEPT, because CAPEX's hardware value (6.1) reads it |
 | `MARGIN_FLOOR` | 25% | Whole-deal margin below this shows a flag; it never refuses |
 | `CURRENCY` | USD | |
 
@@ -107,9 +110,37 @@ The editor checks as an admin types and the server checks again before it saves;
 
 The band numbers and figures in each message are the ones the set in hand breaks. Only an admin may change bands (TB-8); everyone can read them.
 
+### 3.3 The price ladder, and the rules a set must meet (v2.0, A1, A6, L-5)
+
+Each product has its own price ladder: a price per unit per month for every term in `TERMS`, the product's LIST price. The volume bands (3.1) apply on top. Only an admin may change one, one product at a time, through the price ladder editor (A6); any catalog product can have one (A7). **There is no removal**: a product's price ladder can be changed, not deleted (ruling 3).
+
+The editor checks as an admin types and the server checks again before it saves; one function, so the wording is the same in both. Every broken rule is reported, in term order, prices for terms outside `TERMS` last:
+
+| Rule | Refused with |
+|---|---|
+| Every term in `TERMS` has a price | Enter a price for 36 months. Every offered term needs one. Fix this to save. |
+| A price is above 0, to the cent (commas are ignored) | The 60-month price must be above 0, to the cent, for example 1080.00. Fix this to save. |
+| No price for a term outside `TERMS` | 18 months is not an offered term. Remove its price, or add the term to TERMS first. Fix this to save. |
+
+A saved price is stored to two decimals ("2,500" is 2500.00). **A stored price ladder is not refused for a missing or stray term** once saved, because an admin can change `TERMS` afterwards: a term in `TERMS` with no price prices nothing (4.1), and a price for a term no longer offered is kept and read by nothing.
+
+The checks that WARN (the floor, the client total, the profit, at every band) are the margin check's (10.4), on the prices as typed.
+
 ## 4. Calculation rules (per product line)
 
-### 4.1 The list fee per unit (full precision)
+### 4.1 The list fee per unit (v2.0: the price ladder)
+
+```
+list_fee(T)       = PRICE_LADDER[product][T]                (a price to the cent; v2.0, A1)
+cost(T)           = HW_COST + HOSTING_MONTHLY × T
+saving_vs_compare = 1 − list_monthly(T) / list_monthly(COMPARE_TERM)     (display only; negative means a premium)
+```
+
+**No price, no price (amended L-8, A1).** A product with no price ladder prices nothing at any term: "No price ladder for {product}". A product with a price ladder but no price at a term in `TERMS` prices nothing at that term: "No price ladder price for {n} months". Nothing is substituted: not another term's price, not another product's, not a formula. A quote at such a term is refused; the term ladder (4.5) shows the row, says why, and does not let it be chosen. With no price at `COMPARE_TERM` the "vs" column says "-".
+
+Every line uses its own product's price ladder, `HW_COST` and `HOSTING_MONTHLY`. Every price on screen carries its source, "Price ladder", where a fee shows (ruling 7).
+
+SUPERSEDED by v2.0, WITHDRAWN and left visible (A1):
 
 ```
 cost(T)        = HW_COST + HOSTING_MONTHLY × T
@@ -122,9 +153,9 @@ list_fee(T)    = price(T) / T
 saving_vs_36   = 1 − list_fee(T) / list_fee(ANCHOR_TERM)      (display only; negative means a premium)
 ```
 
-`steps_above(T)` is the position of T in `TERMS` above 36 (48 → 1, 60 → 2, … 108 → 6, 120 → 7 with the default `TERMS`).
+~~`steps_above(T)` is the position of T in `TERMS` above 36 (48 → 1, 60 → 2, … 108 → 6, 120 → 7 with the default `TERMS`).~~
 
-Every line uses its own product's `HW_COST`, `HOSTING_MONTHLY`, `ANCHOR_MARGIN[product]` and `SHORT_TERM_MARGIN[product]`.
+~~Every line uses its own product's `HW_COST`, `HOSTING_MONTHLY`, `ANCHOR_MARGIN[product]` and `SHORT_TERM_MARGIN[product]`.~~ (v1.x's formula, by which every term up from 36 earned the 36-month profit. The purpose line at the top of this spec described it; under v2.0 whether a longer term earns Terminus more is the price ladder's to decide, and the margin check's profit check (10.4) says when it does not.)
 
 ### 4.2 The invoiced fee for each band (rounded to cents FIRST)
 
@@ -206,11 +237,15 @@ safesight_monthly_total(T) = Σ SafeSight bands ( units_in_band × band_fee(T, b
 
 Shown as "-" when `units[SafeSight]` is 0. Display only: it is never invoiced and never feeds TCV, so it may differ from any band fee by the banding average.
 
+**v2.0 (Q1, A4):** the saving or premium is against `COMPARE_TERM`, read on the LIST monthly (banded, before the deal adjustment), and the per-camera fee is LIST. With a deal adjustment the ladder shows the list fee and the deal fee per month, and Base TCV and the margin are the deal's. A term with no price is a row that prices nothing and says why (4.1).
+
 **Whatever the payment basis (v1.7, C2):** the ladder shows every column (the term, the year-1 monthly fee, this per-camera fee, the saving or premium against the anchor term, Base TCV and the margin), the same figures under `opex` and `capex`. The ladder prices every term as OPEX, Base, no CPI, so the price is chosen before, and apart from, how it is paid. There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. Display only: no figure moves (T31 unchanged).
 
 SUPERSEDED by v1.7, left visible: ~~**Under `capex` (v1.6, C-10):** the ladder shows the term and this OPEX per-camera fee only, the same figure as under `opex` (T31 unchanged). There is no per-camera CAPEX figure anywhere: CAPEX is one deal-level payment. The ladder prices every term as OPEX, Base, no CPI, so a CAPEX amount or schedule that suits one term cannot refuse the ladder.~~ And v1.5 before it read "Under `capex` the column is not shown (not yet decided; section 13)."
 
-### 4.6 Manual ladder comparison (v1.9, TP_MANUAL)
+### 4.6 Manual ladder comparison (v1.9, TP_MANUAL), RETIRED by v2.0 (A5), left visible
+
+**RETIRED.** Its "Calculated" figure read the formula, which v2.0 removed. The price ladder editor (3.3, 10.4) carries what the comparison was for: a typed price per term with its client total, profit and margin, and the three checks. The section below is v1.9's, kept as the record.
 
 A comparison only. It never prices a quote, never changes a setting and stores nothing (M-2). One product, named by the screen (C1; SafeSight today, M-1), one unit, Base figures, no CPI.
 
@@ -237,6 +272,24 @@ A price is a positive amount with at most 2 decimals; commas are ignored. A blan
 Equal is not a fall. **Summary**, shown once a price is entered (C3, C11): "At or above the {floor}% floor at every priced term" or "Below the {floor}% floor at {n} term(s) ({terms})"; "Client total never falls with a longer term" or "Client total falls at {n} term(s) ({terms})"; "Profit never falls with a longer term" or "Profit falls at {n} term(s) ({terms})".
 
 Percentages are shown to one decimal, half-up, with "+" and "−" (U+2212); money to cents (M-9, C10).
+
+### 4.7 The deal adjustment (v2.0, A4)
+
+Sales adjusts one deal's price, on screen, by EITHER a deal discount % OR a deal fee per month at the chosen term (R-O7). Typing one derives the other. **Order: list, then the volume bands (4.2), then the deal discount.** Nothing is stored (P5).
+
+```
+list_monthly(T)  = Σ lines Σ bands ( units_in_band × band_fee(T, band) )      (year 1)
+discount D       = the % typed / 100,  or  1 − deal_fee_typed / list_monthly(T₀)  (exact, T₀ the term it was typed at)
+deal_monthly(T)  = round_half_up( list_monthly(T) × (1 − D), 2 )
+line share       = round_half_up( (list_monthly − deal_monthly) × line_list_monthly / list_monthly, 2 ), the last line taking the remainder
+year-k discount  = round_half_up( line share × CPI factor(k), 2 )            (7; year 1 is the share itself)
+Base TCV         = deal_monthly × T;  List TCV = list_monthly × T;  discount value = List TCV − Base TCV (before any pass-through)
+```
+
+- **D applies at every term**, so switching the term keeps the discount. A fee typed at T₀ prices back to itself at T₀ to the cent, because D is exact.
+- **Range:** 0 to 99.9%, at most one decimal place when typed as a %. A deal fee above list is refused: "A deal fee of {fee} a month is above the list fee of {list} at {T₀} months. A deal fee can be at or below list, not above it." (no premiums this round). Both given is refused: "Give a deal discount or a deal fee, not both." 0, or a fee equal to list, is no adjustment.
+- **The approval signal:** any discount off list reads "Approval signal: {N}% below list". The floor (4.4) flags and never refuses, on the deal's margin.
+- **Applied at deal level, not per band:** the band rows stay LIST figures; the lines carry their share, so the deal is still the exact sum of its lines. Under CAPEX the subscription is built on the deal's Base TCV (6.3). With no adjustment every figure is the list one.
 
 ## 5. Money handling
 
@@ -492,6 +545,8 @@ Months 0 to T. A month 0 appears only when the schedule has a month-0 invoice.
 
 Reference product SafeSight: `HW_COST` 8,000.00, `HOSTING_MONTHLY` 200.00. Parameters as in section 3.
 
+**v2.0: THE REFERENCE FIXTURE, AND WHERE EACH FIGURE COMES FROM.** These tables and sections 11 to 11.6 are the formula's cases, kept as the regression suite. Their fixture is a price ladder carrying **v1.x's band-1 list fee at each term, to the cent** (table 10.1's "Monthly fee"; TEST-B, AQ on the v1.x catalog costs 2,000.00 and 100.00, and HEMIR on 100,000.00 and 500.00, the same way). A discounted band fee is then rounded from a list fee that is itself to the cent, so it can differ by a cent from v1.x's (60 months at 5%: 2,613.33 × 0.95 = 2,482.66, where v1.x had 2,482.66), and every case with units beyond band 1 moves by cents. **Every figure that moved was re-derived as John ruled (TP_LADDER brief, "Ruling on the golden figures"):** PRICE ARITHMETIC (10.1 to 10.3, T1 to T14, T19, T23, T29, T31, B-1 to B-6, BG-1 to BG-3) by an independent integer-cents pricer written from this spec; MECHANICS (CAPEX, WHT, GST, CPI, factoring, the cash flow) through the frozen v1.10 engine (e123cf6) with only its list-fee read swapped for the price ladder. The mechanics figures are a REGRESSION SNAPSHOT, not hand-checked; v1.x's hand derivation of the mechanics stands because that code is unchanged. Where both routes reach a figure they agree. The v1.x figures are in this file's history at e123cf6. The v2.0 cases on the live seed are in 11.7.
+
 ### 10.1 Per unit, 1 to 9 units
 
 | Term | Monthly fee | vs 36-month fee | TCV per unit | Cost per unit | Profit per unit | Margin |
@@ -513,16 +568,16 @@ Profit varies by cents only, from fee rounding.
 
 | Term | 1 to 9 (0%) | 10 to 49 (5%) | 50 to 199 (10%) | 200+ (15%) |
 |---|---|---|---|---|
-| 12 | 8,666.67 | 8,233.33 | 7,800.00 | 7,366.67 |
-| 24 | 5,333.33 | 5,066.67 | 4,800.00 | 4,533.33 |
+| 12 | 8,666.67 | 8,233.34 | 7,800.00 | 7,366.67 |
+| 24 | 5,333.33 | 5,066.66 | 4,800.00 | 4,533.33 |
 | 36 | 4,222.22 | 4,011.11 | 3,800.00 | 3,588.89 |
-| 48 | 3,216.67 | 3,055.83 | 2,895.00 | 2,734.17 |
-| 60 | 2,613.33 | 2,482.67 | 2,352.00 | 2,221.33 |
-| 72 | 2,211.11 | 2,100.56 | 1,990.00 | 1,879.44 |
+| 48 | 3,216.67 | 3,055.84 | 2,895.00 | 2,734.17 |
+| 60 | 2,613.33 | 2,482.66 | 2,352.00 | 2,221.33 |
+| 72 | 2,211.11 | 2,100.55 | 1,990.00 | 1,879.44 |
 | 84 | 1,923.81 | 1,827.62 | 1,731.43 | 1,635.24 |
-| 96 | 1,708.33 | 1,622.92 | 1,537.50 | 1,452.08 |
+| 96 | 1,708.33 | 1,622.91 | 1,537.50 | 1,452.08 |
 | 108 | 1,540.74 | 1,463.70 | 1,386.67 | 1,309.63 |
-| 120 | 1,406.67 | 1,336.33 | 1,266.00 | 1,195.67 |
+| 120 | 1,406.67 | 1,336.34 | 1,266.00 | 1,195.67 |
 
 ### 10.3 Worst-case margin (every unit at that band's fee)
 
@@ -544,6 +599,8 @@ margin(T, band)     = ( band_fee × T − cost(T) ) / ( band_fee × T ) × 100
 flagged             margin(T, band) < MARGIN_FLOOR, compared exactly (a cell shown as 25.0% that is 24.96% is flagged)
 ```
 
+**v2.0 (A6, L-7): three checks on every cell, in the order floor, client total, profit.** Beside the floor: "Client total below {n} months" when a cell's client total (`band_fee × T`) is below the same band's previous term WITH a price, and "Profit below {n} months" when its profit is. Equal is not a fall. A term with no price is a gap: no figures, and the next priced term compares across it. In the price ladder editor the grid reads the price ladder AS TYPED, so an admin sees the checks before saving. SUPERSEDED, left visible: v1.8 flagged the floor only, and Phase 0's 74-case profit-step finding is moot because the formula is gone. Each check's summary reads "Above the {floor}% floor at every band", "Client total never falls with a longer term", "Profit never falls with a longer term", or names the cells that fail.
+
 A flagged cell **warns and never refuses**: the bands still save. The warning names the count and each breach, then says: "You can still save. A quote is flagged for approval only when its whole-deal margin falls below the floor." (the flag of 4.4 is on the whole deal, so a band's worst case below the floor does not by itself flag any quote).
 
 Below the grid, the fee per unit per month for every band at 36, 60, 84 and 120 months, from the same figures (a term not in `TERMS` is not shown). While the set breaks a rule of 3.2, neither the grid nor the fee table shows figures; each reads "Fix the band rules to see the margin check."
@@ -557,51 +614,51 @@ SafeSight at the reference costs unless stated. `TEST-B` is a **test fixture, no
 | T1 | 1 unit, 36 | TCV 151,999.92, margin 90.0% | Base case |
 | T2 | 9 units, 36 | TCV 1,367,999.28 | Top of band 1 |
 | T3 | 10 units, 36 | TCV 1,512,399.24, margin 89.9% | First unit in band 2 |
-| T4 | 49 units, 60 | TCV 7,369,606.20 | Top of band 2 |
-| T5 | 50 units, 60 | TCV 7,510,726.20 | Band 3; MORE than T4 (no cliff) |
-| T6 | 120 units, 60 | TCV 17,389,126.20, margin 86.2% | Demo-sized deal |
+| T4 | 49 units, 60 | TCV 7,369,582.20 | Top of band 2 |
+| T5 | 50 units, 60 | TCV 7,510,702.20 | Band 3; MORE than T4 (no cliff) |
+| T6 | 120 units, 60 | TCV 17,389,102.20, margin 86.2% | Demo-sized deal |
 | T7 | 199 units, 84 | TCV 29,411,221.56 | Top of band 3 |
 | T8 | 200 units, 84 | TCV 29,548,581.72 | Band 4; MORE than T7 (no cliff) |
-| T9 | 250 units, 120 | TCV 38,039,088.00, margin 79.0% | Largest, lowest-margin case |
+| T9 | 250 units, 120 | TCV 38,039,136.00, margin 79.0% | Largest, lowest-margin case |
 | T10 | 1 unit, 12 | TCV 104,000.04 | Shortest term |
 | T11 | 5 units, 24 | TCV 639,999.60 | Two-year term |
 | T12 | TEST-B 1 unit, 36 | TCV 38,000.16, monthly fee 1,055.56 | Second cost mix |
-| T13 | TEST-B 30 units, 60 | TCV 1,134,842.40, margin 86.8% | Second product, banded |
-| T14 | T6 + T13 on one deal | TCV 18,523,968.60 | Multi-product: lines add, bands count per line |
-| T15 | T6 as `capex` | upfront 1,200,000.00 + 269,818.77 × 60 = 17,389,126.20 | CAPEX split ties to TCV |
+| T13 | TEST-B 30 units, 60 | TCV 1,134,829.80, margin 86.8% | Second product, banded |
+| T14 | T6 + T13 on one deal | TCV 18,523,932.00 | Multi-product: lines add, bands count per line |
+| T15 | T6 as `capex` | upfront 1,200,000.00 + 269,818.37 × 60 = 17,389,102.20 | CAPEX split ties to TCV |
 | T16 | 1 unit, 60, CPI `published` 3% (S 2) | Base TCV 156,799.80, margin 87.2%. Final TCV (projected) 166,494.36; year fees 2,613.33 / 2,691.73 / 2,772.48 / 2,855.66 / 2,941.33. Deal value 156,799.80 | Escalator; Base and Final (v1.6) |
 | T17 | 1 unit, 18 months | error | Term not offered |
 | T18 | all units 0 | error | No units |
 | T19 | T6 with `MARGIN_FLOOR` 90% | flag shown, quote still prices | Floor flags, never refuses |
-| T20 | T6, WHT 10%, gross-up ON | monthly invoice 322,020.86; WHT 32,202.09; Terminus receives 289,818.77 (= T6 monthly total) | Gross-up |
-| T21 | T6, WHT 10%, gross-up OFF | monthly invoice 289,818.77; WHT 28,981.88 borne; Terminus receives 260,836.89 | WHT borne |
-| T22 | T6 as `capex` (Hardware, Hybrid default), CPI `locked` 3% (S 2) | CAPEX 1,200,000.00 month 0. Subscription by year 269,818.77 / 277,913.33 / 286,250.73 / 294,838.26 / 303,683.40 (month 60 = 303,683.40, no residue). Base TCV 17,389,126.20, margin 86.2%. Final TCV 18,390,053.88 = deal value | CAPEX subscription escalates; CAPEX does not (v1.6) |
-| T23 | SafeSight 120 + AQ 30, 60 months; AQ at the catalog's `HW_COST` 2,000.00 and `HOSTING_MONTHLY` 100.00 | AQ band fees 973.33 (1 to 9) and 924.67 (10 to 49); AQ line 1,690,682.40; deal TCV 19,079,808.60; cost 2,640,000.00; margin on price 86.2% | Multi-product on real catalog costs (T14 on the screen) |
-| T24 | T6 as `capex`, `wht_split` on, hardware 5%, service 10%, gross-up OFF | WHT on upfront 60,000.00, Terminus receives 1,140,000.00; WHT per service invoice 26,981.88, Terminus receives 242,836.89; total WHT borne 1,678,912.80 | Split WHT, CAPEX |
-| T25 | T6 as `opex`, `wht_split` on, hardware 5%, service 10%, gross-up ON, GST 0 | hardware line 20,000.00 → invoice 21,052.63, WHT 1,052.63, receives 20,000.00; service line 269,818.77 → invoice 299,798.63, WHT 29,979.86, receives 269,818.77; invoice total 320,851.26 | Split WHT, OPEX two lines |
+| T20 | T6, WHT 10%, gross-up ON | monthly invoice 322,020.41; WHT 32,202.04; Terminus receives 289,818.37 (= T6 monthly total) | Gross-up |
+| T21 | T6, WHT 10%, gross-up OFF | monthly invoice 289,818.37; WHT 28,981.84 borne; Terminus receives 260,836.53 | WHT borne |
+| T22 | T6 as `capex` (Hardware, Hybrid default), CPI `locked` 3% (S 2) | CAPEX 1,200,000.00 month 0. Subscription by year 269,818.37 / 277,912.92 / 286,250.31 / 294,837.82 / 303,682.95 (month 60 = 303,682.95, no residue). Base TCV 17,389,102.20, margin 86.2%. Final TCV 18,390,028.44 = deal value | CAPEX subscription escalates; CAPEX does not (v1.6) |
+| T23 | SafeSight 120 + AQ 30, 60 months; AQ at the catalog's `HW_COST` 2,000.00 and `HOSTING_MONTHLY` 100.00 | AQ band fees 973.33 (1 to 9) and 924.66 (10 to 49); AQ line 1,690,669.80; deal TCV 19,079,772.00; cost 2,640,000.00; margin on price 86.2% | Multi-product on real catalog costs (T14 on the screen) |
+| T24 | T6 as `capex`, `wht_split` on, hardware 5%, service 10%, gross-up OFF | WHT on upfront 60,000.00, Terminus receives 1,140,000.00; WHT per service invoice 26,981.84, Terminus receives 242,836.53; total WHT borne 1,678,910.40 | Split WHT, CAPEX |
+| T25 | T6 as `opex`, `wht_split` on, hardware 5%, service 10%, gross-up ON, GST 0 | hardware line 20,000.00 → invoice 21,052.63, WHT 1,052.63, receives 20,000.00; service line 269,818.37 → invoice 299,798.19, WHT 29,979.82, receives 269,818.37; invoice total 320,850.82 | Split WHT, OPEX two lines |
 | T26 | 1 unit, 108 | TCV 166,399.92; margin 82.2% | The ten-year ladder's new term |
 | T27 | 1 unit, 60, CPI `locked` 3% from year 3 | Base TCV 156,799.80, margin 87.2%. Final TCV 162,558.36; year fees 2,613.33 / 2,613.33 / 2,691.73 / 2,772.48 / 2,855.66. Deal value 162,558.36 | Escalator start year; Locked (v1.6) |
-| T28 | T6 as `capex` (Hardware, Hybrid default), CPI `published` 3% from year 3 | CAPEX 1,200,000.00. Subscription by year 269,818.77 / 269,818.77 / 277,913.33 / 286,250.73 / 294,838.26. Base TCV 17,389,126.20. Final TCV (projected) 17,983,678.32. Deal value 17,389,126.20 | CAPEX with a later CPI start; Published (v1.6) |
-| T29 | SafeSight 120 + AQ 40 + HEMIR 2, 60 months, `opex`, no escalator | SafeSight TCV 17,389,126.20, cost 2,400,000.00, profit 14,989,126.20, 86.2%; AQ 2,245,484.40, 320,000.00, 1,925,484.40, 85.7%; HEMIR 2,384,000.40, 260,000.00, 2,124,000.40, 89.1%; deal 22,018,611.00, 2,980,000.00, 19,038,611.00, 86.5% | Per-product totals sum to the deal |
-| T30 | the same units, 60 months, `capex` (Hardware, Hybrid Contract start m0 100%), CPI `locked` 3% (S 2), single WHT 10% borne | **Base, per product:** SafeSight 17,389,126.20, 86.2%; AQ 2,245,484.40, 85.7%; HEMIR 2,384,000.40, 89.1%. Deal Base TCV 22,018,611.00; gross profit 19,038,611.00, 86.5%. **Base schedule:** WHT 2,201,860.98; profit after WHT 16,836,750.02, 76.5%. **Final schedule:** CAPEX 1,550,000.00 m0; subscription 341,143.52 (months 1..12), 351,377.83 (13..24), 361,919.16 (25..36), 372,776.74 (37..48), 383,960.04 (49..59), 383,959.81 (month 60). Final TCV 23,284,127.25 = deal value (CPI uplift 1,265,516.25). WHT on Final invoices 2,328,412.62. Month 0: WHT 155,000.00, receives 1,395,000.00. Year-1 subscription invoice: WHT 34,114.35, receives 307,029.17. **With GST 9%:** Final GST 2,095,571.38, TCV incl. GST 25,379,698.63 (Base schedule: GST 1,981,675.18, incl 24,000,286.18) | Per product on Base; Final deal-level only; WHT whole-deal only (v1.6) |
-| T31 | SafeSight 120 + AQ 40 + HEMIR 2, `opex`, catalog costs: per camera at every term (section 4.5) | 12: 8,009.44; 24: 4,928.89; 36: 3,902.04; 48: 2,972.74; 60: 2,415.16; 72: 2,043.44; 84: 1,777.92; 96: 1,578.79; 108: 1,423.90; 120: 1,299.99 | Per camera divides the SafeSight line only; AQ and HEMIR do not move it |
+| T28 | T6 as `capex` (Hardware, Hybrid default), CPI `published` 3% from year 3 | CAPEX 1,200,000.00. Subscription by year 269,818.37 / 269,818.37 / 277,912.92 / 286,250.31 / 294,837.82. Base TCV 17,389,102.20. Final TCV (projected) 17,983,653.48. Deal value 17,389,102.20 | CAPEX with a later CPI start; Published (v1.6) |
+| T29 | SafeSight 120 + AQ 40 + HEMIR 2, 60 months, `opex`, no escalator | SafeSight TCV 17,389,102.20, cost 2,400,000.00, profit 14,989,102.20, 86.2%; AQ 2,245,465.80, 320,000.00, 1,925,465.80, 85.7%; HEMIR 2,384,000.40, 260,000.00, 2,124,000.40, 89.1%; deal 22,018,568.40, 2,980,000.00, 19,038,568.40, 86.5% | Per-product totals sum to the deal |
+| T30 | the same units, 60 months, `capex` (Hardware, Hybrid Contract start m0 100%), CPI `locked` 3% (S 2), single WHT 10% borne | **Base, per product:** SafeSight 17,389,102.20, 86.2%; AQ 2,245,465.80, 85.7%; HEMIR 2,384,000.40, 89.1%. Deal Base TCV 22,018,568.40; gross profit 19,038,568.40, 86.5%. **Base schedule:** WHT 2,201,856.78; profit after WHT 16,836,711.62, 76.5%. **Final schedule:** CAPEX 1,550,000.00 m0; subscription 341,142.81 (months 1..12), 351,377.09 (13..24), 361,918.41 (25..36), 372,775.96 (37..48), 383,959.24 (49..59), 383,959.01 (month 60). Final TCV 23,284,081.89 = deal value (CPI uplift 1,265,513.49). WHT on Final invoices 2,328,408.18. Month 0: WHT 155,000.00, receives 1,395,000.00. Year-1 subscription invoice: WHT 34,114.28, receives 307,028.53. **With GST 9%:** Final GST 2,095,567.42, TCV incl. GST 25,379,649.31 (Base schedule: GST 1,981,670.98, incl 24,000,239.38) | Per product on Base; Final deal-level only; WHT whole-deal only (v1.6) |
+| T31 | SafeSight 120 + AQ 40 + HEMIR 2, `opex`, catalog costs: per camera at every term (section 4.5) | 12: 8,009.45; 24: 4,928.89; 36: 3,902.04; 48: 2,972.74; 60: 2,415.15; 72: 2,043.43; 84: 1,777.92; 96: 1,578.78; 108: 1,423.90; 120: 1,300.00 | Per camera divides the SafeSight line only; AQ and HEMIR do not move it |
 
 Also test: changing any parameter (for example `ANCHOR_MARGIN` to 80%, or `PROFIT_STEP` to 1,000.00) flows through with no code change.
 
-**Unchanged by v1.6:** T14, T15 (CAPEX 1,200,000.00; subscription 269,818.77 months 1..60, no residue; TCV 17,389,126.20), T24, T25, T31, and the flow case `HW_UPFRONT_MARGIN` 0 (CAPEX 960,000.00; subscription 273,818.77). v1.4's "a product TCV is the same under `opex` and `capex`" is restated on Base TCV, where it holds; Final TCV is deal-level.
+**Unchanged by v1.6:** T14, T15 (CAPEX 1,200,000.00; subscription 269,818.37 months 1..60, no residue; TCV 17,389,102.20), T24, T25, T31, and the flow case `HW_UPFRONT_MARGIN` 0 (CAPEX 960,000.00; subscription 273,818.37). v1.4's "a product TCV is the same under `opex` and `capex`" is restated on Base TCV, where it holds; Final TCV is deal-level.
 
 ### 11.1 CAPEX payment cases (v1.6)
 
-The demo deal: SafeSight 120 + AQ 40 + HEMIR 2, 60 months, the settings of section 3 (SafeSight 8,000 / 200; AQ 2,000 / 100; HEMIR 100,000 / 500; anchor margin 90%; `HW_UPFRONT_MARGIN` 20%). No CPI unless stated. Base TCV 22,018,611.00 in every case.
+The demo deal: SafeSight 120 + AQ 40 + HEMIR 2, 60 months, the settings of section 3 (SafeSight 8,000 / 200; AQ 2,000 / 100; HEMIR 100,000 / 500; anchor margin 90%; `HW_UPFRONT_MARGIN` 20%). No CPI unless stated. Base TCV 22,018,568.40 in every case.
 
 | # | Inputs | Expected | Why |
 |---|---|---|---|
-| G-C1 | `capex`, Hardware, Hybrid default (Contract start, month 0, 100%) | CAPEX 1,550,000.00. Subscription 341,143.52 months 1..59, 341,143.32 month 60. Final TCV 22,018,611.00. Deal value = Base TCV. Cash in year 1 5,643,722.24 (OPEX year 1: 4,403,722.20) | The default |
-| G-C2 | `capex`, Custom 1,000,000.00, Hybrid: Contract start m0 30%; Hardware delivered to site m3 40%; Commissioning m6 30% | Milestones 300,000.00 / 400,000.00 / 300,000.00. Subscription 350,310.18 months 1..59, 350,310.38 month 60. Invoices: m0 300,000.00; m3 750,310.18; m6 650,310.18. Warning (a): Terminus funds 240,000.00. Cash in year 1 5,203,722.16 | Custom amount; milestones add to their month's invoice |
-| G-C3 | `capex`, Hardware, Two-phase, R = 12 | Instalment 129,166.67 months 1..11, 129,166.63 month 12. Invoices 470,310.19 months 1..11, 470,310.15 month 12, 341,143.52 months 13..59, 341,143.32 month 60. Cash in year 1 5,643,722.24 | Two-phase; the last instalment carries the rounding |
+| G-C1 | `capex`, Hardware, Hybrid default (Contract start, month 0, 100%) | CAPEX 1,550,000.00. Subscription 341,142.81 months 1..59, 341,142.61 month 60. Final TCV 22,018,568.40. Deal value = Base TCV. Cash in year 1 5,643,713.72 (OPEX year 1: 4,403,713.68) | The default |
+| G-C2 | `capex`, Custom 1,000,000.00, Hybrid: Contract start m0 30%; Hardware delivered to site m3 40%; Commissioning m6 30% | Milestones 300,000.00 / 400,000.00 / 300,000.00. Subscription 350,309.47 months 1..59, 350,309.67 month 60. Invoices: m0 300,000.00; m3 750,309.47; m6 650,309.47. Warning (a): Terminus funds 240,000.00. Cash in year 1 5,203,713.64 | Custom amount; milestones add to their month's invoice |
+| G-C3 | `capex`, Hardware, Two-phase, R = 12 | Instalment 129,166.67 months 1..11, 129,166.63 month 12. Invoices 470,309.48 months 1..11, 470,309.44 month 12, 341,142.81 months 13..59, 341,142.61 month 60. Cash in year 1 5,643,713.72 | Two-phase; the last instalment carries the rounding |
 | G-C4 | refusals | CAPEX 0; CAPEX = Base TCV; shares totalling 99.9% and 100.1%; a duplicate milestone; a month > T; months decreasing; R = 0; R > T | Each refused |
-| G-C5 | G-C1 with CPI `locked` 3% (S 2), no WHT | As T30's Final schedule. Final TCV 23,284,127.25 | CPI on the subscription only |
-| G-C6 | `capex`, Custom 2,000,000.00, Hybrid Contract start m0 100%, split WHT 5% hardware / 10% SaaS, gross-up OFF, GST 0, no CPI | Month 0 invoice: hardware line 1,550,000.00, WHT 77,500.00; SaaS line 450,000.00, WHT 45,000.00; WHT 122,500.00, receives 1,877,500.00. Subscription 333,643.52 months 1..59, 333,643.32 month 60; WHT 33,364.35 each, 33,364.33 month 60. Total WHT 2,124,360.98. Warning (a) does not fire | Split WHT straddling the hardware value |
+| G-C5 | G-C1 with CPI `locked` 3% (S 2), no WHT | As T30's Final schedule. Final TCV 23,284,081.89 | CPI on the subscription only |
+| G-C6 | `capex`, Custom 2,000,000.00, Hybrid Contract start m0 100%, split WHT 5% hardware / 10% SaaS, gross-up OFF, GST 0, no CPI | Month 0 invoice: hardware line 1,550,000.00, WHT 77,500.00; SaaS line 450,000.00, WHT 45,000.00; WHT 122,500.00, receives 1,877,500.00. Subscription 333,642.81 months 1..59, 333,642.61 month 60; WHT 33,364.28 each, 33,364.26 month 60. Total WHT 2,124,356.78. Warning (a) does not fire | Split WHT straddling the hardware value |
 | L1 | 1 unit, 60, `opex`, CPI `published` 3% from year 3, split WHT 5% / 10%, gross-up ON, GST 9% | Final schedule: TCV 162,558.36; gross-up 17,477.04; GST 16,203.36; incl. GST 196,238.76. Base schedule: TCV 156,799.80; gross-up 16,837.20; GST 15,627.60; incl. GST 189,264.60 | The tax tie holds on each schedule |
 
 ### 11.2 Superseded figures (v1.5), left visible
@@ -620,12 +677,12 @@ The demo deal of 11.1, 60 months, the settings of section 3. No CPI.
 
 | # | Inputs | Expected | Why |
 |---|---|---|---|
-| T4-G1 | `capex`, Custom 1,000,000.00, Milestones: Contract start m0 50%; Installation complete m4 30% | Contract start 500,000.00; Installation complete 300,000.00; allocated 80% = 800,000.00; unallocated 20% = 200,000.00; subscription 350,310.18 months 1..59, 350,310.38 month 60; breakdown invoices m0 500,000.00, m4 650,310.18; status incomplete | The allocation preview (T-4) |
+| T4-G1 | `capex`, Custom 1,000,000.00, Milestones: Contract start m0 50%; Installation complete m4 30% | Contract start 500,000.00; Installation complete 300,000.00; allocated 80% = 800,000.00; unallocated 20% = 200,000.00; subscription 350,309.47 months 1..59, 350,309.67 month 60; breakdown invoices m0 500,000.00, m4 650,309.47; status incomplete | The allocation preview (T-4) |
 | B-1 | `opex`, the per-band totals | SafeSight 1-9: 9 units, fee 2,613.33, monthly 23,519.97, Base TCV 1,411,198.20, 87.2% | Per band (C1) |
-| B-2 | as B-1 | SafeSight 10-49: 40 units, 2,482.67, 99,306.80, 5,958,408.00, 86.6% | |
+| B-2 | as B-1 | SafeSight 10-49: 40 units, 2,482.66, 99,306.40, 5,958,384.00, 86.6% | |
 | B-3 | as B-1 | SafeSight 50-199: 71 units, 2,352.00, 166,992.00, 10,019,520.00, 85.8% | |
 | B-4 | as B-1 | Air Quality 1-9: 9 units, 973.33, 8,759.97, 525,598.20, 86.3% | |
-| B-5 | as B-1 | Air Quality 10-49: 31 units, 924.67, 28,664.77, 1,719,886.20, 85.6% | |
+| B-5 | as B-1 | Air Quality 10-49: 31 units, 924.66, 28,664.46, 1,719,867.60, 85.6% | |
 | B-6 | as B-1 | HEMIR 1-9: 2 units, 19,866.67, 39,733.34, 2,384,000.40, 89.1% | |
 
 Each product's bands sum to its v1.4 figures (T29), unchanged.
@@ -636,13 +693,13 @@ The settings of section 3, anchor margin 90%, catalog costs. Copied from the TP_
 
 | # | Inputs | Expected | Why |
 |---|---|---|---|
-| BG-1 | SafeSight bands 1/10/50/200/500/1000 at 0/5/10/15/20/30%; 1,000 units; 60 months, `opex` | band fees 2,613.33 / 2,482.67 / 2,352.00 / 2,221.33 / 2,090.67 / 1,829.33; units 9 / 40 / 150 / 300 / 500 / 1; monthly 2,189,190.10; Base TCV 131,351,406.00; margin 84.8% | Six configured bands (TB-1, TB-2, TB-9) |
-| BG-2 | HEMIR bands 1/2/5/10 at 0/5/10/15%; 2 units; 60 months | fees 19,866.67 (1 unit) and 18,873.33 (1 unit); monthly 38,740.00; Base TCV 2,324,400.00; margin 88.8% | A product's own bands (TB-1) |
-| BG-3 | The margin check, SafeSight 30% band (worst case) | 12 months fee 6,066.67, margin 85.7%; 36: 2,955.56, 85.7%; 60: 1,829.33, 81.8%; 120: 984.67, 72.9% | Section 10.4 (TB-7) |
+| BG-1 | SafeSight bands 1/10/50/200/500/1000 at 0/5/10/15/20/30%; 1,000 units; 60 months, `opex` | band fees 2,613.33 / 2,482.66 / 2,352.00 / 2,221.33 / 2,090.66 / 1,829.33; units 9 / 40 / 150 / 300 / 500 / 1; monthly 2,189,184.70; Base TCV 131,351,082.00; margin 84.8% | Six configured bands (TB-1, TB-2, TB-9) |
+| BG-2 | HEMIR bands 1/2/5/10 at 0/5/10/15%; 2 units; 60 months | fees 19,866.67 (1 unit) and 18,873.34 (1 unit); monthly 38,740.01; Base TCV 2,324,400.60; margin 88.8% | A product's own bands (TB-1) |
+| BG-3 | The margin check, SafeSight 30% band (worst case) | 12 months fee 6,066.67, margin 85.7%; 36: 2,955.55, 85.7%; 60: 1,829.33, 81.8%; 120: 984.67, 72.9% | Section 10.4 (TB-7) |
 | BG-4 | Refusals, server and editor | band 1 start not 1; a start not above the previous; 1 band; 7 bands; a falling discount; a discount of 100 or more; a non-whole start | Each refused with its 3.2 wording (TB-6) |
 | BG-5 | The seed (3.1) on every product | every v1.7 figure (sections 10, 11, 11.1 to 11.3) unchanged | Nothing moved (TB-1) |
 
-### 11.5 v1.9 cases (TP_MANUAL)
+### 11.5 v1.9 cases (TP_MANUAL), RETIRED by v2.0 with section 4.6, left visible
 
 The settings of section 3, anchor margin 90%, `PROFIT_STEP` 0, SafeSight catalog costs (8,000.00 hardware, 200.00 a month hosting). Copied from the TP_MANUAL brief, with MG-4 as corrected by ruling C2; never computed by the code under test.
 
@@ -671,19 +728,41 @@ Summary: floor ok; client total ok; profit falls at 84, 96.
 
 ### 11.6 v1.10 cases (TERM_FACTORING)
 
-T6 (SafeSight 120, 60 months, `opex`, no CPI, no tax: monthly 289,818.77, Base TCV 17,389,126.20, cost 2,400,000.00) and the 11.1 demo deal, the settings of section 3. Copied from the TERM_FACTORING Phase 1 report and its sign-off, computed by hand; never computed by the code under test.
+T6 (SafeSight 120, 60 months, `opex`, no CPI, no tax: monthly 289,818.37, Base TCV 17,389,102.20, cost 2,400,000.00) and the 11.1 demo deal, the settings of section 3. Copied from the TERM_FACTORING Phase 1 report and its sign-off, computed by hand; never computed by the code under test.
 
 | # | Inputs | Expected | Why |
 |---|---|---|---|
 | FA-1 | Loan 960,000.00, 1.0%/month, 12 months, straight | principal 80,000.00 every month; interest 9,600.00, 8,800.00 … 800.00 (800 × (13 − k)); F = 62,400.00 | Straight-line, opening balance |
 | FA-2 | Loan 960,000.00, 1.0%/month, 12 months, declining | month 1: principal 75,694.84, interest 9,600.00; month 2: 76,451.79, 8,843.05; month 12: 84,450.34, 844.50; Σ principal 960,000.00; F = 63,538.05 | Declining, level payment |
-| FA-3 | T6 with factoring on, advance default (960,000.00), FA-1's facility, `absorb` | Price unchanged: monthly 289,818.77, Base TCV 17,389,126.20. Profit 14,989,126.20 before finance, 14,926,726.20 after; margin 86.2% before, 85.8% after; the floor reads 85.8% | Absorb |
-| FA-4 | FA-3 with `pass_through` | pt 8.67 per unit per month; remainder −24.00 on month 60. Monthly 290,859.17 months 1..59, 290,835.17 month 60. Base TCV 17,451,526.20; cost 2,462,400.00; profit 14,989,126.20 (unchanged); margin 85.9%. SafeSight 1 to 9 band fee still 2,613.33 | Pass through at cost; bands untouched |
-| FA-5 | Demo deal, `opex`, advance default (1,240,000.00), 1.0%/month, 12 months, straight, `pass_through` | F = 80,600.00. F_p: SafeSight 62,400.00, AQ 5,200.00, HEMIR 13,000.00. pt: 8.67, 2.17, 108.33; remainders −24.00, −8.00, +0.40. Pass-through 1,343.86 a month, month 60 −31.60 more. Monthly 368,320.71 months 1..59, 368,289.11 month 60. Base TCV 22,099,211.00; profit 19,038,611.00 (T29's, unchanged); margin 86.2% (T29: 86.5%). Per product: SafeSight 17,451,526.20 / 85.9%; AQ 2,250,684.40 / 85.6%; HEMIR 2,397,000.40 / 88.6% | Allocation by hardware cost; per product |
-| FA-6 | FA-5 as `capex`, G-C1 (Hardware, Hybrid Contract start m0 100%) | CAPEX 1,550,000.00 m0. Subscription 342,487.38 months 1..59, 342,455.58 month 60 (G-C1's 341,143.52 / 341,143.32 plus the pass-through). Base TCV 22,099,211.00 | Pass through under CAPEX, outside CPI |
-| FA-7 | FA-3's cash flow | Month 1: client 289,818.77, hosting −24,000.00, procurement −960,000.00, advance +960,000.00, net 265,818.77. Month 2: principal −80,000.00, interest −9,600.00, net 176,218.77, balance 442,037.54. Month 13: interest −800.00, net 185,018.77, balance 2,433,244.01. Month 60 balance 14,926,726.20 (= profit after finance). Lowest with factoring 265,818.77 at month 1, payback month 1; without −694,181.23 at month 1, payback month 4 | Rows, timing, headline |
+| FA-3 | T6 with factoring on, advance default (960,000.00), FA-1's facility, `absorb` | Price unchanged: monthly 289,818.37, Base TCV 17,389,102.20. Profit 14,989,102.20 before finance, 14,926,702.20 after; margin 86.2% before, 85.8% after; the floor reads 85.8% | Absorb |
+| FA-4 | FA-3 with `pass_through` | pt 8.67 per unit per month; remainder −24.00 on month 60. Monthly 290,858.77 months 1..59, 290,834.77 month 60. Base TCV 17,451,502.20; cost 2,462,400.00; profit 14,989,102.20 (unchanged); margin 85.9%. SafeSight 1 to 9 band fee still 2,613.33 | Pass through at cost; bands untouched |
+| FA-5 | Demo deal, `opex`, advance default (1,240,000.00), 1.0%/month, 12 months, straight, `pass_through` | F = 80,600.00. F_p: SafeSight 62,400.00, AQ 5,200.00, HEMIR 13,000.00. pt: 8.67, 2.17, 108.33; remainders −24.00, −8.00, +0.40. Pass-through 1,343.86 a month, month 60 −31.60 more. Monthly 368,320.00 months 1..59, 368,288.40 month 60. Base TCV 22,099,168.40; profit 19,038,568.40 (T29's, unchanged); margin 86.2% (T29: 86.5%). Per product: SafeSight 17,451,502.20 / 85.9%; AQ 2,250,665.80 / 85.6%; HEMIR 2,397,000.40 / 88.6% | Allocation by hardware cost; per product |
+| FA-6 | FA-5 as `capex`, G-C1 (Hardware, Hybrid Contract start m0 100%) | CAPEX 1,550,000.00 m0. Subscription 342,486.67 months 1..59, 342,454.87 month 60 (G-C1's 341,142.81 / 341,142.61 plus the pass-through). Base TCV 22,099,168.40 | Pass through under CAPEX, outside CPI |
+| FA-7 | FA-3's cash flow | Month 1: client 289,818.37, hosting −24,000.00, procurement −960,000.00, advance +960,000.00, net 265,818.37. Month 2: principal −80,000.00, interest −9,600.00, net 176,218.37, balance 442,036.74. Month 13: interest −800.00, net 185,018.37, balance 2,433,238.81. Month 60 balance 14,926,702.20 (= profit after finance). Lowest with factoring 265,818.37 at month 1, payback month 1; without −694,181.23 at month 1, payback month 4 | Rows, timing, headline |
 | FA-8 | Every case in sections 10 and 11 with factoring off | every figure unchanged | Nothing moved |
+| FA-8 (v2.0, A8) | The same captured population with factoring off, against the frozen v1.10 engine on the same price ladder | every captured output identical, field by field; the only fields v2.0 adds are the price source, the list monthly and the deal adjustment's, carrying their no-adjustment values; the price source is 'ladder' on every line and unit | The formula's removal, `COMPARE_TERM` and the deal adjustment move nothing else |
 | FA-9 | Engine only: advance schedule [{month 1, 600,000.00}, {month 7, 360,000.00}], 1.0%/month, 12 months, straight | Facility 1: principal 50,000.00 months 2..13, interest 500 × (13 − k) = 6,000.00 … 500.00, total 39,000.00. Facility 2: principal 30,000.00 months 8..19, interest 300 × (13 − k) = 3,600.00 … 300.00, total 23,400.00. Advance row +600,000.00 month 1, +360,000.00 month 7. Month 8: principal 80,000.00 (50,000.00 + 30,000.00), interest 6,600.00 (3,000.00 + 3,600.00). F = 62,400.00 | The schedule shape for staging (R-TF12) |
+
+### 11.7 v2.0 cases (TP_LADDER)
+
+The live seed (A2) on SafeSight's spec costs, the seed bands (3.1), Base, no CPI, `opex`. LG-1 to LG-6 are copied from the TP_LADDER brief, checked independently in integer cents at Phase 0; DA-1 and DA-2 from the approved mockup's frame A (prototypes/term-pricing-ladder.html), worked by hand there; never computed by the code under test.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| LG-1 | 1 unit, every term | fee = the seed; client total / profit / margin: 12: 30,000.00 / 19,600.00 / 65.3%; 24: 36,000.00 / 23,200.00 / 64.4%; 36: 38,880.00 / 23,680.00 / 60.9%; 48: 42,000.00 / 24,400.00 / 58.1%; 60: 45,000.00 / 25,000.00 / 55.6%; 72: 47,880.00 / 25,480.00 / 53.2%; 84: 50,820.00 / 26,020.00 / 51.2%; 96: 53,760.00 / 26,560.00 / 49.4%; 108: 56,700.00 / 27,100.00 / 47.8%; 120: 60,000.00 / 28,000.00 / 46.7%. No flags | The ladder is the list price |
+| LG-2 | 60 units, 120 months | monthly 28,450.00; Base TCV 3,414,000.00; cost 1,920,000.00; profit 1,494,000.00; 43.8% | Bands on the ladder |
+| LG-3 | 60 units, 36 months | band fees 1,080.00 / 1,026.00 / 972.00; monthly 61,452.00; Base TCV 2,212,272.00; cost 912,000.00; profit 1,300,272.00; 58.8% | |
+| LG-4 | 250 units, 60 months | band fees 750.00 / 712.50 / 675.00 / 637.50; monthly 169,012.50; Base TCV 10,140,750.00; cost 5,000,000.00; profit 5,140,750.00; 50.7% | |
+| LG-5 | 1 unit, 120 months, HW 21,000.00 then 21,000.01 | exactly 25.0%, no flag; then the floor flag | The floor is exact (4.4) |
+| LG-6 | The margin check, seed bands; then band 4 at 30% | no flag at any band; then band 4 "Profit below" at 36 to 120 (the first against 24 months) and the floor at 120 (fee 350.00, margin 23.8%); the client total never falls | 10.4, every check on every cell |
+| LG-7 | The seed with 108 removed, `TERMS` unchanged (re-derived under amended L-8) | 108 prices nothing: "No price ladder price for 108 months"; every other term prices on the seed; the grid has a gap at 108 and compares 120 with 96 | 4.1, no substitute |
+| DA-1 | 1 SafeSight + 1 Air Quality (A3 costs: 2,000.00 and 50.00), 36 months, 5.0% deal discount | Base TCV 51,710.40; List TCV 54,432.00; discount 5.0%; discount value 2,721.60; deal fee 1,436.40; gross profit 32,710.40; 63.3%; "Approval signal: 5.0% below list" | Frame A, the price card (4.7) |
+| DA-2 | DA-1 at every term | list fee / deal fee / per camera at list / vs 36 / Base TCV / margin: 12: 3,500.00 / 3,325.00 / 2,500.00 / +131.5% / 39,900.00 / 67.4%; 36: 1,512.00 / 1,436.40 / 1,080.00 / list / 51,710.40 / 63.3%; 60: 1,050.00 / 997.50 / 750.00 / −30.6% / 59,850.00 / 58.2%; 120: 700.00 / 665.00 / 500.00 / −53.7% / 79,800.00 / 49.9% (every row, frame A) | Frame A, the term table (4.5, 4.7) |
+| DA-3 | DA-1 with a deal fee typed at 36: 1,436.40; then 1,436.41 | 1,436.40 is exactly 5%, and 60 months is then 997.50 (the discount is kept); 1,436.41 is kept to the cent, split 53.99 SafeSight and 21.60 Air Quality; "vs 36" stays on list (−71/54 at 12 months) | Either-or (4.7) |
+| DA-4 | Refusals | a fee above list; 99.95% and 5.25% (one decimal); 100%; both given; a fee to three decimals; a term not offered. 99.9% is allowed (1.51 a month); 0 and a fee equal to list are no adjustment | 4.7 |
+| DA-5 | 1 SafeSight, 36 months, 70% off | 324.00 a month; Base TCV 11,664.00; profit −3,536.00; the floor flag; the quote prices | Flags, never refuses |
+| DA-6 | 1 SafeSight, 36 months, 5% off, CPI locked 3% from year 2 | monthly by year 1,026.00 / 1,056.78 / 1,088.48; Final TCV 38,055.12; Base TCV 36,936.00 | The discount every year (4.7, 7) |
+| DA-7 | DA-1 as `capex`, Hardware | CAPEX 12,500.00 at month 0; subscription 1,089.18 a month, 1,089.10 in month 36; Base TCV 51,710.40 | The subscription on the deal's Base TCV (6.3) |
 
 ## 12. Implementing in the TMS prototype
 
@@ -695,7 +774,7 @@ T6 (SafeSight 120, 60 months, `opex`, no CPI, no tax: monthly 289,818.77, Base T
 
 | Item | Current position |
 |---|---|
-| Market level of the 90% anchor margin | To be tuned to market (John, 1 Oct 2026) |
+| ~~Market level of the 90% anchor margin~~ | SUPERSEDED by v2.0: there is no anchor margin; the price ladder is the market price, an admin's to set (A1) |
 | Upgrade credit (short term extended to 36+ reprices from day one) | Recommended; not in v1.2 |
 | Early-termination charge (reprice to the term actually served) | Recommended; not in v1.2 |
 | Installation | Excluded; must be recovered in full on 12- and 24-month terms when added |
