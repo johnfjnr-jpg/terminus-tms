@@ -825,7 +825,88 @@ export function buildTarget(payload, result, { baselinePayload = null, changedAt
  * @param {object} p.catalog         { batches, missing, asOf }
  * @param {object} p.record          { reference_code, name, stage }
  */
-export function buildApprovalPage({
+// ── FROZEN_FIGURES (John, 2026-11-17): ONE BUILDER, TWO CALLERS ────────────
+//
+// R-FF1: a version freezes its figures at SUBMISSION, produced by THIS builder,
+// so what is stored is exactly what this page would have shown at that moment.
+// R-FF2: a submitted version's page renders the STORED figures; today's engine
+// runs as a CHECK only and never substitutes. R-FF6: a version submitted before
+// figures were frozen re-derives, and says so at the head of the page.
+//
+// assemblePage is the body; buildApprovalPage returns its page, and
+// buildFrozenFigures freezes that page's version blocks with the calculateDeal
+// result they were read from. No second derivation exists to drift from it.
+
+/** The blocks that describe the VERSION, and so are frozen. The bridge and
+ *  "not recorded" describe the RECORD as it is now and stay live. */
+export const FROZEN_BLOCKS = Object.freeze(['ask', 'target', 'exposures', 'costBasis', 'frozenTerms'])
+
+/** R-FF2, both sentences, as ruled. */
+export const LEGACY_HEAD_LINE = 'Submitted before figures were frozen. Every figure below is today\'s engine\'s, from this version\'s frozen inputs and rates.'
+export const todayLine = (shown) => `Today's engine prices this at ${shown}; the approved figure stands.`
+
+/**
+ * The displayed figures the check compares, by path. Cost basis is NOT here:
+ * its age is a date difference, so "today" would differ every day; it is frozen
+ * as the approver saw it (R-FF3). Exposures are compared by their key.
+ */
+export function figuresOf(page) {
+  const out = {}
+  if (!page) return out
+  for (const k of ['contractNet', 'totalCost', 'achievedMargin', 'months', 'units']) out[`ask.${k}`] = page.ask?.[k]
+  for (const k of ['achieved', 'gapPoints']) out[`target.${k}`] = page.target?.[k]
+  for (const e of page.exposures ?? []) out[`exposures.${e.key}`] = e.amount
+  return out
+}
+
+/**
+ * R-FF1: the snapshot a submission stores. `args` are buildApprovalPage's, with
+ * the version AS SUBMITTED (its new number and status), so the page's own
+ * sentence names it as an approver will read it. `engine` identifies the code
+ * that priced it. JSON round-tripped, so what is compared later is what the
+ * database holds.
+ */
+export function buildFrozenFigures(args, engine, frozenAt = new Date().toISOString()) {
+  const { page, result } = assemblePage(args)
+  return JSON.parse(JSON.stringify({
+    builder: 'buildApprovalPage',
+    engine: engine ?? null,
+    frozenAt,
+    batches: args.version?.rates?.batches ?? null,
+    page: Object.fromEntries(FROZEN_BLOCKS.map((k) => [k, page[k]])),
+    result,
+  }))
+}
+
+/**
+ * R-FF2: today's page, with a submitted version's STORED blocks laid over it.
+ * Where today's engine prices a displayed figure differently, the figure stays
+ * the stored one and `frozen.today[path]` carries today's value for the line
+ * beside it. The ask's "moved since" line is about the record NOW, so it is
+ * today's. A submitted version with no snapshot (legacy, R-FF6) keeps today's
+ * figures and carries the head line. A draft is neither: it has not been
+ * submitted, so there is nothing frozen and nothing to say.
+ */
+export function withFrozenFigures(today, version) {
+  if (!version || version.status !== 'issued') return { ...today, frozen: null }
+  const snap = version.frozen_figures
+  if (!snap) return { ...today, frozen: { state: 'legacy', headLine: LEGACY_HEAD_LINE } }
+  const stored = { ...snap.page, ask: { ...snap.page.ask, movedSinceVersion: today.ask?.movedSinceVersion ?? null } }
+  const was = figuresOf(stored), now = figuresOf(today)
+  const differs = {}
+  for (const [k, v] of Object.entries(was)) if (k in now && now[k] !== v) differs[k] = now[k]
+  return {
+    ...today,
+    ...stored,
+    frozen: { state: 'frozen', frozenAt: snap.frozenAt, engine: snap.engine, today: differs },
+  }
+}
+
+export function buildApprovalPage(args) {
+  return assemblePage(args).page
+}
+
+function assemblePage({
   payload, testBedCost = 0, version = null, baseline = null,
   targetChangedAt = null, catalog = {}, record = {},
 }) {
@@ -885,7 +966,14 @@ export function buildApprovalPage({
   //
   // The test is whether the version froze a basis at all, and `batches` is the
   // key that decides it, because it is the one the block is built from.
-  const frozenBasis = Array.isArray(version?.rates?.batches) ? version.rates : null;
+  //
+  // FROZEN_FIGURES R-FF3 (2026-11-17): SUPERSEDED, left visible:
+  // `Array.isArray(version?.rates?.batches)`. The save route writes
+  // `catalog.batches`, an OBJECT keyed by product, so that test was false on
+  // every one of the 6,357 versions that froze a basis, and this page dated
+  // every version from TODAY's catalog. H3 had no test; it has one now.
+  const frozenBatches = version?.rates?.batches;
+  const frozenBasis = frozenBatches && typeof frozenBatches === 'object' ? version.rates : null;
   const costBasis = frozenBasis
     ? buildCostBasis(frozenBasis.batches, frozenBasis.missing ?? [], frozenBasis.as_of ?? null, payload)
     : buildCostBasis(catalog.batches, catalog.missing, catalog.asOf, payload);
@@ -1028,7 +1116,7 @@ export function buildApprovalPage({
       + 'Take a fresh version from the Commercials tab and have that approved.';
   }
 
-  return {
+  const page = {
     ask,
     moved,
     target,
@@ -1053,4 +1141,5 @@ export function buildApprovalPage({
       versionReason: version?.reason ?? null,
     }),
   };
+  return { page, result };
 }

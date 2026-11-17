@@ -23,7 +23,8 @@ import { calculateDeal } from './deal-calculator.js';
 import { buildDealInputs } from './deal-inputs.js';
 import { resolveRates } from './rate-resolution.js';
 import { pricingChanged } from './version-pricing.js';
-import { workingVersionLabel } from './version-label.js';
+import { workingVersionLabel, versionLabel } from './version-label.js';
+import { WON_STAGE } from './pricing-keys.js';
 // R-L4a: the evaluator the ENFORCEMENT calls, asked rather than re-derived.
 import { versionApprovalState, wasSigned } from './version-approval.js';
 
@@ -106,6 +107,67 @@ export function weightedValue(tcv, probabilityPct) {
  * @param {object} payload the record's current payload
  * @returns {string | null}
  */
+// ── FROZEN_FIGURES R-FF4 (John, 2026-11-17): A WON DEAL SHOWS ITS WON VERSION ─
+//
+// A Closed Won record's contract value is the WON version's, which the raise
+// into Closed Won froze into the request (`frozen_version_id`, derived by the
+// database, Architecture 12). Catalog and engine changes do not move it.
+//   - the won version froze its figures: they stand, labelled as its;
+//   - it was submitted before figures were frozen (R-FF6): its OWN inputs at
+//     its OWN frozen rates, which no catalog can move, labelled as recomputed;
+//   - there is no won version: today's figures, with the ruled sentence.
+// Any other stage: today's figures, and nothing to say.
+export const NO_WON_VERSION_NOTE = "No approved version was won; these are today's figures.";
+
+export function wonHeadline({ status, wonVersion, liveTcv, testBedCost = 0 }) {
+  if (status !== WON_STAGE) return { tcv: liveTcv, note: null, source: 'live' };
+  if (!wonVersion) return { tcv: liveTcv, note: NO_WON_VERSION_NOTE, source: 'live' };
+  const label = versionLabel(wonVersion);
+  const nonZero = (n) => (Number.isFinite(n) && n !== 0 ? n : null);
+  if (wonVersion.frozen_figures) {
+    return {
+      tcv: nonZero(wonVersion.frozen_figures.result?.totals?.contractNet),
+      note: `The won version's figures (${label}), frozen when it was submitted.`,
+      source: 'won-version',
+    };
+  }
+  try {
+    const { rates } = resolveRates(wonVersion.inputs ?? {}, wonVersion.rates?.rates ?? {});
+    const result = calculateDeal(buildDealInputs(wonVersion.inputs ?? {}, { testBedCost, rates }));
+    return {
+      tcv: nonZero(result?.totals?.contractNet),
+      note: `The won version's figures (${label}), recomputed by today's engine: it was submitted before figures were frozen.`,
+      source: 'won-version-legacy',
+    };
+  } catch {
+    return { tcv: null, note: `The won version (${label}) could not be priced.`, source: 'won-version-legacy' };
+  }
+}
+
+/**
+ * The won version of each Closed Won record: the version frozen into its
+ * approved raise into Closed Won (the newest, if somehow several). Two reads
+ * for any number of records; no read at all when none is won.
+ */
+export async function wonVersionsOf(db, recordIds) {
+  const out = new Map();
+  if (!recordIds.length) return out;
+  const { data: reqs, error: rErr } = await db.from('transition_requests')
+    .select('record_id, frozen_version_id, closed_at')
+    .in('record_id', recordIds).eq('to_stage', WON_STAGE).eq('status', 'approved')
+    .order('closed_at', { ascending: false });
+  if (rErr) throw new Error(`won requests: ${rErr.message}`);
+  const versionOf = new Map();
+  for (const r of reqs ?? []) if (!versionOf.has(r.record_id)) versionOf.set(r.record_id, r.frozen_version_id ?? null);
+  const ids = [...versionOf.values()].filter(Boolean);
+  if (!ids.length) return out;
+  const { data: vs, error: vErr } = await db.from('deal_sheet_versions')
+    .select('id, record_id, major, minor, status, inputs, rates, frozen_figures').in('id', ids);
+  if (vErr) throw new Error(`won versions: ${vErr.message}`);
+  for (const v of vs ?? []) out.set(v.record_id, v);
+  return out;
+}
+
 export function workingVersionOf(latest, payload) {
   if (!latest || !Number.isInteger(latest.major)) return null;
   const moved = pricingChanged(latest.inputs, payload);

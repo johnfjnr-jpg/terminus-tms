@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-11-17T11:18:12.552Z`
-- Git commit: `158918e0eadf61e2a4cbe217707370cde8af15ec`
+- Generated at: `2026-11-17T14:29:18.410Z`
+- Git commit: `55a23737d684118f5804ce24baa2e751e8a4e74a`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 631,401 bytes
-- sha256: `485823e65fbefaf9836d115b0a4c2b018958685fdf727e3ade91ee58a566b575`
-- React suite: 1468/1468 pass, 0 fail
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 633,192 bytes
+- sha256: `7fb6adcae833354748c64adebe80e5877b1f538c67911d8b0ac7cc373a40e7c9`
+- React suite: 1477/1477 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1219 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1190 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1230 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1201 | yes |
 
 ## `stage_definitions`
 
@@ -504,38 +504,50 @@ _None._
 | TERMS | `[12,24,36,48,60,72,84,96,108,120]` | 2026-10-03T10:36:17.431+00:00 |
 | VOLUME_BANDS_BY_PRODUCT | `{"air_quality":[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}],"hemir":[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}],"safesight":[{"discountPct":"0","from":1},{"discountPct":"5","from":10},{"discountPct":"10","from":50},{"discountPct":"15","from":200}]}` | 2026-10-12T02:35:08.847153+00:00 |
 
+## `base_cost_batches`
+
+5 batches across 3 products; 3 current (the newest whose effective date has passed, per product).
+
+| product | batch | effective_from | unit_cost | install_existing | install_new | hosting_month | current |
+|---|---|---|---|---|---|---|---|
+| air_quality | Initial catalog | 2026-08-27 | 2000 | 500 | 1000 | 100 |  |
+| air_quality | John 2026-11-17, TP_LADDER | 2026-11-17 | 2000 | 500 | 1000 | 50 | yes |
+| hemir | Initial catalog | 2026-08-27 | 100000 | 5000 | 10000 | 500 |  |
+| hemir | John 2026-11-17, TP_LADDER | 2026-11-17 | 100000 | 5000 | 10000 | 200 | yes |
+| safesight | Initial catalog | 2026-08-27 | 8000 | 2000 | 20000 | 200 | yes |
+
 ## Record counts by type and status
 
-134 live, 126833 soft deleted, 126967 rows in total.
+134 live, 127599 soft deleted, 127733 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1762 |
-| contact | Active | 0 | 3678 |
+| account | active | 7 | 1766 |
+| contact | Active | 0 | 3702 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 13843 |
+| contact | Qualified | 12 | 13952 |
 | contact | Unqualified | 5 | 767 |
-| document | approved | 65 | 6063 |
+| document | approved | 65 | 6095 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
-| opportunity | Closed Won | 2 | 7 |
-| opportunity | Evaluation | 0 | 337 |
+| opportunity | Closed Won | 2 | 19 |
+| opportunity | Evaluation | 0 | 339 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 2051 |
-| opportunity | Qualification | 6 | 12084 |
-| opportunity | Solution Alignment | 7 | 1588 |
+| opportunity | Proposal | 3 | 2063 |
+| opportunity | Qualification | 6 | 12175 |
+| opportunity | Solution Alignment | 7 | 1596 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1582 |
+| test_bed | Qualification | 4 | 1586 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 23820 |
+| unit | Planned | 9 | 23960 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -546,20 +558,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 7284 | 0 | 59017 |
+| 7324 | 0 | 59345 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5459 rows, of which 3 carry a null `stage`.
+5485 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2648 | 0 |
-| approved | Legal | 1548 | 1 |
+| approved | Commercial | 2660 | 0 |
+| approved | Legal | 1556 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1254 | 0 |
+| approved | Technical | 1260 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -690,7 +702,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-131 files in `supabase/migrations/`.
+132 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -823,6 +835,7 @@ than written as a literal list, so its members are not enumerable here.
 129. `20261113000001_scoring_level_satisfies.sql`
 130. `20261114000001_deal_dynamics_lens.sql`
 131. `20261117000001_term_pricing_price_ladder.sql`
+132. `20261117000002_versions_freeze_their_figures.sql`
 
 ## Seed files, in application order
 

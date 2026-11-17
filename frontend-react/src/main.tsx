@@ -23,6 +23,7 @@ import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../sr
 import { assessSeries, lensRollupAt } from '../../src/lib/lens-rollup.js'
 import * as radar from '../../src/lib/radar.js'
 import { validateFactoringTermAgainstDuration } from '../../src/lib/system-defaults.js'
+import { closedWonPricingRefusal } from '../../src/lib/pricing-keys.js'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
 //
@@ -55,6 +56,8 @@ const roots = new Map<string, Root>()
 
 interface OppRecord {
   id: string
+  /** The stage. FROZEN_FIGURES R-FF4 reads it: a Closed Won deal's pricing is fixed. */
+  status?: string
   payload?: Record<string, unknown>
   opportunity_details?: { test_bed_cost?: number }
 }
@@ -360,6 +363,11 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
               // freezeCurrentState must be able to refuse the version.
               // R-CF2: the shared rule, refused before the write with the
               // server's own sentence. The server checks again.
+              // FROZEN_FIGURES R-FF4: a Closed Won deal's pricing is the won
+              // version's. The shared rule, refused before the write with the
+              // server's own sentence, which #deal-feedback shows (B1's path).
+              const won = closedWonPricingRefusal(opp.status, payload, { ...payload, ...p })
+              if (won) throw new Error(won)
               const refusal = validateFactoringTermAgainstDuration(payload, { ...payload, ...p })
               if (refusal) throw new Error(refusal)
               const r = await saveDeal(opp.id, p, window.oppPatch!)

@@ -266,7 +266,7 @@ test('the honesty test: a version agrees with the resolver, or it does not', () 
     'a quoted 2000 and a catalog 2000 are different facts')
 })
 
-test('the server allowlist admits exactly the four, and refuses the six', () => {
+test('the server allowlist admits exactly the four, and refuses the six', async () => {
   // "We only added four" is the claim Verification 19 catches, so it is
   // measured against the route's own list rather than read.
   const route = readCode(new URL('../../src/routes/opportunities.js', import.meta.url))
@@ -281,10 +281,14 @@ test('the server allowlist admits exactly the four, and refuses the six', () => 
   // RE-POINTED, Round 6 Phase R. The claim is unchanged - the two lists must
   // agree - and only WHERE the client's list lives has moved. The assertion
   // form transfers exactly, because both express the list as quoted keys.
+  // RE-POINTED again, FROZEN_FIGURES 2026-11-17: the list moved to
+  // src/lib/pricing-keys.js and payload.ts re-exports it, so the list is
+  // imported and payload.ts is asserted to READ it (not restate it).
   const client = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
-  const owned = client.slice(client.indexOf('COMMERCIALS_OWNED_KEYS'), client.indexOf(']', client.indexOf('COMMERCIALS_OWNED_KEYS')))
-  for (const k of OVERRIDABLE_RATE_KEYS) assert.ok(owned.includes(`'${k}'`), `${k} missing from COMMERCIALS_OWNED_KEYS`)
-  for (const k of CATALOG_ONLY_RATE_KEYS) assert.ok(!owned.includes(`'${k}'`), `${k} must not be client-owned`)
+  assert.match(client, /from '\.\.\/\.\.\/\.\.\/src\/lib\/pricing-keys\.js'/, 'payload.ts no longer reads the shared list')
+  const owned = (await import('../../src/lib/pricing-keys.js')).COMMERCIALS_OWNED_KEYS
+  for (const k of OVERRIDABLE_RATE_KEYS) assert.ok(owned.includes(k), `${k} missing from COMMERCIALS_OWNED_KEYS`)
+  for (const k of CATALOG_ONLY_RATE_KEYS) assert.ok(!owned.includes(k), `${k} must not be client-owned`)
 })
 
 test('readPayload sends the box, never the catalog figure', () => {

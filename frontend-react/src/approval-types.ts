@@ -157,4 +157,11 @@ export interface ApprovalPage {
   frozenTerms: string[]
   notRecorded: NotRecordedRow[]
   meta: ApprovalMeta
+  /**
+   * FROZEN_FIGURES R-FF2. 'frozen': the figures above are the version's STORED
+   * ones, and `today` maps a displayed figure's path to today's engine's value
+   * where it differs. 'legacy': submitted before figures were frozen, so every
+   * figure is today's, and `headLine` says so. Null for a draft.
+   */
+  frozen: { state: 'frozen'; frozenAt: string; today: Record<string, number> } | { state: 'legacy'; headLine: string } | null
 }

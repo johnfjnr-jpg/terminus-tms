@@ -1574,6 +1574,12 @@
          Architecture 2, and it is computed server-side beside the list's own
          column so the banner and the table cannot disagree. -->
     <div id="opp-headline" class="opp-headline"></div>
+    <!-- FROZEN_FIGURES R-FF4: whose figures the headline shows on a Closed Won
+         record. OUTSIDE the grid on purpose: inside it the sentence became an
+         eighth cell and wrapped to a row of its own (found in the build's
+         screenshot, every assertion green). Filled and hidden by
+         renderOppHeadline. -->
+    <p id="opp-headline-note" class="pg-item-note" data-testid="opp-headline-note" hidden></p>
 
     <!-- Chevron strip (2026-08-16), replacing the old dot-and-line
          .tracker - same component Test Bed uses (renderChevronStrip,

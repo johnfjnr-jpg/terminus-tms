@@ -154,13 +154,14 @@ export function ApprovalView({ oppId, navToken }: { oppId: string, navToken?: nu
     >
       <div data-testid="approval-view">
         <Card id="appr-block-ask" eyebrow="1. The ask">
-          <AskBlock ask={page.ask} />
+          <AskBlock ask={page.ask} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined}
+            legacyHeadLine={page.frozen?.state === 'legacy' ? page.frozen.headLine : null} />
         </Card>
         <Card id="appr-block-moved" eyebrow="2. What moved it">
-          <MovedBlock moved={page.moved} target={page.target} />
+          <MovedBlock moved={page.moved} target={page.target} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined} />
         </Card>
         <Card id="appr-block-exposures" eyebrow="3. Risk terms, as exposures">
-          <ExposuresBlock exposures={page.exposures} />
+          <ExposuresBlock exposures={page.exposures} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined} />
         </Card>
         <Card id="appr-block-costbasis" eyebrow="4. Cost basis, and its age">
           <CostBasisBlock costBasis={page.costBasis} />

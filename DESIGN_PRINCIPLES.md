@@ -13434,6 +13434,17 @@ must call the same rule, or the limit holds only on the screen.
 
 ## 4. Approved versions re-derive through today's engine, and that is QUEUED to change
 
+**SUPERSEDED 2026-11-17 by FROZEN_FIGURES (option c), and RE-TAKEN rather
+than re-weighed (Verification 29).** A submitted version now stores the figures
+the approval page showed at submission, and the page renders them; today's
+engine is only a check. The reasoning below is left as it was, because it is
+what the round acted on: the premise it names ("no real deal having been
+approved") was still true when the decision was replaced, so this was the
+queued change arriving on time, not a premise failing. See FROZEN FIGURES,
+decision 1, below. **SMARTC-003 v2.0 is not rewritten**: it was submitted
+before figures were frozen and carries the legacy head line (R-FF6, no
+backfill).
+
 **R-CF3 option (a), ruled at Phase 1:** one derivation. Issued and approved
 versions store their inputs, not their figures, so they re-derive under the
 corrected engine and carry the flag. SMARTC-003 v2.0 moved +483 and is
@@ -13566,3 +13577,128 @@ asserts against.
 `calibrate.mjs`, all carrying formula figures or code); versions freezing
 their batch reference (joined to option (c), HIGH); the deal adjustment's
 storage, if it is ever saved (decision 2 is re-taken then).
+
+---
+
+# FROZEN FIGURES: A SUBMITTED VERSION KEEPS WHAT THE APPROVER SAW
+
+**FROZEN_FIGURES round, 2026-11-17, John's rulings R-FF1 to R-FF6, the build
+sign-off and the calibration run.** It is COMMERCIALS FACTORING decision 4's
+option (c), queued there as HIGH and taken before any real deal was approved.
+Each decision names what it DEPENDS ON (Verification 29).
+
+## 1. A submitted version stores its figures, and that is rule 6's exception, not a cache
+
+**R-FF1: frozen at SUBMISSION, in the issue route, by the server, in the same
+UPDATE as the relabel.** `deal_sheet_versions.frozen_figures` holds the
+approval page's version blocks (ask, target, exposures, cost basis, frozen
+terms), the `calculateDeal` result they were read from, the engine identifier
+and the batch ids. They come from the SAME builder the page uses
+(`buildFrozenFigures` over `buildApprovalPage`), so what is stored is what the
+page would have shown at that moment, proved on a fixture: today's engine agreed
+with every stored figure, and `frozen.today` came back empty.
+
+**THIS IS THE AUDIT-SNAPSHOT EXCEPTION IN SECTION 3 RULE 6, and Architecture 2
+("computed values are computed, not stored") yields to it on that rule's own
+terms.** It is a point-in-time record of what a decision-maker saw, never read
+back as the current forecast: the headline of an OPEN deal still prices live,
+and the page still runs today's engine beside the stored figures. Rule 1 holds
+too: the figures are the server's, and the trigger refuses them from anyone but
+the service role.
+
+**One snapshot, not two.** Rule 6 says "at submission and at approval". Only
+the submission is stored, because an approval is OF a version, and a submitted
+version cannot change afterwards (the trigger refuses every role). The figures
+an approver signs are the submission's figures by construction, so a second
+copy at approval would be a second reader of one value (Verification 20).
+
+**R-FF2: stored figures stand; today's engine is a check.** Where it prices a
+displayed figure differently, the page prints "Today's engine prices this at X;
+the approved figure stands." beside it, and never substitutes.
+
+**R-FF6: no backfill.** A version submitted before 2026-11-17 has no figures,
+re-derives from its own frozen inputs and rates, and says so first: "Submitted
+before figures were frozen. Every figure below is today's engine's, from this
+version's frozen inputs and rates."
+
+**What it rests on:** the issue route being the ONLY way a version becomes
+submitted. The trigger enforces that (figures required on the relabel, from the
+service role only, with the issuer owning the record), and an INSERT trigger
+means every version is born a draft. A new submission path must go through the
+same builder, or what is stored stops being what the page shows.
+
+## 2. A won deal shows its won version, and its pricing cannot change
+
+**R-FF4.** A raise into Closed Won DERIVES the won version (the newest
+submitted version an approved request froze) into `frozen_version_id`, ignoring
+any value supplied (Architecture 12). A Closed Won record's headline reads that
+version's stored figures, labelled as its; with no won version it says "No
+approved version was won; these are today's figures." A pricing CHANGE to a
+Closed Won record is refused, server (409) and client (before the write), with
+"This deal is Closed Won; its pricing is the won version's and cannot change."
+Non-pricing fields stay editable, and a save resending an unchanged price is not
+a change. "Pricing" is the Commercials form's own keys, one list in
+`src/lib/pricing-keys.js` that the client re-exports.
+
+**What it rests on:** Closed Won being identified by the stage NAME, as
+`opportunity-dates.js` already does. A renamed won stage disarms the
+refusal and the headline together, silently.
+
+## 3. A database guard is calibrated by SQL, in one rolled-back block
+
+**This round's finding.** John's ruling was that calibration edits to database
+functions run in a transaction that is rolled back, never left applied. **No
+probe can observe such an edit**: a probe reaches Postgres through PostgREST,
+where every request is its own connection and its own transaction, so a
+function replaced inside an uncommitted transaction is invisible to every probe
+request. Committing the injection is the only way a probe sees it, and that is
+exactly what the ruling forbids.
+
+**So the calibration moves INTO the database.** One `DO` block
+(`scripts/calibrate-frozen-figures-sql.mjs` generates it against a tagged
+fixture): each injected function is the APPLIED migration's text minus one guard
+(derived, never retyped, each anchor asserted unique), the probe check's exact
+write is performed as the probe's role (`authenticated` with the JWT claim
+set, or `service_role`), and FIRED is recorded if the write goes through; then
+the same writes against the real functions, each expected refused. **The block
+ends by raising an exception carrying every verdict**, so all of it rolls back
+by construction whether or not it is wrapped (build discipline 14(a): a
+construct that cannot carry the error). The same block compares each stored
+function body (`pg_proc.prosrc`, by exact signature) with the file, which is
+the only way this environment can confirm a definition by TEXT.
+
+**Result, John 2026-11-17:** DEF 3/3 match the file; column jsonb; both triggers
+present; INJ 5/5 FIRED; REV 5/5 REFUSED.
+
+**The general rule: a guard that lives in the database is calibrated in the
+database.** The probe stays the proof that the guard holds; the rolled-back
+block is the proof that the guard is what holds it.
+
+## 4. The engine identifier: what it pins and what it does not
+
+`frozen_figures.engine` carries `commit` and `dealCalculatorSha256`
+(`src/engine-id.js`). **`commit` is HEAD when the server process STARTED**,
+read once at module load. A server running uncommitted source, or started before
+a later commit, names a commit that is not exactly the code that priced the
+figures. **The calculator's sha256 is what pins the code**: it is a hash of the
+file that did the arithmetic, read from disk at the same moment. Read the commit
+as "approximately when", and the hash as "exactly what".
+
+## Where it lives
+
+| what | where |
+|---|---|
+| the snapshot and the page's use of it | `buildFrozenFigures`, `withFrozenFigures`, `FROZEN_BLOCKS` in `src/lib/approval-page.js` |
+| the freeze at submission | `POST /deal-sheet-versions/:vid/issue`, `src/routes/deal-sheet-versions.js` (`approvalContext`) |
+| the database guards and the won derivation | `supabase/migrations/20261117000002_versions_freeze_their_figures.sql`; rollback in `supabase/rollbacks/` |
+| the Closed Won rule and the pricing keys | `src/lib/pricing-keys.js`; the PATCH in `src/routes/opportunities.js`; the client in `frontend-react/src/main.tsx` |
+| the won headline | `wonHeadline`, `wonVersionsOf` in `src/lib/opportunity-headline.js`; `#opp-headline-note` |
+| the engine identifier | `src/engine-id.js` |
+| the proofs | `frozen-figures.test.mjs`, `approval-page.test.mjs` (H3, R-FF1, R-FF2, R-FF6), `frontend-react/src/__tests__/frozen-figures.test.tsx`; `probe-frozen-figures-db.mjs`, `probe-frozen-figures-render.mjs`, `probe-closed-won-pricing-click.mjs`, `calibrate-frozen-figures-sql.mjs`, all UNWIRED |
+
+**Queued from this round:** the headline total contract value against the
+Commercials contract net on one fixture ($227,138 against $270,587; the approval
+page and the engine also give $227,138, so the screen that disagrees is
+Commercials), measured in its own round; `PRICING_KEY_LABELS` lagging six
+pricing keys (`paymentMode`, `priceOverrides`, `hostingPriceMode`,
+`hostingUnitFees`, `opexUnitFees`, `opexUnitMargins`).
