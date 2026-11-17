@@ -13467,3 +13467,102 @@ what somebody signed: the decision is re-taken then, not re-weighed.
 (HIGH, before any real deal is approved); FB1, the recovery-period limits
 tested but not called live; the per-record clear of `#deal-feedback` in
 `main.tsx`, unasserted; probe triage (these two probes join it).
+
+# TERM PRICING ON A PRICE LADDER: THREE DECISIONS, AND WHAT EACH RESTS ON
+
+TP_LADDER, 2026-11-17 (John's Phase 0 sign-off, its addendum A1 to A8, the
+Q1 and Q3 rulings, the golden-figures ruling, and the Phase 1 and 2
+sign-offs). Spec v2.0, `docs/pricing-spec.md`.
+
+## 1. The list price comes from the price ladder, and absence prices nothing
+
+**Ruled (A1, amended L-8):** the formula is removed. Every product's list fee
+per unit per month at each term is READ from its price ladder
+(`PRICE_LADDER_BY_PRODUCT`), an admin's to set, per product. A product with no
+price ladder prices nothing ("No price ladder for {product}"); a product with
+one but no price at a term in TERMS prices nothing at that term ("No price
+ladder price for N months"). **Nothing is substituted**: not another term's
+price, not another product's, not a formula. The term table shows the row,
+says why, and does not let it be chosen. `COMPARE_TERM` (renamed from
+ANCHOR_TERM, Q1) only sets the "vs N months" column; it derives no price.
+
+**SUPERSEDED, left visible:** v1.x derived every price from ANCHOR_MARGIN,
+SHORT_TERM_MARGIN and PROFIT_STEP so that every term from 36 months earned the
+36-month profit. That promise is now a property the ladder is CHECKED for
+(the profit check, decision 3's grid), not one the arithmetic guarantees.
+
+**What it rests on:** every reader of a price going through `listFeeAt`, the
+one path; the term ladder turning its two codes into a row; and the settings
+loader REQUIRING the price ladder row, so a table without one refuses to load
+rather than pricing nothing silently. Same principle as R-CF4 and Round 41
+ruling 5: absence is not substituted.
+
+**And the cost it imposed, recorded:** a list fee to the cent rounds a
+discounted band fee differently from the formula's exact fee, so 63 golden
+cases moved by cents. Re-derived as John ruled: price arithmetic by an
+independent pricer, mechanics through the frozen v1.10 engine
+(`scripts/term-pricing/v1-oracle.mjs`). The mechanics figures are a labelled
+regression snapshot; v1.x's hand derivation of the mechanics stands because
+that code did not change.
+
+## 2. The deal adjustment: list, then band, then discount; a discount is an approval signal
+
+**Ruled (A4):** sales adjusts one deal by a discount % OR a deal fee at the
+chosen term, either-or (R-O7); typing one derives the other. The order is
+list, then the volume bands, then the deal discount. Any discount off list is
+an **approval signal** ("Approval signal: N% below list"); the floor flags and
+never refuses. A fee above list is refused (no premiums this round). Nothing is
+stored (P5).
+
+**Positions taken in the build, revisitable:** the discount comes off the
+year-1 BANDED total at DEAL level, so a typed fee is kept to the cent (a
+per-band discount would round each unit's fee and drift); the band rows stay
+list figures and the breakdown says so; a fee carries the term it was typed
+at, and its EXACT ratio applies at every term, so a term switch keeps it.
+
+**What it rests on:** nothing being stored. A discount that lived on a record
+would need its own approval rule, its own audit and its own answer to "what
+happens when the ladder changes under it". While it is screen-only the
+approval signal is the whole control, and the day it is saved this is
+re-taken.
+
+## 3. A chart must be proved to plot the grid's own figures
+
+**Ruled (A6):** the price ladder editor's two charts, list price and profit per
+unit by band, are plain SVG drawn as the admin types, and **each point must be
+proved equal to the grid's figure**. Built so it can be: both charts and the
+margin grid are ONE `bandMarginGrid` on the bands as stored and the prices as
+typed; each point carries its cents, and the probe holds every point against
+its grid cell (40 per chart) and checks a larger figure is never drawn lower.
+
+**The instance that makes this a principle, not a nicety:** the first version
+of that probe check was VACUOUS. It found each point's chart from the nearest
+testid, which was the band's `<g>`, so both filters were empty, `every()`
+passed on nothing, and the point count beside it hid that (Verification 14). A
+calibration injection (the profit chart drawn from the client total) came back
+SILENT, which is how it was found. Corrected, the check also had to learn that
+two figures closer than the axis resolves share a pixel (three such ties on
+HEMIR's profit axis).
+
+**What it rests on:** a chart drawing nothing it computed itself. A chart that
+recomputes, rescales its own figures, or reads a second source is a second
+reader of the grid (Verification 20), and a picture is the surface nobody
+asserts against.
+
+## Where it lives
+
+| what | where |
+|---|---|
+| the list fee, the two codes, COMPARE_TERM | `src/lib/term-pricing.js` (`listFeeAt`, `NO_LADDER_CODES`, `normaliseParams`, `termLadder`) |
+| the ladder rules, editor and server | `validateLadder`; `mergeLadderChange` in `src/lib/term-pricing-settings.js`; `PUT /api/term-pricing/price-ladder/:product` |
+| the deal adjustment | `dealAdjustmentOf` and the deal-level block in `quoteCore` (spec 4.7) |
+| the grid's three checks and the charts' figures | `bandMarginGrid` |
+| the screen | `frontend-react/src/term-pricing/TermPricingView.tsx` (deal card, term table, price card, `PriceLadderEditor`, `LadderChart`) |
+| the proofs | `scripts/tests/term-pricing.test.mjs` (LG, DA, A1, Q1, 3.3, A6); `scripts/term-pricing/probe-ladder.mjs`, UNWIRED; `calibrate-ladder.mjs`, `calibrate-ladder-view.mjs`, UNWIRED |
+| the admin save | John's walk, 2026-11-17, read back: updated_by his user, updated_at 11:13:05Z, 120 at 500.00 |
+
+**Queued from this round:** probe triage (`probe-screen`, `probe-factoring`,
+`probe-bands`, `probe-overlap`, `probe-live`, `calibrate-view.mjs`,
+`calibrate.mjs`, all carrying formula figures or code); versions freezing
+their batch reference (joined to option (c), HIGH); the deal adjustment's
+storage, if it is ever saved (decision 2 is re-taken then).
