@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Row } from './ApprovalRow'
 import {
   money, pts, label, productLabel, fmtVal, isoDate, signedMoney, plusMoney,
@@ -7,11 +8,31 @@ import type {
   Ask, Moved, Target, Exposure, CostBasis, NotRecordedRow, BridgeStep,
 } from './approval-types'
 
+// ── FROZEN_FIGURES R-FF2: today's line, beside the figure it disagrees with ─
+//
+// The page shows the APPROVED figure; where today's engine prices a displayed
+// figure differently, the server sends today's value under the figure's path
+// and this prints the ruled sentence as that row's note. It never substitutes.
+export type TodayMap = Record<string, number>
+export const todayLineFor = (today: TodayMap | undefined, path: string, fmt: (n: number) => string) =>
+  today && path in today ? `Today's engine prices this at ${fmt(today[path])}; the approved figure stands.` : null
+function TodayNote({ text, path }: { text: string | null; path: string }) {
+  return text ? <span data-testid={`appr-today-${path}`} style={{ display: 'block', color: 'var(--attention)' }}>{text}</span> : null
+}
+const withToday = (note: ReactNode, text: string | null, path: string): ReactNode =>
+  text ? <>{note}{note ? ' ' : null}<TodayNote text={text} path={path} /></> : note
+
 // ── 1. The ask ───────────────────────────────────────────────────────────
-export function AskBlock({ ask }: { ask: Ask }) {
+export function AskBlock({ ask, today, legacyHeadLine }: { ask: Ask; today?: TodayMap; legacyHeadLine?: string | null }) {
   const v = ask.version
+  const line = (path: string, fmt: (n: number) => string) => todayLineFor(today, path, fmt)
   return (
     <>
+      {/* R-FF6 / R-FF2: a version submitted before figures were frozen says so,
+          first, because every figure below is today's. */}
+      {legacyHeadLine ? (
+        <p data-testid="appr-legacy-head" style={{ color: 'var(--attention)', marginBottom: 14, maxWidth: '70ch' }}>{legacyHeadLine}</p>
+      ) : null}
       <p style={{ fontSize: '1.05rem', marginBottom: 14 }}>{ask.sentence}</p>
       {/* H1: one line, in the --attention token, only when the deal has moved
           since the version under approval. The server decides whether there is
@@ -37,11 +58,11 @@ export function AskBlock({ ask }: { ask: Ask }) {
           <p style={{ maxWidth: '70ch' }}>{v.reason}</p>
         </div>
       ) : null}
-      <Row left="Contract net" right={`$${money(ask.contractNet)}`} />
-      <Row left="Total cost" right={`$${money(ask.totalCost)}`} />
-      <Row left="Achieved margin" right={`${ask.achievedMargin.toFixed(2)}%`} />
-      <Row left="Term" right={`${ask.months} months`} />
-      <Row left="Units" right={String(ask.units)} />
+      <Row left="Contract net" right={`$${money(ask.contractNet)}`} note={withToday(null, line('ask.contractNet', (n) => `$${money(n)}`), 'ask.contractNet')} />
+      <Row left="Total cost" right={`$${money(ask.totalCost)}`} note={withToday(null, line('ask.totalCost', (n) => `$${money(n)}`), 'ask.totalCost')} />
+      <Row left="Achieved margin" right={`${ask.achievedMargin.toFixed(2)}%`} note={withToday(null, line('ask.achievedMargin', (n) => `${n.toFixed(2)}%`), 'ask.achievedMargin')} />
+      <Row left="Term" right={`${ask.months} months`} note={withToday(null, line('ask.months', (n) => `${n} months`), 'ask.months')} />
+      <Row left="Units" right={String(ask.units)} note={withToday(null, line('ask.units', (n) => String(n)), 'ask.units')} />
     </>
   )
 }
@@ -59,7 +80,7 @@ function ChangeNote({ step }: { step: BridgeStep }) {
 
 // The target block applies whether or not there is a baseline, so it renders
 // under both branches below rather than inside one of them.
-function TargetBlock({ target }: { target: Target }) {
+function TargetBlock({ target, today }: { target: Target; today?: TodayMap }) {
   return (
     <>
       {target.movedSentence ? (
@@ -74,7 +95,9 @@ function TargetBlock({ target }: { target: Target }) {
       <Row
         left="Against target"
         right={`${target.gapPoints >= 0 ? 'above' : 'below'} by ${Math.abs(target.gapPoints).toFixed(2)} pts`}
-        note={`Achieved ${target.achieved.toFixed(2)}% against target ${target.provenance ? target.provenance.sentence : `${target.target}%`}`}
+        note={withToday(withToday(`Achieved ${target.achieved.toFixed(2)}% against target ${target.provenance ? target.provenance.sentence : `${target.target}%`}`,
+          todayLineFor(today, 'target.achieved', (n) => `${n.toFixed(2)}%`), 'target.achieved'),
+          todayLineFor(today, 'target.gapPoints', (n) => `${n >= 0 ? 'above' : 'below'} by ${Math.abs(n).toFixed(2)} pts`), 'target.gapPoints')}
       />
       {target.linesBelowTarget.map((l) => (
         <Row key={l.key} left={label(l.key)} right={`${l.pct}%`}
@@ -101,13 +124,13 @@ function TargetBlock({ target }: { target: Target }) {
 //                         different sentence.
 //
 // A bridge that always adds up is telling an approver nothing.
-export function MovedBlock({ moved, target }: { moved: Moved; target: Target }) {
+export function MovedBlock({ moved, target, today }: { moved: Moved; target: Target; today?: TodayMap }) {
   if (!moved.bridge) {
     // A STATED ABSENCE, NOT A GAP. A blank block reads as a rendering failure.
     return (
       <>
         <p style={{ marginBottom: 14 }}>{moved.absence}</p>
-        <TargetBlock target={target} />
+        <TargetBlock target={target} today={today} />
       </>
     )
   }
@@ -170,13 +193,13 @@ export function MovedBlock({ moved, target }: { moved: Moved; target: Target }) 
       ) : null}
 
       <p className="pg-item-note" style={{ marginTop: 12 }}>{moved.order}</p>
-      <TargetBlock target={target} />
+      <TargetBlock target={target} today={today} />
     </>
   )
 }
 
 // ── 3. Exposures ─────────────────────────────────────────────────────────
-export function ExposuresBlock({ exposures }: { exposures: Exposure[] }) {
+export function ExposuresBlock({ exposures, today }: { exposures: Exposure[]; today?: TodayMap }) {
   return (
     <>
       <p className="pg-item-note" style={{ marginBottom: 10 }}>
@@ -186,7 +209,7 @@ export function ExposuresBlock({ exposures }: { exposures: Exposure[] }) {
       {exposures.map((e) => (
         <Row key={e.key} left={e.label}
           right={<>{signedMoney(e.amount)} <span className="pg-item-note" style={{ display: 'inline' }}>{e.bornByTerminus ? 'borne by Terminus' : 'not borne'}</span></>}
-          note={`${e.basis}. ${e.note}`} />
+          note={withToday(`${e.basis}. ${e.note}`, todayLineFor(today, `exposures.${e.key}`, (n) => signedMoney(n)), `exposures.${e.key}`)} />
       ))}
     </>
   )

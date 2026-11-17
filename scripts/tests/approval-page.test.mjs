@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs'
 import { readCode } from '../lib/strip-comments.mjs'
 import {
   buildApprovalPage, buildBridge, buildExposures, buildTarget, buildCostBasis,
+  buildFrozenFigures, withFrozenFigures, FROZEN_BLOCKS, LEGACY_HEAD_LINE, todayLine,
   buildNotRecorded, pricedKeys, checkReconciliation, stalenessBand, COST_BASIS_STALENESS,
   BRIDGE_STEPS, bridgeKeys,
 } from '../../src/lib/approval-page.js'
@@ -341,6 +342,18 @@ const VERSION = {
   inputs: NOW,
   rates: { as_of: '2026-08-29', rates: RATES, terms: {}, batches: CATALOG_BATCHES, missing: [] },
 }
+
+// ── FROZEN_FIGURES R-FF3: THE COST BASIS IS THE VERSION'S ────────────────
+//
+// The five cost-basis cases below drove the basis through the CATALOG argument,
+// which the page only ever read because of the H3 reader defect (it tested
+// Array.isArray on an object). They were shaped to the defect (Verification 47).
+// A version saved under a catalog lacking HEMIR, or holding an old batch,
+// FREEZES that into its own rates; that is the state the system produces, so it
+// is the fixture. SUPERSEDED, left visible in each: `catalog: { batches: ...,
+// missing: [...] }` with the version's own basis ignored.
+const withBasis = (batches, missing = []) => ({ ...VERSION, rates: { ...VERSION.rates, batches, missing } })
+const TODAY_CATALOG = { batches: { safesight: { batch_label: 'Today', effective_from: '2026-11-17' } }, missing: [], asOf: '2026-11-17', rates: RATES }
 
 test('block 1 states the ask in one sentence', () => {
   const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: VERSION, catalog: CATALOG, record: { reference_code: 'TT-SG-001' } })
@@ -786,8 +799,7 @@ test('base_cost_batches has no end date, so a batch never expires', () => {
 
 test('a missing product the deal DOES use is escalated to the ask', () => {
   const page = buildApprovalPage({
-    payload: NOW, testBedCost: 25000, version: VERSION,
-    catalog: { batches: {}, missing: ['hemir'], asOf: '2026-08-29' },
+    payload: NOW, testBedCost: 25000, version: withBasis({}, ['hemir']), catalog: TODAY_CATALOG,
   })
   assert.match(page.ask.unpricedWarning, /2 hemir/)
   assert.match(page.ask.unpricedWarning, /ZERO cost/)
@@ -801,8 +813,7 @@ test('and one the deal does NOT use is reported without alarm', () => {
   // an approver to skip the block.
   const noHemir = { ...NOW, hemir: 0 }
   const page = buildApprovalPage({
-    payload: noHemir, testBedCost: 25000, version: VERSION,
-    catalog: { batches: {}, missing: ['hemir'], asOf: '2026-08-29' },
+    payload: noHemir, testBedCost: 25000, version: { ...withBasis({}, ['hemir']), inputs: noHemir }, catalog: TODAY_CATALOG,
   })
   assert.equal(page.ask.unpricedWarning, null)
   assert.equal(page.costBasis.missingDetail[0].inUse, false)
@@ -816,8 +827,7 @@ test('the units come from the calculator mapping, not a second one', () => {
   assert.equal(PRODUCT_UNITS.air_quality({ aqm: 6 }), 6)
   assert.equal(PRODUCT_UNITS.hemir({ hemir: 2 }), 2)
   const page = buildApprovalPage({
-    payload: NOW, testBedCost: 25000, version: VERSION,
-    catalog: { batches: {}, missing: ['safesight'], asOf: '2026-08-29' },
+    payload: NOW, testBedCost: 25000, version: withBasis({}, ['safesight']), catalog: TODAY_CATALOG,
   })
   assert.match(page.ask.unpricedWarning, /50 safesight/,
     'ssExisting + ssNew, exactly as buildDealInputs sums them')
@@ -863,11 +873,7 @@ test('an undated batch is its own answer, not quietly current', () => {
 
 test('a stale basis is raised to the ask with the acknowledgement requirement', () => {
   const page = buildApprovalPage({
-    payload: NOW, testBedCost: 25000, version: VERSION,
-    catalog: {
-      batches: { safesight: { batch_label: 'Old', effective_from: '2025-01-01' } },
-      missing: [], asOf: '2026-08-29',
-    },
+    payload: NOW, testBedCost: 25000, version: withBasis({ safesight: { batch_label: 'Old', effective_from: '2025-01-01' } }), catalog: TODAY_CATALOG,
   })
   assert.match(page.ask.staleBasisWarning, /over twelve months old/)
   assert.match(page.ask.staleBasisWarning, /explicit acknowledgement/)
@@ -878,11 +884,7 @@ test('an ageing basis is noted, and does not claim to need acknowledgement', () 
   // The discriminating half. If both bands produced the same sentence, the
   // three-band policy would be two bands wearing three names.
   const page = buildApprovalPage({
-    payload: NOW, testBedCost: 25000, version: VERSION,
-    catalog: {
-      batches: { safesight: { batch_label: 'Q1', effective_from: '2026-02-01' } },
-      missing: [], asOf: '2026-08-29',
-    },
+    payload: NOW, testBedCost: 25000, version: withBasis({ safesight: { batch_label: 'Q1', effective_from: '2026-02-01' } }), catalog: TODAY_CATALOG,
   })
   assert.equal(page.ask.staleBasisWarning, null)
   assert.match(page.ask.ageingBasisNote, /between six and/)
@@ -949,4 +951,78 @@ test('H1: SILENT when the two cannot be compared at all', () => {
 test('H1: SILENT when there is no version to have moved from', () => {
   const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: null, catalog: CATALOG })
   assert.equal(page.ask.movedSinceVersion, null)
+})
+
+
+// ── FROZEN_FIGURES: H3's first test, and R-FF1 / R-FF2 at the builder ──────
+
+test('H3 (its first test, R-FF3): the cost basis is the VERSION\'s frozen batches, never today\'s catalog', () => {
+  // The version froze Q1 (2026-03-12); today's catalog says "Today" (2026-11-17).
+  // The stored shape is an OBJECT keyed by product, as the save route writes it.
+  const page = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: VERSION, catalog: TODAY_CATALOG })
+  assert.deepEqual(page.costBasis.products.map((p) => [p.product, p.batchLabel, p.effectiveFrom]), [['safesight', 'Q1', '2026-03-12']])
+  assert.equal(page.costBasis.asOf, '2026-08-29', 'dated as the version froze it')
+  // With no version there is nothing frozen, and today's catalog is right.
+  const live = buildApprovalPage({ payload: NOW, testBedCost: 25000, version: null, catalog: TODAY_CATALOG })
+  assert.deepEqual(live.costBasis.products.map((p) => p.batchLabel), ['Today'])
+})
+
+const SUBMITTED = { ...VERSION, major: 1, minor: 0, status: 'issued' }
+const FROZE = '2026-11-17T12:00:00.000Z'
+
+test('R-FF1: the snapshot IS the page this builder shows, block for block, with the calculateDeal result it read', () => {
+  const args = { payload: NOW, testBedCost: 25000, version: SUBMITTED, catalog: TODAY_CATALOG }
+  const snap = buildFrozenFigures(args, { sha: 'abc', calculator: 'def' }, FROZE)
+  const page = JSON.parse(JSON.stringify(buildApprovalPage(args)))
+  // THE EXPECTED BLOCKS ARE WRITTEN HERE, from the requirement, not read from
+  // FROZEN_BLOCKS: walking the module's own list let a dropped block pass
+  // (calibration, 2026-11-17, SILENT). The version's blocks are frozen; the
+  // ones about the record NOW (what moved since, what is not recorded) are
+  // not. (meta is the route's, not the builder's, so it is not on this page.)
+  const VERSION_BLOCKS = ['ask', 'costBasis', 'exposures', 'frozenTerms', 'target']
+  for (const k of VERSION_BLOCKS) assert.deepEqual(snap.page[k], page[k], k)
+  assert.deepEqual(Object.keys(snap.page).sort(), VERSION_BLOCKS, 'exactly the version\'s blocks are frozen')
+  for (const k of ['moved', 'notRecorded']) assert.ok(k in page && !(k in snap.page), `${k} is about the record now, and is not frozen`)
+  assert.deepEqual([...FROZEN_BLOCKS].sort(), VERSION_BLOCKS)
+  assert.equal(snap.result.totals.contractNet, page.ask.contractNet, 'the headline is read from the stored result')
+  assert.deepEqual([snap.builder, snap.engine, snap.frozenAt], ['buildApprovalPage', { sha: 'abc', calculator: 'def' }, FROZE])
+  assert.deepEqual(snap.batches, CATALOG_BATCHES, 'the batch ids the rates came from')
+  assert.match(snap.page.ask.sentence, /^Approve V1\.0 at /, 'named as submitted (the shared label: V1.0)')
+})
+
+test('R-FF2: a submitted version shows its STORED figures; today\'s engine is a check that never substitutes', () => {
+  const args = { payload: NOW, testBedCost: 25000, version: SUBMITTED, catalog: TODAY_CATALOG }
+  const today = buildApprovalPage(args)
+  const snap = buildFrozenFigures(args, null, FROZE)
+  // Same engine: nothing differs, nothing to say.
+  const same = withFrozenFigures(today, { ...SUBMITTED, frozen_figures: snap })
+  assert.deepEqual([same.frozen.state, same.frozen.today, same.ask.contractNet], ['frozen', {}, today.ask.contractNet])
+  // An engine that now prices it 483 higher: the approved figure stands, and
+  // the line carries today's.
+  const signed = JSON.parse(JSON.stringify(snap))
+  signed.page.ask.contractNet = today.ask.contractNet - 483
+  signed.page.exposures = signed.page.exposures.map((e, i) => (i === 0 ? { ...e, amount: e.amount + 1 } : e))
+  const shown = withFrozenFigures(today, { ...SUBMITTED, frozen_figures: signed })
+  assert.equal(shown.ask.contractNet, today.ask.contractNet - 483, 'the stored figure stands')
+  assert.deepEqual(Object.keys(shown.frozen.today).sort(), ['ask.contractNet', `exposures.${today.exposures[0].key}`].sort())
+  assert.equal(shown.frozen.today['ask.contractNet'], today.ask.contractNet, 'today\'s value, for the line beside it')
+  assert.equal(todayLine('$1,439,956'), "Today's engine prices this at $1,439,956; the approved figure stands.")
+})
+
+test('R-FF2: the "moved since" line is about the record NOW, so it is today\'s, not the snapshot\'s', () => {
+  const args = { payload: NOW, testBedCost: 25000, version: SUBMITTED, catalog: TODAY_CATALOG }
+  const snap = buildFrozenFigures(args, null, FROZE)
+  const later = buildApprovalPage({ ...args, payload: { ...NOW, ssExisting: (NOW.ssExisting ?? 0) + 5 } })
+  assert.equal(snap.page.ask.movedSinceVersion, null)
+  assert.match(withFrozenFigures(later, { ...SUBMITTED, frozen_figures: snap }).ask.movedSinceVersion, /has changed since V1/)
+})
+
+test('R-FF6 / R-FF2: a submitted version with no snapshot re-derives and says so; a draft says nothing', () => {
+  const args = { payload: NOW, testBedCost: 25000, version: SUBMITTED, catalog: TODAY_CATALOG }
+  const today = buildApprovalPage(args)
+  const legacy = withFrozenFigures(today, { ...SUBMITTED, frozen_figures: null })
+  assert.deepEqual(legacy.frozen, { state: 'legacy', headLine: LEGACY_HEAD_LINE })
+  assert.equal(LEGACY_HEAD_LINE, "Submitted before figures were frozen. Every figure below is today's engine's, from this version's frozen inputs and rates.")
+  assert.equal(legacy.ask.contractNet, today.ask.contractNet)
+  assert.equal(withFrozenFigures(today, { ...VERSION, frozen_figures: null }).frozen, null, 'a draft is not submitted')
 })

@@ -83,6 +83,8 @@ const EXEMPT = {
   issued_by: 'null on a draft, set by the relabel. That is the transition.',
   issued_at: 'null on a draft, set by the relabel.',
   issued_by_email: 'null on a draft, set by the relabel.',
+  // FROZEN_FIGURES R-FF5 (John, 2026-11-17), the reason as drafted and ruled:
+  frozen_figures: 'set once, by the relabel, server only; the trigger refuses it on a draft and after issue.',
 }
 
 test('every deal_sheet_versions column is guarded or explicitly exempt', () => {

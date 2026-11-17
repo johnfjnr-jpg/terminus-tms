@@ -22,14 +22,21 @@ import {
 } from '../../src/lib/rate-resolution.js'
 import { PRODUCT_RATE_KEYS } from '../../src/lib/base-costs.js'
 import { PRICE_OVERRIDE_KEYS, priceOverrideFor } from '../../src/lib/deal-calculator.js'
+import { COMMERCIALS_OWNED_KEYS } from '../../src/lib/pricing-keys.js'
 
 // READ FROM SOURCE, comments stripped: `payload.ts` is TypeScript and the
 // pure runner is plain node, so a dynamic import is a syntax error. Stripped
 // because a comment naming a key would otherwise satisfy the match -
 // Verification 39, and this file is exactly the shape that fault likes.
+//
+// RE-POINTED, FROZEN_FIGURES 2026-11-17. The list moved to
+// src/lib/pricing-keys.js, plain JS, so it is IMPORTED rather than scanned:
+// the scan's reason (TypeScript under plain node) no longer applies, and an
+// import reads the very array the client and the server's Closed Won refusal
+// both read. The claim is unchanged. SUPERSEDED, left visible: the source
+// match on payload.ts's `export const COMMERCIALS_OWNED_KEYS = [`.
 const payloadSrc = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
-const ownedBlock = payloadSrc.match(/export const COMMERCIALS_OWNED_KEYS = \[([\s\S]*?)\]/)
-const OWNED = ownedBlock ? [...ownedBlock[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : null
+const OWNED = /from '\.\.\/\.\.\/\.\.\/src\/lib\/pricing-keys\.js'/.test(payloadSrc) ? [...COMMERCIALS_OWNED_KEYS] : null
 
 test('R-C2a 1: the writable allowlist was found at all', () => {
   // Or every assertion below passes over an empty list, which is

@@ -56,6 +56,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 // drift apart. Nothing else from that module is imported, and no fixture
 // is ever created: this script only reads.
 import { loadEnv, adminClient } from './verify-harness.mjs'
+import { resolveCurrentBatches } from '../src/lib/base-costs.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(HERE, '..')
@@ -762,6 +763,25 @@ w('')
   w(`${rows.length} rows. The LIVE values the Term Pricing screen prices with; docs/pricing-spec.md section 3 prints the spec's defaults, which differ where an admin has changed one.`)
   w('')
   w(table(['key', 'value', 'updated_at'], rows.map(r => [cell(r.key), jsonCell(r.value), cell(r.updated_at)])))
+}
+
+// ── base_cost_batches (FROZEN_FIGURES rider, John 2026-11-17) ──
+// The cost catalog, so a new batch appears in the configuration changelog. The
+// 2026-11-17 TP_LADDER batch was the first that changed live figures and was
+// invisible here. EVERY batch is listed (the table is a history and small),
+// and which one is CURRENT per product is decided by the estate's one resolver
+// (resolveCurrentBatches), today, never by a second rule written here.
+{
+  const rows = (await fetchAll(db, 'base_cost_batches', 'id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month'))
+    .sort(by('product', 'effective_from'))
+  const current = new Set(resolveCurrentBatches(rows, new Date().toISOString().slice(0, 10)).map((c) => c.batch_id))
+  w('## `base_cost_batches`')
+  w('')
+  w(`${rows.length} batches across ${new Set(rows.map((r) => r.product)).size} products; ${current.size} current (the newest whose effective date has passed, per product).`)
+  w('')
+  w(table(['product', 'batch', 'effective_from', 'unit_cost', 'install_existing', 'install_new', 'hosting_month', 'current'],
+    rows.map(r => [cell(r.product), cell(r.batch_label), cell(r.effective_from), cell(r.unit_cost), cell(r.install_cost_existing),
+      cell(r.install_cost_new), cell(r.hosting_cost_month), current.has(r.id) ? 'yes' : ''])))
 }
 
 // ── record counts ────────────────────────────────────────────

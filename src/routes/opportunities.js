@@ -1,5 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { readSystemDefaults, defaultsForConditionalFields, validateFactoringTermAgainstDuration } from '../lib/system-defaults.js'
+import { COMMERCIALS_OWNED_KEYS, closedWonPricingRefusal } from '../lib/pricing-keys.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
@@ -12,7 +13,8 @@ import { PRICE_OVERRIDE_KEYS } from '../lib/deal-calculator.js'
 import { OPEX_FEE_KEYS } from '../lib/opex.js'
 import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
-import { totalContractValue, weightedValue, issuedMajor, workingVersionOf, approvedVersionOf } from '../lib/opportunity-headline.js'
+import { totalContractValue, weightedValue, issuedMajor, workingVersionOf, approvedVersionOf, wonHeadline, wonVersionsOf } from '../lib/opportunity-headline.js'
+import { WON_STAGE } from '../lib/pricing-keys.js'
 // R-L4a: the link and the scope word, imported rather than restated.
 import { linkApprovalsToVersions, VERSION_SCOPE } from '../lib/version-approval.js'
 import { versionLabel } from '../lib/version-label.js'
@@ -106,17 +108,25 @@ export default async function opportunitiesRoutes(app) {
       }
     }
 
+    // FROZEN_FIGURES R-FF4: a Closed Won row's value is its won version's.
+    let won
+    try { won = await wonVersionsOf(db, opps.filter((o) => o.status === WON_STAGE).map((o) => o.id)) }
+    catch (err) { return reply.code(500).send({ error: err.message }) }
+
     return opps.map(opp => {
       const payload = latestPayload[opp.id] ?? {}
       const det = opp.opportunity_details ?? {}
-      const tcv = catalog ? totalContractValue(payload, catalog, det.test_bed_cost ?? 0) : null
+      const live = catalog ? totalContractValue(payload, catalog, det.test_bed_cost ?? 0) : null
+      const head = wonHeadline({ status: opp.status, wonVersion: won.get(opp.id) ?? null, liveTcv: live, testBedCost: det.test_bed_cost ?? 0 })
       const prob = det.probability_override_pct ?? det.probability_pct ?? null
       return {
         ...opp,
         payload,
         account_name: opp.account_id ? (accountName[opp.account_id] ?? null) : null,
-        total_contract_value: tcv,
-        weighted_value: weightedValue(tcv, prob),
+        total_contract_value: head.tcv,
+        weighted_value: weightedValue(head.tcv, prob),
+        headline_source: head.source,
+        headline_note: head.note,
       }
     })
   })
@@ -390,9 +400,15 @@ export default async function opportunitiesRoutes(app) {
     }
     const headlinePayload = revResult.data?.payload ?? {}
     const det = opp.opportunity_details ?? {}
-    const tcv = catalogResult
+    const liveTcv = catalogResult
       ? totalContractValue(headlinePayload, catalogResult.rates, det.test_bed_cost ?? 0)
       : null
+    // FROZEN_FIGURES R-FF4: a Closed Won record's value is its won version's.
+    let won
+    try { won = opp.status === WON_STAGE ? await wonVersionsOf(db, [opp.id]) : new Map() }
+    catch (err) { return reply.code(500).send({ error: err.message }) }
+    const head = wonHeadline({ status: opp.status, wonVersion: won.get(opp.id) ?? null, liveTcv, testBedCost: det.test_bed_cost ?? 0 })
+    const tcv = head.tcv
     const prob = det.probability_override_pct ?? det.probability_pct ?? null
 
     return {
@@ -402,6 +418,8 @@ export default async function opportunitiesRoutes(app) {
       freshness_at: freshRow?.freshness_at ?? null,
       total_contract_value: tcv,
       weighted_value: weightedValue(tcv, prob),
+      headline_source: head.source,
+      headline_note: head.note,
       // KEPT, and no longer what the Approved Version field reads. Other
       // callers read `issued_major` for "the highest PROMOTED major", which is
       // a true and useful fact; what changed is that the field claiming
@@ -863,13 +881,33 @@ export default async function opportunitiesRoutes(app) {
 
     const { data: record, error: recordErr } = await db
       .from('records')
-      .select('id')
+      .select('id, status')
       .eq('id', request.params.id)
       .eq('record_type', 'opportunity')
       .maybeSingle()
 
     if (recordErr || !record) {
       return reply.code(404).send({ error: 'not found' })
+    }
+
+    // ── FROZEN_FIGURES R-FF4 (John, 2026-11-17): A WON DEAL'S PRICING IS FIXED ─
+    //
+    // Its figures are the won version's, so a pricing edit is refused with the
+    // ruled sentence. The client refuses first with the same rule
+    // (closedWonPricingRefusal, src/lib/pricing-keys.js); this is the
+    // authority. Only a CHANGE is refused, so a save that resends a saved price
+    // beside a non-pricing edit still lands, and non-pricing fields stay
+    // editable. 409: the record's state forbids it, not the request's shape.
+    // Its read feeds a validation only, and its error is refused.
+    if (Object.keys(payload).some((k) => COMMERCIALS_OWNED_KEYS.includes(k))) {
+      const { data: wonRev, error: wonErr } = await db.from('record_revisions').select('payload')
+        .eq('record_id', record.id).order('revision_number', { ascending: false }).limit(1).maybeSingle()
+      if (wonErr) {
+        request.log.error({ err: wonErr }, 'failed to load current revision for the Closed Won check')
+        return reply.code(500).send({ error: wonErr.message })
+      }
+      const wonRefusal = closedWonPricingRefusal(record.status, wonRev?.payload ?? {}, payload)
+      if (wonRefusal) return reply.code(409).send({ error: wonRefusal })
     }
 
     // ── Round 34 Phase 2: the two date orderings ──────────────────────────

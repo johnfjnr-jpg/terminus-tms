@@ -104,29 +104,12 @@ export const MARGIN_KEYS = [
   'inAqm', 'inHemir', 'inLump', 'hoSs', 'hoAqm', 'hoHemir',
 ] as const
 
-export const COMMERCIALS_OWNED_KEYS = [
-  'ssExisting', 'ssNew', 'aqm', 'hemir', 'installResp', 'lumpSumCost',
-  'targetMargin', 'marginOverrides', 'inSsExisting', 'inSsNew', 'inAqm', 'inHemir',
-  'warrantyPct', 'whtPct', 'gstPct', 'grossUp', 'bidCurrency', 'proposalCurrency',
-  'fxContingency', 'duration', 'structure', 'recoveryMonths', 'invoicing',
-  'milestones', 'contractorMilestones', 'factoring',
-  // R-O7: the hosting price override. `hostingPriceMode` is 'margin' or
-  // 'perUnit'; `hostingUnitFees` is the monthly fee for ONE unit of a type,
-  // keyed by the same `hoSs`/`hoAqm`/`hoHemir` the calculator prices by.
-  'hostingPriceMode', 'hostingUnitFees',
-  // R-OX1 and R-OX4: the payment mode and the OPEX all-in per-unit overrides.
-  // BOTH ALLOWLISTS, because there are two: this one and
-  // SALESPERSON_WRITABLE_KEYS on the server, which is the drift the C2 round
-  // found the hard way when the route refused a key this list already carried.
-  'paymentMode', 'opexUnitFees', 'opexUnitMargins',
-  // R-C2b: the either-or generalised. R-O7 gave hosting a price override;
-  // this is the same act for the hardware and installation lines, keyed by
-  // the calculator's own line keys. `hwWarranty` is absent by construction -
-  // the allowed set lives in `PRICE_OVERRIDE_KEYS` in the calculator, so the
-  // rule that the warranty reaches the customer at cost is enforced where the
-  // pricing happens rather than remembered at each writer.
-  'priceOverrides',
-] as const
+// FROZEN_FIGURES R-FF4: the list MOVED to src/lib/pricing-keys.js, so the
+// server's Closed Won refusal and this form read ONE list. Re-exported here so
+// every existing importer is unchanged. SUPERSEDED, left visible: the literal
+// array that stood here (the same 32 keys, the same order).
+import { COMMERCIALS_OWNED_KEYS } from '../../../src/lib/pricing-keys.js'
+export { COMMERCIALS_OWNED_KEYS }
 
 /** R-O7: the three hosting types, in the order the card lists them. */
 export const HOSTING_FEE_KEYS = ['hoSs', 'hoAqm', 'hoHemir'] as const

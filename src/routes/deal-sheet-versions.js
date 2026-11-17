@@ -1,9 +1,10 @@
-import { createUserClient } from '../supabase.js'
+import { createUserClient, supabaseAdmin } from '../supabase.js'
+import { ENGINE_ID } from '../engine-id.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { payloadsDiffer } from '../lib/payload-diff.js'
 import { appendRecordRevision, SINGLE_KEY_RMW } from '../lib/record-revision.js'
 import { linkApprovalsToVersions, versionApprovalState, liveVersionApproval, APPROVAL_TRACK } from '../lib/version-approval.js'
-import { buildApprovalPage } from '../lib/approval-page.js'
+import { buildApprovalPage, buildFrozenFigures, withFrozenFigures } from '../lib/approval-page.js'
 import { scheduleReconciliation, refusalStatement } from '../lib/milestone-schedule.js';
 import { resolveRates, frozenRates, frozenRatesAgree } from '../lib/rate-resolution.js';
 import { frozenTerms, readSystemDefaults } from '../lib/system-defaults.js';
@@ -43,6 +44,105 @@ export default async function dealSheetVersionsRoutes(app) {
   // Resolve the catalog the same way the tab and deals.js do, through the one
   // shared file, so a version freezes what the screen priced against rather
   // than a second reading of the same table.
+  // ── THE PAGE'S INPUTS, ASSEMBLED ONCE (FROZEN_FIGURES) ──────────────────
+  //
+  // The approval page and the issue route (R-FF1) both need exactly these, and
+  // R-FF1's whole claim is that what a submission stores is what this page
+  // would have shown at that moment. So one function assembles them and both
+  // routes call it; moved here unchanged from the GET handler, comments and
+  // all. `pageArgs(version)` returns buildApprovalPage's arguments for that
+  // version (the page's own, or the one being submitted).
+  async function approvalContext(db, record) {
+      // The revision history, newest first. Used for the payload AND for dating
+      // the last target change, so it is read once.
+      //
+      // THE WINDOW IS 200 AND IT IS STATED. A paged read that silently stops is
+      // indistinguishable from one that found nothing (Verification 17), so when
+      // the walk below exhausts this window without finding a different target,
+      // it reports "not found in the last 200 revisions" rather than a date it
+      // does not have.
+      const REVISION_WINDOW = 200
+      const { data: revisions, error: revErr } = await db
+        .from('record_revisions')
+        .select('revision_number, payload, created_at')
+        .eq('record_id', record.id)
+        .order('revision_number', { ascending: false })
+        .limit(REVISION_WINDOW)
+      if (revErr) return { status: 500, error: revErr.message }
+      if (!revisions?.length) return { status: 409, error: 'this Opportunity has no revisions' }
+
+      const latest = revisions[0]
+      const payload = latest.payload ?? {}
+
+      const { data: details } = await db
+        .from('opportunity_details').select('test_bed_cost')
+        .eq('record_id', record.id).maybeSingle()
+
+      let catalog
+      try { catalog = await currentRates(db) } catch (err) {
+        return { status: 500, error: err.message }
+      }
+
+      const { data: versions, error: vErr } = await db
+        .from('deal_sheet_versions')
+        .select('id, major, minor, status, reason, revision_number, inputs, rates, frozen_figures, created_by_email, created_at')
+        .eq('record_id', record.id)
+        .order('major', { ascending: false }).order('minor', { ascending: false })
+      if (vErr) return { status: 500, error: vErr.message }
+
+      const { data: approvalRows2, error: aErr } = await db
+        .from('approvals')
+        .select('revision_number, track, decision, approver_id, decided_at, request_id')
+        .eq('record_id', record.id).eq('track', APPROVAL_TRACK)
+      if (aErr) return { status: 500, error: aErr.message }
+      const { data: reqRows2, error: rErr2 } = await db
+        .from('transition_requests').select('id, frozen_version_id').eq('record_id', record.id)
+      if (rErr2) return { status: 500, error: rErr2.message }
+      const approvals = linkApprovalsToVersions(approvalRows2, reqRows2)
+
+      const latestNumber = latest.revision_number
+      const version = (versions ?? [])[0] ?? null
+
+      // THROUGH THE SAME ENTRY POINT THE GATE USES. Verification 20, applied to
+      // something this round created: liveVersionApproval was written for the
+      // stage gate and this page kept assembling the same answer from the two
+      // functions underneath it. Two paths, agreeing today. The page takes the
+      // version it returns as block 2's baseline and its detail as the state.
+      const live = liveVersionApproval({
+        track: APPROVAL_TRACK, versions: versions ?? [], approvals: approvals ?? [], latestRevision: latestNumber, currentPayload: latest.payload,
+      })
+      const baseline = live.version
+        ? { ...live.version, approval: live.detail ?? versionApprovalState(live.version, approvals ?? [], latestNumber, APPROVAL_TRACK, latest.payload) }
+        : null
+
+      // WHEN THE TARGET LAST MOVED. Walking newest to oldest, the first revision
+      // holding a different target is the one before the change, so the change
+      // landed on the revision after it.
+      const currentTarget = toNumberOrNull(payload.targetMargin)
+      let targetChangedAt = null
+      let targetChangedWindowExhausted = false
+      for (let i = 1; i < revisions.length; i++) {
+        if (toNumberOrNull(revisions[i].payload?.targetMargin) !== currentTarget) {
+          targetChangedAt = String(revisions[i - 1].created_at).slice(0, 10)
+          break
+        }
+        if (i === revisions.length - 1 && revisions.length === REVISION_WINDOW) {
+          targetChangedWindowExhausted = true
+        }
+      }
+
+    const pageArgs = (v) => ({
+      payload,
+      testBedCost: details?.test_bed_cost ?? 0,
+      version: v ? { ...v, approval: versionApprovalState(v, approvals ?? [], latestNumber, APPROVAL_TRACK, latest.payload) } : null,
+      baseline,
+      targetChangedAt,
+      catalog: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },
+      record: { reference_code: record.reference_code, status: record.status },
+    })
+    return { version, versions: versions ?? [], latestNumber, targetChangedAt, targetChangedWindowExhausted, revisions, revisionWindow: REVISION_WINDOW, pageArgs }
+  }
+
   async function currentRates(db) {
     const { data, error } = await db
       .from('base_cost_batches')
@@ -145,111 +245,12 @@ export default async function dealSheetVersionsRoutes(app) {
     if (recErr) return reply.code(500).send({ error: recErr.message })
     if (!record) return reply.code(404).send({ error: 'opportunity not found' })
 
-    // The revision history, newest first. Used for the payload AND for dating
-    // the last target change, so it is read once.
-    //
-    // THE WINDOW IS 200 AND IT IS STATED. A paged read that silently stops is
-    // indistinguishable from one that found nothing (Verification 17), so when
-    // the walk below exhausts this window without finding a different target,
-    // it reports "not found in the last 200 revisions" rather than a date it
-    // does not have.
-    const REVISION_WINDOW = 200
-    const { data: revisions, error: revErr } = await db
-      .from('record_revisions')
-      .select('revision_number, payload, created_at')
-      .eq('record_id', record.id)
-      .order('revision_number', { ascending: false })
-      .limit(REVISION_WINDOW)
-    if (revErr) return reply.code(500).send({ error: revErr.message })
-    if (!revisions?.length) return reply.code(409).send({ error: 'this Opportunity has no revisions' })
-
-    const latest = revisions[0]
-    const payload = latest.payload ?? {}
-
-    const { data: details } = await db
-      .from('opportunity_details').select('test_bed_cost')
-      .eq('record_id', record.id).maybeSingle()
-
-    let catalog
-    try { catalog = await currentRates(db) } catch (err) {
-      return reply.code(500).send({ error: err.message })
-    }
-
-    const { data: versions, error: vErr } = await db
-      .from('deal_sheet_versions')
-      .select('id, major, minor, status, reason, revision_number, inputs, rates, created_by_email, created_at')
-      .eq('record_id', record.id)
-      .order('major', { ascending: false }).order('minor', { ascending: false })
-    if (vErr) return reply.code(500).send({ error: vErr.message })
-
-    const { data: approvalRows2, error: aErr } = await db
-      .from('approvals')
-      .select('revision_number, track, decision, approver_id, decided_at, request_id')
-      .eq('record_id', record.id).eq('track', APPROVAL_TRACK)
-    if (aErr) return reply.code(500).send({ error: aErr.message })
-    const { data: reqRows2, error: rErr2 } = await db
-      .from('transition_requests').select('id, frozen_version_id').eq('record_id', record.id)
-    if (rErr2) return reply.code(500).send({ error: rErr2.message })
-    const approvals = linkApprovalsToVersions(approvalRows2, reqRows2)
-
-    const latestNumber = latest.revision_number
-    const version = (versions ?? [])[0] ?? null
-
-    // THROUGH THE SAME ENTRY POINT THE GATE USES. Verification 20, applied to
-    // something this round created: liveVersionApproval was written for the
-    // stage gate and this page kept assembling the same answer from the two
-    // functions underneath it. Two paths, agreeing today. The page takes the
-    // version it returns as block 2's baseline and its detail as the state.
-    const live = liveVersionApproval({
-      track: APPROVAL_TRACK, versions: versions ?? [], approvals: approvals ?? [], latestRevision: latestNumber, currentPayload: latest.payload,
-    })
-    const baseline = live.version
-      ? { ...live.version, approval: live.detail ?? versionApprovalState(live.version, approvals ?? [], latestNumber, APPROVAL_TRACK, latest.payload) }
-      : null
-
-    // WHEN THE TARGET LAST MOVED. Walking newest to oldest, the first revision
-    // holding a different target is the one before the change, so the change
-    // landed on the revision after it.
-    const currentTarget = toNumberOrNull(payload.targetMargin)
-    let targetChangedAt = null
-    let targetChangedWindowExhausted = false
-    for (let i = 1; i < revisions.length; i++) {
-      if (toNumberOrNull(revisions[i].payload?.targetMargin) !== currentTarget) {
-        targetChangedAt = String(revisions[i - 1].created_at).slice(0, 10)
-        break
-      }
-      if (i === revisions.length - 1 && revisions.length === REVISION_WINDOW) {
-        targetChangedWindowExhausted = true
-      }
-    }
-
-    const page = buildApprovalPage({
-      // The catalog is merged in exactly as the tab and the submit route do it,
-      // so the page prices the CURRENT deal at current rates. The baseline is
-      // deliberately NOT re-rated: a version carries the rates it was priced at,
-      // which is what makes the bridge's cost-basis step a real number.
-      // The payload alone. The approval page resolves rates itself now, so
-      // this stops being the second place that merges a catalog into a record.
-      payload,
-      testBedCost: details?.test_bed_cost ?? 0,
-      version: version
-        ? { ...version, approval: versionApprovalState(version, approvals ?? [], latestNumber, APPROVAL_TRACK, latest.payload) }
-        : null,
-      baseline,
-      targetChangedAt,
-      // `rates` IS PASSED, AND ITS ABSENCE IS THE DEFECT JOHN FOUND. This
-      // literal carried three of the four keys `currentRates` returns, and
-      // `buildApprovalPage` reads `catalog.rates ?? {}`, so the derivation ran
-      // against an empty rate table and every money figure on the page read
-      // zero. An object literal is an allowlist that says nothing when it
-      // excludes something, and the `??` consumed the evidence.
-      //
-      // With a version present the page prices the frozen snapshot and these
-      // rates are not consulted for the headline; they are what the page falls
-      // back to when no version has been taken, and they date the cost basis.
-      catalog: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },
-      record: { reference_code: record.reference_code, status: record.status },
-    })
+    const ctx = await approvalContext(db, record)
+    if (ctx.error) return reply.code(ctx.status).send({ error: ctx.error })
+    const { latestNumber, targetChangedAt, targetChangedWindowExhausted, revisions } = ctx
+    // FROZEN_FIGURES R-FF2: today's page is built as before and is the CHECK;
+    // a submitted version's stored figures are laid over it and stand.
+    const page = withFrozenFigures(buildApprovalPage(ctx.pageArgs(ctx.version)), ctx.version)
 
     return {
       ...page,
@@ -257,7 +258,7 @@ export default async function dealSheetVersionsRoutes(app) {
         revisionNumber: latestNumber,
         revisionsRead: revisions.length,
         targetChangedAt,
-        targetChangeNotFoundWithin: targetChangedWindowExhausted ? REVISION_WINDOW : null,
+        targetChangeNotFoundWithin: targetChangedWindowExhausted ? ctx.revisionWindow : null,
       },
     }
   })
@@ -696,7 +697,33 @@ export default async function dealSheetVersionsRoutes(app) {
       })
     }
 
-    const { data: updated, error: updErr } = await db
+    // ── FROZEN_FIGURES R-FF1: THE FIGURES ARE FROZEN HERE, AT SUBMISSION ────
+    //
+    // Ruled by John 2026-11-17. DESIGN_PRINCIPLES section 3 rule 1: a figure a
+    // decision rests on is recomputed and verified server-side at submission,
+    // never taken from the client. So the SERVER prices the version, through
+    // the approval page's own builder with the page's own inputs
+    // (approvalContext), as the version will read once submitted: its new
+    // number and status. What is stored is what the page would have shown at
+    // this moment, and the submitted row can never change again.
+    const { data: recordRow, error: recordErr } = await db
+      .from('records').select('id, reference_code, status').eq('id', version.record_id).maybeSingle()
+    if (recordErr) return reply.code(500).send({ error: recordErr.message })
+    const ctx = await approvalContext(db, recordRow)
+    if (ctx.error) return reply.code(ctx.status).send({ error: ctx.error })
+    if (ctx.version?.id !== version.id) {
+      return reply.code(409).send({ error: 'A newer version has been saved since this one. Reload and submit the newest.' })
+    }
+    const submitted = { ...ctx.version, major: highestIssued + 1, minor: 0, status: 'issued' }
+    const frozenFigures = buildFrozenFigures(ctx.pageArgs(submitted), ENGINE_ID)
+
+    // R-FF5: only the SERVICE ROLE may write frozen_figures, and the trigger
+    // requires them on every submission, so the relabel runs as the server.
+    // The service role bypasses RLS, so the ownership rule RLS enforced before
+    // is now enforced by the trigger too: the issuer must be the record's owner
+    // (the route's own check above stays, to say so in words). The `status`
+    // filter makes a second submission of the same row match nothing.
+    const { data: updated, error: updErr } = await supabaseAdmin
       .from('deal_sheet_versions')
       .update({
         major: highestIssued + 1,
@@ -705,8 +732,10 @@ export default async function dealSheetVersionsRoutes(app) {
         issued_by: request.user.id,
         issued_by_email: request.user.email ?? null,
         issued_at: new Date().toISOString(),
+        frozen_figures: frozenFigures,
       })
       .eq('id', version.id)
+      .eq('status', 'draft')
       .select()
 
     if (updErr) {
