@@ -7341,14 +7341,17 @@ function renderOppHeadline(opp) {
     // field beside it. The two read the same kind of absence and were saying it
     // two ways, which reads as two different states rather than one.
     oppHeadlineFigure('Working version', opp.working_version ?? null, { absent: 'None' }),
-    // FROZEN_FIGURES R-FF4: on a Closed Won record the contract value is the
-    // WON version's, and this says whose figures they are (or, with no won
-    // version, the ruled sentence that they are today's). The server writes it
-    // (wonHeadline); this only prints it. Absent on every other stage.
-    opp.headline_note
-      ? `<p class="pg-item-note" data-testid="opp-headline-note">${escHtml(opp.headline_note)}</p>`
-      : '',
   ].join('')
+  // FROZEN_FIGURES R-FF4: on a Closed Won record the contract value is the
+  // WON version's, and this says whose figures they are (or, with no won
+  // version, the ruled sentence that they are today's). The server writes it
+  // (wonHeadline); this only prints it, BELOW the grid rather than in it, and
+  // clears it on every other stage so one record's note cannot outlive it.
+  const note = document.getElementById('opp-headline-note')
+  if (note) {
+    note.textContent = opp.headline_note ?? ''
+    note.hidden = !opp.headline_note
+  }
 }
 
 function renderOppCards(opps) {
