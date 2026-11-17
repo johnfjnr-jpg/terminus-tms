@@ -317,6 +317,7 @@ window.loadTestBedDetail = register(TESTBED_VIEW,
 const DEAL_CONTAINER = 'deal-form-root'
 const VANILLA_FORM = 'deal-form-vanilla'
 let dealRoot: Root | null = null
+let dealOppId: string | null = null
 
 window.initOpportunityDealPanel = function (opp: OppRecord): void {
   const container = document.getElementById(DEAL_CONTAINER)
@@ -336,6 +337,13 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
     window.initOpportunityDealVersions?.({ opportunityId: opp.id, seam })
   }
 
+  // B1: a refusal message is about the record it was refused on. The panel is
+  // re-rendered rather than remounted per record, so the new record clears it.
+  if (dealOppId !== opp.id) {
+    const fb = document.getElementById('deal-feedback')
+    if (fb) { fb.textContent = ''; fb.className = '' }
+    dealOppId = opp.id
+  }
   if (!dealRoot) dealRoot = createRoot(container)
   dealRoot.render(
     <StrictMode>

@@ -32,13 +32,17 @@ const V: Values = { 'deal-ssExisting': '40', 'deal-duration': '36', 'deal-target
 
 let host: HTMLElement
 let persisted: Record<string, unknown>[]
+// COMMERCIALS_FACTORING B1: when set, onPersist REFUSES with this message, the
+// way main.tsx's R-CF2 check and a refused PATCH both do.
+let refuse: string | null = null
 const mount = async () => {
   persisted = []
+  refuse = null
   window.api = catalogApi()
   // The button the swap left as STATIC MARKUP, outside the root, exactly as
-  // index.html holds it.
+  // index.html holds it, with the feedback span beside it.
   document.body.innerHTML = '<div id="host"></div><div class="form-actions">'
-    + '<button id="btn-save-deal" disabled>Save changes</button></div>'
+    + '<button id="btn-save-deal" disabled>Save changes</button><span id="deal-feedback"></span></div>'
   host = document.getElementById('host')!
   const root: Root = createRoot(host)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -47,7 +51,7 @@ const mount = async () => {
       <QueryClientProvider client={qc}>
         <ShellProvider services={shellServices}>
           <DealPanel initialValues={V} initialUi={UI} testBedCost={0}
-            onPersist={async (p) => { persisted.push(p) }} />
+            onPersist={async (p) => { if (refuse) throw new Error(refuse); persisted.push(p) }} />
         </ShellProvider>
       </QueryClientProvider>)
   })
@@ -216,5 +220,42 @@ describe('R-O7: the hosting override reaches the payload', () => {
     const fees = persisted[0].hostingUnitFees as Record<string, unknown>
     expect(Object.keys(fees)).toEqual(['hoSs'])
     expect('hoAqm' in fees, 'an untouched type was written as a fee').toBe(false)
+  })
+})
+
+// ── A REFUSED SAVE SAYS WHY. COMMERCIALS_FACTORING B1, 2026-11-17 ────────
+//
+// Every save route ran `void saveRef.current()`, so a refusal went nowhere:
+// R-CF2's client check threw the ruled sentence and the page showed an uncaught
+// error and no message, while #deal-feedback had had no writer since
+// deal-feedback.js retired. Driven in the browser by
+// scripts/probe-factoring-term-refusal-click.mjs; this is the gated half.
+describe('a refused save, in #deal-feedback', () => {
+  const SENTENCE = 'The factoring term must be a whole number of months from 1 to 35, so every repayment falls inside the 36-month contract.'
+  const feedback = () => document.getElementById('deal-feedback') as HTMLElement
+
+  test('the refusal\'s own sentence shows, in the error treatment, and the panel stays dirty', async () => {
+    await mount()
+    await dirtyIt()
+    refuse = SENTENCE
+    await act(async () => { saveBtn().click() })
+    expect(persisted, 'the refusal persisted something').toHaveLength(0)
+    expect(feedback().textContent).toBe(SENTENCE)
+    expect(feedback().className).toBe('msg-error')
+    expect(saveBtn().disabled, 'a refused save re-baselined, so the refused value reads as saved').toBe(false)
+  })
+
+  test('the next attempt clears it, and a save that lands leaves it empty', async () => {
+    await mount()
+    await dirtyIt()
+    refuse = SENTENCE
+    await act(async () => { saveBtn().click() })
+    expect(feedback().textContent, 'nothing shown, so the clear below is unmeasured').toBe(SENTENCE)
+    refuse = null
+    await act(async () => { saveBtn().click() })
+    expect(persisted).toHaveLength(1)
+    expect(feedback().textContent).toBe('')
+    expect(feedback().className).toBe('')
+    expect(saveBtn().disabled).toBe(true)
   })
 })

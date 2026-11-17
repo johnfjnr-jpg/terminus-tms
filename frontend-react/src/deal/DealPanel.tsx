@@ -272,9 +272,34 @@ export function DealPanel({
   // #btn-save-deal, which lives in .form-actions OUTSIDE the React root, was
   // wired by the vanilla and by nothing here. Both now go through the same save
   // the seam uses, so every route re-baselines identically.
+  // ── A REFUSED SAVE SAYS WHY, IN #deal-feedback. COMMERCIALS_FACTORING B1 ──
+  //
+  // Every route into this save ran it as `void saveRef.current()`, so a
+  // rejection went nowhere: R-CF2's client refusal threw the ruled sentence,
+  // nothing caught it, and the page showed an uncaught error and no message.
+  // `#deal-feedback` sits beside #btn-save-deal in the static .form-actions and
+  // had no writer since `deal-feedback.js` retired, so it is reached by id the
+  // same way the button is. Written from the handler, not during render.
+  //
+  // Cleared before each attempt, because a message about the last attempt is
+  // not about this one (the retired module's Round 41 rule), and on a new
+  // record by the mount in main.tsx. A refusal does NOT re-baseline, so the
+  // panel stays dirty and the typed value is not presented as saved.
+  const showSaveFeedback = (text: string | null) => {
+    const el = document.getElementById('deal-feedback')
+    if (!el) return
+    el.textContent = text ?? ''
+    el.className = text ? 'msg-error' : ''
+  }
   const saveNow = async () => {
     if (!onPersist) { onSave?.(latest.current.payload); return }
-    await onPersist(pickSalespersonWritable(latest.current.payload))
+    showSaveFeedback(null)
+    try {
+      await onPersist(pickSalespersonWritable(latest.current.payload))
+    } catch (e) {
+      showSaveFeedback(e instanceof Error && e.message ? e.message : 'The pricing could not be saved.')
+      return
+    }
     setBaseline(captureSavedBaseline(latest.current.payload))
     onSave?.(latest.current.payload)
   }
