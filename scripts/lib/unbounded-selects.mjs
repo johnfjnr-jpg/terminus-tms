@@ -64,8 +64,18 @@ export function gateRunFiles() {
       const p = path.join(d, e.name)
       if (e.isDirectory()) { if (e.name !== 'node_modules') walk(p); continue }
       if (!/\.(mjs|js)$/.test(e.name)) continue
-      const base = path.basename(p)
-      if (gate.includes(base) || suiteText.includes(base)) out.push(p)
+      // BY PATH, NOT BASENAME. PROBE_TRIAGE, 2026-11-18. The basename test
+      // let `scripts/term-pricing/probe-live.mjs` in the gate pull in every
+      // other `probe-live.mjs` (eight of them), `subkey-census.mjs` pull in
+      // three `census.mjs`, and `probe-preconditions.mjs` one
+      // `preconditions.mjs`: 13 files the gate never runs, counted as if it
+      // did (Verification 17, a substring that cannot discriminate). The
+      // path is matched as the repo path or relative to scripts/, which is
+      // how verify-all names its own imports (`./lib/gate-verdict.mjs`).
+      // Measured: 137 files before, 124 after, the 13 named above dropped
+      // and nothing else.
+      const rel = path.relative(ROOT, p)
+      if ([rel, rel.replace(/^scripts\//, '')].some((r) => gate.includes(r) || suiteText.includes(r))) out.push(p)
     }
   }
   walk(path.join(ROOT, 'scripts'))

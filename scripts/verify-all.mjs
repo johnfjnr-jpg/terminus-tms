@@ -390,9 +390,98 @@ export const STAGES = [
     needs: 'the dev server on :3000 AND a live session-ref.json',
     needsSession: true,
   },
+  // ── PROBE_TRIAGE R2 (John, 2026-11-18) ─────────────────────────────────
+  //
+  // This week's behaviours were each guarded by a probe that ran once and was
+  // wired into nothing (CLAUDE.md Verification 9). Each stage below was run,
+  // measured and calibrated in that round, and its register row is in
+  // docs/PROBES.md, which scripts/tests/probe-register.test.mjs holds to the
+  // gate: a probe is WIRED here, or the register says why not.
+  {
+    // The three source-injecting calibrators, in OS temp copies of the tree,
+    // never the served one: golden deals (17), the price ladder (26), and the
+    // term pricing goldens and R-TP1 (100, in four shards). The stage hashes
+    // the served tree before and after and fails if one byte moved.
+    name: 'calibrations',
+    cmd: ['node', ['scripts/run-calibrations.mjs']],
+    needs: 'node_modules, and the OS temp dir',
+  },
+  {
+    // Live RLS and route refusals on term pricing settings and system_roles.
+    // No admin grant, and every attempted write carries the current value, so
+    // a broken policy moves only updated_at/updated_by, which is what it
+    // watches (R5).
+    name: 'HTTP term pricing settings RLS probe',
+    cmd: ['node', ['scripts/term-pricing/probe-live.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
+  },
+  {
+    // R-FF1 a submission freezes the server's figures; R-FF5 they cannot be
+    // changed by the owner or the service role; R-FF4 the won version derived.
+    name: 'HTTP frozen figures probe',
+    cmd: ['node', ['scripts/probe-frozen-figures-db.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
+  },
+  {
+    // R-CF2: a factoring term past the contract is refused, in the term
+    // screen's words, and a legacy over-limit record stays saveable.
+    name: 'HTTP factoring term refusal probe',
+    cmd: ['node', ['scripts/probe-factoring-term-refusal.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
+  },
+  {
+    // CONTRACT_VALUE: an unpriced deal reads "--" in all three places, and an
+    // unsaved edit that prices it shows the figure; nothing is written.
+    required: true,
+    name: 'browser unpriced contract value',
+    cmd: ['node', ['scripts/probe-unpriced-contract-value-click.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
+    // R-FF4: Closed Won pricing refused by the client and the server, and the
+    // ruled sentence reaches the person.
+    required: true,
+    name: 'browser closed-won pricing',
+    cmd: ['node', ['scripts/probe-closed-won-pricing-click.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
+    // TP_LADDER: the Term Pricing screen to the approved mockup, from the click.
+    required: true,
+    name: 'browser term pricing ladder',
+    cmd: ['node', ['scripts/term-pricing/probe-ladder.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
+    // The Term Pricing layout guard: no overprint, no item below its content,
+    // every tab and state, factoring on, at 1240, 1440 and 1920 (R4). The 40px
+    // sweep (--sweep) stays manual.
+    required: true,
+    name: 'term pricing layout guard',
+    cmd: ['node', ['scripts/term-pricing/probe-overlap.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
 ]
 
 // ── WHAT IS DELIBERATELY NOT A STAGE, AND WHY ─────────────────────────────
+//
+// ── PREMISE FAILED, 2026-11-18, PROBE_TRIAGE. The reasoning below rests on a
+// browser being optional. GATE_HYGIENE G1 and G2 made it required, so the
+// stated reason no longer holds and the status of every probe it names was
+// RE-TAKEN on a measured run rather than inherited (Verification 29). The
+// result is per file in docs/PROBES.md; this block is left as the record of
+// why they were left out.
 //
 // The BROWSER probes - probe-readonly-view, probe-dead-selectors,
 // probe-strip-layout, probe-install-prose, probe-cost-basis-line, probe-pulse,

@@ -171,6 +171,52 @@ function useFittedFigures(dep: unknown) {
   return ref
 }
 
+// ── PROBE_TRIAGE R3: THE PRICE CARD'S THREE FIGURES FIT THEIR CELLS ──────────
+// List TCV, Deal discount and Discount value sit in three equal columns, as
+// the approved mockup (prototypes/term-pricing-ladder.html, frame A: .kv3, the
+// figure at 16px). Beside the work (1600 to 1920) a column is about 95px, and
+// a seven-digit List TCV at 16px needs 115px, so it ran into "Deal discount"
+// (measured 2026-11-18, 120/40/2 units). John's ruling: the figure fits its
+// cell at every width, and no label moves.
+//
+// So the three figures take ONE shared size, the largest at which the widest
+// fits its column, capped at the mockup's 16px; the columns, the labels and
+// the order never change. Solved as useFittedFigures solves it: each figure
+// measured once at a reference size in its own face. The floor is the
+// schedule's 10px (the same screen's lowest figure size); a figure that would
+// need less overflows, and probe-overlap reports it.
+function useFittedPriceRow(dep: unknown) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useLayoutEffect(() => {
+    const row = ref.current
+    if (!row) return
+    const canvas = document.createElement('canvas').getContext('2d')
+    const fit = () => {
+      const cs = getComputedStyle(row)
+      const token = (name: string, dflt: number) => { const v = parseFloat(cs.getPropertyValue(name)); return Number.isFinite(v) ? v : dflt }
+      const max = token('--tp-pg-max', 16), min = token('--tp-pg-min', 10)
+      const sizes = ([...row.children] as HTMLElement[]).map((cell) => {
+        const f = cell.querySelector<HTMLElement>('.tp-v')
+        if (!f || !canvas) return Infinity
+        const fcs = getComputedStyle(f)
+        canvas.font = `${fcs.fontStyle} ${fcs.fontWeight} 100px ${fcs.fontFamily}`
+        const per = canvas.measureText(f.textContent ?? '').width / 100
+        return per > 0 ? cell.clientWidth / per : Infinity
+      })
+      const size = Math.max(min, Math.min(max, Math.floor(Math.min(...sizes) * 4) / 4))
+      row.style.setProperty('--tp-pg-fig', `${size}px`)
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(row)
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
+    let live = true
+    fonts?.ready.then(() => { if (live) fit() }).catch(() => {})
+    return () => { live = false; ro.disconnect() }
+  }, [dep])
+  return ref
+}
+
 // ── TP_CAPEX: THE TAX-DETAIL SCHEDULE FITS ITS PANEL ─────────────────────────
 // With "Show tax detail" on, the schedule carries up to nine columns, and how
 // wide they run depends on the deal: the CPI, split WHT lines, gross-up and
@@ -506,6 +552,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const fitKey = useMemo(() => ({ result, tab, showTax }), [result, tab, showTax])
   const figuresRef = useFittedFigures(fitKey)
   const scheduleRef = useFittedSchedule(fitKey)
+  const priceRowRef = useFittedPriceRow(fitKey)
 
   if (isError) return <div className="wrap tp-view"><p className="tp-error" role="alert">{(error as Error).message}</p></div>
   if (!data || !params) return <div className="wrap tp-view"><p className="field-note">Loading term pricing...</p></div>
@@ -758,7 +805,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
               <div className="tp-label">Base TCV</div>
               <div className={`tp-v tp-big${signal ? ' tp-amber-fig' : ''}`} data-testid="tp-p-base">{money(p0.tcvNetCents)}</div>
               {/* Frame A (A4): list, the discount, and what it is worth. */}
-              <div className="tp-price-grid tp-price-grid3">
+              <div className="tp-price-grid tp-price-grid3" ref={priceRowRef}>
                 <div><div className="tp-label">List TCV</div><div className="tp-v" data-testid="tp-p-list">{money(p0.dealDiscount.listTcvCents)}</div></div>
                 <div><div className="tp-label">Deal discount</div><div className={`tp-v${signal ? ' tp-amber-fig' : ''}`} data-testid="tp-p-discount">{signal ? `${formatPct(p0.dealDiscount.ratio, 1)}%` : '-'}</div></div>
                 <div><div className="tp-label">Discount value</div><div className="tp-v" data-testid="tp-p-discount-value">{signal ? money(p0.dealDiscount.discountValueCents) : '-'}</div></div>

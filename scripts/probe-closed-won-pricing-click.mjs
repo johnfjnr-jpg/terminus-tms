@@ -24,8 +24,9 @@
 //       resends a saved price unchanged beside it;
 //   (e) the headline says no approved version was won, on the detail screen.
 //
-// Every measurement precedes every capture. UNWIRED: needs a live server, a
-// session and a browser. Run at the FROZEN_FIGURES build report.
+// Every measurement precedes every capture.
+// WIRED by PROBE_TRIAGE (R2, John 2026-11-18): a gate stage. Needs a live
+// server, a session and a browser. Its screenshots go to .verify/ (R7).
 import { loadPuppeteer } from './lib/puppeteer.mjs'
 import { api } from './api-client.mjs'
 import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
@@ -34,7 +35,7 @@ import { CLOSED_WON_PRICING_REFUSAL } from '../src/lib/pricing-keys.js'
 import { NO_WON_VERSION_NOTE } from '../src/lib/opportunity-headline.js'
 
 const TAG = process.argv[2] ?? 'ffwonclick'
-const SHOT_DIR = 'prototypes/frozen-figures'
+const SHOT_DIR = '.verify/frozen-figures'
 const results = []
 const check = (label, pass, detail = '') => { results.push(pass); console.log(`${pass ? 'PASS' : 'FAIL'}  ${label}${detail ? `  [${detail}]` : ''}`) }
 const must = ({ data, error }, what) => { if (error) throw new Error(`${what}: ${error.message}`); return data }

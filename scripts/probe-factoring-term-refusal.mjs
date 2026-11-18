@@ -16,8 +16,8 @@
 // every write path calls, as the same user. The route reads only the stored
 // payload, never how it got there.
 //
-// UNWIRED: needs a live server and session. Run at the COMMERCIALS_FACTORING
-// Phase 2 report.
+// WIRED by PROBE_TRIAGE (R2, John 2026-11-18): a gate stage. Needs a live
+// server and a session.
 import { api } from './api-client.mjs'
 import { freshOpportunity, tearDown, admin } from './fixtures.mjs'
 import { readFileSync } from 'node:fs'

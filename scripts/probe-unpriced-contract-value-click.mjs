@@ -15,15 +15,16 @@
 //       units (NOT saved) turns all three into the same dollar figure;
 //   (4) nothing is written: no PATCH, POST, PUT or DELETE leaves the browser.
 //
-// Every measurement precedes every capture. UNWIRED: needs a live server, a
-// session and a browser.
+// Every measurement precedes every capture.
+// WIRED by PROBE_TRIAGE (R2, John 2026-11-18): a gate stage. Needs a live
+// server, a session and a browser. Its screenshot goes to .verify/ (R7).
 import { loadPuppeteer } from './lib/puppeteer.mjs'
 import { api } from './api-client.mjs'
 import { freshOpportunity, tearDown } from './fixtures.mjs'
 import { readFileSync, mkdirSync } from 'node:fs'
 
 const TAG = process.argv[2] ?? 'cvunpriced'
-const SHOT_DIR = 'prototypes/contract-value'
+const SHOT_DIR = '.verify/contract-value'
 const results = []
 const check = (label, pass, detail = '') => { results.push(pass); console.log(`${pass ? 'PASS' : 'FAIL'}  ${label}${detail ? `  [${detail}]` : ''}`) }
 

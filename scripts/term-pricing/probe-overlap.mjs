@@ -2,10 +2,32 @@
 // ── TERM PRICING: NO OVERPRINT, NO TRACK BELOW ITS CONTENT, ON EVERY TAB ──
 //
 //   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
-//     node --env-file=.env scripts/term-pricing/probe-overlap.mjs [--only=tp|opex] [--inject=<name>] [--live-margins]
+//     node --env-file=.env scripts/term-pricing/probe-overlap.mjs [--sweep] [--only=tp|opex] [--inject=<name>] [--shots=1240,1920]
 //
-// Runs the shared STRUCTURAL detector (scripts/lib/ink-overlap.mjs) at every
-// width from 1240 to 1920 in steps of 40 (A2), in every state.
+// Runs the shared STRUCTURAL detector (scripts/lib/ink-overlap.mjs) in every
+// state, at 1240, 1440 and 1920.
+//
+// ── A GATE STAGE, PROBE_TRIAGE R4 (John, 2026-11-18) ─────────────────────
+//
+// In the gate at 1240, 1440 and 1920. `--sweep` runs every width from 1240 to
+// 1920 in steps of 40 (A2), which stays MANUAL: it is the same detector on
+// fifteen more widths, at five times the cost.
+//
+// REPOINTED by the same ruling. Its 408 failures on 2026-11-18 were three
+// different things, and each is answered here or in the detector:
+//   - the List TCV overprinting "Deal discount" on the price card at 1600 to
+//     1920 for a seven-digit deal: a REAL defect, fixed in the stylesheet
+//     (R3), and the reason this probe exists;
+//   - a declared scroller (the cash flow grid) counted as its parent's need,
+//     so tp-main "needed 7,460px" on a screen with no overflow: fixed in
+//     shrunkBelowContent, which now holds declared scrollers at zero;
+//   - states that no longer exist: the manual ladder (TP_MANUAL, retired by
+//     TP_LADDER), and the formula's margin keys this probe used to inject.
+// And it gains a FACTORING-ON state, so the factoring and cash flow cards are
+// measured with their fields, figures and two headlines on screen.
+//
+// Screenshots go to .verify/term-pricing-overlap/ (R7): a gate run must not
+// dirty the tracked prototypes/ folders.
 //
 // RE-POINTED by TP_TABS (John, 2026-10-11): the screen is three tabs, and the
 // sweep covers every tab in every state:
@@ -39,7 +61,7 @@
 //
 // --inject=<name> applies an in-page fault for calibration. No file is touched.
 //
-// UNWIRED: needs a browser, a live server and a session.
+// Needs a browser, a live server and a session; the gate stage says so.
 
 import { readFileSync, mkdirSync } from 'node:fs'
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
@@ -53,7 +75,8 @@ const ONLY = arg('only')
 const INJECT = arg('inject')
 const SHOTS = arg('shots')
 const WIDTHS = []
-for (let w = 1240; w <= 1920; w += 40) WIDTHS.push(w)
+if (process.argv.includes('--sweep')) { for (let w = 1240; w <= 1920; w += 40) WIDTHS.push(w) } else WIDTHS.push(1240, 1440, 1920)
+const SHOT_DIR = `${ROOT}.verify/term-pricing-overlap/`
 const session = JSON.parse(readFileSync(`${ROOT}session-ref.json`, 'utf8'))
 const ref = new URL(process.env.SUPABASE_URL).hostname.split('.')[0]
 
@@ -105,11 +128,12 @@ const INJECTIONS = {
 async function signedIn(browser, { admin = false, floor = null } = {}) {
   const page = await browser.newPage()
   await page.setViewport({ width: 1240, height: 1100 })
-  // TERMS AS v1.3 (B1) and MARGINS AS THE SPEC (R1), IN THE BROWSER'S COPY
-  // ONLY, AND SAID SO. --live-terms and --live-margins measure the live ones.
+  // TERMS AS v1.3 (B1), IN THE BROWSER'S COPY ONLY, AND SAID SO. --live-terms
+  // measures the live list. The formula's margin keys this used to inject
+  // (ANCHOR_MARGIN, SHORT_TERM_MARGIN) are gone from the engine, so injecting
+  // them measured nothing; removed by PROBE_TRIAGE.
   const terms = process.argv.includes('--live-terms') ? null : [12, 24, 36, 48, 60, 72, 84, 96, 108, 120]
-  const m = { safesight: '90', air_quality: '90', hemir: '90' }
-  const margins = process.argv.includes('--live-margins') ? null : { ANCHOR_MARGIN: m, SHORT_TERM_MARGIN: m }
+  const margins = null
   // TP_BANDS: `floor` passes MARGIN_FLOOR in test, so 4a's floor breach and
   // its warning are on screen at the spec's margins (73%, as probe-bands.mjs).
   await page.evaluateOnNewDocument((admin, terms, margins, floor) => {
@@ -238,8 +262,8 @@ async function sweep(page, rootSel, label, reached, extra) {
       const h = await page.evaluate(() => document.querySelector('.app-content-scroll')?.scrollHeight ?? 1100)
       await page.setViewport({ width, height: Math.max(1100, h + 40) })
       await settle(page)
-      mkdirSync(`${ROOT}prototypes/term-pricing-tabs/built`, { recursive: true })
-      const file = `${ROOT}prototypes/term-pricing-tabs/built/${process.env.TP_RUN ?? 'sweep'}-${width}-${label.replace(/[^a-z0-9]+/gi, '-')}.png`
+      mkdirSync(SHOT_DIR, { recursive: true })
+      const file = `${SHOT_DIR}${process.env.TP_RUN ?? 'sweep'}-${width}-${label.replace(/[^a-z0-9]+/gi, '-')}.png`
       await page.screenshot({ path: file })
       console.log(`SHOT  ${file.slice(ROOT.length)}`)
       await page.setViewport({ width, height: 1100 })
@@ -300,53 +324,16 @@ async function bandSweep(browser, TP) {
   await sweep(page, TP, 'bands admin rule broken (4b)', reached(4, { grid: false, fees: false, warn: false, problems: true }), bandFit)
   await page.click('[data-testid="tp-bands-discard"]')
   await page.click('[data-testid="tp-bed-remove-4"]'); await page.click('[data-testid="tp-bed-remove-3"]')
-  await sweep(page, TP, 'bands admin 2 bands', reached(2, { grid: true, fees: true, warn: false, problems: false }), bandFit)
+  // The floor warning is not asserted at 2 bands: whether 73% is breached is a
+  // property of the PRICES, and under the price ladder it is (measured
+  // 2026-11-18). The probe asserts the layout of whichever state that is.
+  await sweep(page, TP, 'bands admin 2 bands', reached(2, { grid: true, fees: true, problems: false }), bandFit)
   await page.close()
 }
 
-// TP_MANUAL (brief: "with the card empty, filled and flagged"): the manual
-// ladder card on the Pricing tab, as a non-admin (M-3), on the demo deal's
-// units so the ladder above it is as wide as a real deal makes it. Empty (C11,
-// no chips), filled with MG-1 (two amber rows) and flagged with MG-4 (120 at
-// 300.00: three flags on one row). Each state asserts it was reached first.
-const manualFit = async (p, where) => {
-  const over = await p.evaluate(() => {
-    const card = document.querySelector('#view-term-pricing [data-testid="tp-manual"]')
-    const t = card?.querySelector('table')
-    if (!card || !t) return ['NO CARD']
-    const inner = card.getBoundingClientRect().right - parseFloat(getComputedStyle(card).paddingRight)
-    return t.getBoundingClientRect().right > inner + 0.5 || card.scrollWidth > card.clientWidth + 1 ? [`table right ${Math.round(t.getBoundingClientRect().right)} > ${Math.round(inner)}`] : []
-  })
-  check(over.length === 0, `${where}: the manual table fits its card`, over.join(', '))
-}
-async function manualSweep(browser, TP) {
-  const page = await signedIn(browser)
-  await page.evaluate(() => window.navigate('term-pricing'))
-  await page.waitForFunction(() => document.querySelector('#view-term-pricing [data-testid="tp-manual"]'), { timeout: 15000 })
-  await typeInto(page, 'tp-units-safesight', '120')
-  await typeInto(page, 'tp-units-air_quality', '40')
-  await typeInto(page, 'tp-units-hemir', '2')
-  const reached = (want) => async (p) => {
-    const s = await p.evaluate(() => ({
-      rows: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-table"] tbody tr').length,
-      priced: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-table"] tbody tr[data-status="priced"]').length,
-      chips: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-chips"] .tp-manual-chip').length,
-      flagged: document.querySelectorAll('#view-term-pricing tr.tp-manual-flagged').length,
-      flags120: document.querySelectorAll('#view-term-pricing [data-testid="tp-manual-check-120"] .tp-manual-flag').length,
-    }))
-    const ok = Object.entries(want).every(([k, v]) => s[k] === v)
-    return { ok, detail: JSON.stringify(s), minAtoms: 120 }
-  }
-  await sweep(page, TP, 'manual empty', reached({ rows: 10, priced: 0, chips: 0, flagged: 0 }), manualFit)
-  const MG1 = { 12: '2500.00', 24: '1500.00', 36: '1100.00', 48: '900.00', 60: '800.00', 72: '700.00', 84: '620.00', 96: '560.00', 108: '520.00', 120: '500.00' }
-  for (const [t, v] of Object.entries(MG1)) await typeInto(page, `tp-manual-price-${t}`, v)
-  await page.click('[data-testid="tp-manual-title"]')
-  await sweep(page, TP, 'manual filled (MG-1)', reached({ rows: 10, priced: 10, chips: 3, flagged: 2, flags120: 0 }), manualFit)
-  await typeInto(page, 'tp-manual-price-120', '300.00')
-  await page.click('[data-testid="tp-manual-title"]')
-  await sweep(page, TP, 'manual flagged (MG-4)', reached({ rows: 10, priced: 10, chips: 3, flagged: 3, flags120: 3 }), manualFit)
-  await page.close()
-}
+// TP_MANUAL's manual ladder sweep (empty, MG-1, MG-4) is RETIRED with the card
+// it measured: TP_LADDER replaced the manual ladder with the price ladder,
+// whose editor is on screen in every settings-open state above.
 
 // The Quote tab: every table fits its card, L1 on the tax detail's Total row,
 // and TILE_FIT on the tiles.
@@ -448,7 +435,7 @@ try {
         if (isOpen) await page.click('[data-testid="tp-settings-toggle"]')
       }
       // Payment terms and Quote do not depend on the admin flag; swept once.
-      if (admin) { await page.close(); await bandSweep(browser, TP); await manualSweep(browser, TP); continue }
+      if (admin) { await page.close(); await bandSweep(browser, TP); continue }
 
       // ── Payment terms and Quote: every WHT state, every payment shape. ────
       for (const w of ['off', 'split', 'borne']) {
@@ -500,6 +487,36 @@ try {
           }
           await setSwitch(page, 'tp-tax-detail', false)
         }
+      }
+
+      // ── FACTORING ON (R4): both cards with their fields, figures and two
+      // headlines on screen, under OPEX absorbed and CAPEX passed through.
+      await openTab(page, 'payment')
+      await whtState(page, 'off')
+      for (const [s, pass] of [['opex', false], ['default', true]]) {
+        await openTab(page, 'payment')
+        await shape(page, s)
+        await setSwitch(page, 'tp-factoring-toggle', true)
+        await page.waitForSelector('[data-testid="tp-fx-rate"]')
+        await typeInto(page, 'tp-fx-rate', '1.5')
+        const isPass = await page.$eval('[data-testid="tp-fx-treatment"]', (e) => e.getAttribute('aria-checked') === 'true')
+        if (isPass !== pass) await page.click('[data-testid="tp-fx-treatment"]')
+        await page.waitForFunction(() => !!document.querySelector('[data-testid="tp-fx-figs"]') && !!document.querySelector('[data-testid="tp-cf-lowest-without"]'), { timeout: 6000 })
+        await sweep(page, TP, `payment terms ${s} factoring-on ${pass ? 'pass-through' : 'absorb'}`, async (p) => {
+          const st = await p.evaluate(() => ({
+            fields: !!document.querySelector('[data-testid="tp-factoring-fields"]'),
+            figs: !!document.querySelector('[data-testid="tp-fx-figs"]'),
+            without: !!document.querySelector('[data-testid="tp-cf-lowest-without"]'),
+            grid: !!document.querySelector('#view-term-pricing [data-testid="tp-cashflow"] [data-testid="cashflow-grid"]'),
+            pass: document.querySelector('[data-testid="tp-fx-treatment"]')?.getAttribute('aria-checked') === 'true',
+          }))
+          const ok = (await panel(p, 'payment')) && st.fields && st.figs && st.without && st.grid && st.pass === pass
+          return { ok, detail: JSON.stringify(st), minAtoms: 120 }
+        }, async (p, where) => {
+          const l = await layout(p)
+          check(l.ok, `${where}: no table in the work column wider than it`, JSON.stringify(l))
+        })
+        await setSwitch(page, 'tp-factoring-toggle', false)
       }
       await page.close()
     }
@@ -555,7 +572,8 @@ try {
           await settle(page)
           await page.mouse.move(1, 1)
           const r = await page.$eval('#deal-install-panel', (el) => { const b = el.getBoundingClientRect(); return { x: b.x - 12, y: b.y - 12, width: b.width + 24, height: b.height + 24 } })
-          const file = `${ROOT}prototypes/label-contrast/lc-installation-${width}.png`
+          mkdirSync(SHOT_DIR, { recursive: true })
+          const file = `${SHOT_DIR}lc-installation-${width}.png`
           await page.screenshot({ path: file, clip: r })
           console.log(`SHOT  ${file.slice(ROOT.length)}`)
         }

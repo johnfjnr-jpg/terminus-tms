@@ -35,8 +35,8 @@
 // person (the requester may never approve their own request), which one
 // account cannot be. The raise reads only that the row exists and is approved.
 //
-// UNWIRED: needs a live server, a session and the migration. Run at the
-// FROZEN_FIGURES build report.
+// WIRED by PROBE_TRIAGE (R2, John 2026-11-18): a gate stage. Needs a live
+// server, a session and the frozen-figures migration.
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'node:fs'
 import { api, ApiError } from './api-client.mjs'
@@ -79,7 +79,7 @@ try {
   }
   const vRow = async (id) => must(await svc.from('deal_sheet_versions').select('*').eq('id', id).single(), 'version')
   const fpVersions = async () => JSON.stringify(must(await svc.from('deal_sheet_versions')
-    .select('id, status, major, minor, frozen_figures, issued_by, issued_at').eq('record_id', oppId).order('created_at'), 'fp'))
+    .select('id, status, major, minor, frozen_figures, issued_by, issued_at').eq('record_id', oppId).order('created_at').range(0, 199), 'fp'))
 
   // A refused write: the expected error, and nothing moved.
   const refused = async (label, run, expect) => {
@@ -115,7 +115,7 @@ try {
   // policy and not a wrong id (Verification 14), and nothing moved.
   {
     const before = await fpVersions()
-    const seen = must(await owner.from('deal_sheet_versions').select('id').eq('id', v1.id), 'owner select')
+    const seen = must(await owner.from('deal_sheet_versions').select('id').eq('id', v1.id).limit(2), 'owner select')
     const { data, error } = await owner.from('deal_sheet_versions').update({ frozen_figures: { forged: true } }).eq('id', v1.id).select('id')
     const after = await fpVersions()
     const how = error ? `trigger: ${error.message.slice(0, 80)}` : `RLS: ${data?.length ?? 'null'} rows updated`
