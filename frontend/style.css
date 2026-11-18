@@ -9557,7 +9557,10 @@ select:autofill {
 .tp-bands-problems { margin-top: 10px; }
 .tp-bands-problems .tp-error + .tp-error { margin-top: 4px; }
 .tp-bands-rules { margin-top: 14px; line-height: 1.7; }
-.tp-bands-check { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+/* min-width: 0 REMOVED by PROBE_TRIAGE: it cancelled the wrapping row's floor
+   (a flex item's automatic minimum is its content), so a check wider than its
+   share squeezed instead of falling below the editor. */
+.tp-bands-check { display: flex; flex-direction: column; gap: 18px; }
 .tp-bands-check-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
 .tp-bands-fix { padding: 32px 0; text-align: center; }
 .tp-bands-margins th, .tp-bands-margins td { padding-left: 6px; padding-right: 6px; }
@@ -9592,6 +9595,12 @@ select:autofill {
 .tp-deal-note { max-width: 420px; margin: 0; }
 .tp-signal { font-size: 12.5px; margin: 6px 0 0; }
 .tp-price-grid.tp-price-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 14px; }
+/* PROBE_TRIAGE R3: the three figures share one size, set inline by
+   useFittedPriceRow as the largest at which the widest fits its column, capped
+   at the mockup's 16px (frame A). The columns and labels never move. These are
+   the tokens and the default before the first fit. */
+.tp-price-grid.tp-price-grid3 { --tp-pg-max: 16; --tp-pg-min: 10; --tp-pg-fig: 16px; }
+.tp-price-grid.tp-price-grid3 .tp-v { font-size: var(--tp-pg-fig, 16px); }
 .tp-srcline { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: center; border-top: 1px solid var(--hairline); padding-top: 12px; margin-top: 10px; font-size: 13px; }
 .tp-ladder-missing td { cursor: default; }
 .tp-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; margin-top: 14px; border-top: 1px solid var(--hairline); padding-top: 14px; }
@@ -9610,7 +9619,14 @@ select:autofill {
 .tp-check-chip.is-warn { border-color: currentColor; }
 .tp-num.tp-pl-input { width: 110px; text-align: right; }
 .tp-pl { margin-bottom: 28px; }
-.tp-pl-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 28px; margin-top: 14px; align-items: start; }
+/* PROBE_TRIAGE: frame C's rule is "two columns that fall to one where two do
+   not fit". A 440px track decided it instead, and with ten terms the margin
+   grid needs about 615px, so at 1320 to 1640 it ran out of its column and off
+   the card, the 120 column unseen (measured 2026-11-18 at 1440). Now the same
+   wrapping flex as .tp-settings-grid: each column's floor is its content, so
+   they share a row only where both fit. */
+.tp-pl-cols { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 14px; align-items: flex-start; }
+.tp-pl-cols > * { flex: 1 1 440px; }
 .tp-table.tp-milestones td { vertical-align: middle; }
 .tp-table.tp-milestones td:first-child { font-family: var(--body); }
 .tp-carries { margin-left: 6px; }

@@ -31,7 +31,8 @@
 //
 // Measurements precede captures; captures are of the PAGE (Verification 4).
 // Artefacts are named after the run (Verification 44): p2-<part>-<width>.
-// UNWIRED: needs a browser, a live server and a session.
+// WIRED by PROBE_TRIAGE (R2, John 2026-11-18): a gate stage. Needs a
+// browser, a live server and a session. Captures default to .verify/ (R7).
 import { readFileSync, mkdirSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { loadPuppeteer } from '../lib/puppeteer.mjs'
@@ -39,7 +40,7 @@ import { loadPuppeteer } from '../lib/puppeteer.mjs'
 const puppeteer = await loadPuppeteer('probe-ladder.mjs')
 const ROOT = new URL('../../', import.meta.url).pathname
 const BASE = process.env.TMS_BASE ?? 'http://localhost:3000'
-const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : `${ROOT}prototypes/term-pricing-ladder-built`
+const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : `${ROOT}.verify/term-pricing-ladder`
 mkdirSync(OUT, { recursive: true })
 const session = JSON.parse(readFileSync(`${ROOT}session-ref.json`, 'utf8'))
 const ref = new URL(process.env.SUPABASE_URL).hostname.split('.')[0]

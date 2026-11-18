@@ -126,8 +126,12 @@ test('TB-1: the settings carry bands per product, and the single list is retired
   assert.ok(SETTING_KEYS.includes('VOLUME_BANDS_BY_PRODUCT'))
   assert.ok(!SETTING_KEYS.includes('VOLUME_BANDS'))
   assert.ok(PER_PRODUCT_KEYS.includes('VOLUME_BANDS_BY_PRODUCT'))
-  const p = buildParams(settings(), costs())
-  assert.equal(p.VOLUME_BANDS, undefined, 'the old key does not reach the engine')
+  // A LEFTOVER ROW, as the table held until its removal migration was applied.
+  // Without it this assertion passed on a fixture that never had the key, so
+  // the injection that carries the key through (calibrate.mjs Y18) was SILENT.
+  // PROBE_TRIAGE, Verification 51.
+  const p = buildParams({ ...settings(), VOLUME_BANDS: [{ from: 1, discountPct: '0' }] }, costs())
+  assert.equal(p.VOLUME_BANDS, undefined, 'the old key does not reach the engine, even from a leftover row')
   assert.deepEqual(Object.keys(p.VOLUME_BANDS_BY_PRODUCT).sort(), ['air_quality', 'hemir', 'safesight'])
   // A change naming the retired key is refused as unknown.
   assert.throws(() => mergeSettingsChange(settings(), { VOLUME_BANDS: SIX }, costs()),

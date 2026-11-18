@@ -17,9 +17,22 @@
 // The engine's name is assembled from parts so this file never contains an
 // import of it and cannot satisfy the isolation scan it calibrates.
 //
-// UNWIRED: a calibration harness, run by hand when the engine, its goldens or
-// the isolation guard change. It mutates source, so it must never be a gate
-// stage. The two suites it calibrates ARE wired, under `npm test`.
+// WIRED by PROBE_TRIAGE (R2, John 2026-11-18), inside the gate's
+// `calibrations` stage, which runs it in an OS TEMP COPY of the tree and never
+// in the served one (scripts/run-calibrations.mjs). It mutates source, which is
+// why it is only ever run there: ROOT is this file's own location, so in the
+// copy every injection lands in the copy.
+//
+// REPOINTED by PROBE_TRIAGE. It had been dead since TP_LADDER: J3's anchor was
+// gone and the run stopped there, so nothing after J3 had been reached. What
+// changed, per injection:
+//   - J3, J4, J12, J13 DROPPED: ANCHOR_MARGIN, SHORT_TERM_MARGIN, PROFIT_STEP
+//     and steps_above were the removed formula; there is no claim left to fail.
+//   - Z1 to Z14 DROPPED: the manual ladder (TP_MANUAL) was retired by
+//     TP_LADDER; the price ladder's claims are calibrate-ladder.mjs's.
+//   - J15, V9, J20, Y13, Y16, Y22 RE-ANCHORED on the current source, same fault.
+//   - J2's expectation moved from T1 (one unit priced from a two-decimal ladder
+//     price, which the tie fault cannot move) to the exact-sum claim it breaks.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
@@ -52,13 +65,7 @@ const INJECTIONS = [
   { id: 'J2', file: ENGINE, why: 'TCV re-summed from unrounded list fees (tie rule broken)',
     find: 'const tcvNetCents = monthlyTotalByYear[0] * BigInt(T)',
     put: 'const tcvNetCents = roundHalfUp(mul(lines.reduce((s, l) => add(s, mul(l.listFee, fromInt(l.units))), ZERO), fromInt(T)), 2)',
-    expect: 'T1 1 unit, 36' },
-  { id: 'J3', file: ENGINE, why: 'anchor margin not per product',
-    find: 'const am = p.anchorMargin[product]', put: 'const am = p.anchorMargin.safesight ?? p.anchorMargin[product]',
-    expect: 'flow: ANCHOR_MARGIN is per product' },
-  { id: 'J4', file: ENGINE, why: 'steps_above hard-coded to the default list',
-    find: 'p.terms.indexOf(T) - p.terms.indexOf(p.anchorTerm)', put: 'p.terms.indexOf(T) - 2',
-    expect: 'flow: TERMS decides' },
+    expect: 'v1.4: the products sum to the deal' },
   { id: 'J5', file: ENGINE, why: 'escalator chained from the previous rounded year',
     find: 'feeByYear.push(roundHalfUp(mul(fromCents(fee1), factor(k)), 2))',
     put: 'feeByYear.push(k === 1 ? fee1 : roundHalfUp(mul(fromCents(feeByYear[k - 2]), add(ONE, escalator)), 2))',
@@ -84,11 +91,6 @@ const INJECTIONS = [
     find: '  const scaled = roundHalfUp(mul(ratio, HUNDRED), places)\n',
     put: '  const h = mul(ratio, HUNDRED)\n  const scaled = (h.n * 10n ** BigInt(places)) / h.d\n',
     expect: '10.3 worst-case margin at 36 months' },
-  { id: 'J12', file: ENGINE, why: 'short terms priced on the anchor margin',
-    find: 'return div(costAt(cost, T), sub(ONE, sm))', put: 'return div(costAt(cost, T), sub(ONE, am))',
-    expect: 'flow: SHORT_TERM_MARGIN per product' },
-  { id: 'J13', file: ENGINE, why: 'PROFIT_STEP ignored',
-    find: 'mul(p.profitStep, fromInt(stepsAbove))', put: 'ZERO', expect: 'flow: PROFIT_STEP' },
   // RE-ANCHORED by TP_BANDS: splitIntoBands takes the product's own bands (TB-1).
   { id: 'J14', file: ENGINE, why: 'bands pooled across product lines',
     find: 'splitIntoBands(productBands, units).filter',
@@ -98,8 +100,8 @@ const INJECTIONS = [
   // RE-ANCHORED by TP_CAPEX (v1.6, Q2): the CAPEX subscription replaces the
   // v1.5 service fee; flat under a CPI is the same fault.
   { id: 'J15', file: ENGINE, why: 'CAPEX subscription flat under a CPI (Q2)',
-    find: 'const subscriptionCents = m >= 1 ? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) : 0n',
-    put: 'const subscriptionCents = m >= 1 ? roundHalfUp(mul(fromCents(base), f(1)), 2) : 0n',
+    find: '? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) + ptMonthlyCents',
+    put: '? roundHalfUp(mul(fromCents(base), f(1)), 2) + ptMonthlyCents',
     expect: 'T22 T6 as capex, CPI locked 3%' },
   { id: 'J16', file: ENGINE, why: 'margin after WHT ignores the WHT borne (Q4)',
     find: 'frac(grossProfitCents - base.tax.whtBorneCents, tcvNetCents)', put: 'grossMargin',
@@ -121,8 +123,8 @@ const INJECTIONS = [
   // OPEX fee (A1)". v1.6 (C-10) removes the CAPEX ladder columns; its
   // replacement claim is that CAPEX inputs never reach the ladder.
   { id: 'J20', file: ENGINE, why: 'the ladder prices the CAPEX quote, so CAPEX inputs can refuse it (C-10)',
-    find: "const opexBase = { units: input?.units, paymentStructure: 'opex', cpiMode: 'none' }",
-    put: 'const opexBase = { ...input, units: input?.units }', expect: 'v1.6 (C-10)' },
+    find: "const opexBase = { units: input?.units, paymentStructure: 'opex', cpiMode: 'none', dealAdjustment: input?.dealAdjustment ?? null }",
+    put: 'const opexBase = { ...input, units: input?.units, dealAdjustment: input?.dealAdjustment ?? null }', expect: 'v1.6 (C-10)' },
   // ── TP_TABS, spec v1.7 (M4: injections only for the new claims) ──
   { id: 'X1', file: ENGINE, why: 'a band\'s cost leaves out hosting (C1)',
     find: 'const costCents = BigInt(bu) * costPerUnitCents', put: 'const costCents = BigInt(bu) * roundHalfUp(cost.hw, 2)',
@@ -244,8 +246,8 @@ const INJECTIONS = [
   { id: 'V8', file: ENGINE, why: 'month T does not carry the subscription rounding (C-5)',
     find: 'const base = m === T ? capex.lastBaseFeeCents : capex.baseFeeCents', put: 'const base = capex.baseFeeCents', expect: 'G-C1' },
   { id: 'V9', file: ENGINE, why: 'month T escalates the regular fee and adds the residue after (Q2)',
-    find: 'const subscriptionCents = m >= 1 ? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) : 0n',
-    put: 'const subscriptionCents = m >= 1 ? roundHalfUp(mul(fromCents(capex.baseFeeCents), f(yearOf(m))), 2) + base - capex.baseFeeCents : 0n',
+    find: '? roundHalfUp(mul(fromCents(base), f(yearOf(m))), 2) + ptMonthlyCents',
+    put: '? roundHalfUp(mul(fromCents(capex.baseFeeCents), f(yearOf(m))), 2) + base - capex.baseFeeCents + ptMonthlyCents',
     expect: 'G-C5' },
   { id: 'V10', file: ENGINE, why: 'shares need not total 100% (C-6)',
     // RE-ANCHORED by TP_TABS: v1.7 (T-4) moves the 100% check to the quote,
@@ -322,7 +324,7 @@ const INJECTIONS = [
     put: '    bandsByProduct[k] = engineBands((Array.isArray(list) ? list : []).map((b) => ({ from: Number(b.from), discountPct: String(b.discountPct) })), k)\n',
     expect: 'BG-4 refused' },
   { id: 'Y13', file: ENGINE, why: 'the floor is compared on the margin rounded for display (10.4)',
-    find: 'belowFloor: cmp(u.margin, p.marginFloor) < 0', put: 'belowFloor: cmp(frac(roundHalfUp(mul(u.margin, HUNDRED), 1), 1000n), p.marginFloor) < 0',
+    find: 'belowFloor: cmp(b.margin, p.marginFloor) < 0', put: 'belowFloor: cmp(frac(roundHalfUp(mul(b.margin, HUNDRED), 1), 1000n), p.marginFloor) < 0',
     expect: '10.4: a cell is flagged by EXACT' },
   { id: 'Y14', file: ENGINE, why: 'breaches are never listed, so the warning never shows (10.4)',
     find: 'const breaches = rows.flatMap(', put: 'const breaches = rows.slice(0, 0).flatMap(',
@@ -331,7 +333,7 @@ const INJECTIONS = [
     find: 'feeTerms: FEE_TABLE_TERMS.filter((t) => p.terms.includes(t)),', put: 'feeTerms: FEE_TABLE_TERMS,',
     expect: '10.4: the fee table terms' },
   { id: 'Y16', file: ENGINE, why: 'the grid reads the STORED bands, not the bands as typed (10.4)',
-    find: '[product]: engineBands(v.bands, product) } }', put: '[product]: base.bandsByProduct[product] } }',
+    find: '[product]: engineBands(v.bands, product) },', put: '[product]: base.bandsByProduct[product] },',
     expect: 'BG-3 the margin check' },
   { id: 'Y17', file: SETTINGS, why: 'saving one product\'s bands drops the others (0.5)',
     find: 'VOLUME_BANDS_BY_PRODUCT: { ...current.VOLUME_BANDS_BY_PRODUCT, [product]: v.bands },',
@@ -349,50 +351,13 @@ const INJECTIONS = [
   { id: 'Y21', file: ROUTE, why: 'the bands save rewrites every key (0.5)',
     find: "['VOLUME_BANDS_BY_PRODUCT'], merged)", put: 'SETTING_KEYS, merged)', expect: '0.1 success' },
   { id: 'Y22', file: ROUTE, why: 'the refusal carries only the first problem (TB-6)',
-    find: 'problems: err.problems ?? [] })', put: 'problems: [] })', expect: '0.1 refusal, TB-6' },
+    find: 'request.body?.bands, state.costs)\n    } catch (err) {\n      return reply.code(400).send({ error: err.message, code: err.code, problems: err.problems ?? [] })',
+    put: 'request.body?.bands, state.costs)\n    } catch (err) {\n      return reply.code(400).send({ error: err.message, code: err.code, problems: [] })',
+    expect: '0.1 refusal, TB-6' },
   { id: 'Y23', file: ROUTE, why: 'RLS refusing the write reads as success (Verification 8)',
     find: '  if ((data ?? []).length !== rows.length) {', put: '  if (false) {', expect: '0.1 refusal: RLS' },
   { id: 'Y24', file: ROUTE, why: 'the writer is taken from the request body (Architecture 12)',
     find: 'updated_by: request.user.id }))', put: 'updated_by: request.body?.updatedBy ?? null }))', expect: '0.1 success' },
-  // ── TP_MANUAL (spec 4.6): new claims only (M4) ──
-  { id: 'Z1', file: ENGINE, why: 'Calculated is not the one-camera fee (M-8)',
-    find: 'termLadder({ units: { [product]: 1 }', put: 'termLadder({ units: { [product]: 10 }',
-    expect: 'MG-1: Calculated is the ladder' },
-  { id: 'Z2', file: ENGINE, why: 'an equal profit counts as a fall (M-6)',
-    find: 'r.profitCents < prev.profitCents', put: 'r.profitCents <= prev.profitCents',
-    expect: 'MG-1 the manual ladder' },
-  { id: 'Z3', file: ENGINE, why: 'checks compare with the previous TERM, not the previous priced row (MG-2)',
-    find: "if (r.status !== 'priced') continue", put: "if (r.status !== 'priced') { prev = r; continue }",
-    expect: 'MG-2 a blank 72' },
-  { id: 'Z4', file: ENGINE, why: 'the floor is not an exact comparison (M-6)',
-    find: 'cmp(r.margin, p.marginFloor) < 0', put: 'cmp(r.margin, p.marginFloor) <= 0',
-    expect: '4.6: the floor is an EXACT comparison' },
-  { id: 'Z5', file: ENGINE, why: 'the flags are not in the ruled order (C2)',
-    find: '    prev = r\n  }\n\n  const priced', put: '    r.flags.sort((a, b) => a.kind.localeCompare(b.kind))\n    prev = r\n  }\n\n  const priced',
-    expect: 'MG-4 120 at 300.00' },
-  { id: 'Z6', file: ENGINE, why: 'vs 36 divides by the calculated anchor, not your anchor price (M-5)',
-    find: "anchor?.status === 'priced' ? anchor.priceCents : null", put: 'anchor.calculatedCents',
-    expect: 'MG-3 a blank 36' },
-  { id: 'Z7', file: ENGINE, why: 'the anchor is hard-coded to 36 (C4)',
-    find: 'const anchor = rows.find((r) => r.termMonths === p.anchorTerm)', put: 'const anchor = rows.find((r) => r.termMonths === 36)',
-    expect: '4.6, C4, C11' },
-  { id: 'Z8', file: ENGINE, why: 'more than two decimals are accepted (M-7)',
-    find: String.raw`const MANUAL_PRICE = /^\d+(\.\d{1,2})?$/`, put: String.raw`const MANUAL_PRICE = /^\d+(\.\d+)?$/`,
-    expect: '4.6, M-7, C9' },
-  { id: 'Z9', file: ENGINE, why: 'a zero price is accepted (M-7)',
-    find: 'cmp(price, ZERO) <= 0', put: 'cmp(price, ZERO) < 0', expect: '4.6, M-7, C9' },
-  { id: 'Z10', file: ENGINE, why: 'commas are not accepted (C9)',
-    find: ".replace(/,/g, '')", put: '', expect: 'MG-1 the manual ladder' },
-  { id: 'Z11', file: ENGINE, why: 'one term reads "1 terms" (C3)',
-    find: "terms.length === 1 ? '' : 's'", put: "'s'", expect: 'MG-4 120 at 300.00' },
-  { id: 'Z12', file: ENGINE, why: 'the floor in the wording is 25 whatever MARGIN_FLOOR says (C3)',
-    find: 'const floorPct = plainPct(p.marginFloor)', put: "const floorPct = '25'",
-    expect: '4.6, C3: the floor in the wording' },
-  { id: 'Z13', file: ENGINE, why: 'the note reads the wrong band\'s discount (C6, C8)',
-    find: 'bands[0].discountPct', put: 'bands[bands.length - 1].discountPct', expect: '4.6, C6, C8' },
-  { id: 'Z14', file: ENGINE, why: 'difference is calculated / your price (M-5)',
-    find: 'difference: sub(frac(priceCents, l.perCameraCents), ONE)', put: 'difference: sub(frac(l.perCameraCents, priceCents), ONE)',
-    expect: 'MG-1 the manual ladder' },
   // ── R-TP1, one import each way, as the brief requires ──
   { id: 'K1', file: ENGINE, why: 'the engine imports the deal-sheet engine',
     prepend: IMPORT('calculateTax', './deal-calculator.js'), expect: 'R-TP1 (1)' },
@@ -443,7 +408,25 @@ function runTests() {
   return { status: r.status, failed: [...new Set(failed)], pass, fail, ms: Date.now() - t0 }
 }
 
+// ── SHARDS, PROBE_TRIAGE ─────────────────────────────────────────────────
+//
+// TP_CALIBRATE_SHARD=i/k runs injection n only where n % k === i. Each shard
+// has its own baseline and its own final reverted run, in its own copy, so
+// the gate's calibrations stage can run k copies at once: 100 injections at
+// about 1.15s each is 118s serial, over the round's whole time budget alone.
+// The stage, not this file, asserts the shards together cover every
+// injection exactly once, by reading the ids each shard printed.
+const SHARD = (() => {
+  const s = process.env.TP_CALIBRATE_SHARD
+  if (!s) return null
+  const m = /^(\d+)\/(\d+)$/.exec(s)
+  if (!m || Number(m[1]) >= Number(m[2])) throw new Error(`TP_CALIBRATE_SHARD must be i/k with i < k, got ${s}`)
+  return { i: Number(m[1]), k: Number(m[2]) }
+})()
+const MINE = SHARD ? INJECTIONS.filter((_, n) => n % SHARD.k === SHARD.i) : INJECTIONS
+
 function main() {
+  console.log(`injections: ${MINE.length} of ${INJECTIONS.length}${SHARD ? ` (shard ${SHARD.i}/${SHARD.k})` : ''}`)
   if (existsSync(MARKER)) {
     console.error(`REFUSED: ${MARKER} exists, so a previous run did not finish its restore.`)
     console.error(`Restore the files from ${SNAP} by hand, compare, then delete the marker.`)
@@ -467,7 +450,7 @@ function main() {
   writeFileSync(MARKER, new Date().toISOString())
   const results = []
   try {
-    for (const inj of INJECTIONS) {
+    for (const inj of MINE) {
       const before = read(inj.file).toString('utf8')
       let after
       if (inj.find) {

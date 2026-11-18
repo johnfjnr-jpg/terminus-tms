@@ -11,8 +11,11 @@
 // marker and REFUSES to start if one is present; compares the restored bytes
 // after EVERY injection and stops dead on a mismatch; restores on every stop
 // path, not only the normal one; and ends with a final reverted run, which
-// must be all green. Each anchor must match exactly once. UNWIRED: run at the
-// phase report and recorded there.
+// must be all green. Each anchor must match exactly once.
+// WIRED by PROBE_TRIAGE (R2): inside the gate's calibrations stage, which runs
+// it in an OS temp copy of the tree, never the served one
+// (scripts/run-calibrations.mjs). ROOT is this file's own location, so in the
+// copy every injection lands in the copy.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'

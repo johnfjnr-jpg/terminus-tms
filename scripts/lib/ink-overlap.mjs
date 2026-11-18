@@ -64,6 +64,25 @@ export function shrunkBelowContent(rootSel) {
   const vis = (e) => e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
   const out = []
   let items = 0
+  // ── A DECLARED SCROLLER IS NOT ITS PARENT'S NEED. PROBE_TRIAGE R4 ─────────
+  //
+  // An element declaring `overflow-x: auto | scroll` has said its content may
+  // be wider than its box: that is what it is FOR. Its min-content is still
+  // its content's, though, so measuring an ANCESTOR at `width: min-content`
+  // carried a 4,540px cash flow grid up into `tp-main` and reported the whole
+  // work column "needing 7,460px" at every width, on a screen with no overflow
+  // (measured 2026-11-18: the document 1240 wide, tp-main exactly its box).
+  //
+  // So while an item is measured, every declared scroller inside it is held
+  // at zero inline size, and a scroller is never itself an item. A table or a
+  // card that has NOT declared it may scroll is measured exactly as before,
+  // which the `shrink` injection keeps proving.
+  const scrollers = [...root.querySelectorAll('*')].filter((s) => vis(s) && /^(auto|scroll)$/.test(getComputedStyle(s).overflowX))
+  const holdScrollers = (e) => {
+    const held = scrollers.filter((s) => s !== e && e.contains(s)).map((s) => [s, s.style.width, s.style.minWidth, s.style.maxWidth])
+    for (const [s] of held) { s.style.width = '0px'; s.style.minWidth = '0px'; s.style.maxWidth = '0px' }
+    return () => { for (const [s, w, mn, mx] of held) { s.style.width = w; s.style.minWidth = mn; s.style.maxWidth = mx } }
+  }
   for (const parent of [root, ...root.querySelectorAll('*')]) {
     if (!vis(parent)) continue
     const d = getComputedStyle(parent).display
@@ -72,6 +91,7 @@ export function shrunkBelowContent(rootSel) {
       if (!vis(e)) continue
       const cs = getComputedStyle(e)
       if (cs.position === 'absolute' || cs.position === 'fixed') continue
+      if (/^(auto|scroll)$/.test(cs.overflowX)) continue
       // A FORM CONTROL'S min-content IS ITS DEFAULT INTRINSIC SIZE, NOT ITS
       // VALUE. Measured: an empty-looking units input "needs 183px" (size=20)
       // at every width, which is the instrument, not the screen. Controls are
@@ -80,10 +100,18 @@ export function shrunkBelowContent(rootSel) {
       items++
       const now = e.getBoundingClientRect().width
       // Measured, then restored in the same task, so nothing ever paints the probe width.
-      const before = e.style.width, beforeMin = e.style.minWidth, beforeMax = e.style.maxWidth
-      e.style.minWidth = '0'; e.style.maxWidth = 'none'; e.style.width = 'min-content'
+      const before = e.style.width, beforeMin = e.style.minWidth, beforeMax = e.style.maxWidth, beforeFlex = e.style.flex
+      const release = holdScrollers(e)
+      // `flex: none` as well as `width: min-content`: in a flex row an item's
+      // flex-basis WINS over width, so with `flex: 1 1 440px` the probe width
+      // was ignored and "content needs" read back the item's own width. The
+      // price ladder's margin grid then overflowed its column (box 505px,
+      // content 615px) and this check passed it. PROBE_TRIAGE, found by the
+      // calibration that re-injected the squeeze and came back SILENT.
+      e.style.flex = 'none'; e.style.minWidth = '0'; e.style.maxWidth = 'none'; e.style.width = 'min-content'
       const min = e.getBoundingClientRect().width
-      e.style.width = before; e.style.minWidth = beforeMin; e.style.maxWidth = beforeMax
+      e.style.width = before; e.style.minWidth = beforeMin; e.style.maxWidth = beforeMax; e.style.flex = beforeFlex
+      release()
       const name = (e.dataset?.testid || e.id || String(e.className) || e.tagName).slice(0, 40)
       if (now < min - 1) {
         out.push(`${name}: ${Math.round(now)}px, content needs ${Math.round(min)}px`)

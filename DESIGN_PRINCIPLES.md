@@ -13773,3 +13773,126 @@ label names a key that is not pricing.
 **Parked:** (c) a marker on the Commercials figures while the form holds
 unsaved edits, for a mockup. **On the list:** the headline's "not recorded"
 against "--" for an unpriced deal's contract value and weighted amount.
+
+---
+
+# A PROBE THAT GUARDS A SHIPPED BEHAVIOUR IS WIRED IN THE ROUND THAT SHIPS IT
+
+**PROBE_TRIAGE round, 2026-11-18. Brief and rulings: `PROBE_TRIAGE_BRIEF.md`.
+The register: `docs/PROBES.md`.**
+
+## The rule
+
+Set by John, 2026-11-18:
+
+> **A probe that guards a shipped behaviour is wired into the gate in the round
+> that ships it, or the round says why not.**
+
+**Why it is a rule now.** One week's work (term factoring, the price ladder,
+frozen figures, the Closed Won lock, the unpriced "--") was each guarded by a
+probe that ran once, was reported green, and was wired into nothing. Measured
+in this round's Phase 0: of the 688 files under `scripts/`, 145 were reached by
+the gate. The rest included the probes for that week, and probes carrying a
+pricing formula that no longer exists. Verification 9 already says a detector
+nothing schedules rots and its silence reads like its success. This is that
+rule applied at the moment a probe is written, not rounds later.
+
+**"Or the round says why not" is a row, not a sentence in a report.** Saying
+why not means a MANUAL row in `docs/PROBES.md` with the reason. A report is
+read once; the register is read by a test.
+
+## What makes it gateable, and what does not
+
+`scripts/tests/probe-register.test.mjs`, in the pure suite (R8), checks every
+`probe*` and `calibrat*` file under `scripts/`:
+- it has a row in `docs/PROBES.md`;
+- a WIRED row is reached by the gate (the stage list, the calibrations stage,
+  the suites, or a relative import of any of those, transitively);
+- a file the gate runs is not marked MANUAL;
+- a MANUAL row carries a reason;
+- a RETIRED file is gone, and no row points at a file that does not exist.
+
+It replaces `scripts/probe-inventory/q1-wiring.mjs`, which asked the same
+question by hand and was itself scheduled by nothing.
+
+**What it cannot see, named so nobody reads the green as more:** whether a
+reason is a good one, and whether a probe guards the behaviour its row says.
+Mechanical enforcement is gateable and judgement is not (CLAUDE.md index task).
+
+## The decisions, and what each rests on (Verification 29)
+
+**1. A calibrator that injects into source runs in an OS temp copy, never the
+served tree.** `scripts/run-calibrations.mjs` copies the tree once per
+calibrator (six copies, about 1.6s) and hashes every file under `src/`,
+`scripts/`, `frontend-react/src/` and `GOLDEN_DEALS.md` in the served tree
+before and after. *Rests on:* each calibrator taking its root from its own
+location or its working directory. That is a property of their code, which is
+why the stage hashes the tree rather than trusting it. The golden calibrator,
+recorded dead for six weeks, was alive: what kept it unscheduled was that it
+injected into the served tree, and the copy costs under half a second.
+
+**2. The term pricing calibrator runs in four shards.** 100 injections at about
+1.15s each is 118s serial, half the round's +240s budget alone. *Rests on:*
+the shards together covering the injection list exactly once, which the stage
+asserts from the ids each shard prints, so a shard that ran nothing cannot
+read as a pass.
+
+**3. A probe of live configuration never needs to change it.**
+`term-pricing/probe-live.mjs` is the live RLS and route refusals only: no admin
+grant, and every attempted write carries the row's current value. A broken
+policy then moves only `updated_at`/`updated_by`, which is what the probe
+watches, and its `finally` puts the prior rows back byte for byte. *Rests on:*
+the admin SUCCESS path being proved elsewhere, against the route, in
+`term-pricing-route.test.mjs`. The October version granted a temporary admin
+and restored a HARDCODED value, not the one it read.
+
+**4. A declared scroller is not its parent's need.** In
+`scripts/lib/ink-overlap.mjs`, an element declaring `overflow-x: auto | scroll`
+is held at zero inline size while an ancestor is measured, and is never itself
+an item. Without that, the cash flow grid made `tp-main` "need 7,460px" on a
+screen with no overflow. *Rests on:* a declared scroller being one on purpose.
+A table or card that has NOT declared it may scroll is measured exactly as
+before, which the `shrink` injection keeps proving.
+
+**5. "The gate runs it" is decided by path, never by basename.** The
+unbounded-select scanner matched files by basename, so wiring
+`scripts/term-pricing/probe-live.mjs` pulled in eight other `probe-live.mjs`
+files, and `subkey-census.mjs` three `census.mjs` (13 in all). Same fault as
+Verification 17's substring that cannot fail, in the direction that
+over-counts. The R8 checker matches the full path for the same reason.
+
+**6. A premise that failed is re-taken, not inherited.** `verify-all.mjs`
+recorded twelve Round 41 browser probes as "deliberately not a stage" because
+a browser was optional. GATE_HYGIENE G1 and G2 made it required, so their
+status was re-taken on a measured run (R1): six pass, four fail against a
+screen that has moved on, two were retired. Each row in `docs/PROBES.md` says
+which.
+
+## What the round found that a probe had been saying
+
+The Term Pricing layout guard, wired for the first time, was red for two real
+defects that the probe written for this screen (`probe-ladder.mjs`, 96 of 96)
+never reached, because neither appears at the widths and deal sizes it types:
+- the price card's List TCV ran into "Deal discount" for a seven-digit deal
+  at 1600 to 1920 (R3). Its three figures now share one fitted size, capped at
+  the mockup's 16px, and no label moves;
+- the price ladder editor's margin grid ran out of its column and off the card
+  at every swept width from 1320 to 1640, the 120 column unseen at 1440. Frame
+  C's own rule is "two columns
+  that fall to one where two do not fit"; a 440px track decided it instead,
+  and `min-width: 0` on the check column cancelled the fall.
+
+**A guard that is red for a real defect cannot be wired green until the defect
+is fixed.** That is what put both fixes in this round.
+
+## Where it lives
+
+| what | where |
+|---|---|
+| the register | `docs/PROBES.md` |
+| the test | `scripts/tests/probe-register.test.mjs`, `scripts/lib/probe-register.mjs` |
+| the calibrations stage | `scripts/run-calibrations.mjs` |
+| the new gate stages | `scripts/verify-all.mjs`, the PROBE_TRIAGE block at the end of the stage list |
+| the calibration of every stage wired here | `scripts/probe-triage/calibrate-wired.mjs` (manual: it injects into the served tree) |
+| the scroller rule | `shrunkBelowContent` in `scripts/lib/ink-overlap.mjs` |
+| the price card fit | `useFittedPriceRow` in `frontend-react/src/term-pricing/TermPricingView.tsx`; `--tp-pg-*` in `frontend/style.css` |
