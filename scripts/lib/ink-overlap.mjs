@@ -100,11 +100,17 @@ export function shrunkBelowContent(rootSel) {
       items++
       const now = e.getBoundingClientRect().width
       // Measured, then restored in the same task, so nothing ever paints the probe width.
-      const before = e.style.width, beforeMin = e.style.minWidth, beforeMax = e.style.maxWidth
+      const before = e.style.width, beforeMin = e.style.minWidth, beforeMax = e.style.maxWidth, beforeFlex = e.style.flex
       const release = holdScrollers(e)
-      e.style.minWidth = '0'; e.style.maxWidth = 'none'; e.style.width = 'min-content'
+      // `flex: none` as well as `width: min-content`: in a flex row an item's
+      // flex-basis WINS over width, so with `flex: 1 1 440px` the probe width
+      // was ignored and "content needs" read back the item's own width. The
+      // price ladder's margin grid then overflowed its column (box 505px,
+      // content 615px) and this check passed it. PROBE_TRIAGE, found by the
+      // calibration that re-injected the squeeze and came back SILENT.
+      e.style.flex = 'none'; e.style.minWidth = '0'; e.style.maxWidth = 'none'; e.style.width = 'min-content'
       const min = e.getBoundingClientRect().width
-      e.style.width = before; e.style.minWidth = beforeMin; e.style.maxWidth = beforeMax
+      e.style.width = before; e.style.minWidth = beforeMin; e.style.maxWidth = beforeMax; e.style.flex = beforeFlex
       release()
       const name = (e.dataset?.testid || e.id || String(e.className) || e.tagName).slice(0, 40)
       if (now < min - 1) {

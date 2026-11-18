@@ -76,7 +76,10 @@ const CASES = [
   { id: 'cf-term', stage: 'HTTP factoring term refusal probe', run: N(['scripts/probe-factoring-term-refusal.mjs']),
     why: 'a factoring term equal to the contract is accepted',
     edits: [['src/lib/system-defaults.js', '  if (n <= T - 1) return null;', '  if (n <= T) return null;']],
-    expect: /^FAIL {2}a term CHANGED to 36 on a 36-month contract is refused/m },
+    // This probe states some claims through the throwing client's own
+    // expectation, so the claim's NAME arrives in the thrown error's `because`
+    // rather than on a FAIL line. Both forms name the same claim.
+    expect: /^FAIL {2}a term CHANGED to 36 on a 36-month contract is refused|-> 200 \{"expected":400,"because":"a 36-month term cannot end inside a 36-month contract"/m },
   { id: 'won-server', stage: 'browser closed-won pricing', run: N(['scripts/probe-closed-won-pricing-click.mjs']),
     why: 'the server stops refusing a Closed Won pricing change',
     edits: [['src/lib/pricing-keys.js', '  if (status !== WON_STAGE) return null\n  return changedPricingKeys', '  if (status !== WON_STAGE || true) return null\n  return changedPricingKeys']],
@@ -157,8 +160,13 @@ const build = () => {
 let armed = false
 const restoreAll = () => {
   const bad = []
+  // Only a file whose bytes DIFFER is written back. Rewriting identical bytes
+  // still touches its mtime, and under `node --watch` a touched src/ file
+  // restarts the server: the first run's restore rewrote every snapshotted
+  // file after every case, so the next case met a server between children
+  // and failed in under a second (measured: three cases, ERR_CONNECTION_REFUSED).
   for (const f of touched) {
-    writeFileSync(join(ROOT, f), readFileSync(key(f)))
+    if (!read(f).equals(readFileSync(key(f)))) writeFileSync(join(ROOT, f), readFileSync(key(f)))
     if (!read(f).equals(readFileSync(key(f)))) bad.push(f)
   }
   for (const c of sel) for (const f of [...(c.cleanup ?? []), ...(c.create ? [c.create[0]] : [])]) if (existsSync(join(ROOT, f))) unlinkSync(join(ROOT, f))
@@ -210,6 +218,11 @@ try {
     if (feTouched) build()
     if (srcTouched) await awaitRestart(before)
 
+    // EVERY stage waits for the server to answer, not only after a src/ edit:
+    // three cases on the first run measured a server that was between children
+    // (ERR_CONNECTION_REFUSED in ~750ms against a normal 23s), and a stage that
+    // fails faster than it could run has not run (Verification 48).
+    { const t0 = Date.now(); while (!reachable()) { if (Date.now() - t0 > 60000) stop(`${c.id}: the server did not answer within 60s`); await new Promise((r) => setTimeout(r, 250)) } }
     const r = runStage(c)
     const fired = r.code !== 0 && c.expect.test(r.out)
     results.push({ ...c, fired, code: r.code, ms: r.ms })
@@ -234,6 +247,7 @@ console.log(`\nrestored: ${touched.length} files byte-identical to their snapsho
 const stages = [...new Map(sel.map((c) => [c.run.join(' '), c])).values()]
 let revertedGreen = true
 for (const c of stages) {
+  { const t0 = Date.now(); while (!reachable()) { if (Date.now() - t0 > 60000) break; await new Promise((r) => setTimeout(r, 250)) } }
   const r = runStage(c)
   if (r.code !== 0) { revertedGreen = false; writeFileSync(join(SNAP, `reverted-${c.id}.out.txt`), r.out) }
   console.log(`REVERTED ${r.code === 0 ? 'GREEN' : 'RED  '}  ${c.stage}  exit ${r.code} ${r.ms}ms`)
