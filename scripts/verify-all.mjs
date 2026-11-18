@@ -392,6 +392,12 @@ export const STAGES = [
   },
   // ── PROBE_TRIAGE R2 (John, 2026-11-18) ─────────────────────────────────
   //
+  // `--env-file=.env` on the four whose code reads process.env through
+  // src/supabase.js: the gate spawns a bare `node`, and the first close gate
+  // ran all four into "supabaseUrl is required" in under 230ms. Every run
+  // before it had added the flag by hand, so none had invoked them as the
+  // gate does (Verification 47: build the harness the way the code is run).
+  //
   // This week's behaviours were each guarded by a probe that ran once and was
   // wired into nothing (CLAUDE.md Verification 9). Each stage below was run,
   // measured and calibrated in that round, and its register row is in
@@ -412,7 +418,7 @@ export const STAGES = [
     // a broken policy moves only updated_at/updated_by, which is what it
     // watches (R5).
     name: 'HTTP term pricing settings RLS probe',
-    cmd: ['node', ['scripts/term-pricing/probe-live.mjs']],
+    cmd: ['node', ['--env-file=.env', 'scripts/term-pricing/probe-live.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
     needsSession: true,
   },
@@ -420,7 +426,7 @@ export const STAGES = [
     // R-FF1 a submission freezes the server's figures; R-FF5 they cannot be
     // changed by the owner or the service role; R-FF4 the won version derived.
     name: 'HTTP frozen figures probe',
-    cmd: ['node', ['scripts/probe-frozen-figures-db.mjs']],
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-frozen-figures-db.mjs']],
     needs: 'the dev server on :3000 AND a live session-ref.json',
     needsSession: true,
   },
@@ -456,7 +462,7 @@ export const STAGES = [
     // TP_LADDER: the Term Pricing screen to the approved mockup, from the click.
     required: true,
     name: 'browser term pricing ladder',
-    cmd: ['node', ['scripts/term-pricing/probe-ladder.mjs']],
+    cmd: ['node', ['--env-file=.env', 'scripts/term-pricing/probe-ladder.mjs']],
     needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
     needsSession: true,
     needsBrowser: true,
@@ -467,7 +473,7 @@ export const STAGES = [
     // sweep (--sweep) stays manual.
     required: true,
     name: 'term pricing layout guard',
-    cmd: ['node', ['scripts/term-pricing/probe-overlap.mjs']],
+    cmd: ['node', ['--env-file=.env', 'scripts/term-pricing/probe-overlap.mjs']],
     needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
     needsSession: true,
     needsBrowser: true,
