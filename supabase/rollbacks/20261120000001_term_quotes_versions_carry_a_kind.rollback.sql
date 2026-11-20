@@ -12,10 +12,12 @@
 -- route writes kind and every reader branches on it. Not parse-checked
 -- (CLAUDE.md build discipline 14).
 --
--- IT REFUSES IF ANY term_quote VERSION EXISTS. Dropping the column would leave
--- such a row looking like a Commercials version, with no rates.rates for
--- calculateDeal to price from: every reader would misprice it and nothing would
--- say so. Decide what happens to those rows first, then run this.
+-- IT REFUSES IF ANY term_quote VERSION EXISTS ON A LIVE RECORD. Dropping the
+-- column would leave such a row looking like a Commercials version, with no
+-- rates.rates for calculateDeal to price from: every reader would misprice it
+-- and nothing would say so. Decide what happens to those rows first. Rows on
+-- soft-deleted (fixture) records are relabelled, and a NOTICE counts them
+-- before anything is dropped (John's D3, 2026-11-20).
 --
 -- The three restored definitions below are SLICED VERBATIM from:
 --   supabase/migrations/20261117000002_versions_freeze_their_figures.sql
@@ -30,11 +32,22 @@
 begin;
 
 do $$
+declare
+  v_live integer;
+  v_fixture integer;
 begin
-  if exists (select 1 from public.deal_sheet_versions where kind = 'term_quote') then
-    raise exception 'rollback refused: % term_quote version(s) exist; dropping kind would relabel them Commercials',
-      (select count(*) from public.deal_sheet_versions where kind = 'term_quote');
+  select count(*) into v_live from public.deal_sheet_versions v
+   where v.kind = 'term_quote'
+     and exists (select 1 from public.records r where r.id = v.record_id and r.deleted_at is null);
+  if v_live > 0 then
+    raise exception 'rollback refused: % term_quote version(s) on live records exist; dropping kind would relabel them Commercials',
+      v_live;
   end if;
+  select count(*) into v_fixture from public.deal_sheet_versions v
+   where v.kind = 'term_quote'
+     and exists (select 1 from public.records r where r.id = v.record_id and r.deleted_at is not null);
+  raise notice 'rollback: % term_quote version(s) on soft-deleted fixture records will be relabelled Commercials when kind is dropped',
+    v_fixture;
 end $$;
 
 -- ── 5. THE CLOSED WON TRIGGER ────────────────────────────────────────────

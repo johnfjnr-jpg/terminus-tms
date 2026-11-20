@@ -51,10 +51,18 @@ test('the slicer raises rather than returning less (Verification 12)', () => {
 test('one transaction, the term_quote refusal first, the schema reload last', () => {
   const c = code(rollback)
   const begin = c.indexOf('\nbegin;\n')
-  const refusal = c.indexOf("if exists (select 1 from public.deal_sheet_versions where kind = 'term_quote') then")
+  const refusal = c.indexOf("raise exception 'rollback refused:")
+  const notice = c.indexOf("raise notice 'rollback: %")
   const firstDrop = c.indexOf('\ndrop ')
   assert.ok(begin >= 0, 'opens its own transaction')
   assert.ok(refusal > begin && refusal < firstDrop, 'refuses on a term_quote row before it drops anything')
+  // D3 (John 2026-11-20): the refusal counts term rows on LIVE records only,
+  // and the fixture rows it will relabel are counted aloud before any drop.
+  const block = c.slice(begin, firstDrop)
+  assert.match(block, /if v_live > 0 then\s+raise exception 'rollback refused:/, 'the refusal is the live count\'s')
+  assert.match(block, /select count\(\*\) into v_live[\s\S]*?r\.deleted_at is null\);/, 'the live count is scoped to live records')
+  assert.match(block, /select count\(\*\) into v_fixture[\s\S]*?r\.deleted_at is not null\);/, 'the fixture count is scoped to soft-deleted records')
+  assert.ok(notice > refusal && notice < firstDrop, 'the NOTICE comes after the refusal and before anything is dropped')
   assert.match(c, /notify pgrst, 'reload schema';\s*commit;\s*$/, 'ends with the schema reload, then commit')
   assert.equal(count(c, 'commit;'), 1, 'one commit')
   assert.match(c, /delete from supabase_migrations\.schema_migrations where version = '20261120000001';/, 'removes its ledger row')

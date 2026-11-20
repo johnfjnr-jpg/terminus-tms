@@ -14026,6 +14026,17 @@ trigger raises word for word; it answers 409, and the freeze keeps 423.
 a red test. **The clean fix is a distinct SQLSTATE in a follow-up migration**,
 which is John's to rule; the message test is the bridge until then.
 
+**RULED BY JOHN 2026-11-20 (build review D1): KEPT.** M4 was accepted on a
+false premise ("PT423 is a new SQLSTATE") and is RE-ACCEPTED ON THE FACTS: two
+meanings share PT423, the freeze and the Closed Won refusal, and they are told
+apart by the Closed Won refusal's exact message. Two things hold that line:
+`term-quotes-db.test.mjs` (e), which asserts the live trigger's message equals
+`CLOSED_WON_PRICING_REFUSAL`, and the code-only wrong-pass injection
+(`isClosedWon` matching PT423 alone), which fires on the freeze companion test.
+The sentence above proposing a distinct SQLSTATE is superseded and left
+visible. **Revisit only if a third PT423 meaning appears**: a third raiser is
+the moment a message discriminator stops being a bridge and becomes a guess.
+
 **8b. THE KEY LIST HAD TWO JOBS, SO IT IS TWO LISTS.** P2 renames
 `COMMERCIALS_OWNED_KEYS` to `PRICING_OWNED_KEYS` and adds `termQuote` and
 `pricingMethod`. Measured before doing it: the Commercials form's

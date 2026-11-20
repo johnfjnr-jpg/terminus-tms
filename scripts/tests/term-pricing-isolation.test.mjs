@@ -144,6 +144,31 @@ test('R-TP1 (2): nothing outside the allowlist imports the engine', () => {
   for (const f of ALLOWED_IMPORTERS) assert.ok(importers.includes(f), `${f} is allowlisted but does not import the engine`)
 })
 
+// ── R-TP1 AS CONFIRMED BY JOHN, 2026-11-20 (TERM_QUOTES build review D2) ──
+//
+// "The term engine imports nothing" (part 1, above), and the PRODUCT code that
+// may import it is named here, literally, so a new importer is a diff to this
+// list that somebody reads. The allowlist above also carries tests and scripts;
+// this is the product side of it, the files that ship. Exact in both
+// directions: a new importer fails, and so does a named one that stops.
+export const PRODUCT_IMPORTERS = Object.freeze([
+  // TERM_QUOTES: the one gateway from the opportunity to the engine.
+  'src/lib/term-quote.js',
+  // The standalone Term Pricing screen, which prices in the browser.
+  'frontend-react/src/term-pricing/TermPricingView.tsx',
+  // Settings rows to engine parameters, and an admin change validated through
+  // the engine's normaliseParams; and its type declarations.
+  'src/lib/term-pricing-settings.js',
+  'src/lib/term-pricing-settings.d.ts',
+])
+
+test('R-TP1 (D2): the product modules that import the engine are exactly the named four', () => {
+  const product = files.filter((f) => f !== ENGINE && !f.startsWith('scripts/') && importsEngine(f)).sort()
+  assert.deepEqual(product, [...PRODUCT_IMPORTERS].sort(),
+    'the product importers of src/lib/term-pricing.js changed; a new one is added to PRODUCT_IMPORTERS in a diff somebody reads')
+  for (const f of PRODUCT_IMPORTERS) assert.ok(ALLOWED_IMPORTERS.includes(f), `${f} is named here and missing from ALLOWED_IMPORTERS`)
+})
+
 test('R-TP1 (2a): a path that merely CONTAINS the name is not an import of the engine', () => {
   // The three files the name-matching version wrongly flagged, pinned so the
   // over-reach cannot return. Each really does import something named

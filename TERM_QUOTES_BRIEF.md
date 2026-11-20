@@ -180,3 +180,15 @@ M3  Rollback must be ONE self-contained file pasteable into the Supabase SQL Edi
 M4  Accepted: draft kind immutable; rates.params as the snapshot; PT423.
 M5  Add to the tests-fail-first commit: a test that fails if stage_definitions has no stage named 'Closed Won' (the trigger's and WON_STAGE's dependency).
 M6  In the stop report, paste BOTH files in full (migration and rollback), then STOP. Nothing applied.
+
+## Build review rulings (John, 2026-11-20), appended verbatim at the phase they launch
+
+TERM_QUOTES build review: rulings on the four decisions
+
+D1  Keep the PT423 message discriminator. Record in DESIGN_PRINCIPLES 8a that M4 was accepted on a false premise and re-accepted on the facts: two meanings share PT423, told apart by the exact message, held by term-quotes-db (e) and the code-only wrong-pass injection. Revisit only if a third PT423 meaning appears.
+D2  R-TP1 confirmed as: the term engine imports nothing. Add a pure test naming the only modules allowed to import src/lib/term-pricing.js (term-quote.js, the standalone view, and any others found today, listed). A new importer fails it. Calibrate: an extra import FIRES.
+D3  Scope the rollback's refusal to term_quote versions on LIVE records (records.deleted_at is null). Before dropping, it raises a NOTICE with the count of soft-deleted fixture rows it will relabel. Change the generator, regenerate, keep the pin test green, and calibrate: a live term row refuses, a fixture-only population proceeds (rolled back).
+D4  For the mockup: two term versions get a "what changed" table (units per product, term, deal discount, payment basis, CPI mode, then Base TCV before and after) in place of a bridge. Build it with the view.
+Q   Queue: make scripts/verify-all.mjs safe to import (no top-level execution unless run directly).
+Calibrators inject into a temporary copy except where the claim needs the served tree (HTTP); say which in each report.
+Then STOP. The mockup follows.
