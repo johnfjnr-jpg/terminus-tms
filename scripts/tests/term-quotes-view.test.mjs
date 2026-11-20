@@ -131,7 +131,11 @@ test('CF2: the card is FROZEN at submission: a submitted version reads its store
 
 test('V5: two term versions show the what-changed table, from the baseline\'s FROZEN figures', () => {
   const base = termV({ id: 'v1', major: 1, revision_number: 3 })
-  const baseline = { ...base, frozen_figures: buildFrozenFigures({ payload: {}, version: base, record: {}, termParams: tqParams() }, 'e'), approval: { decidedAt: '2026-11-12T00:00:00Z' } }
+  // Frozen at 500.00, then its STORED settings tampered to 510.00: a submitted
+  // baseline repriced on its own settings would read the same as its frozen
+  // figure, so without the tamper this test could not tell the two apart (the
+  // calibration's one SILENT injection said so).
+  const baseline = { ...base, rates: { params: tqParams('510.00') }, frozen_figures: buildFrozenFigures({ payload: {}, version: base, record: {}, termParams: tqParams() }, 'e'), approval: { decidedAt: '2026-11-12T00:00:00Z' } }
   const now = termV({ inputs: { ...TQ1_INPUTS, units: { safesight: 80 } } })
   const p = buildApprovalPage({ payload: { pricingMethod: 'term_quote', termQuote: now.inputs }, version: now, baseline, record: {}, termParams: tqParams('510.00') })
   assert.equal(p.moved.bridge, null)
