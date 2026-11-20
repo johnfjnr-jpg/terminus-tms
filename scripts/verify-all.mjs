@@ -432,6 +432,17 @@ export const STAGES = [
     needsSession: true,
   },
   {
+    // TERM_QUOTES (spec v2.1, section 14): creation stamps the method, the
+    // headline prices the term quote on today's settings, a term version takes
+    // the server's snapshot and freezes on submission, a Commercials version on
+    // a term record is refused, and Closed Won is 409 in the ruled wording for
+    // both kinds (the PT423 trigger through sendWriteError).
+    name: 'HTTP term quote versions probe',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-term-quote-versions.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
+  },
+  {
     // R-CF2: a factoring term past the contract is refused, in the term
     // screen's words, and a legacy over-limit record stays saveable.
     name: 'HTTP factoring term refusal probe',

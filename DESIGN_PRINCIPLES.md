@@ -14008,3 +14008,52 @@ with "Pricing method changed: the previous approval does not carry over." A
 bridge steps through one engine's input keys and cannot span two engines. The
 discount signal and the margin floor flag sit in the ask block (P5); no track,
 approver or gate changes.
+
+## 8. Decided during the build (TERM_QUOTES, 2026-11-20), each with what it rests on
+
+**8a. PT423 IS SHARED, AND THE CLOSED WON REFUSAL IS TOLD APART BY ITS
+MESSAGE. A CORRECTION.** The migration-review report said "PT423 is a new
+SQLSTATE", and the review accepted PT423 on that premise (M4). **It was not
+new:** `refuse_write_while_frozen()` (20260831000001) has raised PT423 since
+Round 41, and `sendWriteError` maps it to 423 `frozen: true`. Found when the
+mapping was built, after the migration was applied. Verification 29: the
+premise failed, so the decision is re-taken, not re-weighed, and the
+superseded sentence stays above in the report record. **Now:** `isClosedWon`
+is PT423 AND the message equal to `CLOSED_WON_PRICING_REFUSAL`, which the
+trigger raises word for word; it answers 409, and the freeze keeps 423.
+*Rests on:* the trigger's message equalling the constant, which
+`term-quotes-db.test.mjs` (e) asserts against the live database, so a drift is
+a red test. **The clean fix is a distinct SQLSTATE in a follow-up migration**,
+which is John's to rule; the message test is the bridge until then.
+
+**8b. THE KEY LIST HAD TWO JOBS, SO IT IS TWO LISTS.** P2 renames
+`COMMERCIALS_OWNED_KEYS` to `PRICING_OWNED_KEYS` and adds `termQuote` and
+`pricingMethod`. Measured before doing it: the Commercials form's
+`pickSalespersonWritable` sends every key in that list on every save, null when
+the form holds none, because an omitted owned key reads as a deletion. Adding
+the term keys there would have made every Commercials save wipe the record's
+term quote. So `COMMERCIALS_FORM_KEYS` (the form's 32, unchanged) is what the
+form sends, and `PRICING_OWNED_KEYS` (those plus the two) is the Closed Won set
+and the server's. *Rests on:* `pickSalespersonWritable` iterating the form's
+list; `frozen-figures.test.mjs` pins both lists by name, and an injection
+adding `termQuote` to the form's list fired.
+
+**8c. A CREATOR MAY CHOOSE THE INITIAL METHOD.** R-TQ1 makes term_quote the
+default; both creation routes stamp it and accept `pricingMethod` as the
+creator's choice (anything else is 400, never coerced). *Rests on:* every
+gate probe building its opportunity through `freshOpportunity` and proving
+the Commercials path R-TQ6 keeps; stamped term_quote with no choice, each
+probe's Commercials version would be refused. The fixture chooses
+`commercials`; a term probe chooses `term_quote`.
+
+**8d. ONE GATEWAY TO THE TERM ENGINE.** `src/lib/term-quote.js` is the only new
+importer of the engine (R-TP1's allowlist gains one entry); the headline, the
+approval page and the version routes import it. *Rests on a reading of R-TP1
+for John to confirm:* "the two engines cannot reach each other" holds (neither
+engine imports the other, part 1 unchanged), while the dispatchers that choose
+a method now reach both through their own gateways.
+
+**8e. TWO TERM VERSIONS HAVE NO BRIDGE THIS ROUND.** The approval page shows
+the last approved and the under-review Base TCV side by side with a caveat,
+for John's mockup to settle. *Rests on:* the bridge being Commercials input
+keys, and a term step-by-step bridge being unspecified.

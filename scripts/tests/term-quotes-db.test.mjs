@@ -80,11 +80,19 @@ before(async () => {
 
 after(async () => { await fixtures.teardown() })
 
-test('(a) every row that existed before this run reads kind = commercials', async () => {
+// THE CUT IS THE MIGRATION'S DATE, NOT THIS RUN'S START. The first version used
+// `runStart`, which meant "older than the migration" only in the minutes after
+// John applied it; the first term quote versions the round's own probe took
+// (on torn-down fixtures, as designed) then made it red. A claim about the
+// rows the DEFAULT relabelled is a claim about history, so its population is
+// fixed: every row created before 2026-11-20, the day 20261120000001 was
+// written and applied, before which no term_quote row can exist.
+const BEFORE_THE_MIGRATION = '2026-11-20T00:00:00Z'
+test('(a) every row created before the migration reads kind = commercials', async () => {
   const { count: total, error: e1 } = await db.from('deal_sheet_versions')
-    .select('id', { count: 'exact', head: true }).lt('created_at', runStart)
+    .select('id', { count: 'exact', head: true }).lt('created_at', BEFORE_THE_MIGRATION)
   const { count: commercials, error: e2 } = await db.from('deal_sheet_versions')
-    .select('id', { count: 'exact', head: true }).lt('created_at', runStart).eq('kind', 'commercials')
+    .select('id', { count: 'exact', head: true }).lt('created_at', BEFORE_THE_MIGRATION).eq('kind', 'commercials')
   assert.equal(e1, null, e1?.message); assert.equal(e2, null, e2?.message)
   assert.ok(total > 0, 'there must be existing rows for the claim to be about')
   assert.equal(commercials, total, `${total - commercials} pre-existing row(s) read a kind other than commercials`)
