@@ -15,6 +15,11 @@ import { resolveCurrentBatches, catalogToRates } from '../lib/base-costs.js'
 // ways. Phase 0 found this file carrying five compositions including a full
 // copy of the rule.
 import { versionLabel } from '../lib/version-label.js'
+// TERM_QUOTES: the method and kind through their one reading, the quote through
+// its one gateway (R-TP1), and today's term settings through their one read.
+import { PRICING_METHODS, PRICING_METHOD_LABELS, pricingMethodOf, versionKindOf } from '../lib/pricing-method.js'
+import { termQuoteValue } from '../lib/term-quote.js'
+import { readTermState, readTermParams } from '../lib/term-params.js'
 
 // Deal Sheet versions. Round 37 Phase 3.
 //
@@ -82,10 +87,13 @@ export default async function dealSheetVersionsRoutes(app) {
       try { catalog = await currentRates(db) } catch (err) {
         return { status: 500, error: err.message }
       }
+      // TERM_QUOTES P3: a term DRAFT reprices on today's settings (R-TQ2); a
+      // submitted one prices on its own, and needs none of these.
+      const termParams = await readTermParams(db)
 
       const { data: versions, error: vErr } = await db
         .from('deal_sheet_versions')
-        .select('id, major, minor, status, reason, revision_number, inputs, rates, frozen_figures, created_by_email, created_at')
+        .select('id, kind, major, minor, status, reason, revision_number, inputs, rates, frozen_figures, created_by_email, created_at')
         .eq('record_id', record.id)
         .order('major', { ascending: false }).order('minor', { ascending: false })
       if (vErr) return { status: 500, error: vErr.message }
@@ -139,8 +147,84 @@ export default async function dealSheetVersionsRoutes(app) {
       targetChangedAt,
       catalog: { rates: catalog.rates, batches: catalog.batches, missing: catalog.missing, asOf: catalog.asOf },
       record: { reference_code: record.reference_code, status: record.status },
+      termParams,
     })
     return { version, versions: versions ?? [], latestNumber, targetChangedAt, targetChangedWindowExhausted, revisions, revisionWindow: REVISION_WINDOW, pageArgs }
+  }
+
+  // ── TERM_QUOTES: THE RECORD'S METHOD, READ FROM THE RECORD ────────────
+  async function recordMethod(db, recordId) {
+    const { data, error } = await db.from('record_revisions').select('payload')
+      .eq('record_id', recordId).order('revision_number', { ascending: false }).limit(1).maybeSingle()
+    if (error) return { error: error.message }
+    return { method: pricingMethodOf(data?.payload) }
+  }
+
+  function methodMismatch(recordMethodName, asked) {
+    return `This opportunity is priced by ${PRICING_METHOD_LABELS[recordMethodName]}, so its versions are `
+      + `${PRICING_METHOD_LABELS[recordMethodName]} versions. Change its pricing method to version it as `
+      + `${PRICING_METHOD_LABELS[asked]}.`
+  }
+
+  // ── TERM_QUOTES P3, P4: TAKING A TERM QUOTE VERSION ───────────────────
+  //
+  // The inputs are the quote (spec v2.1, 14.2) and the settings snapshot is
+  // TODAY'S parameter object BY VALUE, derived here and never accepted from the
+  // caller (Architecture 12; spec 14.3). A quote today's settings cannot price
+  // is refused in the engine's own words: a version is a decision, and an
+  // unpriceable one is not reproducible. Numbering is the database's, one
+  // sequence across kinds (P1). A Closed Won record is refused by the
+  // database (PT423), answered 409 by sendWriteError.
+  async function postTermVersion(request, reply, { inputs, reason, expectedRevision }) {
+    const db = createUserClient(request.jwt)
+    const { data: record, error: recErr } = await db.from('records').select('id')
+      .eq('id', request.params.id).eq('record_type', 'opportunity').is('deleted_at', null).maybeSingle()
+    if (recErr) return reply.code(500).send({ error: recErr.message })
+    if (!record) return reply.code(404).send({ error: 'opportunity not found' })
+    const method = await recordMethod(db, record.id)
+    if (method.error) return reply.code(500).send({ error: method.error })
+    if (method.method !== 'term_quote') return reply.code(409).send({ error: methodMismatch(method.method, 'term_quote') })
+
+    let state
+    try { state = await readTermState(db) } catch (err) { return reply.code(500).send({ error: err.message }) }
+    const priced = termQuoteValue(inputs, state.params)
+    if (priced.refusal) return reply.code(400).send({ error: priced.refusal.message, code: priced.refusal.code })
+
+    const { data: priorVersions, error: priorErr } = await db.from('deal_sheet_versions')
+      .select('kind, inputs, major, minor').eq('record_id', record.id)
+      .order('major', { ascending: false }).order('minor', { ascending: false }).limit(1)
+    if (priorErr) return reply.code(500).send({ error: priorErr.message })
+    const prior = priorVersions?.[0]
+    if (prior && versionKindOf(prior) === 'term_quote' && !payloadsDiffer({ termQuote: inputs }, { termQuote: prior.inputs ?? {} })) {
+      return reply.code(409).send({
+        error: `No change since V${prior.major}.${prior.minor}. A version records a decision, `
+          + 'so there is nothing to record until something differs.',
+      })
+    }
+
+    const { data: created, error: insErr } = await db.rpc('insert_deal_sheet_version', {
+      p_record_id: record.id,
+      p_expected_revision: expectedRevision,
+      p_reason: reason.trim(),
+      p_inputs: inputs,
+      p_rates: { params: state.params, as_of: state.asOf },
+      p_sections: [],
+      p_batch_id: null,
+      p_created_by: request.user.id,
+      p_created_by_email: request.user.email ?? null,
+      p_kind: 'term_quote',
+    })
+    if (insErr?.code === 'PT409') return reply.code(409).send({ error: insErr.message, stale: true })
+    if (insErr) {
+      request.log.error({ err: insErr }, 'failed to save term quote version')
+      return sendWriteError(reply, insErr)
+    }
+    await db.from('audit_log').insert({
+      record_id: record.id, record_type: 'opportunity',
+      action: 'deal_sheet_version_saved', actor_id: request.user.id,
+      detail: { version_id: created.id, label: versionLabel(created), revision_number: created.revision_number, kind: 'term_quote' },
+    })
+    return reply.code(201).send(created)
   }
 
   async function currentRates(db) {
@@ -158,7 +242,7 @@ export default async function dealSheetVersionsRoutes(app) {
     const db = createUserClient(request.jwt)
     const { data, error } = await db
       .from('deal_sheet_versions')
-      .select('id, major, minor, status, reason, sections, batch_id, revision_number, inputs, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
+      .select('id, kind, major, minor, status, reason, sections, batch_id, revision_number, inputs, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
       .eq('record_id', request.params.id)
       .order('major', { ascending: false })
       .order('minor', { ascending: false })
@@ -312,6 +396,19 @@ export default async function dealSheetVersionsRoutes(app) {
       })
     }
 
+    // ── TERM_QUOTES P4: A VERSION'S KIND IS ITS RECORD'S METHOD ──────────
+    //
+    // The caller says which kind it is taking (the Commercials screen sends
+    // none, so its versions are Commercials as before), and the record's own
+    // pricingMethod must AGREE: the server reads the method rather than taking
+    // the caller's word for it (Architecture 12), and refuses a mismatch rather
+    // than storing Commercials inputs under a term kind or the reverse.
+    const kind = request.body?.kind ?? 'commercials'
+    if (!PRICING_METHODS.includes(kind)) {
+      return reply.code(400).send({ error: `kind must be one of ${PRICING_METHODS.join(', ')}` })
+    }
+    if (kind === 'term_quote') return postTermVersion(request, reply, { inputs, reason, expectedRevision })
+
     // ── A VERSION MAY NOT CARRY A SCHEDULE THAT DOES NOT RECONCILE ──────
     //
     // Round 39. The client refuses this too, earlier and with better wording,
@@ -346,6 +443,9 @@ export default async function dealSheetVersionsRoutes(app) {
       .maybeSingle()
     if (recErr) return reply.code(500).send({ error: recErr.message })
     if (!record) return reply.code(404).send({ error: 'opportunity not found' })
+    const method = await recordMethod(db, record.id)
+    if (method.error) return reply.code(500).send({ error: method.error })
+    if (method.method !== 'commercials') return reply.code(409).send({ error: methodMismatch(method.method, 'commercials') })
 
     let catalog
     try {
@@ -446,13 +546,14 @@ export default async function dealSheetVersionsRoutes(app) {
     // rather than left as an unstated gap.
     const { data: priorVersions, error: priorErr } = await db
       .from('deal_sheet_versions')
-      .select('inputs, major, minor')
+      .select('kind, inputs, major, minor')
       .eq('record_id', request.params.id)
       .order('major', { ascending: false }).order('minor', { ascending: false })
       .limit(1)
     if (priorErr) return reply.code(500).send({ error: priorErr.message })
     const prior = priorVersions?.[0]
-    if (prior && !payloadsDiffer(inputs, prior.inputs ?? {})) {
+    // A prior of the OTHER kind is always a change (a switch of method).
+    if (prior && versionKindOf(prior) === 'commercials' && !payloadsDiffer(inputs, prior.inputs ?? {})) {
       return reply.code(409).send({
         error: `No change since V${prior.major}.${prior.minor}. A version records a decision, `
           + 'so there is nothing to record until something differs.',
@@ -566,7 +667,7 @@ export default async function dealSheetVersionsRoutes(app) {
 
     const { data: version, error: readErr } = await db
       .from('deal_sheet_versions')
-      .select('id, record_id, major, minor, status, revision_number')
+      .select('id, record_id, kind, major, minor, status, revision_number')
       .eq('id', request.params.vid)
       .maybeSingle()
     if (readErr) return reply.code(500).send({ error: readErr.message })
@@ -619,7 +720,10 @@ export default async function dealSheetVersionsRoutes(app) {
     const { data: rateRow, error: rateErr } = await db
       .from('deal_sheet_versions').select('rates').eq('id', version.id).maybeSingle()
     if (rateErr) return reply.code(500).send({ error: rateErr.message })
-    const frozen = rateRow?.rates?.rates ?? null
+    // TERM_QUOTES P3: a term version's basis is its settings snapshot, which
+    // the cost-basis CHECK already requires in full; H2 is the Commercials
+    // question of an empty rate table and does not arise for it.
+    const frozen = versionKindOf(version) === 'term_quote' ? (rateRow?.rates?.params ?? null) : (rateRow?.rates?.rates ?? null)
     if (!frozen || Object.keys(frozen).length === 0) {
       return reply.code(409).send({
         error: 'This version has no frozen rates, so there is no price to approve. '
@@ -716,6 +820,11 @@ export default async function dealSheetVersionsRoutes(app) {
     }
     const submitted = { ...ctx.version, major: highestIssued + 1, minor: 0, status: 'issued' }
     const frozenFigures = buildFrozenFigures(ctx.pageArgs(submitted), ENGINE_ID)
+    // TERM_QUOTES P3: a quote its own stored settings cannot price has no
+    // figures to freeze, so it is not submittable. Said in the engine's words.
+    if (versionKindOf(version) === 'term_quote' && !frozenFigures.result) {
+      return reply.code(409).send({ error: `${versionLabel(version)} cannot be submitted: ${frozenFigures.page?.ask?.refusal?.message ?? 'its quote has no price.'}` })
+    }
 
     // R-FF5: only the SERVICE ROLE may write frozen_figures, and the trigger
     // requires them on every submission, so the relabel runs as the server.
@@ -818,7 +927,7 @@ export default async function dealSheetVersionsRoutes(app) {
 
     const { data: version, error: readErr } = await db
       .from('deal_sheet_versions')
-      .select('id, record_id, major, minor, inputs')
+      .select('id, record_id, kind, major, minor, inputs')
       .eq('id', request.params.vid)
       .maybeSingle()
     if (readErr) return reply.code(500).send({ error: readErr.message })
@@ -828,6 +937,7 @@ export default async function dealSheetVersionsRoutes(app) {
       version_id: version.id,
       record_id: version.record_id,
       label: versionLabel(version),
+      kind: versionKindOf(version),
       inputs: version.inputs,
     }
   })

@@ -22,7 +22,7 @@ import {
 } from '../../src/lib/rate-resolution.js'
 import { PRODUCT_RATE_KEYS } from '../../src/lib/base-costs.js'
 import { PRICE_OVERRIDE_KEYS, priceOverrideFor } from '../../src/lib/deal-calculator.js'
-import { COMMERCIALS_OWNED_KEYS } from '../../src/lib/pricing-keys.js'
+import { COMMERCIALS_FORM_KEYS } from '../../src/lib/pricing-keys.js'
 
 // READ FROM SOURCE, comments stripped: `payload.ts` is TypeScript and the
 // pure runner is plain node, so a dynamic import is a syntax error. Stripped
@@ -34,14 +34,14 @@ import { COMMERCIALS_OWNED_KEYS } from '../../src/lib/pricing-keys.js'
 // the scan's reason (TypeScript under plain node) no longer applies, and an
 // import reads the very array the client and the server's Closed Won refusal
 // both read. The claim is unchanged. SUPERSEDED, left visible: the source
-// match on payload.ts's `export const COMMERCIALS_OWNED_KEYS = [`.
+// match on payload.ts's `export const COMMERCIALS_FORM_KEYS = [`.
 const payloadSrc = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
-const OWNED = /from '\.\.\/\.\.\/\.\.\/src\/lib\/pricing-keys\.js'/.test(payloadSrc) ? [...COMMERCIALS_OWNED_KEYS] : null
+const OWNED = /from '\.\.\/\.\.\/\.\.\/src\/lib\/pricing-keys\.js'/.test(payloadSrc) ? [...COMMERCIALS_FORM_KEYS] : null
 
 test('R-C2a 1: the writable allowlist was found at all', () => {
   // Or every assertion below passes over an empty list, which is
   // Verification 14 arriving as a silent skip.
-  assert.ok(OWNED, 'COMMERCIALS_OWNED_KEYS is gone from payload.ts')
+  assert.ok(OWNED, 'COMMERCIALS_FORM_KEYS is gone from payload.ts')
   assert.ok(OWNED.length > 10, `only ${OWNED.length} owned keys found; the match is wrong`)
 })
 

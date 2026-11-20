@@ -19,11 +19,6 @@ import { readCode } from '../lib/strip-comments.mjs'
 import { tqParams, TQ1_INPUTS } from './fixtures/term-quote-params.mjs'
 
 const ROOT = new URL('../../', import.meta.url).pathname
-// RED FIRST, AND VISIBLE (John's SEQUENCE: tests fail first in their own
-// commit). The hook refuses a red pure suite and suite-names-resolve refuses an
-// unrun test file, so the honest form is node:test's todo: every test RUNS, its
-// failure prints as todo, and the engine commit deletes this marker.
-const RED_FIRST = { todo: 'TERM_QUOTES red first: built in the engine commit' }
 
 const TRACK = 'Commercial'
 const COMM_INPUTS = { ssNew: 10, targetMargin: 30, duration: 36 }
@@ -45,23 +40,23 @@ const approvedOn = (versionId) => ({ track: TRACK, decision: 'approved', version
 
 // ── pricingChanged, across kinds (P7: "changed" whenever kinds differ) ────
 
-test('pricingChanged: a term version against its own unchanged quote has not moved', RED_FIRST, () => {
+test('pricingChanged: a term version against its own unchanged quote has not moved', () => {
   const m = pricingChanged(termVersion(), termRecord())
   assert.deepEqual([m.comparable, m.changed], [true, false])
 })
 
-test('pricingChanged: a term version against an edited quote has moved, and names the quote', RED_FIRST, () => {
+test('pricingChanged: a term version against an edited quote has moved, and names the quote', () => {
   const m = pricingChanged(termVersion(), termRecord({ ...TQ1_INPUTS, termMonths: 60 }))
   assert.deepEqual([m.comparable, m.changed, m.keys], [true, true, ['termQuote']])
 })
 
-test('pricingChanged: a different kind is ALWAYS changed, before any key is compared', RED_FIRST, () => {
+test('pricingChanged: a different kind is ALWAYS changed, before any key is compared', () => {
   const a = pricingChanged(commVersion(), termRecord())
   const b = pricingChanged(termVersion(), commRecord())
   for (const m of [a, b]) assert.deepEqual([m.comparable, m.changed, m.keys], [true, true, ['pricingMethod']])
 })
 
-test('pricingChanged: Commercials against Commercials is unchanged from before (a row with no kind is Commercials)', RED_FIRST, () => {
+test('pricingChanged: Commercials against Commercials is unchanged from before (a row with no kind is Commercials)', () => {
   assert.equal(pricingChanged(commVersion(), commRecord()).changed, false)
   assert.equal(pricingChanged(commVersion(), commRecord({ ssNew: 11 })).changed, true)
   const { kind, ...noKind } = commVersion()
@@ -71,7 +66,7 @@ test('pricingChanged: Commercials against Commercials is unchanged from before (
 
 // ── The latest-row readers, each with a term_quote row as the newest ──────
 
-test('workingVersionOf: a term draft under its unchanged quote is not "under edit"; an edited quote is', RED_FIRST, () => {
+test('workingVersionOf: a term draft under its unchanged quote is not "under edit"; an edited quote is', () => {
   const draft = termVersion({ status: 'draft', major: 1, minor: 2 })
   const quiet = workingVersionOf(draft, termRecord())
   const moved = workingVersionOf(draft, termRecord({ ...TQ1_INPUTS, units: { safesight: 61 } }))
@@ -80,31 +75,31 @@ test('workingVersionOf: a term draft under its unchanged quote is not "under edi
   assert.match(String(moved), /edit/i)
 })
 
-test('versionApprovalState: an approved term version stays approved under its unchanged quote, and is superseded by a method switch', RED_FIRST, () => {
+test('versionApprovalState: an approved term version stays approved under its unchanged quote, and is superseded by a method switch', () => {
   const v = termVersion()
   assert.equal(versionApprovalState(v, [approvedOn(v.id)], 4, TRACK, termRecord()).state, 'approved')
   assert.equal(versionApprovalState(v, [approvedOn(v.id)], 5, TRACK, commRecord()).state, 'superseded')
 })
 
-test('approvedVersionOf: the newest version is a term quote, approved, and it is the approved version', RED_FIRST, () => {
+test('approvedVersionOf: the newest version is a term quote, approved, and it is the approved version', () => {
   const versions = [commVersion(), termVersion()]
   const got = approvedVersionOf({ versions, approvals: [approvedOn('v-comm'), approvedOn('v-term')], latestRevision: 4, tracks: [TRACK], payload: termRecord() })
   assert.equal(got?.id, 'v-term')
 })
 
-test('issuedProposal: a submitted term version whose quote is unchanged lets the transition proceed', RED_FIRST, () => {
+test('issuedProposal: a submitted term version whose quote is unchanged lets the transition proceed', () => {
   const r = issuedProposal([commVersion(), termVersion()], termRecord(), 'Proposal')
   assert.equal(r.ok, true, r.reason)
 })
 
-test('issuedProposal: the newest submitted version is a term quote and the record switched back to Commercials: refused as moved', RED_FIRST, () => {
+test('issuedProposal: the newest submitted version is a term quote and the record switched back to Commercials: refused as moved', () => {
   const r = issuedProposal([commVersion(), termVersion()], commRecord(), 'Proposal')
   assert.equal(r.ok, false)
 })
 
 // ── The won headline and the approval page, for a term version ───────────
 
-test('wonHeadline: a won term version reads its own frozen Base TCV (TQ-3, at Closed Won)', RED_FIRST, () => {
+test('wonHeadline: a won term version reads its own frozen Base TCV (TQ-3, at Closed Won)', () => {
   const v = termVersion()
   const frozen = buildFrozenFigures({ payload: termRecord(), version: v, record: { status: 'Proposal' }, termParams: tqParams() }, 'engine-x')
   const head = wonHeadline({ status: 'Closed Won', wonVersion: { ...v, frozen_figures: frozen }, liveTcv: 1 })
@@ -112,7 +107,7 @@ test('wonHeadline: a won term version reads its own frozen Base TCV (TQ-3, at Cl
   assert.equal(head.source, 'won-version')
 })
 
-test('approval page, term version: the ask is Base TCV and margin, priced on the version\'s own settings', RED_FIRST, () => {
+test('approval page, term version: the ask is Base TCV and margin, priced on the version\'s own settings', () => {
   const page = buildApprovalPage({ payload: termRecord(), version: termVersion(), record: {}, termParams: tqParams('510.00') })
   assert.equal(page.ask.kind, 'term_quote')
   assert.equal(page.ask.baseTcv, 3414000, 'an issued term version prices on its stored settings, not today\'s (TQ-3)')
@@ -120,7 +115,7 @@ test('approval page, term version: the ask is Base TCV and margin, priced on the
   assert.equal(page.ask.margin, '43.8')
 })
 
-test('approval page, term version: the R-TQ3 signals sit in the ask, in the screen\'s words', RED_FIRST, () => {
+test('approval page, term version: the R-TQ3 signals sit in the ask, in the screen\'s words', () => {
   const discounted = termVersion({ inputs: { ...TQ1_INPUTS, dealAdjustment: { discountPct: '7.5' } } })
   const p = buildApprovalPage({ payload: termRecord(discounted.inputs), version: discounted, record: {}, termParams: tqParams() })
   assert.match(p.ask.signals.dealDiscount ?? '', /^Approval signal: 7\.5% below list$/)
@@ -129,7 +124,7 @@ test('approval page, term version: the R-TQ3 signals sit in the ask, in the scre
   assert.equal(plain.ask.signals.dealDiscount, null)
 })
 
-test('approval page: a method change shows no bridge, both figures, and the ruled sentence (0-7)', RED_FIRST, () => {
+test('approval page: a method change shows no bridge, both figures, and the ruled sentence (0-7)', () => {
   const baseline = { ...commVersion(), approval: { decidedAt: '2026-11-19T00:00:00Z' } }
   const p = buildApprovalPage({ payload: termRecord(), version: termVersion(), baseline, record: {}, termParams: tqParams() })
   assert.equal(p.moved.bridge, null)
@@ -140,7 +135,7 @@ test('approval page: a method change shows no bridge, both figures, and the rule
   assert.ok('figure' in p.moved.methodChanged.lastApproved)
 })
 
-test('withFrozenFigures, term version: the stored Base TCV stands and today\'s differing figure is carried beside it', RED_FIRST, () => {
+test('withFrozenFigures, term version: the stored Base TCV stands and today\'s differing figure is carried beside it', () => {
   const v = termVersion()
   const frozen = buildFrozenFigures({ payload: termRecord(), version: v, record: {}, termParams: tqParams() }, 'engine-x')
   // Today's page for the same version, with the stored settings tampered, so
@@ -153,14 +148,14 @@ test('withFrozenFigures, term version: the stored Base TCV stands and today\'s d
 
 // ── The record's pricing keys (P2, P7) ───────────────────────────────────
 
-test('COMMERCIALS_OWNED_KEYS is renamed PRICING_OWNED_KEYS, and carries termQuote and pricingMethod', RED_FIRST, () => {
+test('COMMERCIALS_OWNED_KEYS is renamed PRICING_OWNED_KEYS, and carries termQuote and pricingMethod', () => {
   assert.ok(!('COMMERCIALS_OWNED_KEYS' in PRICING_KEYS), 'the old name is gone, not aliased')
   const keys = PRICING_KEYS.PRICING_OWNED_KEYS
   assert.ok(Array.isArray(keys) && keys.includes('termQuote') && keys.includes('pricingMethod'))
   assert.ok(keys.includes('ssNew'), 'and still every Commercials key')
 })
 
-test('Closed Won refuses a change to termQuote or pricingMethod, and nothing else new', RED_FIRST, () => {
+test('Closed Won refuses a change to termQuote or pricingMethod, and nothing else new', () => {
   const won = 'Closed Won'
   const was = termRecord()
   assert.equal(PRICING_KEYS.closedWonPricingRefusal(won, was, { termQuote: { ...TQ1_INPUTS, termMonths: 60 } }), PRICING_KEYS.CLOSED_WON_PRICING_REFUSAL)
@@ -169,7 +164,7 @@ test('Closed Won refuses a change to termQuote or pricingMethod, and nothing els
   assert.equal(PRICING_KEYS.closedWonPricingRefusal('Proposal', was, { pricingMethod: 'commercials' }), null)
 })
 
-test('the PATCH allowlist carries termQuote and pricingMethod', RED_FIRST, () => {
+test('the PATCH allowlist carries termQuote and pricingMethod', () => {
   const src = readCode(`${ROOT}src/routes/opportunities.js`)
   const set = src.match(/const SALESPERSON_WRITABLE_KEYS = new Set\(\[([\s\S]*?)\]\)/)
   assert.ok(set, 'the allowlist literal was not found, so this test measures nothing')
@@ -178,20 +173,34 @@ test('the PATCH allowlist carries termQuote and pricingMethod', RED_FIRST, () =>
 
 // ── The 409 mapping (P7) ─────────────────────────────────────────────────
 
-test('PT423 from the database is a 409 in the Closed Won wording', RED_FIRST, () => {
+test('PT423 from the database is a 409 in the Closed Won wording', () => {
   const sent = {}
   const reply = { code(c) { sent.code = c; return this }, send(b) { sent.body = b; return this } }
-  sendWriteError(reply, { code: 'PT423', message: 'anything the database said' })
+  // The trigger's own message, as term-quotes-db.test.mjs (e) measured it on
+  // the live database: PT423 alone is not enough, because the freeze shares it.
+  sendWriteError(reply, { code: 'PT423', message: PRICING_KEYS.CLOSED_WON_PRICING_REFUSAL })
   assert.equal(sent.code, 409)
   assert.equal(sent.body?.error, PRICING_KEYS.CLOSED_WON_PRICING_REFUSAL)
   assert.ok(!sent.body?.stale, 'not the stale-reload answer PT409 gives')
+})
+
+// The companion, and the reason it exists: refuse_write_while_frozen raises
+// PT423 too (Round 41). The Closed Won refusal shares the code, so a fix for one
+// that swallowed the other would read green above and break the freeze here.
+test('PT423 from the FREEZE is still 423 frozen, in the trigger\'s own words', () => {
+  const sent = {}
+  const reply = { code(c) { sent.code = c; return this }, send(b) { sent.body = b; return this } }
+  sendWriteError(reply, { code: 'PT423', message: 'This record is frozen while a transition request is open.' })
+  assert.equal(sent.code, 423)
+  assert.equal(sent.body?.frozen, true)
+  assert.equal(sent.body?.error, 'This record is frozen while a transition request is open.')
 })
 
 // ── The class, not the instances: every version read that carries inputs
 //    also carries kind (build discipline 8). A reader handed inputs without
 //    kind cannot branch, so it silently reads every row as Commercials. ────
 
-test('every deal_sheet_versions select that reads inputs also reads kind', RED_FIRST, () => {
+test('every deal_sheet_versions select that reads inputs also reads kind', () => {
   const files = ['src/lib/opportunity-headline.js', 'src/routes/deal-sheet-versions.js', 'src/routes/opportunities.js',
     'src/routes/transitions.js', 'src/routes/transition-requests.js']
   const bad = []
@@ -208,7 +217,7 @@ test('every deal_sheet_versions select that reads inputs also reads kind', RED_F
   assert.deepEqual(bad, [])
 })
 
-test('both creation routes stamp the pricing method at creation (R-TQ1)', RED_FIRST, () => {
+test('both creation routes stamp the pricing method at creation (R-TQ1)', () => {
   for (const f of ['src/routes/contacts.js', 'src/routes/test-beds.js']) {
     const src = readCode(`${ROOT}${f}`)
     const call = src.match(/rpc\('(?:create_opportunity_from_contact|convert_test_bed)'[\s\S]*?p_payload: \{([\s\S]*?)\n {6}\}/)

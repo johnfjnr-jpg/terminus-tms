@@ -64,6 +64,12 @@ export const ALLOWED_IMPORTERS = [
   // with the engine's own formatMoney, so the goldens are compared in the
   // spec's printed form rather than through a second formatter.
   'scripts/tests/term-quotes-engine.test.mjs',
+  // TERM_QUOTES (spec v2.1, section 14): THE ONE GATEWAY from the opportunity
+  // to the engine. The headline, the approval page and the version routes
+  // import it, never the engine, so the whole round adds one importer here.
+  // Neither engine imports the other (part 1 still holds); this module and its
+  // callers are where the two METHODS meet, and it prices no Commercials deal.
+  'src/lib/term-quote.js',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']

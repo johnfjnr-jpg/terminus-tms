@@ -1,8 +1,8 @@
 import { createUserClient } from '../supabase.js'
-import { resolveCurrentBatches } from '../lib/base-costs.js'
 import {
-  settingsFromRows, costsFromCatalog, mergeSettingsChange, mergeBandsChange, mergeLadderChange, SETTING_KEYS,
+  mergeSettingsChange, mergeBandsChange, mergeLadderChange, SETTING_KEYS,
 } from '../lib/term-pricing-settings.js'
+import { readTermState } from '../lib/term-params.js'
 
 // ── TERM PRICING: settings and catalog costs for the quote calculator ────
 //
@@ -37,32 +37,17 @@ import {
 // own row only, so the caller can see their own admin row and nobody else's.
 // Nothing here takes "I am an admin" from the request (Architecture 12).
 
+// TERM_QUOTES: the settings and catalog read moved to src/lib/term-params.js,
+// the ONE read every server caller uses (this route, the opportunity headline,
+// the version routes), so a term quote on an opportunity prices on exactly the
+// settings this screen shows. The role read stays here: it is this route's.
 async function readState(db, userId) {
-  const asOf = new Date().toISOString().slice(0, 10)
-
-  const settingsRead = await db.from('term_pricing_settings').select('key, value, updated_at, updated_by')
-  if (settingsRead.error) throw Object.assign(new Error(settingsRead.error.message), { status: 500 })
-
-  // Figures cast to text so no float exists in transit (Phase 0, accepted);
-  // which batch is current is decided by the estate's one resolver.
-  const catalogRead = await db
-    .from('base_cost_batches')
-    .select('id, product, batch_label, effective_from, unit_cost::text, hosting_cost_month::text, install_cost_existing::text, install_cost_new::text')
-    .lte('effective_from', asOf)
-  if (catalogRead.error) throw Object.assign(new Error(catalogRead.error.message), { status: 500 })
+  const { asOf, settings, updatedAt, costs } = await readTermState(db)
 
   const roleRead = await db.from('system_roles').select('role').eq('user_id', userId).eq('role', 'admin')
   if (roleRead.error) throw Object.assign(new Error(roleRead.error.message), { status: 500 })
 
-  const rows = settingsRead.data ?? []
-  const current = resolveCurrentBatches(catalogRead.data ?? [], asOf)
-  return {
-    asOf,
-    settings: settingsFromRows(rows),
-    updatedAt: rows.reduce((m, r) => (r.updated_at > m ? r.updated_at : m), ''),
-    costs: costsFromCatalog(current, catalogRead.data),
-    isAdmin: (roleRead.data ?? []).length > 0,
-  }
+  return { asOf, settings, updatedAt, costs, isAdmin: (roleRead.data ?? []).length > 0 }
 }
 
 // ONE statement for every changed key, so a change lands whole or not at all.

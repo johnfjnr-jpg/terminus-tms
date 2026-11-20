@@ -7,6 +7,8 @@ import { isValidIsoDate, isNotPastIsoDate, isValidNonNegativeInteger, isValidNon
 import { calculateTestBedCost } from '../lib/deal-calculator.js'
 import { UNIT_TYPE_COUNT_KEYS, VALID_UNIT_STATES, VALID_STATE_SOURCES, loadUnits, deriveMissingUnitSlots } from '../lib/units.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
+// TERM_QUOTES R-TQ1: the initial pricing method, one reading of it.
+import { creationPricingMethod, PRICING_METHODS } from '../lib/pricing-method.js'
 // R3: notes and audit are two concerns. One differ, shared with contacts.js.
 import { auditChanges, hasAuditableChange, FIELDS_CHANGED } from '../lib/payload-audit.js'
 
@@ -1461,6 +1463,13 @@ export default async function testBedsRoutes(app) {
     if (!opportunity_name?.trim()) {
       return reply.code(400).send({ error: 'opportunity_name is required' })
     }
+    // TERM_QUOTES R-TQ1 (spec v2.1, 14.1): the pricing method is written ONCE,
+    // here, as an initial value (Architecture 11). The creator may choose it;
+    // nothing chosen is term_quote; anything else is refused, never coerced.
+    const pricingMethod = creationPricingMethod(request.body?.pricingMethod)
+    if (!pricingMethod) {
+      return reply.code(400).send({ error: `pricingMethod must be one of ${PRICING_METHODS.join(', ')}` })
+    }
 
     const db = createUserClient(request.jwt)
 
@@ -1566,7 +1575,8 @@ export default async function testBedsRoutes(app) {
         // Bed's initialLead value across unchanged, a genuine field-name
         // mapping (Test Bed calls it initialLead, Opportunity calls the
         // identical concept customerLead), not a copy-by-key.
-        customerLead: bedPayload.initialLead ?? null
+        customerLead: bedPayload.initialLead ?? null,
+        pricingMethod
       },
       p_max_conversions: maxConversions,
       p_probability_pct: probDefault?.default_probability_pct ?? null,

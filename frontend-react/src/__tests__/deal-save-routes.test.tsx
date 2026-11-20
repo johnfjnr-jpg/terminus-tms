@@ -123,15 +123,15 @@ describe('#btn-save-deal, which lives outside the React root', () => {
 // the structure, the invoicing or any milestone row raised NO save button. The
 // walk found it; nothing in the suite could have.
 describe('the dirty mapping covers the payload', () => {
-  test('every COMMERCIALS_OWNED_KEY resolves to a section that exists', async () => {
-    const { COMMERCIALS_OWNED_KEYS } = await import('../deal/payload')
+  test('every COMMERCIALS_FORM_KEY resolves to a section that exists', async () => {
+    const { COMMERCIALS_FORM_KEYS } = await import('../deal/payload')
     const { sectionForPayloadKey, VANILLA_SECTIONS } = await import('../deal/sections')
     // Section 4 is not latchable and so is not in VANILLA_SECTIONS, but it is a
     // real section and the margin overrides live in it.
     const known = new Set([...VANILLA_SECTIONS.map((s) => s.id), 'deal-section-4'])
-    const unmapped = COMMERCIALS_OWNED_KEYS.filter((k) => !sectionForPayloadKey(k))
+    const unmapped = COMMERCIALS_FORM_KEYS.filter((k) => !sectionForPayloadKey(k))
     expect(unmapped, 'these keys raise no section save when they change').toEqual([])
-    for (const k of COMMERCIALS_OWNED_KEYS) {
+    for (const k of COMMERCIALS_FORM_KEYS) {
       expect(known.has(sectionForPayloadKey(k)!), `${k} names an unknown section`).toBe(true)
     }
   })

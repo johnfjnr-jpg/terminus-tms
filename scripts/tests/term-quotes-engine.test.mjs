@@ -8,23 +8,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { formatMoney } from '../../src/lib/term-pricing.js'
-// RED FIRST, AND VISIBLE (John's SEQUENCE: tests fail first in their own
-// commit). The hook refuses a red pure suite and suite-names-resolve refuses an
-// unrun test file, so the honest form is node:test's todo: every test RUNS, its
-// failure prints as todo, and the engine commit deletes this marker.
-const RED_FIRST = { todo: 'TERM_QUOTES red first: built in the engine commit' }
-// Until the engine commit the two new modules do not exist; a missing module
-// is a todo failure inside each test, not a crash that hides every test.
-const load = async (p) => { try { return await import(p) } catch (err) { if (err.code === 'ERR_MODULE_NOT_FOUND') return {}; throw err } }
-const { PRICING_METHODS, NEW_OPPORTUNITY_PRICING_METHOD, pricingMethodOf, versionKindOf, creationPricingMethod } = await load('../../src/lib/pricing-method.js')
-const { termQuoteValue, settingsChanged, priceTermVersion, TERM_PARAM_KEYS } = await load('../../src/lib/term-quote.js')
-const { contractValueOfCents, contractValueOf } = await load('../../src/lib/contract-value.js')
-const { headlineTcv, totalContractValue } = await load('../../src/lib/opportunity-headline.js')
+import { PRICING_METHODS, NEW_OPPORTUNITY_PRICING_METHOD, pricingMethodOf, versionKindOf, creationPricingMethod } from '../../src/lib/pricing-method.js'
+import { termQuoteValue, settingsChanged, priceTermVersion, TERM_PARAM_KEYS } from '../../src/lib/term-quote.js'
+import { contractValueOfCents, contractValueOf } from '../../src/lib/contract-value.js'
+import { headlineTcv, totalContractValue } from '../../src/lib/opportunity-headline.js'
 import { tqParams, TQ1_INPUTS } from './fixtures/term-quote-params.mjs'
 
 // ── 14.1 the pricing method ──────────────────────────────────────────────
 
-test('14.1: two methods; a new opportunity is term_quote; an absent method reads as commercials (W)', RED_FIRST, () => {
+test('14.1: two methods; a new opportunity is term_quote; an absent method reads as commercials (W)', () => {
   assert.deepEqual([...PRICING_METHODS].sort(), ['commercials', 'term_quote'])
   assert.equal(NEW_OPPORTUNITY_PRICING_METHOD, 'term_quote')
   assert.equal(pricingMethodOf({}), 'commercials')
@@ -35,7 +27,7 @@ test('14.1: two methods; a new opportunity is term_quote; an absent method reads
   assert.equal(versionKindOf({ kind: 'term_quote' }), 'term_quote')
 })
 
-test('14.1: the creator may choose the initial method; nothing chosen is term_quote; anything else is refused', RED_FIRST, () => {
+test('14.1: the creator may choose the initial method; nothing chosen is term_quote; anything else is refused', () => {
   assert.equal(creationPricingMethod(undefined), 'term_quote')
   assert.equal(creationPricingMethod(null), 'term_quote')
   assert.equal(creationPricingMethod('commercials'), 'commercials')
@@ -45,7 +37,7 @@ test('14.1: the creator may choose the initial method; nothing chosen is term_qu
 
 // ── 14.4 one cents-to-dollars adapter, one unpriced definition ───────────
 
-test('14.4: cents become dollars in ONE adapter, and zero is unpriced through contractValueOf', RED_FIRST, () => {
+test('14.4: cents become dollars in ONE adapter, and zero is unpriced through contractValueOf', () => {
   assert.equal(contractValueOfCents(341400000n), 3414000)
   assert.equal(contractValueOfCents('348228000'), 3482280)
   assert.equal(contractValueOfCents(2845050n), 28450.5)
@@ -56,7 +48,7 @@ test('14.4: cents become dollars in ONE adapter, and zero is unpriced through co
 
 // ── TQ-1 ─────────────────────────────────────────────────────────────────
 
-test('TQ-1: a new term opportunity, SafeSight 60 at 120 months: headline Base TCV 3,414,000.00 (monthly 28,450.00)', RED_FIRST, () => {
+test('TQ-1: a new term opportunity, SafeSight 60 at 120 months: headline Base TCV 3,414,000.00 (monthly 28,450.00)', () => {
   const v = termQuoteValue(TQ1_INPUTS, tqParams())
   assert.equal(v.refusal, null)
   assert.equal(formatMoney(v.quote.tcvNetCents), '3,414,000.00')
@@ -66,7 +58,7 @@ test('TQ-1: a new term opportunity, SafeSight 60 at 120 months: headline Base TC
   assert.equal(headlineTcv(record, { termParams: tqParams(), catalog: { ssUnitCost: 1 } }), 3414000)
 })
 
-test('14.4: no units, no quote, or a quote the engine refuses, is unpriced, never 0.00', RED_FIRST, () => {
+test('14.4: no units, no quote, or a quote the engine refuses, is unpriced, never 0.00', () => {
   const p = tqParams()
   for (const [why, q] of [
     ['no units', { ...TQ1_INPUTS, units: { safesight: 0 } }],
@@ -80,7 +72,7 @@ test('14.4: no units, no quote, or a quote the engine refuses, is unpriced, neve
   }
 })
 
-test('14.4: a Commercials record\'s headline is the deal-sheet engine over the record, unchanged, whatever termQuote holds', RED_FIRST, () => {
+test('14.4: a Commercials record\'s headline is the deal-sheet engine over the record, unchanged, whatever termQuote holds', () => {
   const payload = { ssNew: 10, targetMargin: 30, duration: 36 }
   const catalog = { ssUnitCost: 1200, inSsNew: 300, hoSafesight: 20 }
   const before = totalContractValue(payload, catalog, 0)
@@ -91,7 +83,7 @@ test('14.4: a Commercials record\'s headline is the deal-sheet engine over the r
 
 // ── TQ-2: a draft reprices on today's settings ───────────────────────────
 
-test('TQ-2: a draft saved at 500.00 reopens at 3,482,280.00 when the ladder moves to 510.00, and says settings changed', RED_FIRST, () => {
+test('TQ-2: a draft saved at 500.00 reopens at 3,482,280.00 when the ladder moves to 510.00, and says settings changed', () => {
   const draft = { kind: 'term_quote', status: 'draft', inputs: TQ1_INPUTS, rates: { params: tqParams('500.00') } }
   const r = priceTermVersion(draft, tqParams('510.00'))
   assert.equal(formatMoney(r.quote.tcvNetCents), '3,482,280.00')
@@ -105,7 +97,7 @@ test('TQ-2: a draft saved at 500.00 reopens at 3,482,280.00 when the ladder move
 
 // ── TQ-3: a submitted version's figures stand ────────────────────────────
 
-test('TQ-3: a version submitted at 500.00 still prices at 3,414,000.00 after the ladder moves', RED_FIRST, () => {
+test('TQ-3: a version submitted at 500.00 still prices at 3,414,000.00 after the ladder moves', () => {
   const issued = { kind: 'term_quote', status: 'issued', inputs: TQ1_INPUTS, rates: { params: tqParams('500.00') } }
   const r = priceTermVersion(issued, tqParams('510.00'))
   assert.equal(r.tcv, 3414000)
@@ -114,7 +106,7 @@ test('TQ-3: a version submitted at 500.00 still prices at 3,414,000.00 after the
 
 // ── 14.5: settings changed is a deep compare, never a timestamp ──────────
 
-test('14.5: "settings changed" compares every value, and is blind to key order and to timestamps', RED_FIRST, () => {
+test('14.5: "settings changed" compares every value, and is blind to key order and to timestamps', () => {
   const a = tqParams()
   assert.equal(settingsChanged(a, tqParams()), false)
   const reordered = Object.fromEntries(Object.entries(tqParams()).reverse())

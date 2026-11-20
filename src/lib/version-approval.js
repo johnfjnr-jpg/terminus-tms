@@ -211,7 +211,7 @@ export function versionApprovalState(version, approvals, latestRevision, track =
   // The same instrument the no-delta refusal uses, not a second one.
   // `comparable: false` covers both sides of the Verification 14 trap in one
   // place: no current pricing supplied, and a version carrying no snapshot.
-  const moved = pricingChanged(version.inputs, currentPayload)
+  const moved = pricingChanged(version, currentPayload)
   return {
     state: !moved.comparable ? 'unknown' : moved.changed ? 'superseded' : 'approved',
     decidedAt: approved.decided_at ?? null,

@@ -138,7 +138,7 @@ export async function loadVersionApproval(db, recordId, track, currentRevision, 
   // snapshot has to come back with the row.
   const { data: versions, error: vErr } = await db
     .from('deal_sheet_versions')
-    .select('id, major, minor, revision_number, inputs')
+    .select('id, kind, major, minor, revision_number, inputs')
     .eq('record_id', recordId)
   if (vErr) return { error: vErr }
 

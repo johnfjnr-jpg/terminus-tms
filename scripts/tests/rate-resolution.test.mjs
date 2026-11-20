@@ -286,8 +286,8 @@ test('the server allowlist admits exactly the four, and refuses the six', async 
   // imported and payload.ts is asserted to READ it (not restate it).
   const client = readCode(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url))
   assert.match(client, /from '\.\.\/\.\.\/\.\.\/src\/lib\/pricing-keys\.js'/, 'payload.ts no longer reads the shared list')
-  const owned = (await import('../../src/lib/pricing-keys.js')).COMMERCIALS_OWNED_KEYS
-  for (const k of OVERRIDABLE_RATE_KEYS) assert.ok(owned.includes(k), `${k} missing from COMMERCIALS_OWNED_KEYS`)
+  const owned = (await import('../../src/lib/pricing-keys.js')).COMMERCIALS_FORM_KEYS
+  for (const k of OVERRIDABLE_RATE_KEYS) assert.ok(owned.includes(k), `${k} missing from COMMERCIALS_FORM_KEYS`)
   for (const k of CATALOG_ONLY_RATE_KEYS) assert.ok(!owned.includes(k), `${k} must not be client-owned`)
 })
 

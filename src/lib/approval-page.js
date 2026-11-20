@@ -51,6 +51,10 @@ import { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js'
 // R7: the one formatter. This site shaped its own date inline, which the
 // census scored as routed because it contained a call. It was not routed.
 import { formatDate } from './format-dates.js';
+// TERM_QUOTES (spec v2.1, 14.6 and 14.7): the term quote through its one
+// gateway, never the term engine itself (R-TP1).
+import { versionKindOf, PRICING_METHOD_LABELS } from './pricing-method.js';
+import { priceTermVersion, quoteFigures, quoteSignals, serialiseQuote } from './term-quote.js';
 export { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -853,6 +857,12 @@ export const todayLine = (shown) => `Today's engine prices this at ${shown}; the
 export function figuresOf(page) {
   const out = {}
   if (!page) return out
+  // TERM_QUOTES: a term page's displayed figures (spec 14.6). The overlay
+  // below compares by path, so it serves both methods unchanged.
+  if (page.ask?.kind === 'term_quote') {
+    for (const k of ['baseTcv', 'monthly', 'margin', 'units', 'months']) out[`ask.${k}`] = page.ask?.[k]
+    return out
+  }
   for (const k of ['contractNet', 'totalCost', 'achievedMargin', 'months', 'units']) out[`ask.${k}`] = page.ask?.[k]
   for (const k of ['achieved', 'gapPoints']) out[`target.${k}`] = page.target?.[k]
   for (const e of page.exposures ?? []) out[`exposures.${e.key}`] = e.amount
@@ -870,6 +880,9 @@ export function buildFrozenFigures(args, engine, frozenAt = new Date().toISOStri
   const { page, result } = assemblePage(args)
   return JSON.parse(JSON.stringify({
     builder: 'buildApprovalPage',
+    // TERM_QUOTES P3: which engine's result `result` is. A term version's is
+    // the quote, serialised (cents and fractions as strings).
+    kind: versionKindOf(args.version),
     engine: engine ?? null,
     frozenAt,
     batches: args.version?.rates?.batches ?? null,
@@ -906,9 +919,129 @@ export function buildApprovalPage(args) {
   return assemblePage(args).page
 }
 
-function assemblePage({
+// ── TERM_QUOTES 0-7: A CHANGE OF METHOD HAS NO BRIDGE ───────────────────
+//
+// The bridge steps Commercials input keys through one engine. Two versions
+// priced by different engines on different inputs have no steps between them,
+// so the page says the method changed, shows both headline figures, and does
+// not reconcile them (spec 14.7, the sentence as ruled).
+export const METHOD_CHANGED_SENTENCE = 'Pricing method changed: the previous approval does not carry over.'
+
+/** A version's headline figure: its frozen one if submitted with one, else priced. */
+function versionFigure(v, { testBedCost = 0, termParams = null } = {}) {
+  if (!v) return null
+  const frozen = v.frozen_figures
+  if (versionKindOf(v) === 'term_quote') {
+    return frozen ? quoteFigures(frozen.result).baseTcv : priceTermVersion(v, termParams).tcv
+  }
+  if (frozen) return frozen.result?.totals?.contractNet ?? null
+  try {
+    const { rates } = resolveRates(v.inputs ?? {}, v.rates?.rates ?? {})
+    return calculateDeal(buildDealInputs(v.inputs ?? {}, { testBedCost, rates })).totals.contractNet
+  } catch { return null }
+}
+
+function methodChangedBlock(baseline, version, { underReviewFigure, testBedCost, termParams }) {
+  const side = (v, figure) => ({
+    label: sharedVersionLabel(v),
+    method: PRICING_METHOD_LABELS[versionKindOf(v)],
+    measure: versionKindOf(v) === 'term_quote' ? 'Base TCV' : 'Contract net',
+    figure,
+  })
+  return {
+    baseline: {
+      label: sharedVersionLabel(baseline),
+      revisionNumber: baseline.revision_number,
+      approvedAt: baseline.approval?.decidedAt ?? null,
+      reason: baseline.reason ?? null,
+    },
+    order: null,
+    bridge: null,
+    methodChanged: {
+      sentence: METHOD_CHANGED_SENTENCE,
+      lastApproved: side(baseline, versionFigure(baseline, { testBedCost, termParams })),
+      underReview: side(version, underReviewFigure),
+    },
+    absence: null,
+    caveat: null,
+  }
+}
+
+/**
+ * The page for a TERM version (spec v2.1, 14.6). The same blocks as the
+ * Commercials page, filled from the quote: the ask is Base TCV and margin with
+ * R-TQ3's signals beside them. Priced as priceTermVersion decides: a submitted
+ * version on the settings stored with it, a draft on today's (R-TQ2), saying
+ * when today's differ from its own. Target, exposures and cost basis are
+ * Commercials blocks with no term counterpart this round, so they are EMPTY,
+ * never a Commercials figure computed over term inputs.
+ */
+function assembleTermPage({ payload, version, baseline = null, record = {}, termParams = null, testBedCost = 0 }) {
+  const priced = priceTermVersion(version, termParams)
+  const f = quoteFigures(priced.quote)
+  const label = sharedVersionLabel(version)
+  const grouped = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const signals = quoteSignals(priced.quote)
+  const ask = {
+    kind: 'term_quote',
+    record: { reference: record.reference_code ?? null, name: record.name ?? null, stage: record.status ?? null },
+    version: {
+      label,
+      status: version.status,
+      revisionNumber: version.revision_number,
+      reason: version.reason ?? null,
+      author: version.created_by_email ?? null,
+      takenAt: version.created_at ?? null,
+    },
+    baseTcv: f.baseTcv,
+    monthly: f.monthly,
+    margin: f.margin,
+    units: f.units,
+    months: f.months,
+    paymentStructure: priced.quote?.paymentStructure ?? null,
+    signals,
+    settingsChanged: priced.settingsChanged,
+    refusal: priced.refusal,
+    sentence: priced.refusal
+      ? `${label} has no price: ${priced.refusal.message}`
+      : `Approve ${label} at ${f.margin}% margin on a Base TCV of $${grouped(f.baseTcv)}.`,
+    movedSinceVersion: (() => {
+      const moved = pricingChanged(version, payload)
+      if (!moved.comparable || !moved.changed) return null
+      return `The deal has changed since ${label} was taken. You are approving the version, not the pricing now on the opportunity.`
+    })(),
+  }
+  let moved
+  if (baseline && versionKindOf(baseline) !== 'term_quote') {
+    moved = methodChangedBlock(baseline, version, { underReviewFigure: f.baseTcv, testBedCost, termParams })
+  } else if (baseline) {
+    // Position (TERM_QUOTES, revisitable with the mockup): two term versions
+    // have no step-by-step bridge this round; their Base TCVs stand side by
+    // side, and the page says so rather than leaving the block blank.
+    moved = {
+      baseline: { label: sharedVersionLabel(baseline), revisionNumber: baseline.revision_number, approvedAt: baseline.approval?.decidedAt ?? null, reason: baseline.reason ?? null },
+      order: null,
+      bridge: null,
+      methodChanged: null,
+      compare: { lastApproved: versionFigure(baseline, { termParams }), underReview: f.baseTcv },
+      absence: null,
+      caveat: 'A term quote has no step-by-step bridge; the two Base TCVs are shown side by side.',
+    }
+  } else {
+    moved = { baseline: null, order: null, bridge: null, methodChanged: null, absence: 'First approval. No prior approved version.', caveat: null }
+  }
+  const page = { ask, moved, target: null, exposures: [], costBasis: null, frozenTerms: [], notRecorded: [] }
+  return { page, result: priced.quote ? serialiseQuote(priced.quote) : null }
+}
+
+function assemblePage(args) {
+  if (versionKindOf(args.version) === 'term_quote') return assembleTermPage(args)
+  return assembleCommercialsPage(args)
+}
+
+function assembleCommercialsPage({
   payload, testBedCost = 0, version = null, baseline = null,
-  targetChangedAt = null, catalog = {}, record = {},
+  targetChangedAt = null, catalog = {}, record = {}, termParams = null,
 }) {
   // ── R-C4: THE PAGE REPORTS THE VERSION, SO IT PRICES THE VERSION ───────
   //
@@ -1065,7 +1198,7 @@ function assemblePage({
     // question this line exists to answer: changed since WHAT.
     movedSinceVersion: (() => {
       if (!version) return null;
-      const moved = pricingChanged(version.inputs, payload);
+      const moved = pricingChanged(version, payload);
       if (!moved.comparable || !moved.changed) return null;
       const n = moved.keys?.length ?? 0;
       return `The deal has changed since ${versionLabel} was taken`
@@ -1084,7 +1217,11 @@ function assemblePage({
   //
   // But a blank block reads as a rendering failure, and a stated absence reads
   // as information. So the block says what it has instead of a baseline.
-  const moved = baseline
+  // TERM_QUOTES 0-7: a Commercials version under review against a TERM
+  // baseline is a change of method, and has no bridge either.
+  const moved = baseline && versionKindOf(baseline) !== 'commercials'
+    ? methodChangedBlock(baseline, version, { underReviewFigure: result.totals.contractNet, testBedCost, termParams })
+    : baseline
     ? {
       baseline: {
         label: sharedVersionLabel(baseline),

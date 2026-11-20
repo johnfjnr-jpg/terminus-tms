@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { contractValueOf, UNPRICED } from '../../src/lib/contract-value.js'
 import { totalContractValue, wonHeadline } from '../../src/lib/opportunity-headline.js'
-import { COMMERCIALS_OWNED_KEYS } from '../../src/lib/pricing-keys.js'
+import { PRICING_OWNED_KEYS } from '../../src/lib/pricing-keys.js'
 import { PRICING_KEY_LABELS, pricingKeyLabel, UNLABELLED_PRICING_FIELD } from '../../src/lib/version-pricing.js'
 import { readCode } from '../lib/strip-comments.mjs'
 
@@ -52,16 +52,16 @@ test('ONE definition: every surface that decides "unpriced" imports it, and none
 })
 
 test('RIDER: every pricing key in pricing-keys.js has a label, so none reads as "an unlabelled pricing field"', () => {
-  assert.ok(COMMERCIALS_OWNED_KEYS.length >= 32, `the list itself is short: ${COMMERCIALS_OWNED_KEYS.length}`)
-  const missing = COMMERCIALS_OWNED_KEYS.filter((k) => !(k in PRICING_KEY_LABELS))
+  assert.ok(PRICING_OWNED_KEYS.length >= 32, `the list itself is short: ${PRICING_OWNED_KEYS.length}`)
+  const missing = PRICING_OWNED_KEYS.filter((k) => !(k in PRICING_KEY_LABELS))
   assert.deepEqual(missing, [], `pricing keys with no label: ${missing.join(', ')}`)
-  for (const k of COMMERCIALS_OWNED_KEYS) assert.notEqual(pricingKeyLabel(k), UNLABELLED_PRICING_FIELD, k)
+  for (const k of PRICING_OWNED_KEYS) assert.notEqual(pricingKeyLabel(k), UNLABELLED_PRICING_FIELD, k)
 })
 
 test('RIDER: the six this round named, by key (a label for a key that is not pricing would be a second list)', () => {
   for (const k of ['paymentMode', 'priceOverrides', 'hostingPriceMode', 'hostingUnitFees', 'opexUnitFees', 'opexUnitMargins']) {
     assert.ok(typeof PRICING_KEY_LABELS[k] === 'string' && PRICING_KEY_LABELS[k].length > 3, k)
   }
-  const stray = Object.keys(PRICING_KEY_LABELS).filter((k) => !COMMERCIALS_OWNED_KEYS.includes(k))
+  const stray = Object.keys(PRICING_KEY_LABELS).filter((k) => !PRICING_OWNED_KEYS.includes(k))
   assert.deepEqual(stray, [], `labels for keys that are not pricing keys: ${stray.join(', ')}`)
 })
