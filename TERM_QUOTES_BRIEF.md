@@ -192,3 +192,31 @@ D4  For the mockup: two term versions get a "what changed" table (units per prod
 Q   Queue: make scripts/verify-all.mjs safe to import (no top-level execution unless run directly).
 Calibrators inject into a temporary copy except where the claim needs the served tree (HTTP); say which in each report.
 Then STOP. The mockup follows.
+
+## Mockup approved; the view, cash flow and probes (John, 2026-11-20), appended verbatim at the phase they launch
+
+TERM_QUOTES: mockup APPROVED by John, 2026-11-20. prototypes/term-quote-tab.html (six artboards). Commit it first if John has not.
+
+Build the view to the mockup. Departures from it are reported with a reason, never silent.
+
+V1  Tab order: Reference | Term quote | Commercials | Assessment | stage tabs. The landing tab stays Reference.
+V2  Both pricing tabs open with the Pricing method selector (Term quote | Commercials). It writes pricingMethod. The inactive tab shows only: "Not in use. This deal is priced by Term quote." (or "...by Commercials.") with the switching note from artboard 3.
+V3  The Term quote tab: version card at the top (the second seam implementation; Save version, Submit V<x.y> as V<n>.0 for approval), then the three steps in bound mode, with no admin settings editors. Units, term table with Monthly and Base TCV for this deal, price breakdown by product and band, then deal adjustment beside the price card, as in artboard 1 at 1240.
+V4  Reopened draft (artboard 2): an amber status banner under the version card when the stored snapshot differs from today's params. It shows the saved Base TCV, today's, the difference, and "What moved": a plain-words list of the changed settings (e.g. "the SafeSight price ladder at 120 months, 500.00 to 510.00"; costs, bands and floor likewise), at most three, then "and N more". It is built from a key-by-key diff of the snapshot, in src/lib/term-quote.js, with unit tests including a three-plus case.
+V5  Approval page: the term ask (artboard 4), D4's "what changed" table (units per product, term, deal discount, payment basis, CPI, Base TCV and margin before and after, unchanged rows greyed), and the method-changed block (artboard 5) with the real Commercials contract net.
+V6  Closed Won (artboard 6): selector and inputs disabled, the won banner in the refusal's exact words, the won version's frozen figures, no save or submit.
+
+CASH FLOW (John, 2026-11-20)
+CF4 FIRST: report what the term engine's cash flow already returns. If any of CF2's four figures needs new engine arithmetic, STOP and say which one, before building it.
+CF1  The Term quote tab's Payment terms step carries the standalone screen's PO factoring section and cash flow unchanged, in bound mode. Their inputs are part of termQuote and of the version's inputs.
+CF2  The approval page's term ask gains a frozen "Cash flow" card: peak funding need (lowest cumulative cash, and its month), the month cumulative cash turns positive (or "not within the term"), total factoring cost, and Pass through / Absorb. Built in buildFrozenFigures' term branch, frozen at submission, never recomputed on the page.
+CF3  The "what changed" table adds a row for peak funding need and one for PO factoring (on/off, advance).
+
+PROBES from the click, as the signed-in non-admin user:
+- mount; inputs in and onChange out; save and submit through the seam;
+- the inactive tab's line; method switch; the Closed Won lock;
+- the approval page's term ask, what-changed table and Cash flow card;
+- factoring on: the tab's cash flow renders and equals the standalone screen's for the same inputs;
+- the reopened-draft banner, proven with a TAGGED FIXTURE draft whose stored snapshot differs from today's (seeded by the service role). Never write live settings.
+
+THEN: overlap sweep 1240..1920 step 40 (the Term quote tab in each state, Payment terms with factoring on included), the full gate with the PUPPETEER_PATH recipe, merge --no-ff, the merged gate, ls-remote re-check, and "ready for John's push". Captures at 1240 and 1920 opened and read.
