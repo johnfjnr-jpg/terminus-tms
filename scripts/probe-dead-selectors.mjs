@@ -33,8 +33,8 @@
 // resolution stack trace, which reads as a broken script rather than a missing
 // tool.
 //
-//   npm i puppeteer --prefix /tmp/tms-probe
-//   NODE_PATH=/tmp/tms-probe/node_modules node scripts/probe-dead-selectors.mjs
+//   npm i puppeteer --prefix ~/.cache/tms-probe
+//   NODE_PATH=~/.cache/tms-probe/node_modules node scripts/probe-dead-selectors.mjs
 //
 // ROUND 41: THE PRINTED REMEDIATION DID NOT WORK, AND HAD NEVER BEEN RUN.
 //

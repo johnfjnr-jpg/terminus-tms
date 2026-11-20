@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ── TERM_FACTORING Phase 3: PO factoring and the cash flow, from the click ──
 //
-//   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
+//   PUPPETEER_PATH=~/.cache/tms-probe/node_modules/puppeteer \
 //     node --env-file=.env scripts/term-pricing/probe-factoring.mjs [--out <dir>]
 //
 // Signs in as session-ref.json (a non-admin) by session injection, opens Term

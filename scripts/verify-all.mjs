@@ -19,6 +19,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gateVerdict, skipsInside } from './lib/gate-verdict.mjs'
 import { stageEcho } from './lib/stage-echo.mjs'
+import { scratchRecipe } from './lib/puppeteer.mjs'
 
 // ── THE GATE RUNS WHEN IT IS EXECUTED, NEVER WHEN IT IS IMPORTED. G4 ─────
 //
@@ -642,8 +643,7 @@ function runGate() {
         `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
         `THIS IS NOT A PASS. Nothing was measured. Install a scratch browser and set\n` +
         `PUPPETEER_PATH to run it:\n` +
-        `  npm i puppeteer --prefix /tmp/tms-probe\n` +
-        `  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer npm run verify\n${'='.repeat(72)}\n`)
+        scratchRecipe('npm run verify').map((l) => `  ${l}\n`).join('') + `${'='.repeat(72)}\n`)
       continue
     }
     if (stage.needsSession && blockedBy) {
