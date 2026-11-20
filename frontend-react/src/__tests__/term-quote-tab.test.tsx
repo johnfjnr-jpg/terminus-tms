@@ -184,6 +184,31 @@ describe('V3: the version card on the second seam', () => {
   })
 })
 
+describe('a reload never discards an unsaved edit (the click probe\'s K8)', () => {
+  test('re-rendered for the same record with a moved revision: the typed edit stays', async () => {
+    const { api } = recordingApi()
+    const node = (o: TermOpp) => <TermQuoteHost key={o.id} opp={o} api={api as never} patch={async () => ({ ok: true })} reload={() => {}} navToken={1} />
+    await mount(node(termOpp()), api)
+    await act(async () => { type(q('[data-testid="tp-units-safesight"]') as HTMLInputElement, '80') })
+    expect((q('[data-testid="tp-units-safesight"]') as HTMLInputElement).value).toBe('80')
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    await act(async () => { root!.render(<QueryClientProvider client={qc}><ShellProvider services={shellServices}>{node(termOpp({ working_version: 'V1.0' }))}</ShellProvider></QueryClientProvider>) })
+    expect((q('[data-testid="tp-units-safesight"]') as HTMLInputElement).value).toBe('80')
+    // A newly SAVED quote does not overwrite the unsaved edit either.
+    await act(async () => { root!.render(<QueryClientProvider client={qc}><ShellProvider services={shellServices}>{node(termOpp({ payload: { pricingMethod: 'term_quote', termQuote: { ...TQ1_INPUTS, units: { safesight: 70 } } } }))}</ShellProvider></QueryClientProvider>) })
+    expect((q('[data-testid="tp-units-safesight"]') as HTMLInputElement).value).toBe('80')
+  })
+
+  test('with nothing unsaved, a newly saved quote is taken into the screen', async () => {
+    const { api } = recordingApi()
+    const node = (o: TermOpp) => <TermQuoteHost key={o.id} opp={o} api={api as never} patch={async () => ({ ok: true })} reload={() => {}} navToken={1} />
+    await mount(node(termOpp()), api)
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    await act(async () => { root!.render(<QueryClientProvider client={qc}><ShellProvider services={shellServices}>{node(termOpp({ payload: { pricingMethod: 'term_quote', termQuote: { ...TQ1_INPUTS, units: { safesight: 70 } } } }))}</ShellProvider></QueryClientProvider>) })
+    expect((q('[data-testid="tp-units-safesight"]') as HTMLInputElement).value).toBe('70')
+  })
+})
+
 describe('V4: a draft reopened after the settings moved', () => {
   const draft = { id: 'd1', kind: 'term_quote', status: 'draft', major: 0, minor: 2, reason: 'x', inputs: TQ1_INPUTS, created_at: '2026-11-19T00:00:00Z' }
 

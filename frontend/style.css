@@ -9874,7 +9874,10 @@ select:autofill {
 .tp-bound .tp-grid-pricing [data-testid="tp-breakdown-card"] { order: 4; }
 .tp-bound .tp-grid-pricing [data-testid="tp-deal"] { order: 5; grid-column: 1; }
 .tp-bound .tp-grid-pricing [data-testid="tp-price"] { order: 5; grid-column: 2; }
-.tp-bound .tp-grid-pricing > .tp-next-wrap { grid-column: 1 / -1; order: 6; }
+/* grid-area first: the standalone's `grid-area: next` is an explicit
+   placement, which beats order, and the first capture showed the button
+   between Units and the term table. */
+.tp-bound .tp-grid-pricing > .tp-next-wrap { grid-area: auto; grid-column: 1 / -1; order: 6; }
 /* Artboard 1's term table: no list-fee and no vs-compare columns. */
 .tp-bound [data-testid="tp-ladder"] th:nth-child(2), .tp-bound [data-testid="tp-ladder"] td:nth-child(2),
 .tp-bound [data-testid="tp-ladder"] th:nth-child(5), .tp-bound [data-testid="tp-ladder"] td:nth-child(5) { display: none; }
@@ -9905,6 +9908,10 @@ select:autofill {
 .tq-won-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .tq-line { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; }
 .tq-line:last-child { border-bottom: 0; }
+/* Artboard 6: the read-only units are short fields at the line's right; the
+   first capture showed them stretched across the card, wrapping the labels. */
+.tq-line input { width: 96px; flex: 0 0 auto; text-align: right; }
+.tq-line .label { white-space: nowrap; }
 
 /* The approval page's term blocks (V5, CF2). */
 .tq-ask-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }

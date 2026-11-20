@@ -471,6 +471,27 @@ export const STAGES = [
     needsBrowser: true,
   },
   {
+    // TERM_QUOTES (John's PROBES ruling): the Term quote tab from the click,
+    // K1 to K12, the result read back from the database every time.
+    required: true,
+    name: 'browser term quote tab',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-term-quote-tab-click.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
+    // TERM_QUOTES THEN: no overprint, nothing below its content and no
+    // sideways scroll in any of the tab's six states, at 1240/1440/1920;
+    // `--sweep` (40px, 1240 to 1920) stays manual, as the term pricing guard's.
+    required: true,
+    name: 'term quote tab layout guard',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-term-quote-overlap.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
     // TP_LADDER: the Term Pricing screen to the approved mockup, from the click.
     required: true,
     name: 'browser term pricing ladder',

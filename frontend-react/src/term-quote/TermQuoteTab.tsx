@@ -8,7 +8,7 @@
 // version card is handed a SECOND seam implementation, `termQuoteSeam`, and
 // never reaches into the view: it asks the seam to freeze the quote (save the
 // record's termQuote) and posts what the seam returns.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TermPricingView } from '../term-pricing/TermPricingView'
 import { formFromInput, inputFromForm } from '../term-pricing/form'
 import type { TermQuoteForm } from '../term-pricing/form'
@@ -268,6 +268,19 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
   // record never held (found by the tab's own test).
   const saved = useMemo(() => (payload.termQuote
     ? JSON.stringify(inputFromForm(formFromInput(payload.termQuote as Record<string, unknown>))) : 'null'), [payload.termQuote])
+  // A newly SAVED quote (after a version, or a reload) is taken into the
+  // screen only when the screen holds no unsaved edit of its own. The host was
+  // first keyed on the record's revision, so ANY reload that moved the
+  // revision (a Reference save, the issue route's own revision) remounted the
+  // tab from the saved quote and silently discarded typed changes; the click
+  // probe found it (K8). It is keyed on the record alone now.
+  const lastSaved = useRef(saved)
+  useEffect(() => {
+    if (lastSaved.current === saved) return
+    const unsaved = JSON.stringify(inputFromForm(form)) !== lastSaved.current
+    lastSaved.current = saved
+    if (!unsaved) setForm(formFromInput(payload.termQuote as Record<string, unknown>))
+  }, [saved])
   const [versions, setVersions] = useState<DealVersion[]>([])
   const [todayParams, setTodayParams] = useState<unknown>(null)
   const [storedParams, setStoredParams] = useState<unknown>(null)
@@ -313,11 +326,11 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
           <>
             <TermVersionCard versions={versions} workingLabel={opp.working_version ?? null} approvedLabel={opp.approved_version ?? null}
               seam={seam} api={api} oppId={opp.id} onDone={after} />
-            <TermPricingView navToken={navToken} bound={{
-              value: form,
-              onChange: setForm,
-              banner: termDraft ? <ReopenedDraftBanner draft={termDraft} storedParams={storedParams} todayParams={todayParams} /> : null,
-            }} />
+            {/* V4: the banner sits UNDER THE VERSION CARD, above the steps
+                (artboard 2). It was first rendered inside the view, below the
+                step tabs; the 1240 capture showed it there. */}
+            {termDraft ? <ReopenedDraftBanner draft={termDraft} storedParams={storedParams} todayParams={todayParams} /> : null}
+            <TermPricingView navToken={navToken} bound={{ value: form, onChange: setForm }} />
           </>
         )}
     </div>

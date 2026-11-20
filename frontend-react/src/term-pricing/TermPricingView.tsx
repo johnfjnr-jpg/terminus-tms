@@ -323,8 +323,6 @@ function Sec({ title, note, children, testid }: { title: string; note?: string; 
 export interface TermPricingBound {
   value: TermQuoteForm
   onChange: (next: TermQuoteForm) => void
-  /** Rendered between the steps and the panel, e.g. the reopened-draft banner. */
-  banner?: ReactNode
 }
 
 export function TermPricingView({ navToken, bound }: { navToken: number, bound?: TermPricingBound }) {
@@ -1286,7 +1284,6 @@ export function TermPricingView({ navToken, bound }: { navToken: number, bound?:
         })}
       </div>
 
-      {bound?.banner}
       <div id="tp-panel" role="tabpanel" aria-labelledby={`tp-tab-${tab}`} data-testid={`tp-panel-${tab}`}>
         {tab === 'pricing' && pricingPanel}
         {tab === 'payment' && paymentPanel}

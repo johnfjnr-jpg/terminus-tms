@@ -434,9 +434,12 @@ window.initOpportunityReferencePanel = function (opp: OppRecord): void {
 // ── THE TERM QUOTE TAB AND THE PRICING METHOD (TERM_QUOTES V1 to V6) ──────
 //
 // Called by app.js on every loadOpportunityDetail, like the panels above. The
-// host is KEYED on the record and its latest revision: a new record, or the
-// record after a save (which reloads the detail), remounts it from the saved
-// termQuote, so the form can never show one record's quote on another.
+// host is KEYED ON THE RECORD ALONE, so a new record remounts it and the form
+// can never show one record's quote on another. SUPERSEDED, left visible: it
+// was keyed on the record AND its latest revision, which remounted the tab on
+// every reload that moved the revision and discarded unsaved edits (the click
+// probe's K8). The host now takes a newly saved quote itself, and only when
+// the screen holds no unsaved edit.
 const TERM_CONTAINER = 'term-quote-root'
 const METHOD_CONTAINER = 'opp-pricing-method-commercial'
 let termRoot: Root | null = null
@@ -451,12 +454,12 @@ window.initOpportunityTermQuote = function (opp: OppRecord): void {
   if (!container) return
   if (!termRoot) termRoot = createRoot(container)
   termNav++
-  const rec = opp as unknown as TermOpp & { latest_revision_number?: number }
+  const rec = opp as unknown as TermOpp
   termRoot.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ShellProvider services={shellServices}>
-          <TermQuoteHost key={`${rec.id}:${rec.latest_revision_number ?? 0}`} opp={rec} api={termApi} patch={termPatch}
+          <TermQuoteHost key={rec.id} opp={rec} api={termApi} patch={termPatch}
             reload={termReload(rec.id)} navToken={termNav} />
         </ShellProvider>
       </QueryClientProvider>
