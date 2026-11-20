@@ -13896,3 +13896,115 @@ is fixed.** That is what put both fixes in this round.
 | the calibration of every stage wired here | `scripts/probe-triage/calibrate-wired.mjs` (manual: it injects into the served tree) |
 | the scroller rule | `shrunkBelowContent` in `scripts/lib/ink-overlap.mjs` |
 | the price card fit | `useFittedPriceRow` in `frontend-react/src/term-pricing/TermPricingView.tsx`; `--tp-pg-*` in `frontend/style.css` |
+
+---
+
+# TERM QUOTES: THE TERM QUOTE ON THE OPPORTUNITY, AND WHAT EACH DECISION RESTS ON
+
+**TERM_QUOTES round, John's rulings on Phase 0, 2026-11-20** (the brief,
+`TERM_QUOTES_BRIEF.md`, carries them verbatim). Recorded at the phase they
+launch, before any build. Each decision names what it DEPENDS ON
+(Verification 29).
+
+## 1. No wipe; the default describes the data
+
+**W.** `deal_sheet_versions.kind` defaults to `commercials`, and a record with
+no `pricingMethod` key reads as Commercials. All 31 live versions measured
+Commercials-shaped (Phase 0, 0-10), so the default is TRUE of every existing
+row and R-TQ5 (no compatibility code) holds without deleting anything.
+
+**What it rests on:** no live version being term-shaped when the column lands.
+A term-shaped row written before the migration would be mislabelled by the
+default, and nothing would say so.
+
+**TT-SGP-LOGIST-001 is KEPT as ordinary test data (John, 2026-09-29).** Ruled in
+conversation on that date and never written down until now; Phase 0 found no
+record of it anywhere in the repository. It is a Test Bed, outside any
+opportunity wipe.
+
+## 2. One version sequence, a kind per version
+
+**P1, P4.** Versions of both kinds share `unique(record_id, major, minor)` and
+kind-blind numbering; `kind` is `check (kind in ('commercials','term_quote'))`,
+joins the immutable guard's list, and `insert_deal_sheet_version` takes
+`p_kind default 'commercials'`. **Every reader that hands a version row to an
+engine or to `pricingChanged` filters or branches by kind**: the latest-row
+readers of the Phase 0 census are the named list, and each is tested with a
+term_quote row as the newest row.
+
+**`pricingChanged` answers "changed" whenever the two kinds differ**, before
+comparing a key. Two versions priced by different engines on different inputs
+have no key-by-key comparison.
+
+## 3. The draft lives in the record; the version holds what was submitted
+
+**P2.** A term quote's working inputs live in the RECORD payload under
+`termQuote`, beside `pricingMethod` (`term_quote` | `commercials`), which is
+stamped `term_quote` when an opportunity is created (R-TQ1). Both keys join
+the PATCH allowlist and the Closed Won key set, and `COMMERCIALS_OWNED_KEYS`
+becomes `PRICING_OWNED_KEYS`. The version card takes a SECOND seam
+implementation for term quotes; the seam stays the interface (Round 4 Phase 2)
+and nothing reaches into the view. The Term Pricing screen gains a bound mode,
+`{ value, onChange }` over one value object holding its 28 inputs; standalone
+is unchanged and saves nothing.
+
+**What it rests on:** the record being the one place a working price lives, as
+it already is for Commercials. A draft held only in versions would give an
+opportunity two working prices.
+
+## 4. A submitted term quote holds its settings by value
+
+**P3.** A term_quote version's `rates` column holds the engine's seven
+settings and each product's costs BY VALUE. CPI, WHT, GST and factoring are
+the deal's inputs and live in `inputs`. **Batch ids are not relied on**: the
+immutability trigger protects only the one batch a version cites, and a term
+quote prices from up to three. `rates_have_cost_basis` branches by kind, and a
+term_quote row requires the full params snapshot. Submission freezes the
+figures through a term branch in `buildFrozenFigures`.
+
+**Drafts reprice on today's settings when reopened (R-TQ2).** "Settings changed
+since saved" is a deep compare of the stored snapshot against today's
+`buildParams`, NEVER a timestamp: a catalog batch takes effect by date with no
+write, and a settings save moves `updated_at` even when it writes the same
+value (both measured, Phase 0, 0-4).
+
+**What it rests on:** the engine reading NOTHING beyond its input and its
+params object. Proved in memory at Phase 0: a snapshot repriced byte-identical
+after every live setting moved, and each of the eight keys, taken from live
+instead, went red. A new engine parameter read from anywhere else breaks the
+snapshot silently.
+
+## 5. The headline is the working inputs, repriced live, for the record's method
+
+**P6.** Commercials is unchanged: `calculateDeal` over the payload. Term is
+`priceQuote` over `termQuote` with today's params, reporting Base TCV. At Closed
+Won the headline is the won version's frozen figure, either kind. **Cents become
+dollars in ONE adapter before `contractValueOf`**, and a term quote with zero
+units reads unpriced (`--`). The withdrawn alternative, a headline read from
+the current version, is left visible: P1 proposed it, and Phase 0 measured that
+no headline had ever come from a version.
+
+## 6. Closed Won is locked at the database; approval still does not freeze
+
+**P7.** A trigger refuses INSERT on `deal_sheet_versions`, and UPDATE of a
+draft, for a record whose status is Closed Won; the route maps it to 409 with
+the existing Closed Won wording. It closes the Phase 0 gap where a direct
+version POST at Closed Won would land.
+
+**THE R-TQ4 REFUSAL "WHILE A VERSION AWAITS APPROVAL" IS WITHDRAWN**, and the
+superseded reasoning is left visible: R-TQ4 read "switching method goes through
+a new version, which re-arms the gate; refused while a version awaits
+approval". The second clause contradicts the decision of record that a version
+approval does not freeze the record (`kind = 'review'`), and Phase 0 found no
+such refusal for any kind. A method switch is allowed; the next submitted major
+of either kind supersedes the open review and re-arms the gate
+(`close_superseded_reviews`, as today).
+
+## 7. The approval page across a method change
+
+**0-7.** When the last approved version and the version under review differ in
+kind, the page drops the bridge and shows both headline figures side by side
+with "Pricing method changed: the previous approval does not carry over." A
+bridge steps through one engine's input keys and cannot span two engines. The
+discount signal and the margin floor flag sit in the ask block (P5); no track,
+approver or gate changes.
