@@ -19,6 +19,8 @@
 //     the row is actually gone.
 
 import { createClient } from '@supabase/supabase-js'
+import { resolveCurrentBatches, catalogToRates } from '../src/lib/base-costs.js'
+import { resolveRates, frozenRates } from '../src/lib/rate-resolution.js'
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -182,6 +184,32 @@ export async function resolveOwnerId(db) {
  * produced an orphaned, revision-less Account). Config and junction rows
  * created by the run are hard deleted, each one verified.
  */
+// A version's COST BASIS, built the way POST /opportunities/:id/deal-sheet-versions
+// builds one (TERM_QUOTES migration review M1): the live Base Cost Data
+// resolved to today's batches, catalogToRates, resolveRates over the version's
+// inputs, frozenRates, and the batches, missing and as_of the route stores
+// beside them. The route also stores `terms` (provenance of the system
+// defaults); no constraint reads it and no fixture here needs it, so it is left
+// out rather than imitated.
+//
+// It replaces `p_rates: {}`, which the old cost-basis CHECK ADMITTED only
+// because a CHECK passes on NULL. A fixture is built the way the system builds
+// the state (Verification 47), and the system never writes an empty one.
+export async function costBasis(db, inputs = {}) {
+  const { data, error } = await db.from('base_cost_batches')
+    .select('id, product, batch_label, effective_from, unit_cost, install_cost_existing, install_cost_new, hosting_cost_month')
+    .range(0, 999)
+  if (error) throw new Error(`costBasis: Base Cost Data could not be read: ${error.message}`)
+  if (data.length >= 1000) throw new Error('costBasis: base_cost_batches outgrew its bounded read')
+  const asOf = new Date().toISOString().slice(0, 10)
+  const { rates, missing, batches } = catalogToRates(resolveCurrentBatches(data, asOf))
+  const frozen = frozenRates(resolveRates(inputs, rates))
+  if (Object.keys(frozen.rates).length === 0) {
+    throw new Error('costBasis: the live catalog resolves no rate, so no fixture can carry a cost basis')
+  }
+  return { ...frozen, batches, missing, as_of: asOf }
+}
+
 export class Fixtures {
   constructor(db, runTag) {
     this.db = db
@@ -222,16 +250,16 @@ export class Fixtures {
     return data
   }
 
-  // inputs defaults to a cost basis, not to {}. deal_sheet_versions_has_cost_basis
-  // refuses a version with no rate, which is the point of it: a version records
-  // the costs it was priced at or it is not reproducible.
-  async createVersion({ record_id, expected_revision, reason = 'fixture', inputs = { ssUnitCost: 1200 }, created_by }) {
+  // A version records the costs it was priced at or it is not reproducible, so
+  // rates defaults to a REAL cost basis (costBasis above), never to {}. A caller
+  // that already built one passes it as `rates` to save the read.
+  async createVersion({ record_id, expected_revision, reason = 'fixture', inputs = { ssUnitCost: 1200 }, rates = null, created_by }) {
     const { data, error } = await this.db.rpc('insert_deal_sheet_version', {
       p_record_id: record_id,
       p_expected_revision: expected_revision,
       p_reason: reason,
       p_inputs: inputs,
-      p_rates: {},
+      p_rates: rates ?? await costBasis(this.db, inputs),
       p_sections: [],
       p_batch_id: null,
       p_created_by: created_by,

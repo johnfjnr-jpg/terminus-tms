@@ -169,3 +169,14 @@ TQ-4  Closed Won record: a direct version insert of either kind is refused at th
 Existing goldens (G1 to G5 and the T, LG series) unchanged.
 
 SEQUENCE  Spec v2.1 first. Then the migration (kind, CHECK branch, guard list, p_kind, Closed Won trigger) drafted in full with rollback, and STOP for my review; John applies it before any gate run. Then tests fail first in their own commit, engine/routes, calibration (each FIRES), STOP for the mockup, view, probes from the click, sweep, full gate, merge --no-ff, merged gate, ls-remote, "ready for John's push".
+
+## Migration review, round 1 (John, 2026-11-20), appended verbatim at the phase it launches
+
+TERM_QUOTES migration review, round 1 (not approved yet; revise and re-stop)
+
+M1  Tighten the commercials branch of deal_sheet_versions_rates_have_cost_basis the same way as the term branch (coalesce(..., false)). Move verify-harness createVersion and the two version-atomicity tests to a real cost basis. Keep the constraint NOT VALID.
+M2  insert_deal_sheet_version drop-and-recreate: restate the original's SECURITY mode, search_path and every GRANT/REVOKE exactly as 20260829000002 (and any later migration touching it) left them. List each one in the report against its source line. End the migration with: notify pgrst, 'reload schema';
+M3  Rollback must be ONE self-contained file pasteable into the Supabase SQL Editor. Generate the restored definitions from their source files with a script, and add a pure test asserting the generated text matches the sources byte for byte. Same refusal if any term_quote row exists. Restore grants and end with the notify as in M2.
+M4  Accepted: draft kind immutable; rates.params as the snapshot; PT423.
+M5  Add to the tests-fail-first commit: a test that fails if stage_definitions has no stage named 'Closed Won' (the trigger's and WON_STAGE's dependency).
+M6  In the stop report, paste BOTH files in full (migration and rollback), then STOP. Nothing applied.
