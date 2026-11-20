@@ -129,9 +129,11 @@ describe('the bundle registers exactly the loaders it declares', () => {
     // on the formatter's argument exactly: the lens rows and the radar must
     // read one roll-up, and app.js cannot import it. Phase 3 adds `tmsRadar`,
     // one namespace for the radar's pure rules, on the same argument.
+    // TERM_QUOTES V1, V2 add TWO: the Term quote tab's entry and the pricing
+    // method selector's, each called by app.js beside the Commercials panel's.
     expect(added).toEqual([
-      'initOpportunityDealPanel', 'initOpportunityDealVersions',
-      'initOpportunityReferencePanel', 'loadAccountDetail', 'loadApprovalPage',
+      'initOpportunityDealPanel', 'initOpportunityDealVersions', 'initOpportunityPricingMethod',
+      'initOpportunityReferencePanel', 'initOpportunityTermQuote', 'loadAccountDetail', 'loadApprovalPage',
       'loadContactDetail', 'loadTermPricing', 'loadTestBedDetail', 'mountLeadsList',
       'mountNewLeadGrid', 'tmsAssessSeries', 'tmsContacts', 'tmsFormatDate', 'tmsFormatTimestamp',
       'tmsLensRollupAt', 'tmsRadar'])

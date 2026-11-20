@@ -24,6 +24,9 @@ export interface VersionApproval {
 
 export interface DealVersion {
   id: string
+  /** TERM_QUOTES P1: the method that priced it. Absent on a row read without it: Commercials. */
+  kind?: 'term_quote' | 'commercials'
+  inputs?: Record<string, unknown>
   major: number
   minor: number
   status: VersionStatus

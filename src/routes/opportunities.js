@@ -17,6 +17,7 @@ import { headlineTcv, weightedValue, issuedMajor, workingVersionOf, approvedVers
 // TERM_QUOTES P6: today's term settings, read once per request, for a term record's headline.
 import { readTermParams } from '../lib/term-params.js'
 import { PRICING_METHODS } from '../lib/pricing-method.js'
+import { paymentBasisText } from '../lib/term-quote.js'
 import { WON_STAGE } from '../lib/pricing-keys.js'
 // R-L4a: the link and the scope word, imported rather than restated.
 import { linkApprovalsToVersions, VERSION_SCOPE } from '../lib/version-approval.js'
@@ -425,6 +426,16 @@ export default async function opportunitiesRoutes(app) {
       weighted_value: weightedValue(tcv, prob),
       headline_source: head.source,
       headline_note: head.note,
+      // TERM_QUOTES V6: the won version, for the Term quote tab at Closed Won,
+      // which shows its FROZEN figures and nothing live. The same row the
+      // headline reads (wonVersionsOf), so the two cannot name different
+      // versions; null at any other stage.
+      won_version: (() => {
+        const w = opp.status === WON_STAGE ? won.get(opp.id) ?? null : null
+        if (!w) return null
+        return { id: w.id, kind: w.kind ?? 'commercials', label: versionLabel(w), inputs: w.inputs ?? null, ask: w.frozen_figures?.page?.ask ?? null,
+          basis: (w.kind === 'term_quote' && w.frozen_figures?.result) ? paymentBasisText(w.frozen_figures.result) : null }
+      })(),
       // KEPT, and no longer what the Approved Version field reads. Other
       // callers read `issued_major` for "the highest PROMOTED major", which is
       // a true and useful fact; what changed is that the field claiming

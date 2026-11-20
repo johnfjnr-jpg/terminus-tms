@@ -24,6 +24,8 @@ import { assessSeries, lensRollupAt } from '../../src/lib/lens-rollup.js'
 import * as radar from '../../src/lib/radar.js'
 import { validateFactoringTermAgainstDuration } from '../../src/lib/system-defaults.js'
 import { closedWonPricingRefusal } from '../../src/lib/pricing-keys.js'
+import { TermQuoteHost, CommercialsMethodHost } from './term-quote/TermQuoteTab'
+import type { TermOpp } from './term-quote/TermQuoteTab'
 
 // ── WHAT THIS BUNDLE DOES THIS ROUND, AND NOTHING ELSE ───────────────────
 //
@@ -135,6 +137,8 @@ declare global {
     setNewLeadDirty?: (dirty: boolean) => void
     initOpportunityDealPanel?: (opp: OppRecord) => void
     initOpportunityReferencePanel?: (opp: OppRecord) => void
+    initOpportunityTermQuote?: (opp: OppRecord) => void
+    initOpportunityPricingMethod?: (opp: OppRecord) => void
     initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
     oppPatch?: (id: string, body: unknown) => Promise<{ ok: boolean, status?: number, data?: unknown }>
     dealFormSeam?: DealFormSeam
@@ -423,6 +427,50 @@ window.initOpportunityReferencePanel = function (opp: OppRecord): void {
           <ReferenceHost opp={opp} registerReload={(fn) => { refReload = fn }} />
         </ShellProvider>
       </QueryClientProvider>
+    </StrictMode>,
+  )
+}
+
+// ── THE TERM QUOTE TAB AND THE PRICING METHOD (TERM_QUOTES V1 to V6) ──────
+//
+// Called by app.js on every loadOpportunityDetail, like the panels above. The
+// host is KEYED on the record and its latest revision: a new record, or the
+// record after a save (which reloads the detail), remounts it from the saved
+// termQuote, so the form can never show one record's quote on another.
+const TERM_CONTAINER = 'term-quote-root'
+const METHOD_CONTAINER = 'opp-pricing-method-commercial'
+let termRoot: Root | null = null
+let methodRoot: Root | null = null
+let termNav = 0
+const termApi = (m: string, p: string, b?: unknown) => window.api!(m, p, b) as Promise<{ ok: boolean, status?: number, data?: unknown }>
+const termPatch = (id: string, body: unknown) => window.oppPatch!(id, body)
+const termReload = (id: string) => () => { void window.loadOpportunityDetail?.(id) }
+
+window.initOpportunityTermQuote = function (opp: OppRecord): void {
+  const container = document.getElementById(TERM_CONTAINER)
+  if (!container) return
+  if (!termRoot) termRoot = createRoot(container)
+  termNav++
+  const rec = opp as unknown as TermOpp & { latest_revision_number?: number }
+  termRoot.render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ShellProvider services={shellServices}>
+          <TermQuoteHost key={`${rec.id}:${rec.latest_revision_number ?? 0}`} opp={rec} api={termApi} patch={termPatch}
+            reload={termReload(rec.id)} navToken={termNav} />
+        </ShellProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}
+
+window.initOpportunityPricingMethod = function (opp: OppRecord): void {
+  const container = document.getElementById(METHOD_CONTAINER)
+  if (!container) return
+  if (!methodRoot) methodRoot = createRoot(container)
+  methodRoot.render(
+    <StrictMode>
+      <CommercialsMethodHost opp={opp as unknown as TermOpp} patch={termPatch} reload={termReload(opp.id)} />
     </StrictMode>,
   )
 }

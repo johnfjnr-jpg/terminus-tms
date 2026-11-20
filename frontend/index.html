@@ -1609,6 +1609,9 @@
 
     <div class="detail-tabs" id="opp-detail-tabs">
       <button class="detail-tab active" data-opp-tab="reference">Reference</button>
+      <!-- TERM_QUOTES V1 (John 2026-11-20): the Term quote tab, second, before
+           Commercials. The landing tab stays Reference. -->
+      <button class="detail-tab" data-opp-tab="term">Term quote</button>
       <button class="detail-tab" data-opp-tab="commercial">Commercials</button>
       <!-- Round 25 Phase 4: the ninth tab. Static, like Reference and
            Commercials; the stage tabs after it are generated per record and
@@ -1731,7 +1734,16 @@
 
     </div>
 
+    <!-- TERM_QUOTES V3: the Term quote tab. The bundle's TermQuoteHost mounts here. -->
+    <div class="detail-tab-panel hidden" id="opp-tab-term">
+      <div id="term-quote-root"></div>
+    </div>
+
     <div class="detail-tab-panel hidden" id="opp-tab-commercial">
+      <!-- TERM_QUOTES V2: the pricing method selector, first in the pane. When
+           Term quote is in use the pane shows only this host (the attribute
+           its component sets, and one CSS rule, hide the rest). -->
+      <div id="opp-pricing-method-commercial" class="pm-host"></div>
       <!-- ── THE TOP STRIP. Round 41, shape B, ruled by the business ────────
            Margin and cash recovery are two different questions and the screen
            answered the first loudly and the second in a footnote. Closing cash

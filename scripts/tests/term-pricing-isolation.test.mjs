@@ -64,12 +64,18 @@ export const ALLOWED_IMPORTERS = [
   // with the engine's own formatMoney, so the goldens are compared in the
   // spec's printed form rather than through a second formatter.
   'scripts/tests/term-quotes-engine.test.mjs',
+  // TERM_QUOTES V4, V5, CF2: prices the fixture quotes the view-library tests
+  // compare against, through the engine itself.
+  'scripts/tests/term-quotes-view.test.mjs',
   // TERM_QUOTES (spec v2.1, section 14): THE ONE GATEWAY from the opportunity
   // to the engine. The headline, the approval page and the version routes
   // import it, never the engine, so the whole round adds one importer here.
   // Neither engine imports the other (part 1 still holds); this module and its
   // callers are where the two METHODS meet, and it prices no Commercials deal.
   'src/lib/term-quote.js',
+  // TERM_QUOTES V3: the bound view's value object names the engine's CpiMode
+  // TYPE (a type import, no code), so the union has one definition.
+  'frontend-react/src/term-pricing/form.ts',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']
@@ -160,9 +166,11 @@ export const PRODUCT_IMPORTERS = Object.freeze([
   // the engine's normaliseParams; and its type declarations.
   'src/lib/term-pricing-settings.js',
   'src/lib/term-pricing-settings.d.ts',
+  // TERM_QUOTES V3: the bound view's value object, a TYPE import of CpiMode.
+  'frontend-react/src/term-pricing/form.ts',
 ])
 
-test('R-TP1 (D2): the product modules that import the engine are exactly the named four', () => {
+test('R-TP1 (D2): the product modules that import the engine are exactly the named five', () => {
   const product = files.filter((f) => f !== ENGINE && !f.startsWith('scripts/') && importsEngine(f)).sort()
   assert.deepEqual(product, [...PRODUCT_IMPORTERS].sort(),
     'the product importers of src/lib/term-pricing.js changed; a new one is added to PRODUCT_IMPORTERS in a diff somebody reads')

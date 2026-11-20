@@ -54,7 +54,7 @@ import { formatDate } from './format-dates.js';
 // TERM_QUOTES (spec v2.1, 14.6 and 14.7): the term quote through its one
 // gateway, never the term engine itself (R-TP1).
 import { versionKindOf, PRICING_METHOD_LABELS } from './pricing-method.js';
-import { priceTermVersion, quoteFigures, quoteSignals, serialiseQuote } from './term-quote.js';
+import { priceTermVersion, quoteFigures, quoteSignals, serialiseQuote, cashFlowCard, whatChangedRows, paymentBasisText, centsMoney, productLabel } from './term-quote.js';
 export { COST_BASIS_STALENESS, stalenessBand, ageInDays } from './cost-basis.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -947,7 +947,10 @@ function methodChangedBlock(baseline, version, { underReviewFigure, testBedCost,
     method: PRICING_METHOD_LABELS[versionKindOf(v)],
     measure: versionKindOf(v) === 'term_quote' ? 'Base TCV' : 'Contract net',
     figure,
+    // Artboard 5: a term side says what it quotes and carries its signals.
+    ...(versionKindOf(v) === 'term_quote' ? termSideDetail(v, termParams) : {}),
   })
+  const was = PRICING_METHOD_LABELS[versionKindOf(baseline)], now = PRICING_METHOD_LABELS[versionKindOf(version)]
   return {
     baseline: {
       label: sharedVersionLabel(baseline),
@@ -959,12 +962,46 @@ function methodChangedBlock(baseline, version, { underReviewFigure, testBedCost,
     bridge: null,
     methodChanged: {
       sentence: METHOD_CHANGED_SENTENCE,
+      // Artboard 5's second sentence, with the two methods named.
+      explanation: `${sharedVersionLabel(baseline)} was priced ${was === 'Commercials' ? 'bottom-up in Commercials' : 'as a term quote'}; `
+        + `${sharedVersionLabel(version)} is ${now === 'Commercials' ? 'priced bottom-up in Commercials' : 'a term quote'}. `
+        + 'The two cannot be reconciled step by step, so both figures are shown as they were priced.',
       lastApproved: side(baseline, versionFigure(baseline, { testBedCost, termParams })),
       underReview: side(version, underReviewFigure),
     },
     absence: null,
     caveat: null,
   }
+}
+
+/** A term version's quote and figures: frozen ones when it was submitted with them. */
+function termSnapshot(v, termParams) {
+  const frozen = v?.frozen_figures
+  if (frozen?.result) return { inputs: v.inputs, quote: frozen.result, figures: { ...quoteFigures(frozen.result), ...(frozen.page?.ask ? { baseTcv: frozen.page.ask.baseTcv, margin: frozen.page.ask.margin } : {}) } }
+  const priced = priceTermVersion(v, termParams)
+  return { inputs: v?.inputs, quote: priced.quote, figures: quoteFigures(priced.quote) }
+}
+
+// "SafeSight 60 units · 120 months · OPEX · margin 43.8%", and the two chips.
+function termSideDetail(v, termParams) {
+  const s = termSnapshot(v, termParams)
+  const units = Object.entries(s.inputs?.units ?? {}).filter(([, n]) => Number(n) > 0).map(([k, n]) => `${productLabel(k)} ${Number(n)} units`)
+  return {
+    summary: [...units, `${s.inputs?.termMonths} months`, paymentBasisText(s.quote) ?? '', s.figures.margin ? `margin ${s.figures.margin}%` : ''].filter(Boolean).join(' · '),
+    chips: termChips(s.quote),
+  }
+}
+
+// R-TQ3's two signals as chips, in the mockup's words when all is well (artboard
+// 4) and the screen's words when a signal is raised (quoteSignals).
+function termChips(quote) {
+  if (!quote) return []
+  const sig = quoteSignals(quote)
+  const floor = sig.belowFloor ? null : `Above the ${(quoteFigures({ ...quote, grossMargin: quote.marginFloor }).margin ?? '').replace(/\.0$/, '')}% floor`
+  return [
+    sig.dealDiscount ? { ok: false, text: sig.dealDiscount } : { ok: true, text: 'No deal discount: priced at list' },
+    sig.belowFloor ? { ok: false, text: sig.belowFloor } : { ok: true, text: floor },
+  ]
 }
 
 /**
@@ -996,6 +1033,13 @@ function assembleTermPage({ payload, version, baseline = null, record = {}, term
     baseTcv: f.baseTcv,
     monthly: f.monthly,
     margin: f.margin,
+    // Artboard 4's third figure, through the one adapter.
+    profit: priced.quote ? Number(BigInt(priced.quote.grossProfitCents)) / 100 : null,
+    chips: termChips(priced.quote),
+    // CF2: built here so buildFrozenFigures freezes it with the ask, and an
+    // issued version's page reads the frozen card (withFrozenFigures lays the
+    // stored ask over today's); never recomputed for a submitted version.
+    cashFlow: cashFlowCard(priced.quote),
     units: f.units,
     months: f.months,
     paymentStructure: priced.quote?.paymentStructure ?? null,
@@ -1018,14 +1062,21 @@ function assembleTermPage({ payload, version, baseline = null, record = {}, term
     // Position (TERM_QUOTES, revisitable with the mockup): two term versions
     // have no step-by-step bridge this round; their Base TCVs stand side by
     // side, and the page says so rather than leaving the block blank.
+    // D4 (John 2026-11-20): two term versions get a "what changed" table in
+    // place of a bridge, each version on its own figures (the baseline's
+    // frozen ones when it was submitted with them). CF3 adds the peak funding
+    // need and PO factoring rows. SUPERSEDED, left visible: the side-by-side
+    // Base TCVs with the caveat "A term quote has no step-by-step bridge".
+    const before = termSnapshot(baseline, termParams)
+    const after = { inputs: version.inputs, quote: priced.quote, figures: f }
     moved = {
       baseline: { label: sharedVersionLabel(baseline), revisionNumber: baseline.revision_number, approvedAt: baseline.approval?.decidedAt ?? null, reason: baseline.reason ?? null },
       order: null,
       bridge: null,
       methodChanged: null,
-      compare: { lastApproved: versionFigure(baseline, { termParams }), underReview: f.baseTcv },
+      whatChanged: { rows: whatChangedRows(before, after), note: 'Unchanged inputs are greyed. Payment basis changes when the client pays, not the Base TCV.' },
       absence: null,
-      caveat: 'A term quote has no step-by-step bridge; the two Base TCVs are shown side by side.',
+      caveat: null,
     }
   } else {
     moved = { baseline: null, order: null, bridge: null, methodChanged: null, absence: 'First approval. No prior approved version.', caveat: null }
