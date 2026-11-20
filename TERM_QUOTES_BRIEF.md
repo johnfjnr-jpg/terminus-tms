@@ -220,3 +220,18 @@ PROBES from the click, as the signed-in non-admin user:
 - the reopened-draft banner, proven with a TAGGED FIXTURE draft whose stored snapshot differs from today's (seeded by the service role). Never write live settings.
 
 THEN: overlap sweep 1240..1920 step 40 (the Term quote tab in each state, Payment terms with factoring on included), the full gate with the PUPPETEER_PATH recipe, merge --no-ff, the merged gate, ls-remote re-check, and "ready for John's push". Captures at 1240 and 1920 opened and read.
+
+## The mockup and the CF4 ruling (John, 2026-11-20), appended verbatim at the phase they launch
+
+TERM_QUOTES: the mockup and the CF4 ruling (John, 2026-11-20)
+
+MOCKUP  prototypes/term-quote-tab.html is now in the working tree (written there by John's review session; untracked). It is the approved six-artboard mockup, a static export of the canvas "Term quote tab on the opportunity". Commit it first, alone, then build V1 to V6 to it.
+
+CF4 ruling: option (a). The second figure is cashFlow.paybackMonth, labelled "Month of payback" with the sub-line "cash stays at or above zero from here". Null prints "None within the term". No new engine arithmetic; "turns positive" in CF2 is withdrawn.
+
+Card presentation, accepted as proposed:
+- Factoring off: the card shows "PO factoring: off" and no cost or treatment line (never 0.00, never "Absorb").
+- Lowest balance at or above zero: "No funding need: cash never falls below zero", in place of a peak figure.
+- Peak funding need prints as a positive amount with its month, e.g. "128,750.00 in month 25".
+
+Then continue as briefed: V1 to V6, CF1 to CF3, the probes, the sweep, the full gate, merge --no-ff, the merged gate, ls-remote, "ready for John's push".
