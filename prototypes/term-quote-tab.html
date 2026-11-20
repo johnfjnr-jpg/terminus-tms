@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Term quote tab mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0e0f11;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;padding:32px}
+.board{margin:0 0 56px} .board h2{font-size:16px;font-weight:600;margin:0 0 12px;color:#c9ccd2}
+.board > div{width:1240px;overflow:hidden;border:1px solid #2b2d31}
+#b1 .m{font-family:'IBM Plex Mono',monospace}
+#b1 .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 18px}
+#b1 .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 10px}
+#b1 .lab{font-size:12px;color:#b4b8c0}
+#b1 .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#b1 .inp{background:#121316;border:1px solid #3a3d42;border-radius:6px;padding:6px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#e6e7ea;width:72px;font-size:13px}
+#b1 .seg{display:inline-flex;border:1px solid #3a3d42;border-radius:8px;overflow:hidden}
+#b1 .seg button{background:transparent;border:0;padding:8px 16px;font:inherit;font-size:13px;color:#a3a7af}
+#b1 .seg button.on{background:#86d19a;color:#0f1a12;font-weight:600}
+#b1 .otab{padding:11px 16px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;background:none;border-top:0;border-left:0;border-right:0;font-family:inherit}
+#b1 .otab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+#b1 .step{padding:9px 16px;font-size:13px;color:#a3a7af;display:flex;gap:8px;align-items:center;background:none;border:0;border-bottom:2px solid transparent;font-family:inherit}
+#b1 .step.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+#b1 .num{width:20px;height:20px;border-radius:10px;border:1px solid #4a4e55;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+#b1 .step.on .num{background:#86d19a;color:#0f1a12;border-color:#86d19a}
+#b1 table{width:100%;border-collapse:collapse}
+#b1 th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:7px 8px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+#b1 th:first-child,#b1 td:first-child{text-align:left}
+#b1 td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:6px 8px;border-bottom:1px solid #24262a}
+#b1 td:first-child{font-family:'IBM Plex Sans',sans-serif}
+#b1 tr.sel td{background:#1f2a22}
+#b1 .btn{background:transparent;border:1px solid #3a3d42;border-radius:6px;padding:8px 14px;font:inherit;font-size:13px;color:#c9ccd2}
+#b1 .pri{background:#86d19a;border:0;border-radius:6px;padding:9px 16px;font:inherit;font-size:13px;font-weight:600;color:#0f1a12}
+#b1 .line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #24262a;font-size:13px}
+#b1 .ok{color:#86d19a}
+#b2 .m{font-family:'IBM Plex Mono',monospace}
+#b2 .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 18px}
+#b2 .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 10px}
+#b2 .lab{font-size:12px;color:#b4b8c0}
+#b2 .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#b2 .seg{display:inline-flex;border:1px solid #3a3d42;border-radius:8px;overflow:hidden}
+#b2 .seg button{background:transparent;border:0;padding:8px 16px;font:inherit;font-size:13px;color:#a3a7af}
+#b2 .seg button.on{background:#86d19a;color:#0f1a12;font-weight:600}
+#b2 .otab{padding:11px 16px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;background:none;border-top:0;border-left:0;border-right:0;font-family:inherit}
+#b2 .otab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+#b2 .step{padding:9px 16px;font-size:13px;color:#a3a7af;display:flex;gap:8px;align-items:center;background:none;border:0;border-bottom:2px solid transparent;font-family:inherit}
+#b2 .step.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+#b2 .num{width:20px;height:20px;border-radius:10px;border:1px solid #4a4e55;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+#b2 .step.on .num{background:#86d19a;color:#0f1a12;border-color:#86d19a}
+#b2 table{width:100%;border-collapse:collapse}
+#b2 th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:7px 8px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+#b2 th:first-child,#b2 td:first-child{text-align:left}
+#b2 td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:6px 8px;border-bottom:1px solid #24262a}
+#b2 td:first-child{font-family:'IBM Plex Sans',sans-serif}
+#b2 .btn{background:transparent;border:1px solid #3a3d42;border-radius:6px;padding:8px 14px;font:inherit;font-size:13px;color:#c9ccd2}
+#b2 .pri{background:#86d19a;border:0;border-radius:6px;padding:9px 16px;font:inherit;font-size:13px;font-weight:600;color:#0f1a12}
+#b2 .warn{background:#2a2617;border:1px solid #5a4e24;color:#e9d9a6;border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.55}
+#b2 .amb{color:#e9c46a}
+#b3 .m{font-family:'IBM Plex Mono',monospace}
+#b3 .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 18px}
+#b3 .lab{font-size:12px;color:#b4b8c0}
+#b3 .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#b3 .seg{display:inline-flex;border:1px solid #3a3d42;border-radius:8px;overflow:hidden}
+#b3 .seg button{background:transparent;border:0;padding:8px 16px;font:inherit;font-size:13px;color:#a3a7af}
+#b3 .seg button.on{background:#86d19a;color:#0f1a12;font-weight:600}
+#b3 .otab{padding:11px 16px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;background:none;border-top:0;border-left:0;border-right:0;font-family:inherit}
+#b3 .otab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+#b4 .m{font-family:'IBM Plex Mono',monospace}
+#b4 .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 18px}
+#b4 .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 10px}
+#b4 .lab{font-size:12px;color:#b4b8c0}
+#b4 .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#b4 table{width:100%;border-collapse:collapse}
+#b4 th{font-size:11px;color:#b4b8c0;text-align:right;font-weight:600;padding:7px 8px;border-bottom:1px solid #2b2d31;text-transform:uppercase;letter-spacing:.04em}
+#b4 th:first-child,#b4 td:first-child{text-align:left}
+#b4 td{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;padding:7px 8px;border-bottom:1px solid #24262a}
+#b4 td:first-child{font-family:'IBM Plex Sans',sans-serif}
+#b4 tr.same td{color:#8f939b}
+#b4 tr.chg td{color:#e6e7ea}
+#b4 .chip{display:inline-flex;gap:8px;align-items:center;border:1px solid #2b2d31;border-radius:20px;padding:6px 12px;font-size:12px}
+#b4 .ok{color:#86d19a}
+#b4 .btn{background:transparent;border:1px solid #3a3d42;border-radius:6px;padding:8px 14px;font:inherit;font-size:13px;color:#c9ccd2}
+#b4 .pri{background:#86d19a;border:0;border-radius:6px;padding:8px 14px;font:inherit;font-size:13px;font-weight:600;color:#0f1a12}
+#b4 .trk{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #24262a}
+#b5 .m{font-family:'IBM Plex Mono',monospace}
+#b5 .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 18px}
+#b5 .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 10px}
+#b5 .lab{font-size:12px;color:#b4b8c0}
+#b5 .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#b5 .warn{background:#2a2617;border:1px solid #5a4e24;color:#e9d9a6;border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.55}
+#b5 .amb{color:#e9c46a}
+#b5 .chip{display:inline-flex;gap:8px;align-items:center;border:1px solid #2b2d31;border-radius:20px;padding:6px 12px;font-size:12px}
+#b5 .ok{color:#86d19a}
+#b6 .m{font-family:'IBM Plex Mono',monospace}
+#b6 .card{background:#1b1c20;border:1px solid #2b2d31;border-radius:10px;padding:16px 18px}
+#b6 .h{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#c9ccd2;font-weight:600;margin:0 0 10px}
+#b6 .lab{font-size:12px;color:#b4b8c0}
+#b6 .note{font-size:12px;color:#a3a7af;line-height:1.5}
+#b6 .inp{background:#17181b;border:1px solid #2b2d31;border-radius:6px;padding:6px 10px;text-align:right;font-family:'IBM Plex Mono',monospace;color:#a3a7af;width:72px;font-size:13px}
+#b6 .seg{display:inline-flex;border:1px solid #2b2d31;border-radius:8px;overflow:hidden}
+#b6 .seg button{background:transparent;border:0;padding:8px 16px;font:inherit;font-size:13px;color:#8f939b}
+#b6 .seg button.on{background:#2f3a32;color:#c9ccd2;font-weight:600}
+#b6 .otab{padding:11px 16px;font-size:14px;color:#a3a7af;border-bottom:2px solid transparent;background:none;border-top:0;border-left:0;border-right:0;font-family:inherit}
+#b6 .otab.on{color:#e6e7ea;border-bottom-color:#86d19a;font-weight:600}
+#b6 .line{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #24262a;font-size:13px}
+#b6 .won{background:#1d2a21;border:1px solid #3a5a42;border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.55}
+</style></head><body>
+<h1 style="font-size:22px;margin:0 0 8px">Term quote tab on the opportunity: approved mockup</h1>
+<p style="color:#a3a7af;font-size:13px;margin:0 0 32px">Approved by John, 2026-11-20. Six artboards at a 1240 viewport (876px opportunity pane). Exported from the canvas "Term quote tab on the opportunity".</p>
+<section class="board"><h2>1 · Term quote tab: a draft on the Pricing step (1240 viewport, 876px pane)</h2><div id="b1">
+<div style="width:1240px;height:1440px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;display:flex">
+<nav style="width:280px;flex-shrink:0;background:#121316;border-right:1px solid #2b2d31;padding:24px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px">
+<div style="font-weight:600;font-size:16px;margin-bottom:18px">Terminus TMS</div>
+<a href="#" style="color:#a3a7af;text-decoration:none;padding:8px 10px;font-size:14px">Leads</a>
+<a href="#" style="color:#e6e7ea;text-decoration:none;padding:8px 10px;font-size:14px;background:#1f2024;border-radius:6px">Opportunities</a>
+<a href="#" style="color:#a3a7af;text-decoration:none;padding:8px 10px;font-size:14px">Accounts</a>
+<a href="#" style="color:#a3a7af;text-decoration:none;padding:8px 10px;font-size:14px">Term Pricing</a>
+</nav>
+<main style="flex-grow:1;padding:24px 42px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+<header style="display:flex;justify-content:space-between;align-items:flex-end">
+<div><div class="note">TT-SGP-SMARTC-008 · Proposal</div><div style="font-size:22px;font-weight:600">[Opportunity name]</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Contract value</div><div class="m" style="font-size:16px;font-weight:600">3,414,000.00</div></div>
+<div><div class="lab">Pricing</div><div style="font-size:15px">Term quote</div></div>
+</div>
+</header>
+
+<div role="tablist" style="display:flex;gap:2px;border-bottom:1px solid #2b2d31">
+<button class="otab" role="tab">Reference</button>
+<button class="otab on" role="tab" aria-selected="true">Term quote</button>
+<button class="otab" role="tab">Commercials</button>
+<button class="otab" role="tab">Assessment</button>
+<button class="otab" role="tab">Proposal</button>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="display:flex;gap:12px;align-items:center"><span class="lab">Pricing method</span><div class="seg"><button class="on">Term quote</button><button>Commercials</button></div></div>
+<span class="note">Default for new deals</span>
+</div>
+
+<section class="card" style="display:flex;justify-content:space-between;align-items:center">
+<div style="display:flex;gap:28px">
+<div><div class="lab">Working version</div><div style="font-size:15px;font-weight:600">V0.2 <span class="note" style="font-weight:400">· Draft · saved 19/11/2026</span></div></div>
+<div><div class="lab">Approved version</div><div style="font-size:15px">None</div></div>
+</div>
+<div style="display:flex;gap:10px"><button class="btn">Save version</button><button class="pri">Submit V0.2 as V1.0 for approval</button></div>
+</section>
+
+<div style="display:flex;gap:4px;border-bottom:1px solid #2b2d31">
+<button class="step on"><span class="num">1</span>Pricing</button>
+<button class="step"><span class="num">2</span>Payment terms</button>
+<button class="step"><span class="num">3</span>Quote</button>
+</div>
+
+<section class="card">
+<div class="h">Units</div>
+<div style="display:flex;gap:28px;align-items:center">
+<label class="lab" style="display:flex;gap:10px;align-items:center">SafeSight <input class="inp" value="60"></label>
+<label class="lab" style="display:flex;gap:10px;align-items:center">Air Quality <input class="inp" value="0"></label>
+<label class="lab" style="display:flex;gap:10px;align-items:center">HEMIR <input class="inp" value="0"></label>
+</div>
+</section>
+
+<section class="card">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="h">Term</div><span class="note">Prices from the Settings price ladder · after volume bands</span></div>
+<table>
+<tr><th>Term</th><th>SafeSight / camera / mo</th><th>Monthly, this deal</th><th>Base TCV</th><th>Margin</th></tr>
+<tr><td>12 months</td><td>2,500.00</td><td>142,250.00</td><td>1,707,000.00</td><td>63.4%</td></tr>
+<tr><td>24 months</td><td>1,500.00</td><td>85,350.00</td><td>2,048,400.00</td><td>62.5%</td></tr>
+<tr><td>36 months</td><td>1,080.00</td><td>61,452.00</td><td>2,212,272.00</td><td>58.8%</td></tr>
+<tr><td>48 months</td><td>875.00</td><td>49,787.50</td><td>2,389,800.00</td><td>55.8%</td></tr>
+<tr><td>60 months</td><td>750.00</td><td>42,675.00</td><td>2,560,500.00</td><td>53.1%</td></tr>
+<tr><td>72 months</td><td>665.00</td><td>37,838.50</td><td>2,724,372.00</td><td>50.7%</td></tr>
+<tr><td>84 months</td><td>605.00</td><td>34,424.50</td><td>2,891,658.00</td><td>48.5%</td></tr>
+<tr><td>96 months</td><td>560.00</td><td>31,864.00</td><td>3,058,944.00</td><td>46.6%</td></tr>
+<tr><td>108 months</td><td>525.00</td><td>29,872.50</td><td>3,226,230.00</td><td>45.0%</td></tr>
+<tr class="sel"><td><span class="ok">●</span> 120 months</td><td>500.00</td><td>28,450.00</td><td>3,414,000.00</td><td>43.8%</td></tr>
+</table>
+</section>
+
+<section class="card">
+<div class="h">Price breakdown · 120 months</div>
+<table>
+<tr><th>Product · band</th><th>Units</th><th>Fee / unit / mo</th><th>Monthly</th></tr>
+<tr><td>SafeSight · band 1 (1 to 9) · 0%</td><td>9</td><td>500.00</td><td>4,500.00</td></tr>
+<tr><td>SafeSight · band 2 (10 to 49) · 5%</td><td>40</td><td>475.00</td><td>19,000.00</td></tr>
+<tr><td>SafeSight · band 3 (50 to 199) · 10%</td><td>11</td><td>450.00</td><td>4,950.00</td></tr>
+<tr><td style="font-weight:600">Total</td><td>60</td><td></td><td style="font-weight:600">28,450.00</td></tr>
+</table>
+</section>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+<section class="card">
+<div class="h">Deal adjustment</div>
+<div class="seg"><button class="on">None</button><button>Discount %</button><button>Deal price</button></div>
+<div class="note" style="margin-top:10px">A discount shows as a signal on the approval page. No extra approver.</div>
+</section>
+<section class="card">
+<div class="h">Price</div>
+<div class="line"><span class="lab">Base TCV</span><span class="m" style="font-size:16px;font-weight:600">3,414,000.00</span></div>
+<div class="line"><span class="lab">Monthly</span><span class="m">28,450.00 × 120</span></div>
+<div class="line"><span class="lab">Profit · margin</span><span class="m">1,494,000.00 · 43.8%</span></div>
+<div class="line" style="border-bottom:0"><span class="lab">Checks</span><span class="ok" style="font-size:13px">✓ Above the 25% floor</span></div>
+</section>
+</div>
+
+</main>
+</div>
+</div></section>
+<section class="board"><h2>2 · Draft reopened after the price ladder moved: settings changed since saved</h2><div id="b2">
+<div style="width:1240px;height:860px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;display:flex">
+<nav style="width:280px;flex-shrink:0;background:#121316;border-right:1px solid #2b2d31;padding:24px 20px;box-sizing:border-box">
+<div style="font-weight:600;font-size:16px">Terminus TMS</div>
+</nav>
+<main style="flex-grow:1;padding:24px 42px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+<header style="display:flex;justify-content:space-between;align-items:flex-end">
+<div><div class="note">TT-SGP-SMARTC-008 · Proposal</div><div style="font-size:22px;font-weight:600">[Opportunity name]</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Contract value</div><div class="m" style="font-size:16px;font-weight:600">3,482,280.00</div></div>
+<div><div class="lab">Pricing</div><div style="font-size:15px">Term quote</div></div>
+</div>
+</header>
+
+<div role="tablist" style="display:flex;gap:2px;border-bottom:1px solid #2b2d31">
+<button class="otab" role="tab">Reference</button>
+<button class="otab on" role="tab" aria-selected="true">Term quote</button>
+<button class="otab" role="tab">Commercials</button>
+<button class="otab" role="tab">Assessment</button>
+<button class="otab" role="tab">Proposal</button>
+</div>
+
+<div style="display:flex;gap:12px;align-items:center"><span class="lab">Pricing method</span><div class="seg"><button class="on">Term quote</button><button>Commercials</button></div></div>
+
+<section class="card" style="display:flex;justify-content:space-between;align-items:center">
+<div style="display:flex;gap:28px">
+<div><div class="lab">Working version</div><div style="font-size:15px;font-weight:600">V0.2 <span class="note" style="font-weight:400">· Draft · saved 19/11/2026</span></div></div>
+<div><div class="lab">Approved version</div><div style="font-size:15px">None</div></div>
+</div>
+<div style="display:flex;gap:10px"><button class="btn">Save version</button><button class="pri">Submit V0.2 as V1.0 for approval</button></div>
+</section>
+
+<div class="warn" role="status">
+<div style="font-weight:600;margin-bottom:4px"><span class="amb">⚠</span> Settings changed since V0.2 was saved</div>
+This quote now prices on today's Settings. V0.2 was saved at Base TCV <span class="m">3,414,000.00</span>; today it prices at <span class="m">3,482,280.00</span> (<span class="m">+68,280.00</span>). What moved: the SafeSight price ladder at 120 months, 500.00 to 510.00. Save a version to keep today's figures, or submit it as it stands.
+</div>
+
+<div style="display:flex;gap:4px;border-bottom:1px solid #2b2d31">
+<button class="step on"><span class="num">1</span>Pricing</button>
+<button class="step"><span class="num">2</span>Payment terms</button>
+<button class="step"><span class="num">3</span>Quote</button>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+<section class="card">
+<div class="h">Price breakdown · 120 months, today</div>
+<table>
+<tr><th>Band</th><th>Units</th><th>Fee</th><th>Monthly</th></tr>
+<tr><td>1 (1 to 9) · 0%</td><td>9</td><td>510.00</td><td>4,590.00</td></tr>
+<tr><td>2 (10 to 49) · 5%</td><td>40</td><td>484.50</td><td>19,380.00</td></tr>
+<tr><td>3 (50 to 199) · 10%</td><td>11</td><td>459.00</td><td>5,049.00</td></tr>
+<tr><td style="font-weight:600">Total</td><td>60</td><td></td><td style="font-weight:600">29,019.00</td></tr>
+</table>
+</section>
+<section class="card">
+<div class="h">Price</div>
+<table>
+<tr><th></th><th>Saved V0.2</th><th>Today</th></tr>
+<tr><td>Monthly</td><td>28,450.00</td><td>29,019.00</td></tr>
+<tr><td>Base TCV</td><td>3,414,000.00</td><td style="font-weight:600">3,482,280.00</td></tr>
+</table>
+<div class="note" style="margin-top:10px">Submitted versions never move: they keep the settings they were priced on.</div>
+</section>
+</div>
+
+</main>
+</div>
+</div></section>
+<section class="board"><h2>3 · Commercials tab on a deal priced by Term quote</h2><div id="b3">
+<div style="width:1240px;height:640px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;display:flex">
+<nav style="width:280px;flex-shrink:0;background:#121316;border-right:1px solid #2b2d31;padding:24px 20px;box-sizing:border-box">
+<div style="font-weight:600;font-size:16px">Terminus TMS</div>
+</nav>
+<main style="flex-grow:1;padding:24px 42px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+<header style="display:flex;justify-content:space-between;align-items:flex-end">
+<div><div class="note">TT-SGP-SMARTC-008 · Proposal</div><div style="font-size:22px;font-weight:600">[Opportunity name]</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Contract value</div><div class="m" style="font-size:16px;font-weight:600">3,414,000.00</div></div>
+<div><div class="lab">Pricing</div><div style="font-size:15px">Term quote</div></div>
+</div>
+</header>
+
+<div role="tablist" style="display:flex;gap:2px;border-bottom:1px solid #2b2d31">
+<button class="otab" role="tab">Reference</button>
+<button class="otab" role="tab">Term quote</button>
+<button class="otab on" role="tab" aria-selected="true">Commercials</button>
+<button class="otab" role="tab">Assessment</button>
+<button class="otab" role="tab">Proposal</button>
+</div>
+
+<div style="display:flex;gap:12px;align-items:center"><span class="lab">Pricing method</span><div class="seg"><button class="on">Term quote</button><button>Commercials</button></div></div>
+
+<section class="card" style="padding:28px 24px;display:flex;flex-direction:column;gap:10px">
+<div style="font-size:15px;font-weight:600">Not in use. This deal is priced by Term quote.</div>
+<div class="note" style="max-width:640px">To price it bottom-up instead, choose Commercials above. The term quote stays saved, so you can switch back. Whichever method you submit next becomes a new major version, and approval starts again.</div>
+</section>
+
+</main>
+</div>
+</div></section>
+<section class="board"><h2>4 · Approval page: term version, what changed since V1.0</h2><div id="b4">
+<div style="width:1240px;height:1080px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;display:flex">
+<nav style="width:280px;flex-shrink:0;background:#121316;border-right:1px solid #2b2d31;padding:24px 20px;box-sizing:border-box">
+<div style="font-weight:600;font-size:16px">Terminus TMS</div>
+</nav>
+<main style="flex-grow:1;padding:24px 42px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+<header>
+<div class="note">TT-SGP-SMARTC-008 · [Opportunity name] · Negotiating</div>
+<div style="font-size:22px;font-weight:600">Approve pricing · V2.0 · Term quote</div>
+<div class="note">Awaiting approval · submitted 20/11/2026 · figures frozen at submission</div>
+</header>
+
+<section class="card">
+<div class="h">The ask</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+<div><div class="lab">Base TCV</div><div class="m" style="font-size:20px;font-weight:600">3,978,240.00</div></div>
+<div><div class="lab">Margin</div><div class="m" style="font-size:20px;font-weight:600">45.3%</div></div>
+<div><div class="lab">Profit</div><div class="m" style="font-size:20px;font-weight:600">1,802,240.00</div></div>
+</div>
+<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+<span class="chip"><span class="ok">✓</span> No deal discount: priced at list</span>
+<span class="chip"><span class="ok">✓</span> Above the 25% floor</span>
+</div>
+</section>
+
+<section class="card">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="h">What changed since V1.0 (approved)</div><span class="note">Both versions priced by Term quote</span></div>
+<table>
+<tr><th>Input</th><th>V1.0 approved</th><th>V2.0 under review</th><th></th></tr>
+<tr class="chg"><td>SafeSight units</td><td>60</td><td>80</td><td style="font-family:'IBM Plex Sans',sans-serif;font-size:12px">changed</td></tr>
+<tr class="same"><td>Air Quality units</td><td>0</td><td>0</td><td></td></tr>
+<tr class="same"><td>HEMIR units</td><td>0</td><td>0</td><td></td></tr>
+<tr class="chg"><td>Term</td><td>120 months</td><td>96 months</td><td style="font-family:'IBM Plex Sans',sans-serif;font-size:12px">changed</td></tr>
+<tr class="same"><td>Deal discount</td><td>None</td><td>None</td><td></td></tr>
+<tr class="chg"><td>Payment basis</td><td>OPEX</td><td>CAPEX, hardware 800,000.00 upfront</td><td style="font-family:'IBM Plex Sans',sans-serif;font-size:12px">changed</td></tr>
+<tr class="same"><td>CPI</td><td>None</td><td>None</td><td></td></tr>
+<tr class="chg"><td style="font-weight:600">Base TCV</td><td>3,414,000.00</td><td style="font-weight:600">3,978,240.00</td><td style="font-weight:600">+564,240.00</td></tr>
+<tr class="chg"><td>Margin</td><td>43.8%</td><td>45.3%</td><td>+1.5 pts</td></tr>
+</table>
+<div class="note" style="margin-top:10px">Unchanged inputs are greyed. Payment basis changes when the client pays, not the Base TCV.</div>
+</section>
+
+<section class="card">
+<div class="h">Approvals</div>
+<div class="trk"><span>Commercial</span><div style="display:flex;gap:8px"><button class="btn">Reject</button><button class="pri">Approve</button></div></div>
+<div class="trk"><span>Technical</span><div style="display:flex;gap:8px"><button class="btn">Reject</button><button class="pri">Approve</button></div></div>
+<div class="trk" style="border-bottom:0"><span>Legal</span><div style="display:flex;gap:8px"><button class="btn">Reject</button><button class="pri">Approve</button></div></div>
+</section>
+
+</main>
+</div>
+</div></section>
+<section class="board"><h2>5 · Approval page: pricing method changed</h2><div id="b5">
+<div style="width:1240px;height:760px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;display:flex">
+<nav style="width:280px;flex-shrink:0;background:#121316;border-right:1px solid #2b2d31;padding:24px 20px;box-sizing:border-box">
+<div style="font-weight:600;font-size:16px">Terminus TMS</div>
+</nav>
+<main style="flex-grow:1;padding:24px 42px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+<header>
+<div class="note">TT-SGP-SMARTC-004 · [Opportunity name] · Negotiating</div>
+<div style="font-size:22px;font-weight:600">Approve pricing · V2.0 · Term quote</div>
+<div class="note">Awaiting approval · submitted 20/11/2026 · figures frozen at submission</div>
+</header>
+
+<div class="warn" role="status"><span class="amb">⚠</span> <b>Pricing method changed: the previous approval does not carry over.</b> V1.0 was priced bottom-up in Commercials; V2.0 is a term quote. The two cannot be reconciled step by step, so both figures are shown as they were priced.</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+<section class="card">
+<div class="h">Last approved · V1.0 · Commercials</div>
+<div class="lab">Contract net</div>
+<div class="m" style="font-size:20px;font-weight:600">[Commercials contract net]</div>
+<div class="note" style="margin-top:8px">Approved 12/11/2026 by Commercial, Technical and Legal</div>
+</section>
+<section class="card" style="border-color:#3a5a42">
+<div class="h">Under review · V2.0 · Term quote</div>
+<div class="lab">Base TCV</div>
+<div class="m" style="font-size:20px;font-weight:600">3,414,000.00</div>
+<div class="note" style="margin-top:8px">SafeSight 60 units · 120 months · OPEX · margin 43.8%</div>
+<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+<span class="chip"><span class="ok">✓</span> No deal discount: priced at list</span>
+<span class="chip"><span class="ok">✓</span> Above the 25% floor</span>
+</div>
+</section>
+</div>
+
+<div class="note">The Approvals panel below this is unchanged: all three tracks decide V2.0 afresh.</div>
+
+</main>
+</div>
+</div></section>
+<section class="board"><h2>6 · Term quote tab at Closed Won</h2><div id="b6">
+<div style="width:1240px;height:760px;box-sizing:border-box;background:#17181b;color:#e6e7ea;font-family:'IBM Plex Sans',sans-serif;font-size:14px;display:flex">
+<nav style="width:280px;flex-shrink:0;background:#121316;border-right:1px solid #2b2d31;padding:24px 20px;box-sizing:border-box">
+<div style="font-weight:600;font-size:16px">Terminus TMS</div>
+</nav>
+<main style="flex-grow:1;padding:24px 42px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;min-width:0">
+
+<header style="display:flex;justify-content:space-between;align-items:flex-end">
+<div><div class="note">TT-SGP-SMARTC-008 · Closed Won</div><div style="font-size:22px;font-weight:600">[Opportunity name]</div></div>
+<div style="display:flex;gap:28px;align-items:flex-end">
+<div><div class="lab">Contract value (won)</div><div class="m" style="font-size:16px;font-weight:600">3,978,240.00</div></div>
+<div><div class="lab">Pricing</div><div style="font-size:15px">Term quote</div></div>
+</div>
+</header>
+
+<div role="tablist" style="display:flex;gap:2px;border-bottom:1px solid #2b2d31">
+<button class="otab" role="tab">Reference</button>
+<button class="otab on" role="tab" aria-selected="true">Term quote</button>
+<button class="otab" role="tab">Commercials</button>
+<button class="otab" role="tab">Assessment</button>
+</div>
+
+<div style="display:flex;gap:12px;align-items:center"><span class="lab">Pricing method</span><div class="seg"><button class="on" disabled>Term quote</button><button disabled>Commercials</button></div></div>
+
+<div class="won" role="status"><b>This deal is Closed Won; its pricing is the won version's and cannot change.</b> Won version V2.0, approved [date]. No new version can be saved or submitted.</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+<section class="card">
+<div class="h">Units · read only</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<label class="lab" style="display:flex;justify-content:space-between;align-items:center">SafeSight <input class="inp" value="80" disabled></label>
+<label class="lab" style="display:flex;justify-content:space-between;align-items:center">Air Quality <input class="inp" value="0" disabled></label>
+<label class="lab" style="display:flex;justify-content:space-between;align-items:center">HEMIR <input class="inp" value="0" disabled></label>
+</div>
+</section>
+<section class="card">
+<div class="h">Won version V2.0</div>
+<div class="line"><span class="lab">Term</span><span class="m">96 months</span></div>
+<div class="line"><span class="lab">Payment basis</span><span>CAPEX, hardware 800,000.00</span></div>
+<div class="line"><span class="lab">Base TCV</span><span class="m" style="font-weight:600">3,978,240.00</span></div>
+<div class="line" style="border-bottom:0"><span class="lab">Margin</span><span class="m">45.3%</span></div>
+</section>
+</div>
+<div class="note">Figures shown are the won version's frozen figures, not a live reprice.</div>
+
+</main>
+</div>
+</div></section>
+</body></html>
