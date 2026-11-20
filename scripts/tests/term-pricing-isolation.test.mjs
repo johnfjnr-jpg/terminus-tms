@@ -60,6 +60,10 @@ export const ALLOWED_IMPORTERS = [
   // loan schedule and cash flow timing to Commercials' to the cent. Ruled at
   // the Phase 1 sign-off. The engine itself still imports nothing (part 1).
   'scripts/tests/term-factoring-parity.test.mjs',
+  // TERM_QUOTES (spec v2.1, goldens TQ-1 to TQ-3): formats the engine's cents
+  // with the engine's own formatMoney, so the goldens are compared in the
+  // spec's printed form rather than through a second formatter.
+  'scripts/tests/term-quotes-engine.test.mjs',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']

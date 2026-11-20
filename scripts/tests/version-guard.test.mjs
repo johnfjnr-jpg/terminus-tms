@@ -68,8 +68,20 @@ function guardedColumns() {
     if (/create or replace function public\.deal_sheet_versions_immutable\(\)/.test(sql)) latest = sql
   }
   assert.ok(latest, 'no definition of deal_sheet_versions_immutable() found, so this scan measures nothing')
+  // THE RELABEL'S OWN BLOCK, not the whole function. TERM_QUOTES, 2026-11-20:
+  // the scan used to match `NEW.x is distinct from OLD.x` ANYWHERE, so the
+  // draft branch's own `if NEW.kind is distinct from OLD.kind` satisfied it
+  // and removing kind from the relabel's list came back SILENT (Verification
+  // 51). The relabel is the one `if` whose condition is a run of such
+  // comparisons joined by `or`; the longest run is it, and it must be long.
+  const runs = [...latest.matchAll(/\bif\s+((?:NEW\.[a-z_]+\s+is distinct from OLD\.[a-z_]+\s*(?:or\s+)?)+)then\b/g)]
+    .map((m) => m[1])
+    .sort((a, b) => b.split(' or ').length - a.split(' or ').length)
+  const relabel = runs[0] ?? ''
+  assert.ok(relabel.split(' or ').length >= 5,
+    `the relabel's guarded list was not found (longest run: ${relabel.split(' or ').length}), so this scan measures nothing`)
   const guarded = new Set()
-  for (const m of latest.matchAll(/NEW\.([a-z_]+)\s+is distinct from OLD\.\1/g)) guarded.add(m[1])
+  for (const m of relabel.matchAll(/NEW\.([a-z_]+)\s+is distinct from OLD\.\1/g)) guarded.add(m[1])
   return guarded
 }
 

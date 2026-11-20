@@ -181,6 +181,22 @@ test('(e) Closed Won: an insert of either kind, and a draft update, raise PT423;
   assert.match(iu.error.message, /is issued and cannot be changed/)
 })
 
+// M5 (John's review round 1): the Closed Won trigger, raise_transition_request
+// and WON_STAGE all identify the won stage by its NAME. A rename disarms every
+// one of them silently (FROZEN_FIGURES decision 2), so the name is asserted
+// against the configuration rather than trusted. The companion proves the
+// query can tell a present stage from an absent one (Verification 13).
+test('M5: stage_definitions has an opportunity stage named Closed Won', async () => {
+  const stages = must(await db.from('stage_definitions').select('stage_name')
+    .eq('record_type', 'opportunity').range(0, 199), 'stage definitions')
+  const names = stages.map((s) => s.stage_name)
+  assert.ok(names.length > 1, `only ${names.length} opportunity stages were read, so the query is not seeing them`)
+  assert.ok(names.includes(WON_STAGE),
+    `no opportunity stage is named '${WON_STAGE}' (found: ${names.join(', ')}). The Closed Won trigger, `
+    + 'raise_transition_request and WON_STAGE all match that name, so every one of them is disarmed')
+  assert.ok(!names.includes(`${WON_STAGE} (renamed)`), 'the query does not answer yes to any name')
+})
+
 test('(e) companion: the same draft update lands on a record that is NOT Closed Won', async () => {
   const recordId = await opportunity()
   const draft = await landed(recordId, { rates: RATES })
