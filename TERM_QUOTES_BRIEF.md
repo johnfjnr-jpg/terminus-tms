@@ -123,3 +123,49 @@ premise in this brief that measurement contradicts. Then STOP for John's
 rulings on the wipe and any NEEDS RULING items. No mockup, no build, no
 push. Write the report verbatim to REPORT_FOR_CHAT.md and the OneDrive TMS
 Test log per convention.
+
+---
+
+## Rulings on Phase 0 (John, 2026-11-20), appended verbatim at the phase they launch
+
+TERM_QUOTES rulings on Phase 0 (John's wipe answer: Option 1, no wipe)
+
+W   No wipe. kind defaults to 'commercials'; all 31 live versions are Commercials-shaped. A record with no pricingMethod key reads as Commercials. Record in DESIGN_PRINCIPLES: TT-SGP-LOGIST-001 KEEP as ordinary test data (John, 2026-09-29).
+
+0-1 Accepted: TEST DEFECT, not a regression. Repoint probe-decision-feedback to the per-track rule (told second click, one POST, one row) as a queued item, not this round.
+
+P1  Confirmed: one version sequence, kind per version, numbering kind-blind. "Headline from the current version" is withdrawn; see P6.
+    Every reader that hands a version row to an engine or to pricingChanged must filter or branch by kind. Census 0-2's "latest-row readers" are the named list; each gets a test with a term_quote row as the newest row.
+
+P2  Two tabs, bound mode as proposed in 0-5: lift the 28 inputs into one value object with optional { value, onChange }. Standalone is unchanged and saves nothing.
+    The draft inputs live in the RECORD payload under a new key termQuote. A second key, pricingMethod ('term_quote' | 'commercials'), is stamped 'term_quote' at creation of new opportunities (R-TQ1). Both keys join the PATCH allowlist and the Closed Won key set (rename COMMERCIALS_OWNED_KEYS to PRICING_OWNED_KEYS).
+    The version card takes a second seam implementation for term quotes. The seam stays the interface; nothing reaches into the view.
+    No view work before the mockup (prototypes/term-quote-tab.html), which follows separately. The 148px narrower pane is the mockup's problem, not the build's.
+
+P3  Accepted as measured. A term_quote version's rates column holds the seven settings and each product's costs BY VALUE. CPI, WHT, GST and factoring live in inputs. Batch ids are not relied on; no change to the batch immutability trigger.
+    rates_have_cost_basis branches by kind: term_quote requires the full params snapshot.
+    Drafts reprice on today's params when reopened (R-TQ2). "Settings changed since saved" = deep compare of the stored snapshot against today's buildParams, never a timestamp.
+    Submission freezes figures through a term branch in buildFrozenFigures.
+
+P4  Confirmed. kind column, check ('commercials','term_quote'), default 'commercials'. kind joins the immutable() guarded list. insert_deal_sheet_version gains p_kind default 'commercials'. Verify verify-harness createVersion against the branched CHECK (the census flag).
+
+P5  Confirmed. Discount signal and floor flag sit in the approval page's ask block. No tracks, no approvers, no gate change.
+
+P6  Headline source, both methods: the record's working inputs for its pricingMethod, repriced live. Commercials is unchanged (calculateDeal over the payload). Term is priceQuote over termQuote with today's params, reporting Base TCV. At Closed Won the headline is the won version's frozen figure, either kind.
+    Cents become dollars in ONE adapter before contractValueOf. A term quote with zero units reads unpriced ('--').
+
+P7  Closed Won lock, both kinds, at the database: a trigger refusing INSERT on deal_sheet_versions (and UPDATE of a draft) for a record whose status is Closed Won. The route maps it to 409 with the existing Closed Won wording.
+    The R-TQ4 refusal "while a version awaits approval" is WITHDRAWN. It contradicts the decision of record that version approval does not freeze the record. A method switch is allowed. The next submitted major of either kind supersedes the open review and re-arms the gate (close_superseded_reviews, as today). pricingChanged answers "changed" whenever kinds differ, before comparing keys.
+
+0-7 Accepted: when the last approved version and the version under review differ in kind, the approval page drops the bridge and shows both headline figures side by side with "Pricing method changed: the previous approval does not carry over."
+
+RIDER  Move the scratch puppeteer out of /tmp (~/.cache/tms-probe), with the gate's printed recipe updated to match.
+
+GOLDENS (fixture params only; never write live settings)
+TQ-1  New opportunity, term quote, SafeSight 60 units, 120 months, OPEX, no CPI, no discount, no factoring: headline Base TCV 3,414,000.00 (monthly 28,450.00).
+TQ-2  Same quote saved as a draft, then fixture ladder 120 moved to 510.00: draft reopens at 3,482,280.00 (band fees 510.00 / 484.50 / 459.00, monthly 29,019.00) with "settings changed since saved".
+TQ-3  Same quote submitted at 500.00, then the ladder moved: the version and approval page still read 3,414,000.00.
+TQ-4  Closed Won record: a direct version insert of either kind is refused at the database.
+Existing goldens (G1 to G5 and the T, LG series) unchanged.
+
+SEQUENCE  Spec v2.1 first. Then the migration (kind, CHECK branch, guard list, p_kind, Closed Won trigger) drafted in full with rollback, and STOP for my review; John applies it before any gate run. Then tests fail first in their own commit, engine/routes, calibration (each FIRES), STOP for the mockup, view, probes from the click, sweep, full gate, merge --no-ff, merged gate, ls-remote, "ready for John's push".
