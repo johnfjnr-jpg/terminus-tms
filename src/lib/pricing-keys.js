@@ -12,7 +12,26 @@
 // OPEX overrides), which is recorded in the round report rather than relied on.
 import { payloadsDiffer } from './payload-diff.js'
 
-export const COMMERCIALS_OWNED_KEYS = Object.freeze([
+// ── TERM_QUOTES (John's P2 ruling, 2026-11-20): TWO LISTS, BECAUSE THERE ARE
+//    TWO JOBS ─────────────────────────────────────────────────────────────
+//
+// The ruling renames COMMERCIALS_OWNED_KEYS to PRICING_OWNED_KEYS and adds
+// termQuote and pricingMethod to it. The list did two jobs, and adding the two
+// keys is right for one and destructive for the other:
+//
+//   - the Closed Won key set and the server's pricing keys: EVERY pricing key,
+//     both methods. That is PRICING_OWNED_KEYS.
+//   - what the Commercials FORM writes: `pickSalespersonWritable`
+//     (frontend-react/src/deal/payload.ts) sends every key in its list on every
+//     save, null when the form holds no value, BECAUSE an omitted owned key
+//     reads as a deletion. Given termQuote, every Commercials save would send
+//     termQuote: null and wipe the record's term quote (CLAUDE.md Verification
+//     20: a control that edits a value is also what supplies it on save). That
+//     is COMMERCIALS_FORM_KEYS, the form's own 32, unchanged.
+//
+// So the form keeps its list under a name that says what it is, and the
+// pricing set is that list plus the term keys. One definition of each member.
+export const COMMERCIALS_FORM_KEYS = Object.freeze([
   'ssExisting', 'ssNew', 'aqm', 'hemir', 'installResp', 'lumpSumCost',
   'targetMargin', 'marginOverrides', 'inSsExisting', 'inSsNew', 'inAqm', 'inHemir',
   'warrantyPct', 'whtPct', 'gstPct', 'grossUp', 'bidCurrency', 'proposalCurrency',
@@ -36,6 +55,12 @@ export const COMMERCIALS_OWNED_KEYS = Object.freeze([
   'priceOverrides',
 ])
 
+/** The term quote's keys on the record (spec v2.1, 14.2): the quote and the method. */
+export const TERM_QUOTE_KEYS = Object.freeze(['termQuote', 'pricingMethod'])
+
+/** Every pricing key on an opportunity, both methods (P2, P7). */
+export const PRICING_OWNED_KEYS = Object.freeze([...COMMERCIALS_FORM_KEYS, ...TERM_QUOTE_KEYS])
+
 /** The won stage, by name, as opportunity-dates.js already names it. */
 export const WON_STAGE = 'Closed Won'
 
@@ -48,7 +73,7 @@ export const CLOSED_WON_PRICING_REFUSAL = "This deal is Closed Won; its pricing 
  * for everything else).
  */
 export function changedPricingKeys(before, after) {
-  return COMMERCIALS_OWNED_KEYS.filter((k) => k in (after ?? {}) && payloadsDiffer({ v: before?.[k] ?? null }, { v: after[k] ?? null }))
+  return PRICING_OWNED_KEYS.filter((k) => k in (after ?? {}) && payloadsDiffer({ v: before?.[k] ?? null }, { v: after[k] ?? null }))
 }
 
 /** The refusal sentence, or null. One rule for the client and the server. */

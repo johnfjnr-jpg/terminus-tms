@@ -9858,6 +9858,71 @@ select:autofill {
    so it wraps, where every figure cell in the table does not. */
 .tp-table tr.tp-pt-note td { white-space: normal; text-align: left; font-size: 12px; color: var(--muted); padding-top: 2px; }
 
+/* ── TERM_QUOTES V3: the Term quote tab, the Term Pricing screen bound ────
+   Artboard 1 at 1240 (an 876px pane): Units, the term table, the breakdown,
+   then the deal adjustment BESIDE the price card. The cards are the
+   standalone screen's own; only their arrangement changes, so the pricing
+   step's two columns are flattened (display: contents) into one grid and
+   ordered. Scoped to .tp-grid-pricing, so the payment and quote steps keep
+   the standalone's layout (CF1: "unchanged"). */
+.tp-bound .tp-grid-pricing { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: none; grid-template-rows: none; }
+.tp-bound .tp-grid-pricing > .tp-main,
+.tp-bound .tp-grid-pricing > .tp-side { display: contents; }
+.tp-bound .tp-grid-pricing .tp-card { margin-top: 0; grid-column: 1 / -1; order: 2; min-width: 0; }
+.tp-bound .tp-grid-pricing [data-testid="tp-units"] { order: 1; }
+.tp-bound .tp-grid-pricing [data-testid="tp-ladder-card"] { order: 3; }
+.tp-bound .tp-grid-pricing [data-testid="tp-breakdown-card"] { order: 4; }
+.tp-bound .tp-grid-pricing [data-testid="tp-deal"] { order: 5; grid-column: 1; }
+.tp-bound .tp-grid-pricing [data-testid="tp-price"] { order: 5; grid-column: 2; }
+/* grid-area first: the standalone's `grid-area: next` is an explicit
+   placement, which beats order, and the first capture showed the button
+   between Units and the term table. */
+.tp-bound .tp-grid-pricing > .tp-next-wrap { grid-area: auto; grid-column: 1 / -1; order: 6; }
+/* Artboard 1's term table: no list-fee and no vs-compare columns. */
+.tp-bound [data-testid="tp-ladder"] th:nth-child(2), .tp-bound [data-testid="tp-ladder"] td:nth-child(2),
+.tp-bound [data-testid="tp-ladder"] th:nth-child(5), .tp-bound [data-testid="tp-ladder"] td:nth-child(5) { display: none; }
+.tp-bound .tp-tabs { margin-top: 16px; }
+
+/* The pricing method selector, on both pricing tabs (V2). The estate's
+   segmented control is .view-toggle; this only lays out its row. */
+.pm-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 16px; }
+.pm-bar-left { display: flex; gap: 12px; align-items: center; }
+.pm-inactive { display: flex; flex-direction: column; gap: 10px; padding: 24px; }
+.pm-inactive-head { font-size: 15px; font-weight: 600; margin: 0; }
+.pm-inactive .pg-item-note { max-width: 640px; }
+/* V2: a pricing tab whose method is not in use shows only the bar and the line. */
+#opp-tab-commercial[data-pricing-inactive="true"] > :not(.pm-host) { display: none; }
+
+/* The term version card (V3, the second seam's card). */
+.tq-version { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.tq-version-figs { display: flex; gap: 28px; }
+.tq-version-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.tq-version-reason { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; }
+.tq-version-reason textarea { width: 100%; box-sizing: border-box; }
+
+/* The reopened-draft banner (V4) and the Closed Won banner (V6). */
+.tq-status { border: 1px solid currentColor; border-radius: 4px; padding: 12px 16px; font-size: 13px; line-height: 1.55; margin: 0 0 16px; }
+.tq-status-warn { color: var(--attention); }
+.tq-status-won { color: var(--green); }
+.tq-status .tq-status-body { color: var(--muted); }
+.tq-won-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tq-line { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; }
+.tq-line:last-child { border-bottom: 0; }
+/* Artboard 6: the read-only units are short fields at the line's right; the
+   first capture showed them stretched across the card, wrapping the labels. */
+.tq-line input { width: 96px; flex: 0 0 auto; text-align: right; }
+.tq-line .label { white-space: nowrap; }
+
+/* The approval page's term blocks (V5, CF2). */
+.tq-ask-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.tq-big { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+.tq-chips { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.tq-chip { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--hairline-strong); border-radius: 20px; padding: 6px 12px; font-size: 12px; }
+.tq-chip.tq-chip-flag { color: var(--attention); border-color: currentColor; }
+.tq-cashflow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.tq-changed tr.tq-same td { color: var(--muted); opacity: 0.7; }
+.tq-method-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
 
 
 

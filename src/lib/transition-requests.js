@@ -192,7 +192,7 @@ export function issuedProposal(versions, currentPayload, fromStage) {
   // "minor (draft) version" and "Issue major version" name the two things that
   // were being confused, so the sentence distinguishes taking from issuing in
   // its own terms instead of relying on which clause comes first.
-  const moved = pricingChanged(issued.inputs, currentPayload);
+  const moved = pricingChanged(issued, currentPayload);
   if (!moved.comparable) {
     // NOT a silent pass. A version with no snapshot, or a caller with no current
     // pricing, cannot answer "is this still the price" - and a transition

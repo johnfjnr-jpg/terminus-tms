@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useShell } from './ShellContext'
 import { approvalPageQuery } from './queries'
 import type { ApprovalPage } from './approval-types'
+import { TermAskBlock, WhatChangedBlock, MethodChangedBlock } from './approval-term'
+import type { TermAsk, ChangedRow, MethodChanged } from './approval-term'
 import {
   AskBlock, MovedBlock, ExposuresBlock, CostBasisBlock, NotRecordedBlock,
 } from './ApprovalBlocks'
@@ -140,6 +142,13 @@ export function ApprovalView({ oppId, navToken }: { oppId: string, navToken?: nu
   // version row four lines below already says "Taken from revision 22", so the
   // screen contradicted itself.
   const pricedRevision = page.ask.version?.revisionNumber ?? page.meta.revisionNumber
+  // TERM_QUOTES V5: the term branch and the method-changed block are read off
+  // the same page the server built; nothing here recomputes them.
+  const term = (page.ask as unknown as { kind?: string }).kind === 'term_quote'
+  const moved2 = page.moved as unknown as {
+    baseline?: { label: string } | null, absence?: string | null,
+    methodChanged?: MethodChanged | null, whatChanged?: { rows: ChangedRow[], note: string } | null
+  }
   const subtitle =
     `${rec.reference ?? 'no reference'} · ${rec.stage ?? ''} · `
     + `priced at revision ${pricedRevision}`
@@ -152,13 +161,32 @@ export function ApprovalView({ oppId, navToken }: { oppId: string, navToken?: nu
       subtitle={subtitle}
       stateTag={page.ask.version?.approval?.state ?? null}
     >
+      {term ? (
+        // TERM_QUOTES V5 (artboards 4 and 5): a term version's page is the
+        // ask, with its Cash flow card, and what changed. Target, exposures
+        // and cost basis are Commercials blocks with no term counterpart, so
+        // they are not drawn at all rather than drawn empty.
+        <div data-testid="approval-view">
+          <Card id="appr-block-ask" eyebrow="1. The ask">
+            <TermAskBlock ask={page.ask as unknown as TermAsk} frozen={page.frozen?.state === 'frozen'} />
+          </Card>
+          <Card id="appr-block-moved" eyebrow={moved2.baseline ? `2. What changed since ${moved2.baseline.label} (approved)` : '2. What changed'}>
+            {moved2.methodChanged ? <MethodChangedBlock m={moved2.methodChanged} />
+              : moved2.whatChanged ? <WhatChangedBlock baselineLabel={moved2.baseline?.label ?? ''} underReviewLabel={page.ask.version?.label ?? ''}
+                rows={moved2.whatChanged.rows} note={moved2.whatChanged.note} />
+              : <p className="pg-item-note">{moved2.absence}</p>}
+          </Card>
+        </div>
+      ) : (
       <div data-testid="approval-view">
         <Card id="appr-block-ask" eyebrow="1. The ask">
           <AskBlock ask={page.ask} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined}
             legacyHeadLine={page.frozen?.state === 'legacy' ? page.frozen.headLine : null} />
         </Card>
         <Card id="appr-block-moved" eyebrow="2. What moved it">
-          <MovedBlock moved={page.moved} target={page.target} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined} />
+          {/* TERM_QUOTES 0-7: a Commercials version against a TERM baseline has no bridge either. */}
+          {moved2.methodChanged ? <MethodChangedBlock m={moved2.methodChanged} />
+            : <MovedBlock moved={page.moved} target={page.target} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined} />}
         </Card>
         <Card id="appr-block-exposures" eyebrow="3. Risk terms, as exposures">
           <ExposuresBlock exposures={page.exposures} today={page.frozen?.state === 'frozen' ? page.frozen.today : undefined} />
@@ -170,6 +198,7 @@ export function ApprovalView({ oppId, navToken }: { oppId: string, navToken?: nu
           <NotRecordedBlock rows={page.notRecorded} />
         </Card>
       </div>
+      )}
     </Frame>
   )
 }

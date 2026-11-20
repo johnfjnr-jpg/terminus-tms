@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ── TP_BANDS: the band editor, from the click ────────────────────────────
 //
-//   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
+//   PUPPETEER_PATH=~/.cache/tms-probe/node_modules/puppeteer \
 //     node --env-file=.env scripts/term-pricing/probe-bands.mjs [--admin] [--out <dir>]
 //
 // Signs in as session-ref.json (john+test, a NON-admin) by session injection,

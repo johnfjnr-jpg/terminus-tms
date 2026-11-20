@@ -17,18 +17,24 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { loadPuppeteer } from '../lib/puppeteer.mjs'
+import { loadPuppeteer, scratchRecipe, SCRATCH_PUPPETEER } from '../lib/puppeteer.mjs'
 import { readCode } from '../lib/strip-comments.mjs'
 
-const SCRATCH = '/tmp/tms-probe/node_modules/puppeteer'
+// TERM_QUOTES rider: the scratch install moved from /tmp (swept) to the user's
+// cache. The path is the module's own constant, and the test below checks the
+// RECIPE the module prints names it, so the two cannot drift.
+const SCRATCH = SCRATCH_PUPPETEER
 
 test('the path the failure message prints is the path the loader accepts', { skip: !existsSync(`${SCRATCH}/package.json`) && 'puppeteer is not scratch-installed' }, async () => {
   // The exact value the message tells a person to set. Read from the module's
   // own source rather than retyped, so the two cannot drift: a test asserting a
   // hand-copied string would pass while the message said something else.
-  const src = readFileSync(new URL('../lib/puppeteer.mjs', import.meta.url), 'utf8')
-  const printed = src.match(/PUPPETEER_PATH=(\S+)/)[1]
+  // The recipe is now built by one function every message calls, so the value
+  // a person is told to set is read from that function's output.
+  const printed = scratchRecipe('npm run verify')[1].match(/^PUPPETEER_PATH=(\S+) /)?.[1]
   assert.equal(printed, SCRATCH, 'the message names a path this test does not check')
+  assert.match(scratchRecipe('x')[0], new RegExp(`--prefix ${SCRATCH.replace(/\/node_modules\/puppeteer$/, '')}$`),
+    'and the install line installs to the prefix that path is under')
 
   const before = process.env.PUPPETEER_PATH
   process.env.PUPPETEER_PATH = printed

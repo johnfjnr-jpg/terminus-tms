@@ -230,7 +230,12 @@ export async function assertFresh(oppId, tag) {
   return revs[0].revision_number
 }
 
-export async function freshOpportunity(tag) {
+// TERM_QUOTES R-TQ1: a new opportunity is a term quote unless its creator
+// chooses otherwise. Every probe built on this fixture proves the COMMERCIALS
+// path (R-TQ6 keeps it), so the fixture chooses Commercials at creation - the
+// way the system lets a creator choose - rather than leaving each probe to
+// discover its versions refused. A probe about term quotes passes 'term_quote'.
+export async function freshOpportunity(tag, { pricingMethod = 'commercials' } = {}) {
   const db = admin()
   const industry = (await api('GET', '/industries'))[0]
   const accounts = await api('GET', '/accounts')
@@ -246,7 +251,7 @@ export async function freshOpportunity(tag) {
   })
   await api('POST', `/contacts/${contact.id}/link-account`, { account_id: accounts[0].id })
   await api('POST', `/records/${contact.id}/transition`, { to_stage: 'Qualified' })
-  const opp = await api('POST', `/contacts/${contact.id}/create-opportunity`, { name: `${tag} Opportunity` })
+  const opp = await api('POST', `/contacts/${contact.id}/create-opportunity`, { name: `${tag} Opportunity`, pricingMethod })
 
   // ── THE ASSERTIONS. Creating and verifying are one operation. ──────────
   const revision = await assertFresh(opp.id, tag)

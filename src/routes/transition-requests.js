@@ -275,7 +275,7 @@ export default async function transitionRequestRoutes(app) {
       // version is a legitimate act that must not be refused.
       const { data: allVersions, error: avErr } = await db
         .from('deal_sheet_versions')
-        .select('id, major, minor, revision_number, inputs')
+        .select('id, kind, major, minor, revision_number, inputs')
         .eq('record_id', record.id)
       if (avErr) return reply.code(500).send({ error: avErr.message })
       const { data: allApprovals, error: aaErr } = await db
@@ -328,7 +328,7 @@ export default async function transitionRequestRoutes(app) {
         // answered against the version's own pricing snapshot rather than
         // against a revision number. Round 41.
         const { data: versions, error: vErr } = await db
-          .from('deal_sheet_versions').select('id, status, revision_number, major, minor, inputs')
+          .from('deal_sheet_versions').select('id, kind, status, revision_number, major, minor, inputs')
           .eq('record_id', record.id)
         if (vErr) return reply.code(500).send({ error: vErr.message })
         // rev.payload, not rev.revision_number. The route already loaded the

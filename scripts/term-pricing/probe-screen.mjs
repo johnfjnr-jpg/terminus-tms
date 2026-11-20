@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ── TERM PRICING: the screen, from the click ─────────────────────────────
 //
-//   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
+//   PUPPETEER_PATH=~/.cache/tms-probe/node_modules/puppeteer \
 //     node --env-file=.env scripts/term-pricing/probe-screen.mjs [mode] [--spec] [--out <dir>]
 //
 // Signs in as session-ref.json (john+test, a NON-admin) by session injection,

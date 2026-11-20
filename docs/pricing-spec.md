@@ -1,4 +1,4 @@
-# Terminus Term Pricing: Specification v2.0
+# Terminus Term Pricing: Specification v2.1
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -14,6 +14,7 @@
 **Amended (v1.9, John, 12 Oct 2026, TP_MANUAL, rulings M-1 to M-9 and C1 to C11):** a manual ladder comparison, SafeSight per camera: the user types a monthly price for each term and sees it against the calculated one-camera fee, with margin, profit, client total and three checks (section 4.6); test cases MG-1 to MG-4 (section 11.5). **Comparison only: it never prices a quote, changes no setting and stores nothing, so every earlier figure is unchanged.**
 **Amended (v1.10, John, 2026-11-16, TERM_FACTORING, rulings R-TF1 to R-TF12 and the Phase 1 sign-off):** PO factoring on the quote: an advance that funds hardware procurement, a loan schedule (straight-line or declining balance, rate per month), and the factoring cost either ABSORBED (price unchanged, profit falls) or PASSED THROUGH at cost (price rises by exactly the cost, profit unchanged) (sections 9.2 to 9.4); the margin floor reads the margin after finance cost (4.4); the cash flow with its rows, receipts basis, timing, lowest balance with and without factoring, and month of payback (sections 9.5, 9.6); test cases FA-1 to FA-9 (section 11.6). **With factoring off, every earlier figure is unchanged** (FA-8).
 **Amended (v2.0, John, 2026-11-17, TP_LADDER: the Phase 0 sign-off, its addendum A1 to A8, and the rulings on Q1 and on the golden figures):** **THE FORMULA IS REMOVED.** Every product prices from its **price ladder**, the LIST price per unit per month at each term, set by an admin per product (sections 3, 3.3, 4.1). A product with no price ladder, or no price at a term, prices nothing and says so (4.1, amended L-8). `ANCHOR_TERM` is renamed `COMPARE_TERM` and derives no price: it only sets the "vs N months" column (Q1). `ANCHOR_MARGIN`, `SHORT_TERM_MARGIN` and `PROFIT_STEP` are withdrawn; `HW_UPFRONT_MARGIN` stays, because CAPEX reads it. A **deal adjustment**, a deal discount or a deal fee, either-or, after the bands, with an approval signal (4.7, A4). The manual ladder comparison is retired (4.6, A5). The margin check gains the client-total and profit checks on every cell and reads a price ladder as typed (10.4, A6). **Figures that move:** every case with units beyond band 1, by cents, because a discounted band fee is now rounded from a list fee that is itself to the cent (section 10's preamble says how each was re-derived). Test cases LG-1 to LG-7 and DA-1 to DA-7 (section 11.7).
+**Amended (v2.1, John, 2026-11-20, TERM_QUOTES, rulings R-TQ1 to R-TQ6 and the Phase 0 rulings W and P1 to P7):** **A TERM QUOTE IS PRICED ON THE OPPORTUNITY** (section 14). An opportunity carries a pricing method, `term_quote` for every new opportunity and `commercials` for every existing one; a term quote's working inputs live on the record and price live; a submitted version holds the settings it was priced on BY VALUE, and its figures stand; the headline is Base TCV; a Closed Won record takes no new version of either kind; a change of method is a new version, and the previous approval does not carry over. Closes section 13's "Linking a quote to an opportunity's TCV". Test cases TQ-1 to TQ-4 (section 11.8). **The calculation is unchanged: every figure in sections 10 and 11 is unchanged**, and TQ-1 is LG-2 on the opportunity.
 
 
 
@@ -764,11 +765,23 @@ The live seed (A2) on SafeSight's spec costs, the seed bands (3.1), Base, no CPI
 | DA-6 | 1 SafeSight, 36 months, 5% off, CPI locked 3% from year 2 | monthly by year 1,026.00 / 1,056.78 / 1,088.48; Final TCV 38,055.12; Base TCV 36,936.00 | The discount every year (4.7, 7) |
 | DA-7 | DA-1 as `capex`, Hardware | CAPEX 12,500.00 at month 0; subscription 1,089.18 a month, 1,089.10 in month 36; Base TCV 51,710.40 | The subscription on the deal's Base TCV (6.3) |
 
+### 11.8 v2.1 cases (TERM_QUOTES)
+
+Fixture params only, never the live settings: section 11.7's fixture (the live seed, A2: SafeSight 500.00 at 120 months, the seed bands 0% from 1, 5% from 10, 10% from 50, 15% from 200, SafeSight's spec costs). Given by John with the Phase 0 rulings. Worked in integer cents: 9 × 500.00 + 40 × 475.00 + 11 × 450.00 = 28,450.00 a month, × 120 = 3,414,000.00, which is LG-2; at 510.00, 9 × 510.00 + 40 × 484.50 + 11 × 459.00 = 29,019.00, × 120 = 3,482,280.00.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| TQ-1 | A new opportunity (method `term_quote`), SafeSight 60 units, 120 months, `opex`, no CPI, no deal adjustment, no factoring | headline Base TCV 3,414,000.00 (monthly 28,450.00) | The headline is Base TCV (14.4); LG-2 on the opportunity |
+| TQ-2 | TQ-1 saved as a draft version; then the fixture ladder's 120-month price moved to 510.00 | the draft reopens at 3,482,280.00 (band fees 510.00 / 484.50 / 459.00, monthly 29,019.00) and says "settings changed since saved" | A draft reprices on today's settings (14.5) |
+| TQ-3 | TQ-1 submitted at 500.00; then the ladder moved as TQ-2 | the version and the approval page still read 3,414,000.00 | A submitted version's figures stand (14.6) |
+| TQ-4 | A Closed Won record | a direct version insert of either kind is refused at the database | No new pricing on a won deal (14.8) |
+
 ## 12. Implementing in the TMS prototype
 
 - Built through the TMS round method, as a standalone Term Pricing screen first. It does not touch the existing Commercials engine or its golden deals.
 - CLAUDE.md carries a scoped rule: "The term pricing calculator follows docs/pricing-spec.md exactly: no hard-coded parameters, no floats for money. This rule does not govern the deal-sheet engine."
 - Sections 10 and 11 become the calculator's golden figures, copied from this spec, never computed by the code under test.
+- **v2.1:** the same engine prices a term quote on the opportunity (section 14). The standalone screen stays, unchanged, and saves nothing; the opportunity's Term quote tab is the same screen in a bound mode, reading and reporting the quote's inputs, so there is one screen and one engine.
 
 ## 13. Not yet decided
 
@@ -781,7 +794,60 @@ The live seed (A2) on SafeSight's spec costs, the seed bands (3.1), Base, no CPI
 | Warranty | Excluded for now |
 | Cost escalation | Costs held flat |
 | ~~Per-camera columns under `capex` (hardware per camera, service fee per camera)~~ | **CLOSED (v1.6, C-10, Q12):** no per-camera CAPEX figure anywhere; ~~under `capex` the ladder shows the term and the OPEX per-camera fee only~~ (superseded by v1.7, C2: the ladder shows every column whatever the basis; section 4.5) |
-| Linking a quote to an opportunity's TCV | After the demo, with a "one deal, one price" rule |
+| ~~Linking a quote to an opportunity's TCV~~ | **CLOSED (v2.1, TERM_QUOTES):** a term quote is priced on the opportunity, and its Base TCV is the headline (section 14). One deal, one price: the record has one pricing method at a time |
 | A split OPEX invoice whose service line would fall below zero (the hardware line exceeds the month's fee, possible only with unusual admin margins) | The quote refuses with a clear error rather than invoice a negative line (implementation position, TERM_PRICING_2) |
 | Staged vendor payments and staged factoring drawdowns on the screen | The engine takes schedules (9.5); the screen shows one amount each (v1.10, R-TF12) |
 | Factoring timing other than month 1 | Month 1 for procurement and the advance, as Commercials (R-TF10) |
+
+## 14. The term quote on an opportunity (v2.1, TERM_QUOTES)
+
+The calculation is sections 2 to 9, unchanged. This section says where a term quote's inputs live, which settings price it, when its figures are fixed, and what it shows as the opportunity's value.
+
+### 14.1 The pricing method (R-TQ1, R-TQ6, W)
+
+- An opportunity has ONE pricing method at a time, `pricingMethod`: `term_quote` or `commercials`.
+- Every new opportunity is created with `term_quote` (R-TQ1). It is an initial value written at creation, not a fallback.
+- **A record with no `pricingMethod` reads as `commercials`.** That is every opportunity created before v2.1, and it is true of all of them: every version they carry was priced by Commercials (measured, TERM_QUOTES Phase 0).
+- Commercials stays as a method (R-TQ6), priced by the deal-sheet engine, which this specification does not govern.
+
+### 14.2 The working inputs (P2)
+
+- A term quote's working inputs live on the opportunity record, under `termQuote`: the section 2 inputs (products and units, term, payment structure and its CAPEX inputs, CPI mode and escalator, GST and WHT, factoring, the deal adjustment). What the screen shows but the engine does not read (the open tab, a panel left expanded) is not stored.
+- They are edited on the opportunity's Term quote tab, which is the Term Pricing screen in a bound mode. The standalone screen stays, unchanged, and saves nothing.
+- `termQuote` and `pricingMethod` are pricing keys: the record's save accepts them, and a Closed Won record refuses a change to either (14.8).
+
+### 14.3 Which settings price a term quote
+
+- **Working inputs and draft versions price on TODAY's settings** (section 3 and the current catalog costs), every time they are shown (R-TQ2).
+- **A version holds the settings it was priced on, BY VALUE**: the seven configurable parameters the engine reads (`TERMS`, `COMPARE_TERM`, `PRICE_LADDER_BY_PRODUCT`, `VOLUME_BANDS_BY_PRODUCT`, `HW_UPFRONT_MARGIN`, `MARGIN_FLOOR`, `CURRENCY`) and each product's costs. A cost batch's id is not enough, because a batch a version does not cite can still be edited. CPI, GST, WHT and factoring are the deal's inputs (section 2), so they travel with the inputs, not with the settings.
+- The snapshot is sufficient: repriced from it after every live setting has moved, a quote's figures are byte-identical (proved at TERM_QUOTES Phase 0, with each parameter shown to matter).
+
+### 14.4 The headline (P6)
+
+- **The opportunity's headline value is Base TCV** (section 4.3), the figure that carries approval, margin and the floor.
+- For a `term_quote` record it is the working inputs priced on today's settings. For a `commercials` record it is the deal-sheet engine over the record, as before v2.1.
+- **At Closed Won it is the won version's stored figure**, for either method.
+- The engine reports cents; the headline is shown in dollars to the cent, converted in one place.
+- **A term quote with no units is unpriced**, and reads `--`, as an unpriced Commercials deal does. A quote the engine refuses (a product with no price at the term, 4.1) also reads `--`, and the Term quote tab says why. Neither is ever shown as 0.00.
+
+### 14.5 A draft version (R-TQ2)
+
+- A draft is a saved point in the quote's history, not a price. It reprices on today's settings whenever it is opened.
+- **"Settings changed since saved"** is shown when the settings stored with the draft differ from today's in any value, compared value by value. It is never a timestamp: a cost batch takes effect by date with no write, and a settings save that writes an unchanged value moves its timestamp.
+
+### 14.6 A submitted version (R-TQ2, P3)
+
+- Submission prices the version on the settings stored with it and FREEZES the figures, exactly as a Commercials version's are frozen. From then on the version and its approval page read those figures, whatever the settings become (TQ-3).
+- Today's engine still runs beside them as a check, and where it differs the page says so; the stored figure stands.
+
+### 14.7 Signals, and a change of method (R-TQ3, R-TQ4, 0-7)
+
+- The deal adjustment's approval signal (4.7) and the margin floor flag (4.4) appear on the approval page beside Base TCV and margin. They are signals only: no track, no approver, no gate.
+- **A change of method is a new version.** Versions of both methods share one sequence on the record. A version of a different method from the last approved one is always a pricing change, and the next submitted major supersedes any open review and re-arms the gate.
+- **A version under review does not freeze the record.** A method switch is allowed while it waits. (R-TQ4's "refused while a version awaits approval" is withdrawn, TERM_QUOTES Phase 0 rulings.)
+- When the last approved version and the version under review differ in method, the approval page shows no bridge. It shows both headline figures side by side and says: "Pricing method changed: the previous approval does not carry over."
+
+### 14.8 Closed Won (P7)
+
+- A Closed Won record takes no new version of either method, and no change to a draft one; the database refuses it (TQ-4). The screen says: "This deal is Closed Won; its pricing is the won version's and cannot change."
+- The record's pricing keys, including `termQuote` and `pricingMethod`, cannot change either. Non-pricing fields stay editable.

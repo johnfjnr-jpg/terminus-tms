@@ -60,6 +60,22 @@ export const ALLOWED_IMPORTERS = [
   // loan schedule and cash flow timing to Commercials' to the cent. Ruled at
   // the Phase 1 sign-off. The engine itself still imports nothing (part 1).
   'scripts/tests/term-factoring-parity.test.mjs',
+  // TERM_QUOTES (spec v2.1, goldens TQ-1 to TQ-3): formats the engine's cents
+  // with the engine's own formatMoney, so the goldens are compared in the
+  // spec's printed form rather than through a second formatter.
+  'scripts/tests/term-quotes-engine.test.mjs',
+  // TERM_QUOTES V4, V5, CF2: prices the fixture quotes the view-library tests
+  // compare against, through the engine itself.
+  'scripts/tests/term-quotes-view.test.mjs',
+  // TERM_QUOTES (spec v2.1, section 14): THE ONE GATEWAY from the opportunity
+  // to the engine. The headline, the approval page and the version routes
+  // import it, never the engine, so the whole round adds one importer here.
+  // Neither engine imports the other (part 1 still holds); this module and its
+  // callers are where the two METHODS meet, and it prices no Commercials deal.
+  'src/lib/term-quote.js',
+  // TERM_QUOTES V3: the bound view's value object names the engine's CpiMode
+  // TYPE (a type import, no code), so the union has one definition.
+  'frontend-react/src/term-pricing/form.ts',
 ]
 
 const SCAN_DIRS = ['src', 'frontend', 'frontend-react/src', 'scripts', 'prototypes']
@@ -132,6 +148,33 @@ test('R-TP1 (2): nothing outside the allowlist imports the engine', () => {
   assert.deepEqual(unrecorded, [], `unrecorded importers of the engine: ${unrecorded.join(', ')}`)
   // And the allowlist is not stale: every entry exists and really imports it.
   for (const f of ALLOWED_IMPORTERS) assert.ok(importers.includes(f), `${f} is allowlisted but does not import the engine`)
+})
+
+// ── R-TP1 AS CONFIRMED BY JOHN, 2026-11-20 (TERM_QUOTES build review D2) ──
+//
+// "The term engine imports nothing" (part 1, above), and the PRODUCT code that
+// may import it is named here, literally, so a new importer is a diff to this
+// list that somebody reads. The allowlist above also carries tests and scripts;
+// this is the product side of it, the files that ship. Exact in both
+// directions: a new importer fails, and so does a named one that stops.
+export const PRODUCT_IMPORTERS = Object.freeze([
+  // TERM_QUOTES: the one gateway from the opportunity to the engine.
+  'src/lib/term-quote.js',
+  // The standalone Term Pricing screen, which prices in the browser.
+  'frontend-react/src/term-pricing/TermPricingView.tsx',
+  // Settings rows to engine parameters, and an admin change validated through
+  // the engine's normaliseParams; and its type declarations.
+  'src/lib/term-pricing-settings.js',
+  'src/lib/term-pricing-settings.d.ts',
+  // TERM_QUOTES V3: the bound view's value object, a TYPE import of CpiMode.
+  'frontend-react/src/term-pricing/form.ts',
+])
+
+test('R-TP1 (D2): the product modules that import the engine are exactly the named five', () => {
+  const product = files.filter((f) => f !== ENGINE && !f.startsWith('scripts/') && importsEngine(f)).sort()
+  assert.deepEqual(product, [...PRODUCT_IMPORTERS].sort(),
+    'the product importers of src/lib/term-pricing.js changed; a new one is added to PRODUCT_IMPORTERS in a diff somebody reads')
+  for (const f of PRODUCT_IMPORTERS) assert.ok(ALLOWED_IMPORTERS.includes(f), `${f} is named here and missing from ALLOWED_IMPORTERS`)
 })
 
 test('R-TP1 (2a): a path that merely CONTAINS the name is not an import of the engine', () => {

@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-11-18T12:38:10.386Z`
-- Git commit: `880d3819f39f99a67c731765a2f8ed87b7ce52d8`
+- Generated at: `2026-11-20T15:31:45.758Z`
+- Git commit: `00222fefa69662a7bbaa028ca1be39009693b317`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 634,386 bytes
-- sha256: `92955d8d697a2b253df98f794ce1164ffe74833825221494e5a3e4928a464a01`
-- React suite: 1480/1480 pass, 0 fail
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 656,391 bytes
+- sha256: `ddecbfaea074b7429b6886da610fc5eee6434453b4fe00428e51bd8d8e72753e`
+- React suite: 1498/1498 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1244 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1215 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1267 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1238 | yes |
 
 ## `stage_definitions`
 
@@ -518,36 +518,36 @@ _None._
 
 ## Record counts by type and status
 
-134 live, 128290 soft deleted, 128424 rows in total.
+134 live, 129967 soft deleted, 130101 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1771 |
-| contact | Active | 0 | 3720 |
+| account | active | 7 | 1781 |
+| contact | Active | 0 | 3768 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 14088 |
+| contact | Qualified | 12 | 14333 |
 | contact | Unqualified | 5 | 770 |
-| document | approved | 65 | 6119 |
+| document | approved | 65 | 6183 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
-| opportunity | Closed Won | 2 | 29 |
-| opportunity | Evaluation | 0 | 341 |
+| opportunity | Closed Won | 2 | 78 |
+| opportunity | Evaluation | 0 | 346 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 2077 |
-| opportunity | Qualification | 6 | 12286 |
-| opportunity | Solution Alignment | 7 | 1607 |
+| opportunity | Proposal | 3 | 2109 |
+| opportunity | Qualification | 6 | 12539 |
+| opportunity | Solution Alignment | 7 | 1630 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1591 |
+| test_bed | Qualification | 4 | 1601 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 24066 |
+| unit | Planned | 9 | 24348 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -558,20 +558,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 7354 | 0 | 59591 |
+| 7434 | 0 | 60247 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5514 rows, of which 3 carry a null `stage`.
+5594 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2675 | 0 |
-| approved | Legal | 1564 | 1 |
+| approved | Commercial | 2720 | 0 |
+| approved | Legal | 1584 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1266 | 0 |
+| approved | Technical | 1281 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -601,9 +601,9 @@ than written as a literal list, so its members are not enumerable here.
 
 ### `SALESPERSON_WRITABLE_KEYS` (`src/routes/opportunities.js`)
 
-74 literal keys.
+76 literal keys.
 
-`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `priceOverrides`, `hostingPriceMode`, `hostingUnitFees`, `paymentMode`, `opexUnitFees`, `opexUnitMargins`, `inSsExisting`, `inSsNew`, `inAqm`, `inHemir`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `followUpDate`, `followUpDescription`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
+`ssExisting`, `ssNew`, `aqm`, `hemir`, `installResp`, `lumpSumCost`, `targetMargin`, `marginOverrides`, `priceOverrides`, `hostingPriceMode`, `hostingUnitFees`, `paymentMode`, `opexUnitFees`, `opexUnitMargins`, `inSsExisting`, `inSsNew`, `inAqm`, `inHemir`, `warrantyPct`, `whtPct`, `gstPct`, `grossUp`, `duration`, `structure`, `recoveryMonths`, `invoicing`, `milestones`, `contractorMilestones`, `factoring`, `termQuote`, `pricingMethod`, `lead`, `commercial`, `technical`, `legal`, `customerLead`, `commAddress`, `region`, `country`, `commAddress2`, `commCity`, `commPostcode`, `commCountry`, `commRegion`, `commAddressSameAsAccount`, `assessmentReviewed`, `exitQualBudget`, `exitQualTimeline`, `exitQualCommitment`, `exitSolTechnicalSolution`, `exitSolBuyersKnown`, `exitSolKeyStakeholders`, `exitSolTermsReviewed`, `exitPropContractTerms`, `exitPropImplSchedule`, `exitPropDocumentation`, `exitEvalClarificationsResponded`, `exitEvalRevisedPricing`, `exitEvalTechnicalClarifications`, `exitNegScopeAgreed`, `exitNegPricingAgreed`, `exitNegLegalResolved`, `exitNegCommercialsApproved`, `exitNegContractExecuted`, `summary`, `oppType`, `actualClose`, `estGoLive`, `actualGoLive`, `notes`, `followUpDate`, `followUpDescription`, `name`, `bidCurrency`, `proposalCurrency`, `fxContingency`
 
 ### `TEST_BED_WRITABLE_KEYS` (`src/routes/test-beds.js`)
 
@@ -702,7 +702,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-132 files in `supabase/migrations/`.
+133 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -836,6 +836,7 @@ than written as a literal list, so its members are not enumerable here.
 130. `20261114000001_deal_dynamics_lens.sql`
 131. `20261117000001_term_pricing_price_ladder.sql`
 132. `20261117000002_versions_freeze_their_figures.sql`
+133. `20261120000001_term_quotes_versions_carry_a_kind.sql`
 
 ## Seed files, in application order
 

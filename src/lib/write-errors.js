@@ -27,6 +27,8 @@
  * part. It does not name the owner: that would need a lookup at fifty call
  * sites and would disclose an account to anyone who guessed a record id.
  */
+import { CLOSED_WON_PRICING_REFUSAL } from './pricing-keys.js'
+
 export const OWNERSHIP_REFUSAL =
   'This record belongs to another user. You can view it, but only its owner can change it.'
 
@@ -103,6 +105,28 @@ export function isFrozen(error) {
 export const FROZEN_STATUS = 423
 
 /**
+ * ── TERM_QUOTES P7: THE CLOSED WON REFUSAL, WHICH SHARES PT423 ───────────
+ *
+ * deal_sheet_versions_closed_won() (20261120000001) refuses a version insert,
+ * or a draft's update, on a Closed Won record, and it raises PT423 - THE SAME
+ * SQLSTATE AS THE FREEZE ABOVE. The migration's review report called PT423 "a
+ * new SQLSTATE"; it was not, and that is recorded as a correction in the round
+ * report rather than here as a quiet fix.
+ *
+ * Until the two have different codes, the Closed Won refusal is told apart by
+ * its MESSAGE, which the trigger raises as CLOSED_WON_PRICING_REFUSAL word for
+ * word. That equality is not trusted: term-quotes-db.test.mjs (e) asserts the
+ * live trigger's message equals the constant, so a drift is a red test rather
+ * than a freeze answering 409. 409 with the ruled wording, not 423: the record's
+ * state forbids it for good, it is not waiting for anybody (P7).
+ */
+export function isClosedWon(error) {
+  return error?.code === 'PT423' && error?.message === CLOSED_WON_PRICING_REFUSAL
+}
+
+export const CLOSED_WON_STATUS = 409
+
+/**
  * A WRITE REFUSED BY A DATA-DRIVEN LIMIT. Round 42, the convert atomicity round.
  *
  * PT422 is raised by convert_test_bed() when the Test Bed has already been
@@ -151,6 +175,7 @@ export const MISSING_STATUS = 404
  * and preserves that behaviour for every error that is not a refusal.
  */
 export function sendWriteError(reply, error) {
+  if (isClosedWon(error)) return reply.code(CLOSED_WON_STATUS).send({ error: CLOSED_WON_PRICING_REFUSAL })
   if (isFrozen(error)) return reply.code(FROZEN_STATUS).send({ error: error.message, frozen: true })
   if (isLimit(error)) return reply.code(LIMIT_STATUS).send({ error: error.message })
   if (isMissing(error)) return reply.code(MISSING_STATUS).send({ error: error.message })
@@ -170,6 +195,7 @@ export function sendWriteError(reply, error) {
  * is the shape appendPayloadSeriesEntry already used.
  */
 export function writeErrorStatus(error) {
+  if (isClosedWon(error)) return { status: CLOSED_WON_STATUS, error: CLOSED_WON_PRICING_REFUSAL }
   if (isFrozen(error)) return { status: FROZEN_STATUS, error: error.message, frozen: true }
   if (isLimit(error)) return { status: LIMIT_STATUS, error: error.message }
   if (isMissing(error)) return { status: MISSING_STATUS, error: error.message }

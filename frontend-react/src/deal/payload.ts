@@ -108,8 +108,8 @@ export const MARGIN_KEYS = [
 // server's Closed Won refusal and this form read ONE list. Re-exported here so
 // every existing importer is unchanged. SUPERSEDED, left visible: the literal
 // array that stood here (the same 32 keys, the same order).
-import { COMMERCIALS_OWNED_KEYS } from '../../../src/lib/pricing-keys.js'
-export { COMMERCIALS_OWNED_KEYS }
+import { COMMERCIALS_FORM_KEYS } from '../../../src/lib/pricing-keys.js'
+export { COMMERCIALS_FORM_KEYS }
 
 /** R-O7: the three hosting types, in the order the card lists them. */
 export const HOSTING_FEE_KEYS = ['hoSs', 'hoAqm', 'hoHemir'] as const
@@ -397,7 +397,7 @@ export function readDealPayload(
 // marginOverrides, and this does not undo it.
 export function pickSalespersonWritable(payload: Record<string, unknown>): Record<string, unknown> {
   const owned: Record<string, unknown> = {}
-  for (const key of COMMERCIALS_OWNED_KEYS) {
+  for (const key of COMMERCIALS_FORM_KEYS) {
     owned[key] = payload[key] === undefined ? null : payload[key]
   }
   return owned

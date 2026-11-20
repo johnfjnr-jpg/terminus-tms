@@ -248,6 +248,14 @@ const AMBER_FAMILY = [
   // approval signal, a term with no price, and a failing check's mark. All one
   // meaning: this needs the eye before approval. Borders follow currentColor.
   '.tp-amber-fig',
+  // ── TERM_QUOTES V4, V5, 2026-11-20 ─────────────────────────────────────
+  //
+  // ADDED BECAUSE THIS TEST CAUGHT IT. Two sites, the one meaning: the
+  // reopened-draft banner (settings changed since the draft was saved, and the
+  // method-changed statement on the approval page share the class) and a
+  // raised signal's chip on the approval page (a discount, or below the floor).
+  '.tq-status-warn',
+  '.tq-chip.tq-chip-flag',
 ]
 
 // Most listed selectors carry ONE `var(--attention)`. `.btn-attention` carries

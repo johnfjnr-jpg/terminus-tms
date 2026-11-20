@@ -8119,6 +8119,11 @@ async function renderOppDetail(opp) {
   // Commercials tab — deal-calculator.js live preview + save/submit.
   window.initOpportunityDealPanel?.(opp)
 
+  // TERM_QUOTES V1, V2: the React Term quote tab, and the pricing method
+  // selector at the head of the Commercials tab. Both are the bundle's.
+  window.initOpportunityTermQuote?.(opp)
+  window.initOpportunityPricingMethod?.(opp)
+
   // The React ReferenceHost owns the Reference tab: click-to-edit fields, the
   // key contacts, and now the record band it portals into `#opp-band-root`
   // above the tab row. The file this comment used to name,

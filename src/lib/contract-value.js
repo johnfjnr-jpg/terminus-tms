@@ -20,5 +20,26 @@ export function contractValueOf(net) {
   return Number.isFinite(net) && net !== 0 ? net : null
 }
 
+// ── TERM_QUOTES (spec v2.1, 14.4): THE ONE CENTS-TO-DOLLARS ADAPTER ──────
+//
+// The term engine reports integer cents (BigInt, or a decimal string once
+// stored); every caller of contractValueOf passes dollars. A term figure
+// reaches the unpriced rule through here and nowhere else, so "is it priced"
+// stays ONE definition for both methods. Exact for any whole number of cents a
+// deal can reach (below 2^53 cents).
+
+/** Integer cents (bigint, integer string or integer number) to dollars, or null. */
+export function centsToDollars(cents) {
+  if (cents === null || cents === undefined || cents === '') return null
+  let c
+  try { c = BigInt(cents) } catch { return null }
+  return Number(c) / 100
+}
+
+/** contractValueOf for a figure in cents. */
+export function contractValueOfCents(cents) {
+  return contractValueOf(centsToDollars(cents))
+}
+
 /** What every surface prints for an unpriced deal. */
 export const UNPRICED = '--'

@@ -79,6 +79,7 @@
  */
 import { payloadsDiffer, changedKeys } from './payload-diff.js';
 import { CATALOG_ONLY_RATE_KEYS } from './rate-resolution.js';
+import { pricingMethodOf, versionKindOf } from './pricing-method.js';
 
 /**
  * The keys a version freezes from the catalog and the record never stores.
@@ -129,13 +130,42 @@ export function decisionState(source) {
  * than a fix. It is here because the previous rule ANSWERED for those rows,
  * badly, and this one would have answered for them silently.
  *
- * @param {object} versionInputs - deal_sheet_versions.inputs
+ * ── TERM_QUOTES (P1, P7, John 2026-11-20): IT TAKES THE VERSION ROW ───────
+ *
+ * It took `version.inputs`, so it could not know what priced them. Under one
+ * version sequence the newest row may be a term quote, and comparing term
+ * inputs with a record's Commercials keys answers a question nobody asked. So
+ * it takes the ROW (a reader that holds the row cannot forget to pass its
+ * kind, which a defaulted third argument would let it do, Verification 24),
+ * and:
+ *   - a version of a different method from the record's is ALWAYS changed,
+ *     before any key is compared (keys: ['pricingMethod']);
+ *   - a term version compares its inputs with the record's termQuote, whole;
+ *   - a Commercials version compares as before, over the version's own keys.
+ * A row with no kind is Commercials (W).
+ *
+ * @param {{ kind?: string, inputs?: object }} version - a deal_sheet_versions row
  * @param {object} recordPayload - the record's current payload
  * @returns {{ changed: boolean, keys: string[], comparable: boolean }}
  */
-export function pricingChanged(versionInputs, recordPayload) {
-  const was = decisionState(versionInputs);
-  if (!Object.keys(was).length || recordPayload === undefined || recordPayload === null) {
+export function pricingChanged(version, recordPayload) {
+  if (!version || recordPayload === undefined || recordPayload === null) {
+    return { changed: false, keys: [], comparable: false };
+  }
+  const kind = versionKindOf(version);
+  if (kind !== pricingMethodOf(recordPayload)) {
+    return { changed: true, keys: ['pricingMethod'], comparable: true };
+  }
+  if (kind === 'term_quote') {
+    const inputs = version.inputs;
+    if (!inputs || typeof inputs !== 'object' || !Object.keys(inputs).length) {
+      return { changed: false, keys: [], comparable: false };
+    }
+    const changed = payloadsDiffer({ termQuote: recordPayload.termQuote ?? null }, { termQuote: inputs });
+    return { changed, keys: changed ? ['termQuote'] : [], comparable: true };
+  }
+  const was = decisionState(version.inputs);
+  if (!Object.keys(was).length) {
     return { changed: false, keys: [], comparable: false };
   }
   const now = {};
@@ -209,6 +239,10 @@ export const PRICING_KEY_LABELS = Object.freeze({
   hostingUnitFees: 'Hosting monthly fee per unit',
   opexUnitFees: 'OPEX monthly fee per unit',
   opexUnitMargins: 'OPEX margin % per unit',
+  // TERM_QUOTES (spec v2.1, 14.2): the term quote's two record keys, in the
+  // words the opportunity's tabs will use. Revisitable with the mockup.
+  termQuote: 'Term quote',
+  pricingMethod: 'Pricing method',
 });
 
 /** What an unlabelled key reads as. NEVER the raw key. F1, ruled. */

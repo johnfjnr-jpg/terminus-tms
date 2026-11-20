@@ -25,6 +25,23 @@
  * @param {string} probeName - used only in the failure message
  * @returns {Promise<object>} the puppeteer default export
  */
+// ── WHERE THE SCRATCH INSTALL LIVES (TERM_QUOTES rider, John 2026-11-20) ────
+//
+// It was /tmp/tms-probe, and /tmp is swept: check-browser-usable.mjs records
+// a sweep that left the directory holding `lib` and `src` and no install, so a
+// presence check passed and the browser stages would have SKIPPED. It lives in
+// the user's cache now, which nothing sweeps. ONE definition of the path and of
+// the recipe that names it, imported by every message that prints it
+// (verify-all, check-browser-usable, this loader), so the instruction cannot
+// name a path the loader does not accept (probe-loader.test.mjs checks it).
+import { homedir } from 'os';
+export const SCRATCH_PREFIX = `${homedir()}/.cache/tms-probe`;
+export const SCRATCH_PUPPETEER = `${SCRATCH_PREFIX}/node_modules/puppeteer`;
+/** The two lines a person types: install, then run `command` with the path set. */
+export function scratchRecipe(command) {
+  return [`npm i puppeteer --prefix ${SCRATCH_PREFIX}`, `PUPPETEER_PATH=${SCRATCH_PUPPETEER} ${command}`];
+}
+
 export async function loadPuppeteer(probeName) {
   const dir = process.env.PUPPETEER_PATH;
   try {
@@ -44,8 +61,7 @@ export async function loadPuppeteer(probeName) {
       }
     }
     console.error('puppeteer is not available, and it is not a dependency of this repository.');
-    console.error('  npm i puppeteer --prefix /tmp/tms-probe');
-    console.error(`  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer node scripts/${probeName}`);
+    for (const line of scratchRecipe(`node scripts/${probeName}`)) console.error(`  ${line}`);
     console.error('');
     console.error('That command is exercised rather than asserted: scripts/tests/probe-loader.test.mjs');
     console.error('imports this module and checks the printed path resolves.');

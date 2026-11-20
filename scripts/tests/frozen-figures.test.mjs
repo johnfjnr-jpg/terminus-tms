@@ -5,7 +5,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  COMMERCIALS_OWNED_KEYS, CLOSED_WON_PRICING_REFUSAL, WON_STAGE,
+  PRICING_OWNED_KEYS, COMMERCIALS_FORM_KEYS, TERM_QUOTE_KEYS, CLOSED_WON_PRICING_REFUSAL, WON_STAGE,
   changedPricingKeys, closedWonPricingRefusal,
 } from '../../src/lib/pricing-keys.js'
 import { wonHeadline, NO_WON_VERSION_NOTE, totalContractValue } from '../../src/lib/opportunity-headline.js'
@@ -27,7 +27,7 @@ test('a Closed Won pricing CHANGE is refused; every other stage is not', () => {
 })
 
 test('a non-pricing edit to a Closed Won record is allowed (both halves: the key exists and is not pricing)', () => {
-  assert.ok(!COMMERCIALS_OWNED_KEYS.includes('notes') && !COMMERCIALS_OWNED_KEYS.includes('summary'))
+  assert.ok(!PRICING_OWNED_KEYS.includes('notes') && !PRICING_OWNED_KEYS.includes('summary'))
   assert.equal(closedWonPricingRefusal('Closed Won', { ssNew: 5 }, { notes: 'x', summary: 'y' }), null)
 })
 
@@ -37,9 +37,13 @@ test('resending a saved price beside a non-pricing edit is not a change (the Com
   assert.deepEqual(changedPricingKeys(before, { ...before, factoring: { enabled: true, ratePct: 3 } }), ['factoring'])
 })
 
-test('every one of the 32 pricing keys is refused on a change (a list member cannot be skipped)', () => {
-  assert.equal(COMMERCIALS_OWNED_KEYS.length, 32)
-  for (const k of COMMERCIALS_OWNED_KEYS) {
+test('every one of the 34 pricing keys is refused on a change (a list member cannot be skipped)', () => {
+  // TERM_QUOTES P2: the form's 32 and the term quote's two, each named, so a
+  // key moved between the lists is a red test rather than a changed count.
+  assert.equal(COMMERCIALS_FORM_KEYS.length, 32)
+  assert.deepEqual([...TERM_QUOTE_KEYS], ['termQuote', 'pricingMethod'])
+  assert.deepEqual([...PRICING_OWNED_KEYS], [...COMMERCIALS_FORM_KEYS, ...TERM_QUOTE_KEYS])
+  for (const k of PRICING_OWNED_KEYS) {
     assert.equal(closedWonPricingRefusal('Closed Won', { [k]: 1 }, { [k]: 2 }), CLOSED_WON_PRICING_REFUSAL, k)
   }
 })
@@ -47,7 +51,7 @@ test('every one of the 32 pricing keys is refused on a change (a list member can
 test('the client and the server read ONE list: payload.ts re-exports it rather than restating it', () => {
   const src = readFileSync(new URL('../../frontend-react/src/deal/payload.ts', import.meta.url), 'utf8')
   assert.match(src, /from '\.\.\/\.\.\/\.\.\/src\/lib\/pricing-keys\.js'/)
-  assert.doesNotMatch(src, /export const COMMERCIALS_OWNED_KEYS = \[/)
+  assert.doesNotMatch(src, /export const COMMERCIALS_FORM_KEYS = \[/)
 })
 
 test('not Closed Won: today\'s figures and nothing to say', () => {

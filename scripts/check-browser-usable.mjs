@@ -15,7 +15,7 @@
 // DIRECTORY PRESENCE IS NOT INSTALLATION. This asks the functional question
 // the dependent stages actually need answered: does it LOAD, and does it
 // LAUNCH.
-import { loadPuppeteer } from './lib/puppeteer.mjs'
+import { loadPuppeteer, scratchRecipe } from './lib/puppeteer.mjs'
 
 const t0 = Date.now()
 let puppeteer
@@ -25,7 +25,7 @@ try {
   console.error('FAIL  the browser dependency does not LOAD.')
   console.error(`  ${String(e).split('\n')[0]}`)
   console.error('  A directory is not an install. Reinstall:')
-  console.error('    npm i puppeteer --prefix /tmp/tms-probe')
+  console.error(`    ${scratchRecipe('npm run verify')[0]}`)
   process.exit(1)
 }
 

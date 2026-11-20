@@ -18,19 +18,26 @@
 
 import { test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { adminClient, newRunTag, Fixtures, resolveOwnerId } from '../verify-harness.mjs'
+import { adminClient, newRunTag, Fixtures, resolveOwnerId, costBasis } from '../verify-harness.mjs'
 
-let db, fixtures, ownerId, recordId
+let db, fixtures, ownerId, recordId, RATES
 
 // The minimum a version must carry. deal_sheet_versions_has_cost_basis refuses
 // one with no catalog rate at all, so `{}` is no longer a valid version and the
 // fixtures in this file say so rather than working around it.
 const COST_BASIS = { ssUnitCost: 1200 }
+// And the RATES column carries a real cost basis, built the way the version
+// route builds one (TERM_QUOTES migration review M1). These fixtures used to
+// pass `rates: {}`, which the cost-basis CHECK admitted only because a CHECK
+// passes on NULL. With that hole closed, every insert below that is meant to be
+// refused for ANOTHER reason would have been refused by the cost basis first,
+// and passed for the wrong reason (Verification 14).
 
 before(async () => {
   db = adminClient()
   fixtures = new Fixtures(db, newRunTag())
   ownerId = await resolveOwnerId(db)
+  RATES = await costBasis(db, COST_BASIS)
   const rec = await fixtures.createRecord({
     record_type: 'opportunity', status: 'Qualification', owner_id: ownerId,
   })
@@ -51,7 +58,7 @@ after(async () => { await fixtures.teardown() })
 test('a direct insert with no revision_number is REFUSED', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 99, status: 'draft',
-    reason: 'no revision named', inputs: COST_BASIS, rates: {}, sections: [],
+    reason: 'no revision named', inputs: COST_BASIS, rates: RATES, sections: [],
     created_by: ownerId,
   }).select('id').single()
 
@@ -65,7 +72,7 @@ test('the SAME insert carrying a revision succeeds', async () => {
   // a bad column, a policy, a typo - and proves nothing about the constraint.
   const { data, error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 98, status: 'draft',
-    reason: 'revision named', revision_number: 1, inputs: COST_BASIS, rates: {}, sections: [],
+    reason: 'revision named', revision_number: 1, inputs: COST_BASIS, rates: RATES, sections: [],
     created_by: ownerId,
   }).select('id').single()
 
@@ -92,7 +99,7 @@ test('NOT VALID left history alone: the pre-existing null row is still there', a
 test('insert_deal_sheet_version refuses a revision the record is not at', async () => {
   const { error } = await db.rpc('insert_deal_sheet_version', {
     p_record_id: recordId, p_expected_revision: 999, p_reason: 'stale',
-    p_inputs: COST_BASIS, p_rates: {}, p_sections: [], p_batch_id: null,
+    p_inputs: COST_BASIS, p_rates: RATES, p_sections: [], p_batch_id: null,
     p_created_by: ownerId, p_created_by_email: null,
   })
   assert.ok(error, 'a stale expectation must be refused')
@@ -119,7 +126,7 @@ test('CONCURRENT versions get distinct numbers', async () => {
   const results = await Promise.all(Array.from({ length: 6 }, (_, i) =>
     db.rpc('insert_deal_sheet_version', {
       p_record_id: recordId, p_expected_revision: 1, p_reason: `concurrent ${i}`,
-      p_inputs: COST_BASIS, p_rates: {}, p_sections: [], p_batch_id: null,
+      p_inputs: COST_BASIS, p_rates: RATES, p_sections: [], p_batch_id: null,
       p_created_by: ownerId, p_created_by_email: null,
     })))
 
@@ -154,7 +161,7 @@ test('CALIBRATION: the same six done the OLD way collide', async () => {
     const minor = (latest?.minor ?? 0) + 1
     return db.from('deal_sheet_versions').insert({
       record_id: recordId, major, minor, status: 'draft',
-      reason: `old way ${i}`, revision_number: 1, inputs: COST_BASIS, rates: {}, sections: [],
+      reason: `old way ${i}`, revision_number: 1, inputs: COST_BASIS, rates: RATES, sections: [],
       created_by: ownerId,
     }).select('id').single()
   }
@@ -180,7 +187,7 @@ test('a version naming a revision that does not exist is REFUSED', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: recordId, major: 0, minor: 97, status: 'draft',
     reason: 'names a revision that never happened', revision_number: 9999,
-    inputs: COST_BASIS, rates: {}, sections: [], created_by: ownerId,
+    inputs: COST_BASIS, rates: RATES, sections: [], created_by: ownerId,
   }).select('id').single()
 
   assert.ok(error, 'a version naming a nonexistent revision must not be insertable')
@@ -197,7 +204,7 @@ test('a version naming ANOTHER record\'s revision is refused too', async () => {
   const { error } = await db.from('deal_sheet_versions').insert({
     record_id: other.id, major: 0, minor: 1, status: 'draft',
     reason: 'revision 1 exists, but not on this record', revision_number: 1,
-    inputs: COST_BASIS, rates: {}, sections: [], created_by: ownerId,
+    inputs: COST_BASIS, rates: RATES, sections: [], created_by: ownerId,
   }).select('id').single()
 
   assert.ok(error, 'a revision number that exists elsewhere must not satisfy this key')

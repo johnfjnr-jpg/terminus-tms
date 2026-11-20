@@ -74,6 +74,8 @@ function fakeDb({ admin, rlsRefuses = false }) {
     const chain = {
       select() { return chain },
       lte() { return chain },
+      // TERM_QUOTES: the shared reader (src/lib/term-params.js) bounds both reads.
+      range() { return chain },
       eq() { return chain },
       upsert(r) { op = 'upsert'; payload = r; return chain },
       then(resolve, reject) {

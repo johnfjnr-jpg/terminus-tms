@@ -19,6 +19,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gateVerdict, skipsInside } from './lib/gate-verdict.mjs'
 import { stageEcho } from './lib/stage-echo.mjs'
+import { scratchRecipe } from './lib/puppeteer.mjs'
 
 // ── THE GATE RUNS WHEN IT IS EXECUTED, NEVER WHEN IT IS IMPORTED. G4 ─────
 //
@@ -431,6 +432,17 @@ export const STAGES = [
     needsSession: true,
   },
   {
+    // TERM_QUOTES (spec v2.1, section 14): creation stamps the method, the
+    // headline prices the term quote on today's settings, a term version takes
+    // the server's snapshot and freezes on submission, a Commercials version on
+    // a term record is refused, and Closed Won is 409 in the ruled wording for
+    // both kinds (the PT423 trigger through sendWriteError).
+    name: 'HTTP term quote versions probe',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-term-quote-versions.mjs']],
+    needs: 'the dev server on :3000 AND a live session-ref.json',
+    needsSession: true,
+  },
+  {
     // R-CF2: a factoring term past the contract is refused, in the term
     // screen's words, and a legacy over-limit record stays saveable.
     name: 'HTTP factoring term refusal probe',
@@ -454,6 +466,27 @@ export const STAGES = [
     required: true,
     name: 'browser closed-won pricing',
     cmd: ['node', ['scripts/probe-closed-won-pricing-click.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
+    // TERM_QUOTES (John's PROBES ruling): the Term quote tab from the click,
+    // K1 to K12, the result read back from the database every time.
+    required: true,
+    name: 'browser term quote tab',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-term-quote-tab-click.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
+    // TERM_QUOTES THEN: no overprint, nothing below its content and no
+    // sideways scroll in any of the tab's six states, at 1240/1440/1920;
+    // `--sweep` (40px, 1240 to 1920) stays manual, as the term pricing guard's.
+    required: true,
+    name: 'term quote tab layout guard',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-term-quote-overlap.mjs']],
     needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
     needsSession: true,
     needsBrowser: true,
@@ -642,8 +675,7 @@ function runGate() {
         `${'='.repeat(72)}\n${stage.name}\nSKIPPED. puppeteer is not available, so this stage did not run.\n` +
         `THIS IS NOT A PASS. Nothing was measured. Install a scratch browser and set\n` +
         `PUPPETEER_PATH to run it:\n` +
-        `  npm i puppeteer --prefix /tmp/tms-probe\n` +
-        `  PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer npm run verify\n${'='.repeat(72)}\n`)
+        scratchRecipe('npm run verify').map((l) => `  ${l}\n`).join('') + `${'='.repeat(72)}\n`)
       continue
     }
     if (stage.needsSession && blockedBy) {

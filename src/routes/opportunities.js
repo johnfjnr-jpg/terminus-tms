@@ -1,6 +1,6 @@
 import { createUserClient } from '../supabase.js'
 import { readSystemDefaults, defaultsForConditionalFields, validateFactoringTermAgainstDuration } from '../lib/system-defaults.js'
-import { COMMERCIALS_OWNED_KEYS, closedWonPricingRefusal } from '../lib/pricing-keys.js'
+import { PRICING_OWNED_KEYS, closedWonPricingRefusal } from '../lib/pricing-keys.js'
 import { recordScoreEntry } from '../lib/score-entry.js'
 import { sendWriteError, sendRefusal } from '../lib/write-errors.js'
 import { appendRecordRevision, SINGLE_KEY_RMW, readExpectedRevision } from '../lib/record-revision.js'
@@ -13,7 +13,11 @@ import { PRICE_OVERRIDE_KEYS } from '../lib/deal-calculator.js'
 import { OPEX_FEE_KEYS } from '../lib/opex.js'
 import { closeDateChangeKind, closeDateNeedsReason } from '../lib/opportunity-dates.js'
 import { WRITABLE_NUMERIC_KEYS, isStorableNumeric } from '../lib/numeric-payload.js'
-import { totalContractValue, weightedValue, issuedMajor, workingVersionOf, approvedVersionOf, wonHeadline, wonVersionsOf } from '../lib/opportunity-headline.js'
+import { headlineTcv, weightedValue, issuedMajor, workingVersionOf, approvedVersionOf, wonHeadline, wonVersionsOf } from '../lib/opportunity-headline.js'
+// TERM_QUOTES P6: today's term settings, read once per request, for a term record's headline.
+import { readTermParams } from '../lib/term-params.js'
+import { PRICING_METHODS } from '../lib/pricing-method.js'
+import { paymentBasisText } from '../lib/term-quote.js'
 import { WON_STAGE } from '../lib/pricing-keys.js'
 // R-L4a: the link and the scope word, imported rather than restated.
 import { linkApprovalsToVersions, VERSION_SCOPE } from '../lib/version-approval.js'
@@ -78,6 +82,9 @@ export default async function opportunitiesRoutes(app) {
     // whole screen away over a derived column.
     let catalog = null
     try { catalog = (await currentRates(db)).rates } catch { catalog = null }
+    // TERM_QUOTES P6: the same rule for a term record's figures. Null settings
+    // leave every term headline unpriced ('--'), never 0.
+    const termParams = await readTermParams(db)
 
     // ── THE ACCOUNT NAME, FROM THE ACCOUNT. T1, 2026-09-02 ───────────────
     //
@@ -116,7 +123,7 @@ export default async function opportunitiesRoutes(app) {
     return opps.map(opp => {
       const payload = latestPayload[opp.id] ?? {}
       const det = opp.opportunity_details ?? {}
-      const live = catalog ? totalContractValue(payload, catalog, det.test_bed_cost ?? 0) : null
+      const live = headlineTcv(payload, { catalog, termParams, testBedCost: det.test_bed_cost ?? 0 })
       const head = wonHeadline({ status: opp.status, wonVersion: won.get(opp.id) ?? null, liveTcv: live, testBedCost: det.test_bed_cost ?? 0 })
       const prob = det.probability_override_pct ?? det.probability_pct ?? null
       return {
@@ -366,19 +373,20 @@ export default async function opportunitiesRoutes(app) {
     // They run inside the same Promise.all, so they cost one round trip's
     // latency rather than four, and `id` and `revision_number` join the version
     // row because the evaluator matches on them.
-    const [{ data: verRows, error: verErr }, catalogResult, latestVer,
+    const [{ data: verRows, error: verErr }, catalogResult, termParams, latestVer,
       approvalsRes, requestsRes, vRulesRes] = await Promise.all([
       db.from('deal_sheet_versions')
-        .select('id, status, major, minor, revision_number, inputs')
+        .select('id, kind, status, major, minor, revision_number, inputs')
         .eq('record_id', request.params.id),
       currentRates(db).catch(() => null),
+      readTermParams(db),
       /* P6: the LATEST version only, and its inputs. The row above stays light
          because `issuedMajor` needs three columns across every version; this
          one needs `inputs`, which is payload-sized, so it is bounded to the one
          version the Working Version field is about rather than widening the
          list query and carrying every version's inputs to the browser. */
       db.from('deal_sheet_versions')
-        .select('status, major, minor, inputs')
+        .select('kind, status, major, minor, inputs')
         .eq('record_id', request.params.id)
         .order('major', { ascending: false })
         .order('minor', { ascending: false })
@@ -400,9 +408,7 @@ export default async function opportunitiesRoutes(app) {
     }
     const headlinePayload = revResult.data?.payload ?? {}
     const det = opp.opportunity_details ?? {}
-    const liveTcv = catalogResult
-      ? totalContractValue(headlinePayload, catalogResult.rates, det.test_bed_cost ?? 0)
-      : null
+    const liveTcv = headlineTcv(headlinePayload, { catalog: catalogResult?.rates ?? null, termParams, testBedCost: det.test_bed_cost ?? 0 })
     // FROZEN_FIGURES R-FF4: a Closed Won record's value is its won version's.
     let won
     try { won = opp.status === WON_STAGE ? await wonVersionsOf(db, [opp.id]) : new Map() }
@@ -420,6 +426,16 @@ export default async function opportunitiesRoutes(app) {
       weighted_value: weightedValue(tcv, prob),
       headline_source: head.source,
       headline_note: head.note,
+      // TERM_QUOTES V6: the won version, for the Term quote tab at Closed Won,
+      // which shows its FROZEN figures and nothing live. The same row the
+      // headline reads (wonVersionsOf), so the two cannot name different
+      // versions; null at any other stage.
+      won_version: (() => {
+        const w = opp.status === WON_STAGE ? won.get(opp.id) ?? null : null
+        if (!w) return null
+        return { id: w.id, kind: w.kind ?? 'commercials', label: versionLabel(w), inputs: w.inputs ?? null, ask: w.frozen_figures?.page?.ask ?? null,
+          basis: (w.kind === 'term_quote' && w.frozen_figures?.result) ? paymentBasisText(w.frozen_figures.result) : null }
+      })(),
       // KEPT, and no longer what the Approved Version field reads. Other
       // callers read `issued_major` for "the highest PROMOTED major", which is
       // a true and useful fact; what changed is that the field claiming
@@ -519,6 +535,10 @@ export default async function opportunitiesRoutes(app) {
     'duration', 'structure', 'recoveryMonths', 'invoicing', 'milestones',
     'contractorMilestones',
     'factoring',
+    // TERM_QUOTES P2 (John 2026-11-20): the term quote's working inputs and the
+    // record's pricing method (spec v2.1, 14.1 and 14.2). Both are pricing keys,
+    // so the Closed Won refusal below covers them (PRICING_OWNED_KEYS).
+    'termQuote', 'pricingMethod',
     // Reference tab (B1/Milestone 6). lead/commercial/technical/legal
     // (Terminus Lead/Commercial/Technical/Legal Authority) were free text
     // until 2026-08-16, now a dropdown sourced from terminus_staff -
@@ -661,6 +681,18 @@ export default async function opportunitiesRoutes(app) {
         error: 'payload contains fields that cannot be set from this endpoint',
         disallowed: disallowedKeys
       })
+    }
+    // TERM_QUOTES P2: the method is one of two, never cleared (an absent method
+    // reads as Commercials, so clearing it would be a silent switch); the quote
+    // is an object or null (no quote yet). An incomplete quote IS storable: the
+    // working inputs are a draft, and the headline reads it as unpriced with the
+    // engine's reason (spec 14.4).
+    if ('pricingMethod' in payload && !PRICING_METHODS.includes(payload.pricingMethod)) {
+      return reply.code(400).send({ error: `pricingMethod must be one of ${PRICING_METHODS.join(', ')}` })
+    }
+    if ('termQuote' in payload && payload.termQuote !== null
+      && (typeof payload.termQuote !== 'object' || Array.isArray(payload.termQuote))) {
+      return reply.code(400).send({ error: 'termQuote must be an object, or null when there is no quote' })
     }
     // Real bug found and fixed (2026-08-15), same shape and same scan as
     // PATCH /test-beds/:id: these fields had a writable key but zero
@@ -899,7 +931,7 @@ export default async function opportunitiesRoutes(app) {
     // beside a non-pricing edit still lands, and non-pricing fields stay
     // editable. 409: the record's state forbids it, not the request's shape.
     // Its read feeds a validation only, and its error is refused.
-    if (Object.keys(payload).some((k) => COMMERCIALS_OWNED_KEYS.includes(k))) {
+    if (Object.keys(payload).some((k) => PRICING_OWNED_KEYS.includes(k))) {
       const { data: wonRev, error: wonErr } = await db.from('record_revisions').select('payload')
         .eq('record_id', record.id).order('revision_number', { ascending: false }).limit(1).maybeSingle()
       if (wonErr) {

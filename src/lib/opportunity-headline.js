@@ -26,6 +26,10 @@ import { pricingChanged } from './version-pricing.js';
 import { workingVersionLabel, versionLabel } from './version-label.js';
 import { WON_STAGE } from './pricing-keys.js';
 import { contractValueOf } from './contract-value.js';
+// TERM_QUOTES: the term quote's value through its one gateway (R-TP1), and the
+// method and kind through their one reading.
+import { termQuoteValue, quoteFigures } from './term-quote.js';
+import { pricingMethodOf, versionKindOf } from './pricing-method.js';
 // R-L4a: the evaluator the ENFORCEMENT calls, asked rather than re-derived.
 import { versionApprovalState, wasSigned } from './version-approval.js';
 
@@ -49,6 +53,27 @@ export function totalContractValue(payload, catalog, testBedCost = 0) {
     // LIST over. It reads as "no value yet", which is what an unpriced deal is.
     return null;
   }
+}
+
+/**
+ * ── TERM_QUOTES P6 (John 2026-11-20): THE HEADLINE BY METHOD ─────────────
+ *
+ * The record's working inputs for ITS method, priced live (spec v2.1, 14.4):
+ *   - commercials: the deal-sheet engine over the record, exactly as before;
+ *   - term_quote:  the term engine over `termQuote` on TODAY's settings,
+ *     reporting Base TCV, in dollars through the one adapter.
+ * The method decides, so a stray termQuote on a Commercials record is not
+ * priced, and an absent method is Commercials (W). Unpriced either way is null.
+ *
+ * @param {object} payload the record's current payload
+ * @param {{ catalog?: object, termParams?: object, testBedCost?: number }} sources
+ * @returns {number|null}
+ */
+export function headlineTcv(payload, { catalog = null, termParams = null, testBedCost = 0 } = {}) {
+  if (pricingMethodOf(payload) === 'term_quote') {
+    return termParams ? termQuoteValue(payload?.termQuote, termParams).tcv : null;
+  }
+  return catalog ? totalContractValue(payload, catalog, testBedCost) : null;
 }
 
 /**
@@ -115,6 +140,22 @@ export function wonHeadline({ status, wonVersion, liveTcv, testBedCost = 0 }) {
   if (status !== WON_STAGE) return { tcv: liveTcv, note: null, source: 'live' };
   if (!wonVersion) return { tcv: liveTcv, note: NO_WON_VERSION_NOTE, source: 'live' };
   const label = versionLabel(wonVersion);
+  // TERM_QUOTES P6: a won TERM version reads its own Base TCV, frozen or, for
+  // a version somehow submitted unfrozen, priced on the settings stored with
+  // it (spec 14.6). Either way no live setting can move it.
+  if (versionKindOf(wonVersion) === 'term_quote') {
+    if (wonVersion.frozen_figures) {
+      return {
+        tcv: quoteFigures(wonVersion.frozen_figures.result).baseTcv,
+        note: `The won version's figures (${label}), frozen when it was submitted.`,
+        source: 'won-version',
+      };
+    }
+    const priced = termQuoteValue(wonVersion.inputs, wonVersion.rates?.params ?? null);
+    return priced.refusal
+      ? { tcv: null, note: `The won version (${label}) could not be priced.`, source: 'won-version-legacy' }
+      : { tcv: priced.tcv, note: `The won version's figures (${label}), priced on the settings stored with it.`, source: 'won-version-legacy' };
+  }
   if (wonVersion.frozen_figures) {
     return {
       tcv: contractValueOf(wonVersion.frozen_figures.result?.totals?.contractNet),
@@ -153,7 +194,7 @@ export async function wonVersionsOf(db, recordIds) {
   const ids = [...versionOf.values()].filter(Boolean);
   if (!ids.length) return out;
   const { data: vs, error: vErr } = await db.from('deal_sheet_versions')
-    .select('id, record_id, major, minor, status, inputs, rates, frozen_figures').in('id', ids);
+    .select('id, record_id, kind, major, minor, status, inputs, rates, frozen_figures').in('id', ids);
   if (vErr) throw new Error(`won versions: ${vErr.message}`);
   for (const v of vs ?? []) out.set(v.record_id, v);
   return out;
@@ -161,7 +202,7 @@ export async function wonVersionsOf(db, recordIds) {
 
 export function workingVersionOf(latest, payload) {
   if (!latest || !Number.isInteger(latest.major)) return null;
-  const moved = pricingChanged(latest.inputs, payload);
+  const moved = pricingChanged(latest, payload);
   return workingVersionLabel({
     version: latest,
     draftSaved: latest.status !== 'issued',

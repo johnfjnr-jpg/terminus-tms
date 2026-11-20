@@ -10,6 +10,8 @@ import { REGION_OPTIONS } from '../lib/regions.js'
 import { auditChanges, hasAuditableChange, FIELDS_CHANGED } from '../lib/payload-audit.js'
 import { computeBlocking } from './transitions.js'
 import { GATE_RECORD_SELECT } from '../lib/stage-gate-fields.js'
+// TERM_QUOTES R-TQ1: the initial pricing method, one reading of it.
+import { creationPricingMethod, PRICING_METHODS } from '../lib/pricing-method.js'
 
 /**
  * The Account's revision payload, in the shape link-account already writes.
@@ -1040,6 +1042,13 @@ export default async function contactsRoutes(app) {
     // deliberately NOT touched. It works, and unifying a working path with a
     // broken one is how working paths break.
     const { name: requestedName } = request.body ?? {}
+    // TERM_QUOTES R-TQ1 (spec v2.1, 14.1): the pricing method is written ONCE,
+    // here, as an initial value (Architecture 11). The creator may choose it;
+    // nothing chosen is term_quote; anything else is refused, never coerced.
+    const pricingMethod = creationPricingMethod(request.body?.pricingMethod)
+    if (!pricingMethod) {
+      return reply.code(400).send({ error: `pricingMethod must be one of ${PRICING_METHODS.join(', ')}` })
+    }
     if (!requestedName?.trim()) {
       return reply.code(400).send({ error: 'name is required' })
     }
@@ -1123,7 +1132,8 @@ export default async function contactsRoutes(app) {
         ...defaults,
         name,
         company_name: accountName ?? '',
-        customerLead: contactPayload.name ?? null
+        customerLead: contactPayload.name ?? null,
+        pricingMethod
       },
       p_reference_code: referenceCode,
       p_probability_pct: probDefault?.default_probability_pct ?? null

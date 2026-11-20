@@ -162,7 +162,12 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
     const go = async () => {
       const r = await api('POST', `/api/deal-sheet-versions/${versionId}/restore`)
       if (!r.ok) return
-      const data = r.data as { inputs?: Record<string, unknown> }
+      const data = r.data as { inputs?: Record<string, unknown>, kind?: string, label?: string }
+      // TERM_QUOTES P1: one sequence holds both kinds. A term version's inputs
+      // are a quote, not a Commercials form, so they are never poured into it.
+      if (data.kind === 'term_quote') {
+        throw new Error(`${data.label ?? 'That version'} is a term quote version, so it cannot be restored into Commercials.`)
+      }
       seam.populateForm(data.inputs ?? {})
       seam.recompute()
     }

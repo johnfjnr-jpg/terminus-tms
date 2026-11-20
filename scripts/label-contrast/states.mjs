@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ── LABEL_CONTRAST P1 and P2: disabled vs enabled, active vs inactive ──────
 //
-//   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
+//   PUPPETEER_PATH=~/.cache/tms-probe/node_modules/puppeteer \
 //     node --env-file=.env scripts/label-contrast/states.mjs [--css <file>] [--tag <name>]
 //
 // P1 (John, 2026-10-03). Every disabled control that paints in --muted must

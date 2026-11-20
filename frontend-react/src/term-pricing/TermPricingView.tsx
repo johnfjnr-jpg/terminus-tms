@@ -35,6 +35,11 @@ import { buildParams } from '../../../src/lib/term-pricing-settings.js'
 import { MILESTONE_NAMES } from '../../../src/lib/milestone-vocabulary.js'
 // TERM_FACTORING Phase 3: PO factoring and the cash flow (R-TF1).
 import { FactoringCard, CashFlowCard, signedMoney } from './factoring'
+// TERM_QUOTES: the inputs as one value object, the one derivation of the
+// engine input, and the products' one list of names.
+import { DEFAULT_TERM_FORM, DEFAULT_MILESTONE, inputFromForm, unitCountsOf, dealAdjustmentOf, factoringOf } from './form'
+import type { TermQuoteForm, CapexAmount, CapexStructure, WhtMode, MilestoneDraft } from './form'
+import { TERM_PRODUCTS } from '../../../src/lib/term-quote.js'
 
 export const TERM_PRICING_KEY = ['term-pricing'] as const
 
@@ -44,11 +49,10 @@ const PER_CAMERA_PRODUCT = 'safesight'
 
 // TP_TABS: "Air Quality", the mockup's word (html/1/Main.dc.html:56).
 // SUPERSEDED, QUOTED NOT DELETED: `{ key: 'air_quality', label: 'AQ' }`.
-const PRODUCTS = [
-  { key: 'safesight', label: 'SafeSight' },
-  { key: 'air_quality', label: 'Air Quality' },
-  { key: 'hemir', label: 'HEMIR' },
-] as const
+// TERM_QUOTES V5: the names now live in src/lib/term-quote.js, read by this
+// screen, the approval page and the banner alike. SUPERSEDED, left visible:
+// the literal three-entry array that stood here (the same keys, the same words).
+const PRODUCTS = TERM_PRODUCTS
 const productLabel = (key: string) => PRODUCTS.find((p) => p.key === key)?.label ?? key
 
 // ── SUPERSEDED, QUOTED NOT DELETED (B3, TERM_PRICING_2) ──────────────────
@@ -258,14 +262,9 @@ function useFittedSchedule(dep: unknown) {
 }
 
 type Tab = 'pricing' | 'payment' | 'quote'
-type CapexAmount = 'hardware' | 'custom'
-type CapexStructure = 'hybrid' | 'two_phase'
-type WhtMode = 'none' | 'single' | 'split'
-interface MilestoneDraft { key: string; month: string; share: string }
 const MAX_MILESTONES = 5
 // The screen's default Hybrid row, by NAME from the shared vocabulary (C-11).
 // The engine never sees a name as a name (Q4): it receives this as a key.
-const DEFAULT_MILESTONE: MilestoneDraft = { key: MILESTONE_NAMES[0], month: '0', share: '100' }
 const CPI_MODES: Array<{ key: CpiMode; label: string }> = [
   { key: 'none', label: 'None' }, { key: 'published', label: 'Published CPI' }, { key: 'locked', label: 'Locked rate' },
 ]
@@ -313,7 +312,20 @@ function Sec({ title, note, children, testid }: { title: string; note?: string; 
 // DELETED: `ManualLadderCard`, the manual state stamped with `navToken`, and
 // `manualLadder` in the engine (spec 4.6, left visible there).
 
-export function TermPricingView({ navToken }: { navToken: number }) {
+/**
+ * TERM_QUOTES bound mode (P2, V3). Absent, the screen owns its inputs and
+ * saves nothing, exactly as before. Present, it reads them from `value` and
+ * reports every edit through `onChange`, and it shows no admin settings
+ * editors and no standalone header: the opportunity owns the quote, and the
+ * settings are not a quote's business. Closed Won (V6) does not mount this:
+ * the tab shows the won version's frozen figures instead.
+ */
+export interface TermPricingBound {
+  value: TermQuoteForm
+  onChange: (next: TermQuoteForm) => void
+}
+
+export function TermPricingView({ navToken, bound }: { navToken: number, bound?: TermPricingBound }) {
   const shell = useShell()
   const qc = useQueryClient()
   const { data, isError, error } = useQuery({
@@ -332,45 +344,56 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   const [showTax, setShowTax] = useState(false)
   // The screen opens on the spec's base case, one SafeSight unit, so the
   // ladder and the price are on screen from the first paint.
-  const [units, setUnits] = useState<Record<string, string>>({ safesight: '1', air_quality: '0', hemir: '0' })
-  const [term, setTerm] = useState<number>(36)
-  const [structure, setStructure] = useState<'opex' | 'capex'>('opex')
   // v1.6 (C-3, Q14): the CPI mode. The rate and the start year are shown for
   // Published and Locked and hidden under None, which ignores them.
-  const [cpiMode, setCpiMode] = useState<CpiMode>('none')
-  const [escalator, setEscalator] = useState('')
   // B6: the contract year the escalator first applies. The select offers 2 to
   // the term's last year, so a shorter term pulls the choice back inside it
   // (chooseTerm). One value feeds both the select and the engine.
-  const [startYear, setStartYear] = useState(2)
-  const [gst, setGst] = useState('9')
   // T-3: WHT is None | Single rate | Split. The typed rates are kept while
   // another mode is chosen (blank is 0, the blank-zero rule).
-  const [whtMode, setWhtMode] = useState<WhtMode>('none')
-  const [whtPct, setWhtPct] = useState('')
-  const [grossUp, setGrossUp] = useState(false)
-  const [whtHw, setWhtHw] = useState('')
-  const [whtSaas, setWhtSaas] = useState('')
   // v1.6 (C-4, C-6): the CAPEX amount and how it is paid. Defaults: Hardware,
   // Milestones (Hybrid), one Contract start row at month 0, 100%; 12 months
   // for Monthly instalments (Two-phase).
-  const [capexAmount, setCapexAmount] = useState<CapexAmount>('hardware')
-  const [capexCustom, setCapexCustom] = useState('')
-  const [capexStructure, setCapexStructure] = useState<CapexStructure>('hybrid')
-  const [milestones, setMilestones] = useState<MilestoneDraft[]>([DEFAULT_MILESTONE])
-  const [recovery, setRecovery] = useState('12')
   // TERM_FACTORING (R-TF3 to R-TF5): PO factoring, in screen state like every
   // quote input (a quote is not saved). The advance is null until typed: null
   // shows the hardware cost and sends a blank, so the engine's default follows
   // the units (R-TF3). The term starts at 12, Commercials' initial value; the
   // rate starts blank, because a rate nobody entered is not a rate (Phase 1
   // ruling 6, and Commercials' `?? 1.5` fallback is the fault on the queue).
-  const [factoringOn, setFactoringOn] = useState(false)
-  const [fxAdvance, setFxAdvance] = useState<string | null>(null)
-  const [fxRate, setFxRate] = useState('')
-  const [fxTerm, setFxTerm] = useState('12')
-  const [fxMethod, setFxMethod] = useState<'straight' | 'declining'>('straight')
-  const [fxTreatment, setFxTreatment] = useState<'absorb' | 'pass_through'>('absorb')
+  // ── THE INPUTS: ONE VALUE OBJECT (TERM_QUOTES P2) ─────────────────────
+  //
+  // The 28 inputs that were 28 useState calls; their defaults are
+  // DEFAULT_TERM_FORM in ./form, and the reasons for each are kept above.
+  // Every name keeps its old getter and setter, so nothing that reads or
+  // writes them changed. A setter applies to the LATEST object (a ref), so two
+  // in one handler (chooseTerm sets the term and clamps the start year)
+  // compose rather than the second overwriting the first from a stale render,
+  // which bound mode would otherwise do: its parent re-renders only after both.
+  const [ownForm, setOwnForm] = useState<TermQuoteForm>(DEFAULT_TERM_FORM)
+  const form = bound ? bound.value : ownForm
+  const formRef = useRef(form)
+  formRef.current = form
+  function field<K extends keyof TermQuoteForm>(k: K) {
+    return (v: TermQuoteForm[K] | ((prev: TermQuoteForm[K]) => TermQuoteForm[K])) => {
+      const prev = formRef.current
+      const value = typeof v === 'function' ? (v as (p: TermQuoteForm[K]) => TermQuoteForm[K])(prev[k]) : v
+      const next = { ...prev, [k]: value }
+      formRef.current = next
+      if (bound) bound.onChange(next)
+      else setOwnForm(next)
+    }
+  }
+  const { units, term, structure, cpiMode, escalator, startYear, gst, whtMode, whtPct, grossUp, whtHw, whtSaas,
+    capexAmount, capexCustom, capexStructure, milestones, recovery, factoringOn, fxAdvance, fxRate, fxTerm,
+    fxMethod, fxTreatment, dealMode, dealPct, dealFee, dealFeeTerm } = form
+  const setUnits = field('units'), setTerm = field('term'), setStructure = field('structure'), setCpiMode = field('cpiMode')
+  const setEscalator = field('escalator'), setStartYear = field('startYear'), setGst = field('gst'), setWhtMode = field('whtMode')
+  const setWhtPct = field('whtPct'), setGrossUp = field('grossUp'), setWhtHw = field('whtHw'), setWhtSaas = field('whtSaas')
+  const setCapexAmount = field('capexAmount'), setCapexCustom = field('capexCustom'), setCapexStructure = field('capexStructure')
+  const setMilestones = field('milestones'), setRecovery = field('recovery'), setFactoringOn = field('factoringOn')
+  const setFxAdvance = field('fxAdvance'), setFxRate = field('fxRate'), setFxTerm = field('fxTerm'), setFxMethod = field('fxMethod')
+  const setFxTreatment = field('fxTreatment'), setDealMode = field('dealMode'), setDealPct = field('dealPct')
+  const setDealFee = field('dealFee'), setDealFeeTerm = field('dealFeeTerm')
   // N2: the settings card's own state, held here too so a draft survives a
   // switch of tab (T-1).
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -397,10 +420,6 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   // Either-or (R-O7): the field typed last is the input; the other shows what
   // the ENGINE derived. A fee carries the term it was typed at, so switching
   // term keeps its discount (spec 4.7).
-  const [dealMode, setDealMode] = useState<'none' | 'discount' | 'fee'>('none')
-  const [dealPct, setDealPct] = useState('')
-  const [dealFee, setDealFee] = useState('')
-  const [dealFeeTerm, setDealFeeTerm] = useState(36)
   // Frames C and D: the price ladder editor's product and one draft per
   // product, held here so they survive a switch of tab (T-1).
   const [ladderProduct, setLadderProduct] = useState<string>(PRODUCTS[0].key)
@@ -419,17 +438,13 @@ export function TermPricingView({ navToken }: { navToken: number }) {
     catch (e) { return { ok: false as const, message: (e as Error).message } }
   }, [data])
 
-  const unitCounts = useMemo(
-    () => Object.fromEntries(PRODUCTS.map((p) => [p.key, units[p.key].trim() === '' ? 0 : Number(units[p.key])])),
-    [units])
+  const unitCounts = useMemo(() => unitCountsOf(units), [units])
   const badUnits = PRODUCTS.find((p) => units[p.key].trim() !== '' && !isWhole(units[p.key]))
 
   // v1.6 (C-10), v1.7 (C2): the ladder is the OPEX Base row at every term,
   // from the units alone, whatever the payment basis.
-  const dealAdjustment = useMemo<DealAdjustmentInput | null>(() => (dealMode === 'discount'
-    ? { discountPct: dealPct.trim() }
-    : dealMode === 'fee' ? { monthlyFee: dealFee.replace(/,/g, '').trim(), termMonths: dealFeeTerm } : null),
-  [dealMode, dealPct, dealFee, dealFeeTerm])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const dealAdjustment = useMemo<DealAdjustmentInput | null>(() => dealAdjustmentOf(form), [dealMode, dealPct, dealFee, dealFeeTerm])
   const isDealRefusal = (e: unknown) => /^DEAL_/.test(String((e as { code?: string }).code))
 
   // v2.0 (A4): the ladder carries the deal adjustment; a refused one prices
@@ -448,14 +463,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
   // The factoring input, as the engine takes it (spec 2). Blank fields go as
   // null, so the ENGINE's refusal, in its own words, is what shows (ruling 6).
-  const factoringInput = useMemo(() => (factoringOn ? {
-    enabled: true,
-    ratePct: fxRate.trim() === '' ? null : fxRate.trim(),
-    termMonths: (fxTerm.trim() === '' ? null : isWhole(fxTerm) ? Number(fxTerm) : fxTerm.trim()) as number | null,
-    method: fxMethod,
-    treatment: fxTreatment,
-    advance: fxAdvance === null || fxAdvance.trim() === '' ? null : fxAdvance.replace(/,/g, '').trim(),
-  } : null), [factoringOn, fxRate, fxTerm, fxMethod, fxTreatment, fxAdvance])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const factoringInput = useMemo(() => factoringOf(form), [factoringOn, fxRate, fxTerm, fxMethod, fxTreatment, fxAdvance])
 
   // T-2, T-6: THE PRICE. The OPEX Base quote at the chosen term, from the
   // units alone, so nothing on Payment terms can REFUSE it. It feeds the
@@ -500,38 +509,12 @@ export function TermPricingView({ navToken }: { navToken: number }) {
       : whtMode === 'single' ? [[whtPct, 'WHT']] : []
     const badWht = whtFields.find(([v]) => v.trim() !== '' && !isDecimal(v))
     if (badWht) return { error: `${badWht[1]} must be a percentage, for example 10.` }
-    const blankNull = (v: string) => (v.trim() === '' ? null : v.trim())
-    // A whole number goes to the engine as a number; anything else goes as
-    // typed, so the ENGINE's refusal (with its own reason) is what shows.
-    const whole = (v: string) => (isWhole(v) ? Number(v) : v) as number
-    const input = {
-      units: unitCounts,
-      termMonths: term,
-      paymentStructure: structure,
-      cpiMode,
-      escalatorPct: cpiOn ? blankNull(escalator) : null,
-      escalatorStartYear: startYear,
-      gstPct: blankNull(gst),
-      whtPct: whtMode === 'single' ? blankNull(whtPct) : null,
-      whtGrossUp: whtMode !== 'none' && grossUp,
-      whtSplit: whtMode === 'split',
-      whtHwPct: whtMode === 'split' ? blankNull(whtHw) : null,
-      whtSaasPct: whtMode === 'split' ? blankNull(whtSaas) : null,
-      factoring: factoringInput,
-      dealAdjustment,
-      ...(capex ? {
-        capexAmount,
-        // Thousands separators are formatting, not the amount (C-4 keeps the
-        // figure itself exactly as entered).
-        capexCustom: capexAmount === 'custom' ? capexCustom.replace(/,/g, '').trim() : null,
-        capexStructure,
-        ...(capexStructure === 'hybrid'
-          // T-4: a share not yet typed goes as blank, which the preview
-          // reports as "no amount yet" and the quote refuses.
-          ? { milestones: milestones.map((m) => ({ key: m.key, month: whole(m.month), sharePct: m.share.trim() })) }
-          : { recoveryMonths: whole(recovery) }),
-      } : {}),
-    }
+    // TERM_QUOTES P2: the ONE derivation of the engine input (./form), which
+    // the opportunity's tab also saves as termQuote. Its comments moved with
+    // it: thousands separators are formatting, a whole number goes as a number
+    // and anything else as typed so the ENGINE's refusal shows, and a share
+    // not yet typed goes blank.
+    const input = inputFromForm(form)
     try {
       if (!capex) return { quote: priceQuote(input, params.p) }
       // T-4: under CAPEX the allocation preview answers first; a complete
@@ -636,7 +619,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
 
   const pricingPanel = (
     <>
-      <div className="tp-grid">
+      <div className="tp-grid tp-grid-pricing">
         <div className="tp-main">
           <section className="tp-card tp-units-card" aria-label="Units" data-testid="tp-units">
             <div className="tp-units-row">
@@ -696,7 +679,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
                   "OPEX / cam / mo" only (C-10). */}
               <table className="tp-table" data-testid="tp-ladder">
                 <thead><tr>
-                  <th>Term</th><th>List fee / mo</th><th>Deal fee / mo</th><th>SafeSight / cam / mo (list)</th>
+                  <th>Term</th><th>List fee / mo</th><th>{bound ? 'Monthly, this deal' : 'Deal fee / mo'}</th><th>SafeSight / cam / mo (list)</th>
                   <th data-testid="tp-ladder-vs-head">vs {compareTerm} months</th><th>Base TCV</th><th>Margin</th>
                 </tr></thead>
                 <tbody>
@@ -836,6 +819,8 @@ export function TermPricingView({ navToken }: { navToken: number }) {
         </div>
       </div>
 
+      {/* TERM_QUOTES V3: no admin settings editors in bound mode. */}
+      {!bound && (
       <SettingsCard state={data} open={settingsOpen} onToggle={() => setSettingsOpen(!settingsOpen)}
         draft={draft ?? draftFrom(data.settings)} setDraft={setDraft}
         onSaved={() => qc.invalidateQueries({ queryKey: TERM_PRICING_KEY })}
@@ -845,6 +830,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
         bands={<BandEditor state={data} product={bandProduct} onProduct={setBandProduct}
           drafts={bandDrafts} setDrafts={setBandDrafts}
           onSaved={(next) => qc.setQueryData([...TERM_PRICING_KEY, navToken], next)} />} />
+      )}
     </>
   )
 
@@ -1261,7 +1247,10 @@ export function TermPricingView({ navToken }: { navToken: number }) {
   )
 
   return (
-    <div className="wrap tp-view" data-testid="term-pricing">
+    <div className={bound ? 'tp-view tp-bound' : 'wrap tp-view'} data-testid="term-pricing">
+      {/* TERM_QUOTES V3: in bound mode the opportunity's header carries the
+          value and the method, so the standalone strip is not repeated. */}
+      {!bound && (<>
       {/* T-1: the header strip, on every tab. */}
       <div className="tp-head">
         <div>
@@ -1273,6 +1262,7 @@ export function TermPricingView({ navToken }: { navToken: number }) {
           <div><div className="tp-label">Payment basis</div><div className="tp-head-basis" data-testid="tp-head-basis">{capex ? 'CAPEX' : 'OPEX'}</div></div>
         </div>
       </div>
+      </>)}
 
       <div className="tp-tabs" role="tablist" aria-label="Term pricing">
         {TABS.map((t) => {

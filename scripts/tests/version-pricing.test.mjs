@@ -41,7 +41,7 @@ test('the four OVERRIDABLE rates are decisions, because the record can own them'
   for (const k of OVERRIDABLE_RATE_KEYS) {
     assert.equal(FROZEN_RATE_KEYS.includes(k), false, `${k} must stay inside the comparison`)
     const was = { ...RECORD, [k]: 100 }
-    assert.equal(pricingChanged(was, { ...RECORD, [k]: 250 }).changed, true,
+    assert.equal(pricingChanged({ inputs: was }, { ...RECORD, [k]: 250 }).changed, true,
       `overriding ${k} is a pricing decision and must supersede`)
   }
 })
@@ -69,7 +69,7 @@ test('a catalog rate is IN the snapshot and OUT of the comparison', () => {
 // ─────────────────────────────────────────────────────────────
 
 test('identical pricing is not a change', () => {
-  const r = pricingChanged(SNAPSHOT, RECORD)
+  const r = pricingChanged({ inputs: SNAPSHOT }, RECORD)
   assert.equal(r.changed, false)
   assert.deepEqual(r.keys, [])
 })
@@ -80,24 +80,24 @@ test('a batch turnover moving every catalog rate is not a change', () => {
   // issued version.
   const turned = { ...SNAPSHOT }
   for (const k of FROZEN_RATE_KEYS) turned[k] = 99999
-  assert.equal(pricingChanged(turned, RECORD).changed, false)
+  assert.equal(pricingChanged({ inputs: turned }, RECORD).changed, false)
 })
 
 test('a decision change IS a change, and it is named', () => {
-  const r = pricingChanged(SNAPSHOT, { ...RECORD, targetMargin: 37 })
+  const r = pricingChanged({ inputs: SNAPSHOT }, { ...RECORD, targetMargin: 37 })
   assert.equal(r.changed, true)
   assert.deepEqual(r.keys, ['targetMargin'])
 })
 
 test('a non-pricing key on the record is not a change', () => {
   // The revision that used to void an approval: an exit tick, a contact, a date.
-  const r = pricingChanged(SNAPSHOT, { ...RECORD, estCloseDate: '2027-03-15', proposalIssued: 4 })
+  const r = pricingChanged({ inputs: SNAPSHOT }, { ...RECORD, estCloseDate: '2027-03-15', proposalIssued: 4 })
   assert.equal(r.changed, false, 'the record moving is not the deal being re-priced')
 })
 
 test('the issue\'s OWN revision does not supersede the version it issued', () => {
   // The 674ms self-supersede, stated as an assertion.
-  assert.equal(pricingChanged(SNAPSHOT, { ...RECORD, proposalIssued: 4 }).changed, false)
+  assert.equal(pricingChanged({ inputs: SNAPSHOT }, { ...RECORD, proposalIssued: 4 }).changed, false)
 })
 
 // ─────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ test('the comparison is an OUT-set, so a NEW pricing key is automatically inside
   // Deliberate. A key added to the snapshot and not to any list is compared,
   // so the failure mode is a false supersede - which somebody notices - rather
   // than a silent miss, which nobody does.
-  const r = pricingChanged({ ...SNAPSHOT, someNewPricingKey: 5 }, RECORD)
+  const r = pricingChanged({ inputs: { ...SNAPSHOT, someNewPricingKey: 5 } }, RECORD)
   assert.equal(r.changed, true)
   assert.deepEqual(r.keys, ['someNewPricingKey'])
 })
@@ -117,7 +117,7 @@ test('a key absent from the record reads as a difference, not as equal', () => {
   // Verification 14 in the direction that matters: absent on one side is not a
   // match. `decisionState` iterates the SNAPSHOT's keys, so a decision the
   // record has dropped is still asked about.
-  const r = pricingChanged({ ...SNAPSHOT, warrantyPct: 2 }, { targetMargin: 30, duration: 60, structure: 'twoPhase' })
+  const r = pricingChanged({ inputs: { ...SNAPSHOT, warrantyPct: 2 } }, { targetMargin: 30, duration: 60, structure: 'twoPhase' })
   assert.equal(r.changed, true)
   assert.equal(r.keys.includes('warrantyPct'), true)
 })
@@ -132,7 +132,7 @@ test('a version with NO snapshot is uncomparable, not unchanged', () => {
   // "unchanged" there is a confident all-clear from an empty comparison, on the
   // screen where somebody approves a price.
   for (const empty of [undefined, null, {}]) {
-    const r = pricingChanged(empty, RECORD)
+    const r = pricingChanged({ inputs: empty }, RECORD)
     assert.equal(r.comparable, false, `${JSON.stringify(empty)} must not answer`)
     assert.equal(r.changed, false, 'and it must not claim a change either')
   }
@@ -140,7 +140,7 @@ test('a version with NO snapshot is uncomparable, not unchanged', () => {
 
 test('NO current pricing is uncomparable too, from the other side', () => {
   for (const missing of [undefined, null]) {
-    assert.equal(pricingChanged(SNAPSHOT, missing).comparable, false)
+    assert.equal(pricingChanged({ inputs: SNAPSHOT }, missing).comparable, false)
   }
 })
 
@@ -148,14 +148,14 @@ test('a snapshot of ONLY frozen rates is uncomparable, because it holds no decis
   // The subtle one: 6 keys present, 0 of them decisions, so there is still
   // nothing to compare and the answer must not be "unchanged".
   const ratesOnly = Object.fromEntries(FROZEN_RATE_KEYS.map((k) => [k, 100]))
-  assert.equal(pricingChanged(ratesOnly, RECORD).comparable, false)
+  assert.equal(pricingChanged({ inputs: ratesOnly }, RECORD).comparable, false)
 })
 
 test('a real pair IS comparable, so the flag is not always false', () => {
   // The calibration. A flag that never reads true would make every version
   // uncomparable and every gate refuse, which is a different silent failure.
-  assert.equal(pricingChanged(SNAPSHOT, RECORD).comparable, true)
-  assert.equal(pricingChanged(SNAPSHOT, { ...RECORD, targetMargin: 37 }).comparable, true)
+  assert.equal(pricingChanged({ inputs: SNAPSHOT }, RECORD).comparable, true)
+  assert.equal(pricingChanged({ inputs: SNAPSHOT }, { ...RECORD, targetMargin: 37 }).comparable, true)
 })
 
 // ─────────────────────────────────────────────────────────────

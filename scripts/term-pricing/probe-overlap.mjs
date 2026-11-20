@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ── TERM PRICING: NO OVERPRINT, NO TRACK BELOW ITS CONTENT, ON EVERY TAB ──
 //
-//   PUPPETEER_PATH=/tmp/tms-probe/node_modules/puppeteer \
+//   PUPPETEER_PATH=~/.cache/tms-probe/node_modules/puppeteer \
 //     node --env-file=.env scripts/term-pricing/probe-overlap.mjs [--sweep] [--only=tp|opex] [--inject=<name>] [--shots=1240,1920]
 //
 // Runs the shared STRUCTURAL detector (scripts/lib/ink-overlap.mjs) in every
