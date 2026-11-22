@@ -72,3 +72,35 @@ pg_roles). Record the results if supplied; do not block on them.
 Then: tests, the rebuild, calibration, full gate, merge --no-ff, merged gate,
 ls-remote, "ready for John's push". Report teardown-scoping's duration on every
 gate run.
+
+## The build, against the rulings (2026-11-22)
+
+1. D4 and D1 (f1a98e9):
+   - The page-cap test was rebuilt with per-run tags, a 1,500-revision pad and
+     30 candidates, choosing the deep candidate after enumeration and handing
+     it away.
+   - It reads no ledger and borrows no tags. The three P3 conditions and the
+     unranged counterfactual are kept.
+   - The headroom guard is re-aimed at the run's own 3 tags.
+   - New assertions: the sweep set is only this run's tags, and tearDown
+     removed nothing the run did not create.
+   - The test hard-purges its own rows: both filters in the query, a RESTRICT
+     census that stops rather than widens, and a zero-rows census over every
+     table and child.
+   - purge() now checks every error.
+   - DESIGN_PRINCIPLES "F5 TEARDOWN SCALE" records the departure from
+     Verification 11's letter.
+   - First run: 6/6, with the deep test at 28,559ms (50,428 to 74,674ms over
+     the last 40 gates). Population 1,530, fixture at index 1,062.
+2. D5 (f866e59):
+   - scripts/f5-teardown-scale/calibrate-teardown-scoping.mjs on a temp copy
+     of HEAD with no fixture ledger.
+   - Run mwrvzbed: I1 to I7 all FIRED by their named assertions, with residue 0
+     after each; I6 cleaned its 33 records.
+   - The reverted, starved whole-file run was GREEN 6/6, with the deep test at
+     27,482ms.
+   - docs/PROBES.md gained a MANUAL row.
+3. D2 and D3: `:509` and the index are untouched.
+4. CURRENT_STATE regenerated. Live 134 to 135: the one new live opportunity
+   was created 13:50 local by a staff account, so it is a person's record, not
+   residue. Every other moved line is a soft-deleted or history count.
