@@ -928,10 +928,11 @@ export default async function contactsRoutes(app) {
   async function loadQualifiedContact(db, id) {
     const { data: contact, error } = await db
       .from('records')
-      // owner_id joins the select for the create-from ownership check. Three
-      // routes share this loader and none enumerates the row's keys, so the
-      // extra column is inert for the other two.
-      .select('id, status, parent_record_id, industry_id, owner_id')
+      // owner_id LEFT the select at CREATE_FROM_ANY_CONTACT R4 (2026-11-22).
+      // It was there for create-test-bed's ownership guard, which R4 removed;
+      // nothing else this loader feeds reads it, and a column with no reader
+      // is a claim that something checks it.
+      .select('id, status, parent_record_id, industry_id')
       .eq('id', id)
       .eq('record_type', 'contact')
       .is('deleted_at', null)
@@ -1241,21 +1242,22 @@ export default async function contactsRoutes(app) {
     const { contact, accountName, contactPayload, error } = await loadQualifiedContact(db, request.params.id)
     if (error) return reply.code(error.code).send(error.body)
 
-    // ── THE SOURCE MUST BE YOURS. Create-from ownership round, R5 ─────────
+    // ── ANY USER WHO CAN SEE THE CONTACT. CREATE_FROM_ANY_CONTACT R4 ───────
     //
-    // This creates a Test Bed FROM the Contact named by :id. The new record is
-    // honestly the caller's, so every insert policy passes and RLS never asks
-    // the question that matters: whose Contact is being drawn on. Measured as a
-    // non-owner before this line existed: 201, and the source Contact gained a
-    // created_test_bed audit row.
+    // John 2026-11-22: any signed-in user may create a Test Bed from any
+    // contact they can see, whoever owns it or its Account. The creator owns
+    // the bed; nothing here writes on the contact or the Account.
     //
-    // BEFORE the Account-link check, so a non-owner learns nothing about the
-    // Contact's state from the shape of the refusal.
-    //
-    // sendRefusal, not a fabricated 42501: that code stays reserved for
-    // refusals RLS itself raises, per the write authorization round's one-path
-    // rule. This is a route asking a route's own question.
-    if (contact.owner_id !== request.user.id) return sendRefusal(reply)
+    // ~~THE SOURCE MUST BE YOURS. Create-from ownership round, R5.~~ That guard
+    // stood here, refusing a non-owner through sendRefusal. Its stated reason
+    // was that the route wrote on the contact: "Measured as a non-owner before
+    // this line existed: 201, and the source Contact gained a created_test_bed
+    // audit row." R4 retired that row for all creators (below), so the premise
+    // is gone and the decision is re-taken, not re-weighed (Verification 29).
+    // Editing the contact stays owner-only, enforced by its own write policies,
+    // which this route does not touch. Pinned unguarded by
+    // create-from-ownership.test.mjs.
+
 
     if (!contact.parent_record_id) {
       return reply.code(422).send({
@@ -1369,8 +1371,19 @@ export default async function contactsRoutes(app) {
       return reply.code(500).send({ error: err.message })
     }
 
+    // ONE audit row, on the NEW bed, naming the contact in its detail. R4
+    // (John 2026-11-22) retired the contact-keyed `created_test_bed` row for
+    // all creators, as R5 of this round did for Opportunity: it was a write on
+    // the contact's history, and its trigger bumped the contact's
+    // record_freshness. Nothing read it (grep of src, frontend, the React tree
+    // and scripts, 2026-11-22).
+    //
+    // THE ERROR IS STILL UNCHECKED, and that is queued rather than fixed here
+    // (the brief's Q): this route is five separate writes, not one
+    // transaction, and the atomic-creation rule of record says a creation path
+    // is born atomic via an INVOKER function. Checking this one insert would
+    // turn a missing audit row into a 500 for a bed that already exists.
     await db.from('audit_log').insert([
-      { record_id: contact.id, record_type: 'contact', action: 'created_test_bed', actor_id: request.user.id, detail: { test_bed_id: record.id } },
       { record_id: record.id, record_type: 'test_bed', action: 'created_from_contact', actor_id: request.user.id, detail: { contact_id: contact.id, initial_stage: 'Qualification', account_id: contact.parent_record_id } }
     ])
 

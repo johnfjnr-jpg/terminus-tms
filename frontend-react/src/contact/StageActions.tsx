@@ -120,11 +120,17 @@ export function StageActions({ status, onQualify, onPark, onCreate, qualifyBlock
             {menuOpen
               ? <div className="contact-create-dropdown" id="cd-create-menu" role="menu"
                   data-testid="cd-create-menu">
+                  {/* R7 (CREATE_FROM_ANY_CONTACT, 2026-11-22): both items
+                      DECLARE that they create a record the caller will own,
+                      and the door exempts exactly that declaration. Any user
+                      who can see this contact may create from it (R1, R4);
+                      editing it stays owner-only. The population is pinned at
+                      these two by create-from-any-contact.test.mjs. */}
                   <button type="button" role="menuitem" className="contact-create-item"
-                    data-testid="cd-create-test-bed"
+                    data-testid="cd-create-test-bed" data-creates-own-record="test-bed"
                     onClick={() => { setMenuOpen(false); onCreate('test-bed') }}>Test Bed</button>
                   <button type="button" role="menuitem" className="contact-create-item"
-                    data-testid="cd-create-opportunity"
+                    data-testid="cd-create-opportunity" data-creates-own-record="opportunity"
                     onClick={() => { setMenuOpen(false); onCreate('opportunity') }}>Opportunity</button>
                 </div>
               : null}
