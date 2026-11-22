@@ -169,3 +169,15 @@ exactly the two items), R8, the R9 probe and calibration, full gate, merge
 
 Still queued, not built: create-test-bed's five non-atomic writes and its
 unchecked audit insert (Q); the reference code a failed create burns.
+
+## Close-out (2026-11-22). Correction to the record, verbatim
+
+**The push of `main` 2ef4792 to origin came BEFORE a green gate on that tree.** The only gate result on 2ef4792 at the time of the push was run 1, which was RED. This breaks the rule that the push waits for the stated gate result (Verification 48(b)). Run 2 below was started after the push, so its green does not make the push compliant. It only tells us what was pushed.
+
+teardown-scoping, the three readings on this tree:
+
+      branch gate (ecd93bb, same tree)   PASS   59,120ms
+      merged run 1 (2ef4792)             FAIL   51,709ms   statement timeout
+      merged run 2 (2ef4792)             PASS   61,202ms
+
+Run 2: 39/39 stages, exit 0, transcript `.verify/verify-5870571230064041.txt`.
