@@ -135,3 +135,37 @@ database; the function no longer raises 42501 for a non-owner; nothing is keyed
 on the contact), tests fail first, function and client (R7 door exemption for
 exactly the two items), R8, the R9 probe and calibration, full gate, merge
 --no-ff, merged gate, ls-remote, "ready for John's push".
+
+## The build, against the sequence (2026-11-22)
+
+1. Post-apply proof, at the database (RPC called as the non-owner, RLS in
+   force, fixture p1post): 10/10. The non-owner's create succeeds (no 42501);
+   owner the creator, account_id the contact's Account, link on the new side,
+   ONE audit row on the new Opportunity naming the contact; contact and Account
+   fingerprints unchanged; an Account id still raises PT404 (the body runs).
+   The fingerprint was shown moving on an injected contact-keyed audit row.
+2. Tests first, read red: 5 of 13 failing, each on its ruled change.
+3. Function and client (ae1a1c9): create-test-bed drops the contact-keyed row
+   and the route guard; loadQualifiedContact stops selecting owner_id (no
+   reader left); the door exempts `[data-creates-own-record]`, declared on
+   exactly the two items; create-from-ownership's ruled list is three.
+4. R8 (ae1a1c9): DESIGN_PRINCIPLES "CREATE FROM ANY CONTACT". FINDING: R5 of
+   CREATE_FROM_OWNERSHIP_BRIEF had never been written into DESIGN_PRINCIPLES,
+   so the superseded ruling is quoted there for the first time.
+5. R9 probe (826eb9e, 0739910), gate stage `browser create from any contact`:
+   22/22 on the dev server. Calibrated by
+   scripts/create-from-any-contact/calibrate-probe.mjs on a temp copy of HEAD
+   served on :3013: first run 7/8 FIRED, injection 7 SILENT (a stylesheet
+   rule the JS door duplicates; and 5b read field rows only, not the inputs).
+   5b now asserts the 16 inputs; second run 8/8 FIRED by their named checks,
+   reverted 22/22.
+6. Two probe defects found by the run and fixed: the list re-render detached
+   the trigger handle (now a network-idle wait and one retry), and a triple
+   click did not select the suggested name, found by opening a screenshot
+   (now select-all, and the stored name is asserted).
+7. Residue: 18 tags swept across every owner, 0 live.
+8. docs/PROBES.md disposition counts had drifted before this round (35 stages,
+   158 WIRED typed; 38 and 161 measured); recounted.
+
+Still queued, not built: create-test-bed's five non-atomic writes and its
+unchecked audit insert (Q); the reference code a failed create burns.
