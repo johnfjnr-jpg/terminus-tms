@@ -34,3 +34,41 @@ P5 Proposed fix. Prefer a test change with no schema change; any index or
 P6 Calibration plan: the fixed test still FIRES on a teardown that stops at
    row 1,000.
 STOP with the report.
+
+## Phase 0 (2026-11-22)
+
+Reported in F5_TEARDOWN_SCALE_PHASE_0_REPORT.md (6de1dc5), read-only.
+
+## Rulings on Phase 0 (John, 2026-11-22). Verbatim
+
+D1  P5.3 option (b): tearDown performs the claim (soft delete, asserted), then
+    the test hard-purges ITS OWN rows. Conditions:
+    - The purge reaches only rows carrying this run's per-run tags AND owned by
+      the test account; both filters are asserted in the query, never inferred.
+    - Enumerate every RESTRICT child the soft delete or the fixtures write
+      (audit_log, record_contacts, anything else) and purge them in order. If a
+      child cannot be purged, STOP and report; do not widen the purge.
+    - purge() checks every error (Verification 8).
+    - The test ends asserting zero rows of this run's tags remain, in every
+      table it wrote.
+    - Record in DESIGN_PRINCIPLES that this departs from Verification 11's
+      letter for test-owned fixture rows only, and why: soft-deleted fixture
+      history is the cost every tag statement pays.
+D2  P4 :509 transition_requests: queued, unchanged this round.
+D3  The pg_trgm index: out of this round.
+D4  The rebuilt test as P3/P5 propose: per-run tags, the 1,500-row pad, about
+    30 candidates, pick-after and hand away, no ledger reads, no borrowed tags,
+    the three P3 conditions and the unranged counterfactual kept. The headroom
+    guard is re-aimed at the run's own tags.
+D5  Calibration as P6, I1 to I7, each read by its named assertion, plus the
+    starved-estate run. I7 is mandatory: the sweep set is only this run's tags.
+D6  The close-out states plainly that stalls are reduced, not removed. A future
+    red on teardown-scoping is investigated as a stall (fixtures.mjs:490
+    class), never retried.
+
+Optional, if John runs them: the two dashboard queries in P1 (EXPLAIN,
+pg_roles). Record the results if supplied; do not block on them.
+
+Then: tests, the rebuild, calibration, full gate, merge --no-ff, merged gate,
+ls-remote, "ready for John's push". Report teardown-scoping's duration on every
+gate run.
