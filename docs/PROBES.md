@@ -10,10 +10,12 @@ DESIGN_PRINCIPLES, set by John 2026-11-18: **a probe that guards a shipped behav
 
 ## Dispositions
 
+Counted from this file's own table and from `STAGES` in `scripts/verify-all.mjs` at CREATE_FROM_ANY_CONTACT, 2026-11-22, not carried forward: the figures above that had read 35 stages, 158 WIRED and 80 MANUAL, while before this round's two rows the table held 161 WIRED and 80 MANUAL and the gate 38 stages. The drift predates this round. These are hand-kept numbers and will drift again; the table rows are the record.
+
 | disposition | meaning | rows |
 |---|---|---|
-| WIRED | run by the gate: a `scripts/verify-all.mjs` stage (35 stages), a suite `package.json` runs, the pre-commit hook, or imported or opened by one of those | 158 |
-| MANUAL | kept and run by hand; the reason is in the row | 80 |
+| WIRED | run by the gate: a `scripts/verify-all.mjs` stage (39 stages), a suite `package.json` runs, the pre-commit hook, or imported or opened by one of those | 162 |
+| MANUAL | kept and run by hand; the reason is in the row | 81 |
 | TOOL | an operator tool, not a check | 3 |
 | RETIRED | deleted in PROBE_TRIAGE (R6); git history keeps every one | 451 |
 
@@ -36,6 +38,7 @@ DESIGN_PRINCIPLES, set by John 2026-11-18: **a probe that guards a shipped behav
 | `scripts/check-session.mjs` | WIRED | THE SESSION IS VALID, ASKED BEFORE ANYTHING DEPENDS ON IT | gate stage |
 | `scripts/check-state-fresh.mjs` | WIRED | IS CURRENT_STATE.md STALE? | gate stage |
 | `scripts/convert-atomicity/calibrate-migration-test.mjs` | MANUAL | Calibration of scripts/tests/convert-atomicity.test.mjs, in both directions. | calibrator of wired tests/convert-atomicity.test.mjs; run when that check changes |
+| `scripts/create-from-any-contact/calibrate-probe.mjs` | MANUAL | Calibration of scripts/probe-create-from-any-contact.mjs: eight injections, each read by its named check, on a temp copy of HEAD served on its own port; then a reverted run. | calibrator of wired probe-create-from-any-contact.mjs; a server-and-browser run of about ten minutes, run when that probe changes |
 | `scripts/create-from/calibrate-guards.mjs` | MANUAL | Calibration of scripts/tests/create-from-ownership.test.mjs, both directions. | calibrator of wired tests/create-from-ownership.test.mjs; run when that check changes |
 | `scripts/create-test-user.js` | MANUAL | Creates a confirmed test user in Supabase Auth, or SETS THE PASSWORD on one | named by src/supabase.js: a committed capture or cited proof (V47) |
 | `scripts/deal-radar/probe-radar-unavailable.mjs` | MANUAL | DEAL RADAR Phase 4, addition A: the failed-read path of the overlay. | cited as evidence in DESIGN_PRINCIPLES.md; retiring it leaves a pointer to nothing (V7) |
@@ -84,6 +87,7 @@ DESIGN_PRINCIPLES, set by John 2026-11-18: **a probe that guards a shipped behav
 | `scripts/perf1/probe-one-fetch.mjs` | MANUAL | one /api/contacts fetch per load, plus a latency floor | PASS 13/13 but 46.8s and timing-sensitive: a latency floor against a fixed threshold is the lottery Verification 48 forbids in a gate |
 | `scripts/pre-commit-suites.mjs` | WIRED | REFUSE A COMMIT WHEN A SUITE IS RED. | pre-commit hook |
 | `scripts/probe-closed-won-pricing-click.mjs` | WIRED | R-FF4: pricing on a Closed Won deal is refused client and server, the sentence reaches the person, non-pricing edits land | gate stage `browser closed-won pricing`; R2. R1 2026-11-18: PASS, 21.7s |
+| `scripts/probe-create-from-any-contact.mjs` | WIRED | CREATE_FROM_ANY_CONTACT R9: a non-owner creates an Opportunity and a Test Bed from another user's contact, list and detail; nothing written on the contact or Account; PATCH and convert stay owner-only | gate stage `browser create from any contact`; R9 |
 | `scripts/probe-commercial-gate.mjs` | WIRED | The Commercial gate reads the OPEN TRANSITION REQUEST. Round 41. | gate stage |
 | `scripts/probe-cost-basis-line.mjs` | MANUAL | /usr/bin/env node | named by frontend/style.css: a committed capture or cited proof (V47) |
 | `scripts/probe-dead-selectors.mjs` | MANUAL | CSS rules that match nothing (candidates) | prints candidates and has no verdict, so it cannot gate; the verdict half is scripts/tests/dead-selectors.test.mjs, wired |

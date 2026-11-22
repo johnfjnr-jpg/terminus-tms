@@ -37,10 +37,22 @@ const FILES = {
 const GUARD_RE = /owner_id !== request\.user\.id\)\s*return sendRefusal\(reply\)/
 const hasGuard = (body) => GUARD_RE.test(body)
 
-// R5's ruled list, route-level half. The two function-mediated paths are
-// guarded inside the functions and are asserted by the migration's own test.
+// R5's ruled list, route-level half. The function-mediated path that remains
+// (convert_test_bed) is guarded inside the function and asserted by the
+// migration's own test.
+//
+// ── FOUR BECAME THREE. CREATE_FROM_ANY_CONTACT R4, John 2026-11-22 ────────
+//
+// create-test-bed LEFT this list. R5 guarded it because creating from a
+// Contact wrote on the Contact: a `created_test_bed` audit row keyed on it,
+// which also bumped its record_freshness. R4 retired that row for all
+// creators, so the route now writes only the new bed and its own links, and
+// the premise R5 rested on no longer holds for it (Verification 29: re-taken,
+// not re-weighed). Any signed-in user may create a Test Bed from any contact
+// they can see; the creator owns the bed. The route is now pinned UNGUARDED
+// below, beside create-opportunity, so a later sweep that restores the guard
+// fails by name. The other three still act ON a record somebody owns.
 const GUARDED = [
-  ['contacts', "app.post('/contacts/:id/create-test-bed'"],
   ['testBeds', "app.post('/test-beds/:id/customer-documents'"],
   ['testBeds', "app.post('/test-beds/:id/complete-document'"],
   ['testBeds', "app.post('/test-beds/:id/units/derive'"],
@@ -57,7 +69,7 @@ function routes(src) {
 }
 const ALL = [...routes(FILES.contacts), ...routes(FILES.testBeds)]
 
-test('exactly the four ruled route-level paths carry the guard', () => {
+test('exactly the three ruled route-level paths carry the guard', () => {
   const guarded = ALL.filter((r) => hasGuard(r.body)).map((r) => `${r.method} ${r.path}`)
   const want = GUARDED.map(([, a]) => {
     const m = a.match(/app\.(\w+)\('([^']+)'/)
@@ -84,6 +96,10 @@ test('every guarded route can actually READ an owner', () => {
   // the select is where the guard is. The first version of this test asserted
   // the inline shape and failed on the one route that does it differently -
   // which is the same class of mistake as the guard it exists to police.
+  //
+  // Since CREATE_FROM_ANY_CONTACT R4 the loader route is unguarded, so all
+  // three remaining members select inline. The loader branch is kept so a
+  // future loader-fed guard is checked rather than waved through.
   const LOADERS = { 'loadQualifiedContact': FILES.contacts }
   for (const [file, anchor] of GUARDED) {
     const src = FILES[file]
@@ -115,6 +131,17 @@ test('the guard refuses through sendRefusal, never a fabricated 42501', () => {
     const seg = r.body.slice(GUARD_RE.exec(r.body).index)
     assert.match(seg.slice(0, 900), /return sendRefusal\(reply\)/, `${r.path}`)
     assert.doesNotMatch(seg.slice(0, 900), /42501/, `${r.path} fabricates 42501`)
+  }
+})
+
+test('CREATE_FROM_ANY_CONTACT R1 and R4: both create-from-contact routes are UNGUARDED', () => {
+  // John 2026-11-22: any signed-in user may create an Opportunity or a Test
+  // Bed from any contact they can see. Neither route may carry the owner
+  // guard; a sweep that restores one fails here, by route.
+  for (const path of ['/contacts/:id/create-opportunity', '/contacts/:id/create-test-bed']) {
+    const r = ALL.find((x) => x.method === 'post' && x.path === path)
+    assert.ok(r, `${path} is gone`)
+    assert.ok(!hasGuard(r.body), `${path} carries the owner guard: R1/R4 rule it open to any user who can see the contact`)
   }
 })
 

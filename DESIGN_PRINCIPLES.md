@@ -14094,3 +14094,95 @@ reads exactly like one that had nothing to say.
 the last approved and the under-review Base TCV side by side with a caveat,
 for John's mockup to settle. *Rests on:* the bridge being Commercials input
 keys, and a term step-by-step bridge being unspecified.
+
+
+# CREATE FROM ANY CONTACT: A READER MAY CREATE THEIR OWN RECORD FROM A CONTACT
+
+**CREATE_FROM_ANY_CONTACT round, John's rulings 2026-11-22** (the brief,
+`CREATE_FROM_ANY_CONTACT_BRIEF.md`, carries them verbatim). Recorded under R8:
+R5 of the create-from ownership round is SUPERSEDED for two paths, with the
+reasoning it rested on left visible below (Verification 29).
+
+## 1. The ruling
+
+> Any signed-in user may create an Opportunity from ANY contact they can see,
+> whoever owns the contact or its Account. The creator owns the new
+> Opportunity. Creation writes the new Opportunity and its own links ONLY; it
+> writes nothing on the contact or the Account. Editing a contact or Account
+> stays owner-only (unchanged).
+
+R4 extends it to **creating a Test Bed from a contact**, on the same terms.
+
+## 2. What is superseded, and the reasoning it rested on
+
+**R5 of `CREATE_FROM_OWNERSHIP_BRIEF.md` (John, 2026-09-08), quoted, because
+this file never carried it.** That round recorded its rulings in its brief and
+in the code; this file had no entry, so the decision being superseded is
+written here for the first time, as it stood:
+
+> R5. THE FIX LIST IS RULED: all six paths owner-only - convert,
+> create-test-bed, create-opportunity, customer-documents,
+> complete-document, units/derive. TWO RATIONALES, both recorded
+> because they are different and a later reader deserves both:
+> the first five CONSUME from the source record - an allowance,
+> an identity, a history - while derive INJECTS into it,
+> populating another owner's bed with units they never made,
+> which is editing by another name. Same rule, stated reasons.
+
+**For create-opportunity and create-test-bed, what was consumed was the
+HISTORY, and only the history.** Phase 0 of this round measured both paths:
+
+- no allowance exists on a contact (the single conversion allowance is a Test
+  Bed's, spent by `convert_test_bed`);
+- no identity transfers: each path issues a FRESH reference code, never the
+  contact's;
+- the history was one audit row keyed on the contact
+  (`created_opportunity`, `created_test_bed`), whose trigger also bumped the
+  contact's `record_freshness`.
+
+**R5 and R4 of this round retired both rows for all creators.** With them gone
+the premise "the path consumes from the source" is FALSE for these two paths,
+so the decision is RE-TAKEN, not re-weighed: the guard is removed from
+`create_opportunity_from_contact` (migration `20261122000001`) and from
+`POST /contacts/:id/create-test-bed`. Each new record keeps its own
+`created_from_contact` row naming the contact, so the fact is still recorded,
+on the record the creator owns.
+
+**What is NOT superseded.** R5 stands for the other four paths, because their
+premise still holds:
+
+- `convert_test_bed` (R3 of this round) spends the bed's allowance and takes
+  its reference code: it consumes an allowance and an identity;
+- `customer-documents`, `complete-document` and `units/derive` act ON a record
+  somebody owns.
+
+`transition-requests/:id/approvals` stays exempt by name (R7 of that round).
+
+## 3. The door: a declared property, exactly two members
+
+**R7.** The contact screen's door disabled the two create items on an unowned
+contact, so that screen sent no request at all. They are exempt by the
+attribute `data-creates-own-record`, which states what the control does, never
+by a class: `.contact-create-item` also dresses the Contacts list.
+`scripts/tests/create-from-any-contact.test.mjs` holds the population at
+exactly the two ruled items, so a third is a red test read by whoever adds it.
+
+## 4. What each decision rests on (Verification 29)
+
+- **The guard's removal rests on both paths writing NOTHING keyed on the
+  contact or its Account.** A future write on either from these paths (a
+  counter, a "last converted" stamp, a status change) restores R5's premise
+  and reopens the question. `probe-create-from-any-contact.mjs` fingerprints
+  both and is a gate stage, so such a write turns the gate red rather than
+  arriving silently.
+- **The door exemption rests on the two items creating, never editing.** If
+  either ever writes to the contact as part of creating, the exemption is
+  wrong for it.
+- **Editing stays owner-only because nothing here touched the contact's or
+  Account's write policies.** R6 keeps Qualify an owner-only edit: a qualified
+  contact is a precondition the owner sets, not one a creator may.
+
+**Queued, not this round:** create-test-bed is five separate writes with an
+unchecked audit insert (the atomic-creation rule of record: a creation path is
+born atomic via an INVOKER function); and a failed create burns a reference
+code, because the code is issued before the write.

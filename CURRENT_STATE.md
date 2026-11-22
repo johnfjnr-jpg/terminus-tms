@@ -12,9 +12,9 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-11-20T15:31:45.758Z`
-- Git commit: `00222fefa69662a7bbaa028ca1be39009693b317`
-- Working tree at generation: `clean`
+- Generated at: `2026-11-22T05:18:04.479Z`
+- Git commit: `07399105423750f6125efce9841ba1341bfe37bb`
+- Working tree at generation: `dirty (uncommitted changes present)`
 
 Staleness has two parts, and both must hold for this file to be current:
 the recorded commit is an ancestor of `HEAD`, AND no tracked configuration
@@ -55,16 +55,16 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 ## React workspace
 
-- Committed bundle: `frontend-react/dist/terminus-react.js`, 656,391 bytes
-- sha256: `ddecbfaea074b7429b6886da610fc5eee6434453b4fe00428e51bd8d8e72753e`
+- Committed bundle: `frontend-react/dist/terminus-react.js`, 656,468 bytes
+- sha256: `aecd577db625a5e99b26f0bad06a26f0ceb36884abbb59c247ff7ed742f5c73a`
 - React suite: 1498/1498 pass, 0 fail
 
 ## Tags
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1267 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1238 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1276 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1247 | yes |
 
 ## `stage_definitions`
 
@@ -518,36 +518,36 @@ _None._
 
 ## Record counts by type and status
 
-134 live, 129967 soft deleted, 130101 rows in total.
+134 live, 130959 soft deleted, 131093 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1781 |
-| contact | Active | 0 | 3768 |
+| account | active | 7 | 1810 |
+| contact | Active | 0 | 3792 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 14333 |
+| contact | Qualified | 12 | 14523 |
 | contact | Unqualified | 5 | 770 |
-| document | approved | 65 | 6183 |
+| document | approved | 65 | 6215 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
-| opportunity | Closed Won | 2 | 78 |
-| opportunity | Evaluation | 0 | 346 |
+| opportunity | Closed Won | 2 | 98 |
+| opportunity | Evaluation | 0 | 348 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 2109 |
-| opportunity | Qualification | 6 | 12539 |
-| opportunity | Solution Alignment | 7 | 1630 |
+| opportunity | Proposal | 3 | 2121 |
+| opportunity | Qualification | 6 | 12703 |
+| opportunity | Solution Alignment | 7 | 1638 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1601 |
+| test_bed | Qualification | 4 | 1644 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 24348 |
+| unit | Planned | 9 | 24488 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -558,20 +558,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 7434 | 0 | 60247 |
+| 7474 | 0 | 60575 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5594 rows, of which 3 carry a null `stage`.
+5622 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2720 | 0 |
-| approved | Legal | 1584 | 1 |
+| approved | Commercial | 2734 | 0 |
+| approved | Legal | 1592 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1281 | 0 |
+| approved | Technical | 1287 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -702,7 +702,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-133 files in `supabase/migrations/`.
+134 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -837,6 +837,7 @@ than written as a literal list, so its members are not enumerable here.
 131. `20261117000001_term_pricing_price_ladder.sql`
 132. `20261117000002_versions_freeze_their_figures.sql`
 133. `20261120000001_term_quotes_versions_carry_a_kind.sql`
+134. `20261122000001_create_opportunity_from_any_visible_contact.sql`
 
 ## Seed files, in application order
 

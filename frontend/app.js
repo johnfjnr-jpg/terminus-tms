@@ -2094,6 +2094,25 @@ const NON_ACTION_SELECTOR = [
   // population at its one member, so a second role="link" is a red test, read
   // by whoever adds it, rather than a silent exemption.
   '[role="link"]',
+  // ── CREATING YOUR OWN RECORD FROM A RECORD YOU MAY READ. R7, 2026-11-22 ──
+  //
+  // CREATE_FROM_ANY_CONTACT, ruled by John: any signed-in user may create an
+  // Opportunity or a Test Bed from ANY contact they can see. The creator owns
+  // the new record, and creation writes nothing on the contact or its Account.
+  // So these two controls are not edits of the record the door protects; they
+  // are a reader's action that produces a record of their own. Phase 0
+  // measured the door disabling them on an unowned contact, which is why the
+  // contact's own screen sent no request at all.
+  //
+  // Keyed on a DECLARED PROPERTY, not on `.contact-create-item` or a testid,
+  // per Verification 19: the class also dresses the Contacts list's items, and
+  // an exemption by styling is how two write controls were once sheltered.
+  // The attribute says what the control does - it creates a record the caller
+  // will own - which a reviewer can check. R7 rules the set EXACTLY: the
+  // contact screen's create-Test-Bed and create-Opportunity items.
+  // scripts/tests/create-from-any-contact.test.mjs holds the population at
+  // those two, so a third declaration is a red test read by whoever adds it.
+  '[data-creates-own-record]',
 ].join(', ')
 
 // ── THE DOOR MUST OUTLIVE THE RENDER IT WAS APPLIED IN ──────────────────
