@@ -115,3 +115,23 @@ write is its only occurrence).
 
 Per R4, create-test-bed is NOT changed; the round stops for a ruling on that
 row. The fixture is torn down (2 records, 0 remaining).
+
+## Review of b834151 and e332bd6 (John, 2026-11-22). Verbatim
+
+M   Migration 20261122000001 APPROVED. John has applied it (begin/commit)
+    and recorded the ledger row by hand.
+R4 RULING: retire the contact-keyed "created_test_bed" audit row for all
+    creators, as R5 does for Opportunity. The bed keeps its own
+    created_from_contact row naming the contact. Then remove the route-level
+    owner guard on create-test-bed (R4 as briefed);
+    create-from-ownership.test.mjs's ruled list drops from four to three, with
+    the reason recorded.
+Q   Queue, not this round: the create-test-bed route is five separate writes,
+    not one transaction, with an unchecked audit insert (the atomic-creation
+    rule of record: a creation path is born atomic via an INVOKER function).
+
+Sequence from here: post-apply proof (a non-owner's create succeeds at the
+database; the function no longer raises 42501 for a non-owner; nothing is keyed
+on the contact), tests fail first, function and client (R7 door exemption for
+exactly the two items), R8, the R9 probe and calibration, full gate, merge
+--no-ff, merged gate, ls-remote, "ready for John's push".
