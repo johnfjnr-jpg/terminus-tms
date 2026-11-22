@@ -35,9 +35,17 @@ const isLive = async (id) => {
   const r = must(await db.from('records').select('id, deleted_at').eq('id', id), 'read')
   return r.length === 1 && !r[0].deleted_at
 }
+// Every error checked (Verification 8, ruling D1 of F5_TEARDOWN_SCALE). It
+// used to discard both results, so a purge blocked by a RESTRICT child
+// returned silently and left the row. Records go ONE AT A TIME in the order
+// given, so a caller passing a child before its parent is never refused by
+// parent_record_id's RESTRICT inside a single statement.
 const purge = async (ids) => {
-  await db.from('record_revisions').delete().in('record_id', ids)
-  await db.from('records').delete().in('id', ids)
+  must(await db.from('record_revisions').delete().in('record_id', ids).select('id'), 'purge revisions')
+  for (const id of ids) {
+    const gone = must(await db.from('records').delete().eq('id', id).select('id'), `purge record ${id}`)
+    assert.equal(gone.length, 1, `purge: record ${id} was not deleted`)
+  }
 }
 
 test('tearDown sweeps its own tag AND leaves another round\'s tag standing', async () => {
@@ -137,352 +145,338 @@ test('a record handed to another owner is still swept', async () => {
 // THIS TEST EXISTS BECAUSE EVERY OTHER TEST IN THIS FILE IS BLIND TO IT. They
 // build two or three fixtures and sweep them, so their population is three
 // orders of magnitude under the cap and an unranged query returns all of it.
-// A page-sized population goes green while proving nothing, and that shape is
-// what produced the finding in the first place.
 //
-// So the population here is the REAL one: every tag in the ledger, which is
-// what a no-argument tearDown() sweeps, plus this test's own fixture.
+// ── F5_TEARDOWN_SCALE, 2026-11-22: THE POPULATION IS THIS RUN'S OWN ───────
+//
+// SUPERSEDED REASONING LEFT VISIBLE (Verification 29). This test used to read
+// "the population here is the REAL one: every tag in the ledger", and built
+// it from FIXED tag names (a1deep, a1keep, a1pad1..3) plus the heaviest tag
+// the ledger held. Measured at Phase 0 (F5_TEARDOWN_SCALE_PHASE_0_REPORT.md):
+//
+//   - the population was HISTORY: a1deep matched 3,594 revision rows over
+//     2,396 records, every one of them soft deleted by earlier runs;
+//   - the second tag was ANOTHER PROBE'S (`score-success`, 4,452 rows), and
+//     this test swept it every run: the 66-record defect's shape, in the test
+//     written to prevent it;
+//   - and the cost was about 45 whole-table statements a run, because no
+//     index serves `payload->>name`, so every page reads all of
+//     record_revisions (170,909 rows) whatever the tag matches. One of them
+//     crossed the statement timeout on 2026-11-22 (51,709ms), a stall of the
+//     fixtures.mjs:490 class.
+//
+// The claim needs none of that. It needs ONE tag whose population is over the
+// cap, a record reached only by the tag branch, deep in the order tearDown
+// pages by. So the test builds exactly that, under tags no other run can
+// carry, and removes it afterwards (ruling D1). It passes on an EMPTY estate
+// by construction, and reads no ledger.
+//
+// THIS REDUCES STALL EXPOSURE; IT DOES NOT REMOVE IT. Every page is still a
+// whole-table scan. A future red here is investigated as a stall, never
+// retried (ruling D6).
+const PAD = 1500
+const CANDIDATES = 30
+
 test('tearDown reaches a record beyond row 1,000 of its own tag population', async () => {
-  const { admin, freshOpportunity, tearDown, tagsToSweep } = await import('../fixtures.mjs')
+  const { admin, tearDown, TAG_CHUNK_SIZE } = await import('../fixtures.mjs')
+  const { unrangedForCalibration } = await import('../lib/unbounded-selects.mjs')
   const db = admin()
   const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
-  const TAG = 'a1deep'
-  const KEEP = 'a1keep'
-  const or = (ts) => ts.map((t) => `payload->>name.ilike.${t}%`).join(',')
   const exactCount = async (q, w) => {
-    const { count, error } = await q
-    if (error) throw new Error(`${w}: ${error.message}`)
+    const { count, error, status } = await q
+    if (error) throw new Error(`${w}: status ${status} ${error.message}`)
     return count
   }
+  const owner = JSON.parse((await import('fs')).readFileSync(
+    '/Users/johnfryatt/terminus-tms/session-ref.json', 'utf8')).user.id
 
-  const kept = await freshOpportunity(KEEP)
-  // `deep` is chosen, not hoped for - see the retry below, which exists because
-  // the first version of this test was FLAKY IN THE GATE.
-  let deep = await freshOpportunity(TAG)
-  const extras = []
+  // ── PER-RUN TAGS. No other run can carry one, so history cannot match ──
+  const RUN = stamp()
+  const TAG = `a1deep-${RUN}`
+  const KEEP = `a1keep-${RUN}`
+  const THIRD = `a1third-${RUN}`
+  const RUN_TAGS = [TAG, KEEP, THIRD]
+  const or = (ts) => ts.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  const created = new Set()
 
-  // ── BOTH ARE HANDED AWAY, AND THAT IS WHAT PUTS THEM UNDER THE TAG BRANCH ─
-  //
-  // The first version of this test left them owned by the test account, and the
-  // page-cap injection came back SILENT. The reason is the whole shape of the
-  // defect: a record the test account still OWNS is found by the owner-scoped
-  // candidate branch and never needs the tag query at all. The tag branch only
-  // decides the fate of records that have LEFT that set - which is exactly the
-  // population it was built for, and exactly the 25 handed-away opportunities
-  // the previous round found sitting live.
-  //
-  // Raw update rather than handOver(), deliberately: the ledger is the other
-  // way a handed-away record is reached, and using it here would mask the very
-  // branch under test.
-  const other = must(await db.from('track_approvers').select('user_id')
-    .eq('record_type', 'opportunity').limit(1), 'other owner')[0].user_id
-  for (const id of [deep.oppId, kept.oppId]) {
-    must(await db.from('records').update({ owner_id: other }).eq('id', id).select('id'), `hand ${id}`)
+  // Built directly, as this file's `tagged()` builds every fixture: a record
+  // the test account owns, its tag in the payload name. Many revisions on one
+  // record is a state the system produces (every PATCH appends one); building
+  // 1,500 by hand is the cost of not waiting for it.
+  const newRecords = async (n, w) => {
+    const rows = must(await db.from('records').insert(Array.from({ length: n }, () => ({
+      record_type: 'opportunity', status: 'Qualification', owner_id: owner,
+    }))).select('id'), w)
+    assert.equal(rows.length, n, `${w}: inserted ${rows.length} of ${n}`)
+    for (const r of rows) created.add(r.id)
+    return rows.map((r) => r.id)
   }
-
-  // ── THE SWEEP SET IS BUILT TO EXCEED THE CAP, NOT HOPED TO ──────────────
-  //
-  // Two earlier drafts failed here and both failures are the reason this is
-  // constructed rather than taken. Probing the ledger's first 25 tags missed
-  // the fixture's own tag entirely, which reported as index -1 and READS as
-  // "inside the first page". Probing the chunk the fixture's tag falls in gave
-  // a population of 29, because a tag appended seconds ago sits among other
-  // recent small ones while the mass is in the old tags.
-  //
-  // So: the fixture's tag, plus the heaviest historical tags, until the
-  // population is over the cap. Every count here is EXACT (head + count), never
-  // a select's length, because a select's length IS the cap.
-  // ── THE TEST CREATES THE TAGS IT NEEDS. IT DOES NOT BORROW THEM ─────────
-  //
-  // The chunk assertion below requires TAG_CHUNK_SIZE tags in `weighed`, and
-  // `weighed` is the ledger MINUS this test's own two - so every tag it counted
-  // came from OTHER runs' leftovers. It passed for a long time because the
-  // estate was never clean enough to starve it.
-  //
-  // It was found when a round's probes tore down everything they made. The
-  // ledger was left holding exactly this test's two tags, `weighed` had one
-  // entry, and the assertion failed - DETERMINISTICALLY, whenever the estate is
-  // clean. Worse, the failed run left its own two tags behind, so the next run
-  // borrowed those and went green: the bug restored the litter it needed, which
-  // is why re-running looked like a flake and was not.
-  //
-  // A test that depends on other tests' residue is not measuring the system. It
-  // now makes its own, so a clean estate is the condition it PASSES on rather
-  // than the one that breaks it.
-  const PAD_TAGS = []
-  for (let i = 1; PAD_TAGS.length < TAG_CHUNK_SIZE; i++) {
-    const t = `a1pad${i}`
-    await freshOpportunity(t)
-    PAD_TAGS.push(t)
+  const newRevisions = async (rows, w) => {
+    for (let i = 0; i < rows.length; i += 500) {
+      const got = must(await db.from('record_revisions').insert(rows.slice(i, i + 500)).select('id'), w)
+      assert.equal(got.length, rows.slice(i, i + 500).length, `${w}: revisions short`)
+    }
   }
+  const name = (t) => ({ name: `${t} Opportunity` })
 
-  const ledger = tagsToSweep().filter((t) => t !== TAG && t !== KEEP)
-  const weighed = []
-  for (const t of ledger) {
-    weighed.push({ t, n: await exactCount(db.from('record_revisions')
-      .select('id', { count: 'exact', head: true }).ilike('payload->>name', `${t}%`), `weigh ${t}`) })
-  }
-  weighed.sort((a, b) => b.n - a.n)
-  const sweep = [TAG]
-  let total = 0
-  for (const { t, n } of weighed) {
-    if (total > 1000 || sweep.length >= 25) break
-    sweep.push(t); total += n
-  }
-  const population = await exactCount(db.from('record_revisions')
-    .select('id', { count: 'exact', head: true }).or(or(sweep)), 'population')
-  assert.ok(population > 1000,
-    `the population is ${population} (exact count), at or under the cap, so this test cannot see the defect`)
-  assert.ok(sweep.length <= 25, 'the sweep set must fit one chunk, or it is not the query under test')
-  assert.ok(!sweep.includes(KEEP), 'the control must not be in the sweep set')
-  // EMITTED, not typed. Any number describing a run comes out of the run
-  // (Verification 20), and the first commit of this work quoted a population
-  // figure the run had never printed.
-  console.log(`    population: ${population} rows (exact count) over ${sweep.length} tags, cap 1000`)
-
-  // ── F5: HEADROOM AGAINST THE STATEMENT TIMEOUT, ASSERTED ───────────────
-  //
-  // This test failed the LEADS CARD POLISH round's own closing gate, and its
-  // FAILING duration had climbed 15,957 to 19,887ms across two rounds while
-  // the passing case stayed flat at ~6.3s. Nothing in the suite was watching
-  // that number, so it passed for two rounds while getting worse.
-  //
-  // The cause was a scan carrying a whole JSON payload off every row to
-  // discard it - 7,879ms for one page, against 1,308ms without, measured on
-  // the live table. Dropping it is the fix; THIS is what stops the same thing
-  // happening again silently as the table keeps growing.
-  //
-  // Asserted against a stated ceiling rather than left as a printed number,
-  // because a printed number is what nobody was watching.
-  // ── THE CEILING IS DERIVED, NOT PICKED ─────────────────────────────────
-  //
-  // The statement that failed was COLD - the first scan of a fresh process
-  // against a cold cache, which is exactly what a gate run does. Measured on
-  // the same query, cold 7,879ms against warm ~1,300ms: a factor of about 6.
-  //
-  // A test cannot reliably produce a cold cache, so it measures WARM and
-  // requires that warm times the observed cold factor, with margin, still
-  // clears the timeout. That is what makes this a headroom assertion rather
-  // than "it passed today".
-  const TIMEOUT_MS = 8000
-  const COLD_FACTOR = 6
-  const MARGIN = 1.5
-  const CEILING = Math.round(TIMEOUT_MS / COLD_FACTOR / MARGIN)
-
-  // ── THE GUARD TIMES THE QUERY THAT ACTUALLY FAILED ─────────────────────
-  //
-  // The first version of this watched `pageTiming`, the slowest page any scan
-  // in the process had run. It read 205ms with the defect deliberately
-  // reinjected and PASSED - because this test's own teardown sweeps two tags
-  // over 5,525 rows, while the statement that timed out was tearDown's
-  // full-ledger scan: a 25-tag OR over 24,443 rows. Verification 25 exactly -
-  // the right measurement on far too small a population, and the calibration
-  // is what caught it rather than the reading looking wrong.
-  //
-  // So the guard runs ONE page of the real shape and times that.
-  // THE SAME CHUNK SIZE THE CODE USES, imported rather than retyped: a guard
-  // that times a statement the code never runs is measuring nothing. 25 was
-  // what tearDown used when this failed; TAG_CHUNK is now the lever that was
-  // turned, so the guard follows it.
-  // THE HEAVIEST CHUNK, not the first. `weighed` above already has every tag
-  // with its exact row count, so the worst statement tearDown will actually
-  // run is the TAG_CHUNK_SIZE heaviest tags together. Timing the first six
-  // measured 407 rows and proved nothing about the chunk that matters.
-  const ledgerTags = weighed.slice(0, TAG_CHUNK_SIZE).map((w) => w.t)
-  const ledgerOr = ledgerTags.map((t) => `payload->>name.ilike.${t}%`).join(',')
-
-  // ── ONE DRAW OF A 3.7x DISTRIBUTION IS NOT A MEASUREMENT ───────────────
-  //
-  // SUPERSEDED REASONING LEFT VISIBLE, because the premise failed rather
-  // than a preference changing (Verification 29). This probe used to time
-  // the statement ONCE and assert that single reading under the ceiling,
-  // and its failure message said "the failing case climbs while the passing
-  // one stays flat" - a table-growth diagnosis that three rounds acted on,
-  // stepping TAG_CHUNK_SIZE 25 -> 6 -> 3.
-  //
-  // MEASURED, and it is not table growth. Decomposed at 99,599 rows the
-  // statement is ~408ms idle: ~147ms network round trip, ~126ms scan, and
-  // ~135ms returning 1000 rows. ONLY the 126ms grows with the table, so
-  // doubling the table reaches ~534ms - still under the ceiling. Table
-  // growth cannot produce the 1178ms that turned a gate red.
-  //
-  // What does: 25 samples of a SINGLE INDEXED ROW swing 133ms to 498ms,
-  // a 3.7x spread, and the distribution is not stationary. The chunk
-  // inherits that. A single draw asserted against a fixed ceiling crosses
-  // it a few percent of the time forever, whatever the chunk size is - and
-  // the chunk size was never the lever: 1 tag costs 314ms and 8 cost 567ms
-  // against a floor of ~150ms, so stepping down saves tens of milliseconds
-  // and adds statements that each pay the floor again.
-  //
-  // So the probe samples N times and asserts the MINIMUM.
-  //
-  // WHY THE MINIMUM AND NOT THE MEDIAN, which was tried first and measured
-  // insufficient: the connection's noise is STRICTLY ADDITIVE. Jitter,
-  // scheduling and contention can only make a statement take LONGER than its
-  // true cost; nothing makes it faster. So min(N) is a lower bound on the
-  // real cost and an unbiased-from-above estimator of it, while the median
-  // still carries whatever the distribution was doing during those seconds.
-  //
-  // Measured: a median of 5 read 945ms for a 16-tag chunk and 314ms for a
-  // 24-tag chunk that walks MORE rows - non-monotonic, because the
-  // distribution shifted between the two. The minima over the same runs were
-  // far better behaved.
-  //
-  // This SHARPENS the guard rather than loosening it. A real cost increase
-  // raises the floor, and the floor is exactly what the minimum measures;
-  // jitter raises only the upper samples, which the minimum ignores.
-  const SAMPLES = 5
-  const timings = []
-  for (let i = 0; i < SAMPLES; i++) {
-    const t0 = Date.now()
-    const { error: probeErr } = await db.from('record_revisions')
-      .select('id, record_id').or(ledgerOr).order('id', { ascending: true }).range(0, 999)
-    if (probeErr) throw new Error(`headroom probe: ${probeErr.message}`)
-    timings.push(Date.now() - t0)
-  }
-  const sorted = [...timings].sort((a, b) => a - b)
-  const probeMs = sorted[0]
-  const worstMs = sorted[SAMPLES - 1]
-
-  // ── AND THE COLD-TAIL GUARD, ON THE TERM THAT ACTUALLY MULTIPLIES ──────
-  //
-  // The 6x cold factor is a DISK-CACHE effect: it multiplies the SCAN, not
-  // the network round trip and not the fetch of 1000 rows. Applying it to a
-  // jitter-inflated total overstates the risk; applying it to the scan term
-  // measures the real one. This times a full scan that returns NOTHING, so
-  // it is floor + scan with the fetch removed, and asserts that cold it
-  // still clears the statement timeout with the same margin.
-  const scanTimings = []
-  for (let i = 0; i < SAMPLES; i++) {
-    const t0 = Date.now()
-    const { error: scanErr } = await db.from('record_revisions').select('id, record_id')
-      .ilike('payload->>name', 'zzzz-headroom-no-match-%')
-      .order('id', { ascending: true }).range(0, 999)
-    if (scanErr) throw new Error(`scan-term probe: ${scanErr.message}`)
-    scanTimings.push(Date.now() - t0)
-  }
-  const scanMs = [...scanTimings].sort((a, b) => a - b)[0]
-  const COLD_BOUND = Math.round(TIMEOUT_MS / MARGIN)
-
-  const scanned = await exactCount(db.from('record_revisions')
-    .select('id', { count: 'exact', head: true }).or(ledgerOr), 'headroom population')
-
-  console.log(`    headroom: the HEAVIEST chunk, ${scanned} rows (${ledgerTags.length} tags), `
-    + `${SAMPLES} samples [${timings.join(', ')}] min ${probeMs}ms worst ${worstMs}ms, ceiling ${CEILING}ms`)
-  console.log(`    cold tail: scan term min ${scanMs}ms x ${COLD_FACTOR} cold = `
-    + `${scanMs * COLD_FACTOR}ms, bound ${COLD_BOUND}ms (${TIMEOUT_MS}ms / ${MARGIN}x margin)`)
-
-  assert.equal(ledgerTags.length, TAG_CHUNK_SIZE,
-    'the probe must use the same chunk size the code does, or it times a statement nobody runs')
-  assert.ok(scanned > 0,
-    `the headroom probe matched ${scanned} rows; an empty scan is not a measurement`)
-
-  // A. THE REGRESSION GUARD. Median, not one draw.
-  assert.ok(probeMs < CEILING,
-    `the heaviest chunk's MINIMUM of ${SAMPLES} samples was ${probeMs}ms warm over ${scanned} rows `
-    + `in ${ledgerTags.length} tags, past the ${CEILING}ms ceiling. Samples: [${timings.join(', ')}].\n`
-    + `A MINIMUM over the ceiling is a REAL cost increase, not jitter: noise is strictly additive, `
-    + `so every one of the ${SAMPLES} samples was genuinely this slow. Do NOT step TAG_CHUNK_SIZE `
-    + `down: measured, tag count is not the `
-    + `lever (1 tag 314ms, 8 tags 567ms, floor ~150ms). Find what made the statement more expensive.`)
-
-  // B. THE COLD-TAIL GUARD, on the growing term.
-  assert.ok(scanMs * COLD_FACTOR < COLD_BOUND,
-    `the SCAN TERM minimum is ${scanMs}ms warm; times the ${COLD_FACTOR}x cold factor that is `
-    + `${scanMs * COLD_FACTOR}ms against a ${COLD_BOUND}ms bound (${TIMEOUT_MS}ms statement timeout `
-    + `/ ${MARGIN}x margin). THIS is the term that grows with the table, and it has now grown enough `
-    + `to threaten the statement timeout on a cold cache. Samples: [${scanTimings.join(', ')}].`)
-
-  // ── WHERE THE FIXTURE FALLS IN THE ORDER THE FIX PAGES BY ───────────────
-  //
-  // Ordered by `id`, which is unique: range paging over a non-unique order can
-  // return a row twice or skip it, which is a correctness fault the cap was
-  // hiding rather than a second opinion about it.
-  const ordered = []
-  for (let from = 0; ; from += 1000) {
-    const d = must(await db.from('record_revisions').select('id, record_id')
-      .or(or(sweep)).order('id', { ascending: true }).range(from, from + 999), 'ordered')
-    ordered.push(...d)
-    if (d.length < 1000) break
-  }
-  // ── THE DEPTH IS CHOSEN, NOT HOPED FOR ─────────────────────────────────
-  //
-  // A record's id is a random uuid and the population is ordered by it, so a
-  // single fixture lands in the first 1,000 of ~5,000 about one run in five.
-  // The FIRST version of this test created one and asserted its depth, and it
-  // duly failed in the gate at index 997 of 5,045 - correctly refusing to prove
-  // anything, which is the right failure and still a red gate one run in five.
-  //
-  // So: create until one lands deep. Every extra carries the same tag and is
-  // swept by the same tearDown below, so the retry costs fixtures, not residue.
-  // Six attempts leaves a false failure at about one run in fifteen thousand.
-  let index = ordered.findIndex((r) => r.record_id === deep.oppId)
-  for (let attempt = 1; index >= 0 && index <= 1000 && attempt < 6; attempt++) {
-    extras.push(deep)
-    deep = await freshOpportunity(TAG)
-    must(await db.from('records').update({ owner_id: other }).eq('id', deep.oppId).select('id'), 'hand deep')
-    ordered.length = 0
+  // The tag population, enumerated in the order tearDown pages by. Its own
+  // loop, NOT pagedSelect: pagedSelect retries a stall, and this test must
+  // not (ruling D6, "never add retries").
+  const enumerate = async (ts, w) => {
+    const out = []
     for (let from = 0; ; from += 1000) {
       const d = must(await db.from('record_revisions').select('id, record_id')
-        .or(or(sweep)).order('id', { ascending: true }).range(from, from + 999), 'ordered')
-      ordered.push(...d)
+        .or(or(ts)).order('id', { ascending: true }).range(from, from + 999), w)
+      out.push(...d)
       if (d.length < 1000) break
     }
-    index = ordered.findIndex((r) => r.record_id === deep.oppId)
+    return out
   }
-  console.log(`    fixture at index ${index} of ${ordered.length} (paged, full enumeration)` +
-    `${extras.length ? `, after ${extras.length} shallow draw${extras.length > 1 ? 's' : ''}` : ''}`)
-  assert.ok(index >= 0, 'the fixture is not in the population at all; the sweep set is wrong')
-  assert.ok(index > 1000,
-    `six draws all landed inside the first page (last at ${index} of ${ordered.length}); ` +
-    'the population may have shrunk below the cap')
 
-  // The counterfactual, asserted rather than assumed: the unranged query the
-  // defect shipped genuinely cannot see this record.
-  // WRAPPED IN THE GUARD'S OWN DECLARED EXEMPTION, not allowlisted, for the
-  // reason the sibling case lower in this file already records: a deliberate
-  // unranged read is a different thing from an overlooked one, and the code
-  // should say which it is.
-  //
-  // This query MUST stay unranged - the assertion below is that it caps at
-  // 1000, which is what proves the defect was real. Bounding it destroys the
-  // evidence.
-  //
-  // It became visible to the scanner only when the scanner stopped losing
-  // chains whose body ran past its window. It was unbounded the whole time;
-  // nothing could see it, and it was not in the allowlist because it had
-  // never been found.
-  // NOT ALIASED. The exemption is recognised by the literal name
-  // `unrangedForCalibration` appearing before the `.from(`, so importing it
-  // as a shorter alias silently voids it - which this round did on its first
-  // attempt and the guard caught, correctly, by still flagging the select.
-  const { unrangedForCalibration } = await import('../lib/unbounded-selects.mjs')
-  const firstPage = must(await unrangedForCalibration(
-    db.from('record_revisions').select('id, record_id')
-      .or(or(sweep)).order('id', { ascending: true })), 'firstPage')
-  assert.equal(firstPage.length, 1000, 'the unranged query no longer caps at 1000; re-derive this test')
-  assert.ok(!firstPage.some((r) => r.record_id === deep.oppId),
-    'the fixture is inside the unranged page after all, so the two arms are not distinguishable')
-  console.log(`    unranged query returns ${firstPage.length} rows and does NOT contain the fixture`)
+  // The purge runs whatever happens, and a purge failure never hides the
+  // body's own failure: both are reported.
+  let bodyErr = null
+  try {
+    const [pad] = await newRecords(1, 'pad')
+    await newRevisions(Array.from({ length: PAD }, (_, i) => ({
+      record_id: pad, revision_number: i + 1, payload: name(TAG), created_by: owner,
+    })), 'pad revisions')
+    const candidates = await newRecords(CANDIDATES, 'candidates')
+    await newRevisions(candidates.map((id) => ({
+      record_id: id, revision_number: 1, payload: name(TAG), created_by: owner,
+    })), 'candidate revisions')
+    const [kept, third] = await newRecords(2, 'control and third')
+    await newRevisions([
+      { record_id: kept, revision_number: 1, payload: name(KEEP), created_by: owner },
+      { record_id: third, revision_number: 1, payload: name(THIRD), created_by: owner },
+    ], 'control revisions')
 
-  await tearDown(sweep)
+    // ── CONDITION 1: THE POPULATION IS OVER THE CAP, AND IT IS OURS ──────
+    const population = await exactCount(db.from('record_revisions')
+      .select('id', { count: 'exact', head: true }).or(or([TAG])), 'population')
+    assert.ok(population > 1000,
+      `the population is ${population} (exact count), at or under the cap, so this test cannot see the defect`)
+    assert.equal(population, PAD + CANDIDATES,
+      'the tag matches rows this run did not write, so the population is not only ours')
+    console.log(`    population: ${population} rows (exact count), this run's own tag ${TAG}, cap 1000`)
 
-  const after = must(await db.from('records').select('id, deleted_at')
-    .in('id', [deep.oppId, kept.oppId]), 'after')
-  const state = (id) => after.find((r) => r.id === id)?.deleted_at
-  assert.ok(state(deep.oppId), `the record at index ${index} of ${ordered.length} was NOT swept`)
-  assert.equal(state(kept.oppId), null, 'the control was swept though its tag was excluded')
+    // ── CONDITION 2: THE DEPTH IS CHOSEN AFTER THE FACT, NOT HOPED FOR ───
+    //
+    // Ids are random uuids, so where a candidate lands is not known until the
+    // population is enumerated. Thirty candidates against a 1,500-row pad:
+    // the chance that none lands past row 1,000 is about 0.656^30, 3e-6, and
+    // that case FAILS, stated, rather than redrawing.
+    const ordered = await enumerate([TAG], 'ordered')
+    assert.equal(ordered.length, population, 'the enumeration did not walk every row')
+    const depth = (id) => ordered.findIndex((r) => r.record_id === id)
+    const pick = candidates.find((id) => depth(id) > 1000)
+    assert.ok(pick, `no candidate of ${CANDIDATES} landed past row 1,000 of ${ordered.length}`)
+    const index = depth(pick)
+    console.log(`    fixture at index ${index} of ${ordered.length} (paged, full enumeration)`)
+    assert.ok(index > 1000, `the chosen record sits at index ${index}, inside the first page`)
 
-  // BOTH DIRECTIONS. The control was spared because it was untagged, not
-  // because it was unreachable, and sweeping it now is what tells them apart.
-  await tearDown([KEEP])
-  // The pads are this test's own, so this test sweeps them. They enter the
-  // ledger through `freshOpportunity`, so a no-argument tearDown would reach
-  // them too; naming them here makes it deterministic rather than incidental.
-  await tearDown(PAD_TAGS)
-  const final = must(await db.from('records').select('id, deleted_at').eq('id', kept.oppId), 'final')
-  assert.ok(final[0].deleted_at, 'the control could not be swept even when named')
+    // ── CONDITION 3: ONLY THE TAG BRANCH CAN REACH IT ─────────────────────
+    //
+    // A record the test account still OWNS is found by the owner-scoped
+    // candidate branch and never needs the tag query. Handing it away is what
+    // puts it under the branch being tested. Raw update rather than handOver(),
+    // because the ledger is the other route to a handed record and would mask
+    // the branch under test.
+    const other = must(await db.from('track_approvers').select('user_id')
+      .eq('record_type', 'opportunity').neq('user_id', owner).limit(1), 'other owner')[0]?.user_id
+    assert.ok(other, 'a second owner must exist for this test to mean anything')
+    for (const id of [pick, kept]) {
+      must(await db.from('records').update({ owner_id: other }).eq('id', id).select('id'), `hand ${id}`)
+    }
+
+    // ── THE HEADROOM GUARD, ON THIS RUN'S OWN TAGS ────────────────────────
+    //
+    // It times one page of the statement tearDown's tag branch actually runs:
+    // a TAG_CHUNK_SIZE-tag OR, ordered by id, one 1,000-row page. It used to
+    // take its tags from the ledger, which is borrowing again; the run now
+    // makes exactly TAG_CHUNK_SIZE tags of its own. Every page reads the whole
+    // table, so the timing still measures the term that grows.
+    //
+    // ONE DRAW OF A 3.7x DISTRIBUTION IS NOT A MEASUREMENT (the F5 timeout
+    // fix round): noise is strictly additive, so the MINIMUM of N samples is
+    // the guard, and the 6x cold factor is applied to the SCAN term alone.
+    const TIMEOUT_MS = 8000
+    const COLD_FACTOR = 6
+    const MARGIN = 1.5
+    const CEILING = Math.round(TIMEOUT_MS / COLD_FACTOR / MARGIN)
+    const SAMPLES = 5
+    assert.equal(RUN_TAGS.length, TAG_CHUNK_SIZE,
+      'the probe must use the same chunk size the code does, or it times a statement nobody runs')
+    const timings = []
+    for (let i = 0; i < SAMPLES; i++) {
+      const t0 = Date.now()
+      const { error: probeErr } = await db.from('record_revisions')
+        .select('id, record_id').or(or(RUN_TAGS)).order('id', { ascending: true }).range(0, 999)
+      if (probeErr) throw new Error(`headroom probe: ${probeErr.message}`)
+      timings.push(Date.now() - t0)
+    }
+    const probeMs = Math.min(...timings)
+    const scanTimings = []
+    for (let i = 0; i < SAMPLES; i++) {
+      const t0 = Date.now()
+      const { error: scanErr } = await db.from('record_revisions').select('id, record_id')
+        .ilike('payload->>name', 'zzzz-headroom-no-match-%')
+        .order('id', { ascending: true }).range(0, 999)
+      if (scanErr) throw new Error(`scan-term probe: ${scanErr.message}`)
+      scanTimings.push(Date.now() - t0)
+    }
+    const scanMs = Math.min(...scanTimings)
+    const COLD_BOUND = Math.round(TIMEOUT_MS / MARGIN)
+    const scanned = await exactCount(db.from('record_revisions')
+      .select('id', { count: 'exact', head: true }).or(or(RUN_TAGS)), 'headroom population')
+    console.log(`    headroom: this run's ${RUN_TAGS.length} tags, ${scanned} rows, ${SAMPLES} samples `
+      + `[${timings.join(', ')}] min ${probeMs}ms, ceiling ${CEILING}ms`)
+    console.log(`    cold tail: scan term min ${scanMs}ms x ${COLD_FACTOR} cold = `
+      + `${scanMs * COLD_FACTOR}ms, bound ${COLD_BOUND}ms (${TIMEOUT_MS}ms / ${MARGIN}x margin)`)
+    assert.ok(scanned > 1000, `the headroom probe matched ${scanned} rows; it must fetch a full page`)
+    assert.ok(probeMs < CEILING,
+      `the MINIMUM of ${SAMPLES} samples was ${probeMs}ms warm, past the ${CEILING}ms ceiling. `
+      + `Samples: [${timings.join(', ')}]. Noise is strictly additive, so every sample was genuinely `
+      + `this slow. Do NOT step TAG_CHUNK_SIZE down; find what made the statement more expensive.`)
+    assert.ok(scanMs * COLD_FACTOR < COLD_BOUND,
+      `the SCAN TERM minimum is ${scanMs}ms warm; times ${COLD_FACTOR} cold that is `
+      + `${scanMs * COLD_FACTOR}ms against a ${COLD_BOUND}ms bound. This is the term that grows with `
+      + `the whole table. Samples: [${scanTimings.join(', ')}].`)
+
+    // ── THE COUNTERFACTUAL: the unranged query the defect shipped cannot see it
+    //
+    // WRAPPED IN THE GUARD'S OWN DECLARED EXEMPTION, not allowlisted, and NOT
+    // ALIASED: the exemption is recognised by the literal name. It must stay
+    // unranged, because capping at 1000 is what proves the defect was real.
+    const firstPage = must(await unrangedForCalibration(
+      db.from('record_revisions').select('id, record_id')
+        .or(or([TAG])).order('id', { ascending: true })), 'firstPage')
+    assert.equal(firstPage.length, 1000, 'the unranged query no longer caps at 1000; re-derive this test')
+    assert.ok(!firstPage.some((r) => r.record_id === pick),
+      'the fixture is inside the unranged page after all, so the two arms are not distinguishable')
+    console.log(`    unranged query returns ${firstPage.length} rows and does NOT contain the fixture`)
+
+    // ── THE SWEEP SET IS ONLY THIS RUN'S TAGS (I7, mandatory) ─────────────
+    const sweep = [TAG]
+    assert.deepEqual(sweep.filter((t) => !RUN_TAGS.includes(t)), [],
+      'the sweep set carries a tag this run did not create: this test would sweep another run\'s records')
+    const { removed } = await tearDown(sweep)
+    assert.deepEqual(removed.filter((r) => !created.has(r.id)).map((r) => r.id), [],
+      'tearDown removed a record this run did not create')
+
+    const after = must(await db.from('records').select('id, deleted_at')
+      .in('id', [pick, kept]), 'after')
+    const state = (id) => after.find((r) => r.id === id)?.deleted_at
+    assert.ok(state(pick), `the record at index ${index} of ${ordered.length} was NOT swept`)
+    assert.equal(state(kept), null, 'the control was swept though its tag was excluded')
+
+    // BOTH DIRECTIONS. The control was spared because it was untagged, not
+    // because it was unreachable, and sweeping it now is what tells them apart.
+    await tearDown([KEEP, THIRD])
+    const final = must(await db.from('records').select('id, deleted_at').eq('id', kept), 'final')
+    assert.ok(final[0].deleted_at, 'the control could not be swept even when named')
+  } catch (e) { bodyErr = e }
+  try {
+    await purgeRun(db, owner, RUN_TAGS, created)
+  } catch (purgeErr) {
+    if (bodyErr) throw new Error(`${bodyErr.message}\n  AND THE PURGE FAILED: ${purgeErr.message}`)
+    throw purgeErr
+  }
+  if (bodyErr) throw bodyErr
 })
+
+// ── RULING D1: THE TEST HARD-PURGES ITS OWN ROWS, AND ONLY THEM ──────────
+//
+// Verification 11 says fixtures are soft deleted. This departs from its
+// LETTER for test-owned fixture rows only (DESIGN_PRINCIPLES, F5 teardown
+// scale): soft-deleted fixture history is the cost every tag statement pays,
+// because every page reads the whole table, and this test alone would add
+// ~1,530 revision rows a run. tearDown above performs the claim, soft delete,
+// asserted; this removes what is left of it.
+//
+// BOTH FILTERS ARE IN THE QUERY. A row goes only if it carries one of this
+// run's tags AND belongs to the test account. The set is enumerated from the
+// database and must EQUAL the set this run created: a matching row the run did
+// not create stops the purge rather than widening it.
+const RESTRICT_CHILDREN = [
+  ['approvals', 'record_id'], ['audit_log', 'record_id'],
+  ['record_contacts', 'record_id'], ['record_contacts', 'contact_id'],
+  ['deal_sheet_versions', 'record_id'], ['transition_requests', 'record_id'],
+  ['records', 'parent_record_id'], ['records', 'account_id'],
+  ['records', 'parent_account_id'], ['records', 'installer_account_id'],
+]
+const CASCADE_CHILDREN = [
+  ['record_freshness', 'record_id'], ['opportunity_details', 'record_id'],
+  ['roles', 'record_id'], ['document_details', 'record_id'], ['track_approvers', 'record_id'],
+  ['opportunity_details', 'converted_from_test_bed_id'],
+]
+async function purgeRun(db, owner, runTags, created) {
+  const must = ({ data, error }, w) => { if (error) throw new Error(`purge ${w}: ${error.message}`); return data }
+  const count = async (q, w) => {
+    const { count: n, error, status } = await q
+    if (error) throw new Error(`purge ${w}: status ${status} ${error.message}`)
+    return n
+  }
+  const or = runTags.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  const chunks = (xs) => Array.from({ length: Math.ceil(xs.length / 150) }, (_, i) => xs.slice(i * 150, i * 150 + 150))
+
+  // 1. The run's records, from the DATABASE by tag.
+  const tagged = new Set()
+  for (let from = 0; ; from += 1000) {
+    const d = must(await db.from('record_revisions').select('id, record_id')
+      .or(or).eq('created_by', owner).order('id', { ascending: true }).range(from, from + 999), 'enumerate')
+    d.forEach((r) => tagged.add(r.record_id))
+    if (d.length < 1000) break
+  }
+  const strangers = [...tagged].filter((id) => !created.has(id))
+  if (strangers.length) {
+    throw new Error(`purge STOPPED: ${strangers.length} records carry this run's tags and were not `
+      + 'created by it. Not widening the purge (ruling D1).')
+  }
+  const ids = [...created]
+  if (!ids.length) return
+
+  // 2. Handed-away records come back to the test account, so the owner
+  // filter below can be applied rather than waived.
+  for (const c of chunks(ids)) {
+    must(await db.from('records').update({ owner_id: owner }).in('id', c).neq('owner_id', owner).select('id'), 'hand back')
+  }
+  let owned = 0
+  for (const c of chunks(ids)) {
+    owned += await count(db.from('records').select('id', { count: 'exact', head: true })
+      .in('id', c).eq('owner_id', owner), 'owned')
+  }
+  if (owned !== ids.length) throw new Error(`purge STOPPED: ${owned} of ${ids.length} records are the test account's`)
+
+  // 3. Every RESTRICT child is enumerated. The fixtures write none of them;
+  // one that holds a row was written by something else, and the purge stops.
+  for (const [table, col] of RESTRICT_CHILDREN) {
+    let n = 0
+    for (const c of chunks(ids)) n += await count(db.from(table).select('*', { count: 'exact', head: true }).in(col, c), `${table}.${col}`)
+    if (n) throw new Error(`purge STOPPED: ${table}.${col} holds ${n} rows naming this run's records. Not purged (ruling D1).`)
+  }
+
+  // 4. Revisions, then records. Both filters in each statement.
+  for (const c of chunks(ids)) {
+    must(await db.from('record_revisions').delete().in('record_id', c)
+      .eq('created_by', owner).or(or).select('id'), 'revisions')
+  }
+  for (const c of chunks(ids)) {
+    const gone = must(await db.from('records').delete().in('id', c).eq('owner_id', owner).select('id'), 'records')
+    assert.equal(gone.length, c.length, `purge: deleted ${gone.length} of ${c.length} records`)
+  }
+
+  // 5. ZERO ROWS OF THIS RUN REMAIN, in every table it wrote and every child.
+  const left = []
+  const tagRows = await count(db.from('record_revisions').select('id', { count: 'exact', head: true }).or(or), 'tag rows')
+  if (tagRows) left.push(`record_revisions by tag: ${tagRows}`)
+  for (const [table, col] of [['records', 'id'], ['record_revisions', 'record_id'], ...RESTRICT_CHILDREN, ...CASCADE_CHILDREN]) {
+    let n = 0
+    for (const c of chunks(ids)) n += await count(db.from(table).select('*', { count: 'exact', head: true }).in(col, c), `left ${table}.${col}`)
+    if (n) left.push(`${table}.${col}: ${n}`)
+  }
+  assert.deepEqual(left, [], `the purge left rows of this run behind: ${left.join('; ')}`)
+  console.log(`    purge: ${ids.length} records and their revisions removed; 0 rows of this run's tags remain`)
+}
 
 // ── THE A1 RESIDUAL, ruled at the Phase 0 close ───────────────────────────
 //

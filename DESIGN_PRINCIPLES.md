@@ -14186,3 +14186,60 @@ exactly the two ruled items, so a third is a red test read by whoever adds it.
 unchecked audit insert (the atomic-creation rule of record: a creation path is
 born atomic via an INVOKER function); and a failed create burns a reference
 code, because the code is issued before the write.
+
+# F5 TEARDOWN SCALE: A TEST HARD-PURGES ITS OWN FIXTURE ROWS
+
+**Ruled by John 2026-11-22 (F5_TEARDOWN_SCALE_BRIEF.md, D1).** This is a
+departure from the LETTER of CLAUDE.md Verification 11 ("test fixtures are SOFT
+deleted, never hard deleted"), for test-owned fixture rows only.
+
+**The ruling.** `teardown-scoping.test.mjs`'s page-cap test lets `tearDown`
+perform the claim under test, a soft delete, and asserts it. Then the test
+HARD-purges its own rows:
+- **Two filters, both in the query.** It reaches only rows that carry this run's
+  per-run tags AND belong to the test account. The set is enumerated from the
+  database and must equal the set the run created. A matching row the run did
+  not create stops the purge rather than widening it.
+- **Every RESTRICT child is enumerated first.** These are `approvals`,
+  `audit_log`, `record_contacts` (both sides), `deal_sheet_versions`,
+  `transition_requests` and the four `records` self-references. One that holds
+  a row stops the purge.
+- **The test ends asserting zero rows of the run remain**, in every table it
+  wrote and in every child, cascade children included.
+- **Counters are never touched.**
+
+**Why: soft-deleted fixture history is the cost every tag statement pays.**
+Nothing indexes `payload->>'name'`, so every page of a tag query reads the whole
+of `record_revisions`, whatever the tag matches. That was 170,909 rows on
+2026-11-22, up from 99,599 at the F5 timeout fix on 2026-09-13. The rebuilt test
+writes ~1,530 revision rows a run. Left soft deleted, that is about 4x the
+table's measured per-run growth, paid on every later run by every tag statement
+in the estate. Measured at Phase 0 (F5_TEARDOWN_SCALE_PHASE_0_REPORT.md).
+
+**What the departure rests on (Verification 29), so a later round can test the
+premise rather than re-argue the choice:**
+- **The rows are synthetic and unreachable by any person.** They were built by
+  admin insert, with no reference code and no Account, Contact or audit row.
+  Verification 11's reasons are history that something else references, and
+  counters that collide. Neither applies to a row nothing references, and the
+  RESTRICT census is what proves "nothing references" on each run.
+- **The departure is worth having only while the tag query reads the whole
+  table.** If `payload->>'name'` is ever indexed (the `pg_trgm` option, out of
+  this round, D3), the per-row cost disappears and Verification 11's letter can
+  be restored for this test.
+
+**Verification 11 is unchanged for every other fixture.** A record made through
+the API, or one that a person, an audit row or a counter can reach, is soft
+deleted as before.
+
+**And the instance that made the rebuild necessary.** The test it replaces built
+its population from fixed tag names plus the ledger's heaviest tag, which on
+2026-11-22 was another probe's (`score-success`). The test swept that tag every
+run, which is the 66-record defect's shape inside the test written to prevent it.
+The rebuilt test asserts that its sweep set is only this run's tags, and that
+`tearDown` removed nothing the run did not create.
+
+**Stalls are reduced, not removed (D6).** The test went from about 45
+whole-table statements a run to about 20, and every page still reads the whole
+table. A future red on this test is investigated as a stall (the
+`fixtures.mjs:490` class), never retried.
