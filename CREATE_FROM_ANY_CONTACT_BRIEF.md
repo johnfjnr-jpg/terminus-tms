@@ -90,3 +90,28 @@ C8  The door exempts exactly two controls, the contact screen's
     A pure test pins that set.
 C9  The rollback is generated from 20260908000003 and restores it byte for
     byte, pinned by a pure test.
+
+## R4 Phase 0: create-test-bed's writes (2026-11-22). R4'S STOP FIRED
+
+Measured on the owner path (a non-owner is refused today), fixture `p0r4tb`,
+fingerprinting the contact and its Account before and after
+`POST /contacts/:id/create-test-bed` (201):
+
+    CONTACT  audit_log    [created, linked_account, transition]
+                       -> [created, linked_account, transition, created_test_bed]
+    CONTACT  record_freshness  01:51:01.943707 -> 01:51:05.971318
+    CONTACT  revision, updated_at, owner_id, status    unchanged
+    CONTACT  record_contacts rows naming it   0 -> 1   (the bed's own link,
+             record_id = the new bed: the shape R1 accepts for Opportunity)
+    ACCOUNT  revision, updated_at, owner_id, audit rows, freshness   unchanged
+
+ONE WRITE TOUCHES THE CONTACT: the route's audit_log row
+`{ record_id: contact.id, action: 'created_test_bed' }`
+(src/routes/contacts.js, the create-test-bed route's audit insert), and through
+`audit_log_touch_freshness` it bumps the contact's record_freshness. It is the
+twin of the `created_opportunity` row R5 retires. Nothing reads
+`created_test_bed` (grep of src, frontend, frontend-react/src, scripts: the
+write is its only occurrence).
+
+Per R4, create-test-bed is NOT changed; the round stops for a ruling on that
+row. The fixture is torn down (2 records, 0 remaining).
