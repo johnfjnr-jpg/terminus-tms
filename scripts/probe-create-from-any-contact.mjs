@@ -246,12 +246,18 @@ try {
       const view = document.getElementById('view-contact-detail')
       const rows = [...view.querySelectorAll('.field-row-display')].filter((e) => e.offsetParent !== null)
       const live = (sel) => { const e = view.querySelector(sel); return !!e && !e.disabled && !e.classList.contains('is-inert-action') && getComputedStyle(e).pointerEvents !== 'none' }
+      // The contact's edit surface is mostly INPUTS (Personal and Address
+      // details), plus the field-row displays. Both are asserted: the first
+      // calibration of this check read only the rows and came back SILENT on
+      // a door that no longer disabled a single input.
+      const inputs = [...view.querySelectorAll('input, textarea, select')].filter((e) => e.offsetParent !== null)
       return { notMine: view.classList.contains('is-not-mine'), rows: rows.length,
         rowsDoored: rows.filter((e) => getComputedStyle(e).pointerEvents === 'none').length,
+        inputs: inputs.length, inputsDisabled: inputs.filter((e) => e.disabled).length,
         items: [live('[data-testid="cd-create-test-bed"]'), live('[data-testid="cd-create-opportunity"]')] }
     })
-    check('5b. the contact screen is still doored (is-not-mine, every field row takes no pointer) while exactly its two create items are live',
-      door.notMine && door.rows > 0 && door.rowsDoored === door.rows && door.items.every(Boolean), JSON.stringify(door))
+    check('5b. the contact screen is still doored (is-not-mine, every field row takes no pointer, every input disabled) while exactly its two create items are live',
+      door.notMine && door.rows > 0 && door.rowsDoored === door.rows && door.inputs > 0 && door.inputsDisabled === door.inputs && door.items.every(Boolean), JSON.stringify(door))
     await page.screenshot({ path: `${SHOT_DIR}/${TAG}-detail-doored.png` })
   }
   {

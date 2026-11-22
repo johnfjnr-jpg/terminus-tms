@@ -30,7 +30,7 @@ const BASE = `http://localhost:${PORT}`
 const OUT = join(REPO, '.verify/create-from-any-contact/calibration')
 mkdirSync(OUT, { recursive: true })
 
-const INJECTED_FILES = ['frontend/app.js', 'frontend/style.css', 'src/routes/contacts.js', 'src/routes/test-beds.js']
+const INJECTED_FILES = ['frontend/app.js', 'src/routes/contacts.js', 'src/routes/test-beds.js']
 const dirty = execFileSync('git', ['status', '--porcelain', '--', ...INJECTED_FILES, 'scripts/probe-create-from-any-contact.mjs'], { cwd: REPO, encoding: 'utf8' }).trim()
 if (dirty) { console.error(`refused: uncommitted changes to files this calibration measures:\n${dirty}`); process.exit(2) }
 
@@ -118,8 +118,16 @@ const INJECTIONS = [
   { name: 'the contact PATCH answers 200 without its ownership refusal', file: 'src/routes/contacts.js',
     from: '    const columnUpdate = {}', to: '    return reply.send({ id: record.id })\n    const columnUpdate = {}',
     expect: ['5a.'] },
-  { name: 'the contact screen\'s field rows are no longer doored', file: 'frontend/style.css',
-    from: '.is-not-mine .field-row-display,\n', to: '.is-not-mine .field-row-display-calibration,\n',
+  // The first version of this injection renamed `.is-not-mine
+  // .field-row-display` in the stylesheet and came back SILENT. Explained, not
+  // waved through (Verification 51): the one visible field row is doored TWICE,
+  // by that rule and by the JS door's is-inert-action, so removing either alone
+  // changes nothing. The silence also showed 5b read only the rows while the
+  // contact's real edit surface is its inputs, so 5b now asserts those too and
+  // this injection removes the door's input loop.
+  { name: 'the door no longer disables the contact screen\'s inputs', file: 'frontend/app.js',
+    from: "  for (const c of view.querySelectorAll('input, textarea, select')) {\n    c.disabled = notMine\n  }\n",
+    to: "  for (const c of view.querySelectorAll('input, textarea, select')) {\n    c.disabled = false\n  }\n",
     expect: ['5b.'] },
   { name: 'Test Bed convert answers 201 for a non-owner', file: 'src/routes/test-beds.js',
     from: "app.post('/test-beds/:id/convert', async (request, reply) => {\n", to: "app.post('/test-beds/:id/convert', async (request, reply) => {\n    return reply.code(201).send({ id: null })\n",
