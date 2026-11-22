@@ -492,6 +492,18 @@ export const STAGES = [
     needsBrowser: true,
   },
   {
+    // CREATE_FROM_ANY_CONTACT R9 (John 2026-11-22): a non-owner creates an
+    // Opportunity and a Test Bed from somebody else's contact, from the list
+    // and from the contact's own screen; nothing is written on the contact or
+    // its Account; editing the contact and Test Bed convert stay owner-only.
+    required: true,
+    name: 'browser create from any contact',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-create-from-any-contact.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
     // TP_LADDER: the Term Pricing screen to the approved mockup, from the click.
     required: true,
     name: 'browser term pricing ladder',
