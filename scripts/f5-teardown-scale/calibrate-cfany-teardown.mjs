@@ -30,6 +30,7 @@ import { mkdtempSync, readFileSync, writeFileSync, symlinkSync, existsSync, rmSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { SCRATCH_PREFIX } from '../lib/puppeteer.mjs'
 
 const REPO = '/Users/johnfryatt/terminus-tms'
 const PROBE = 'scripts/probe-create-from-any-contact.mjs'
@@ -92,7 +93,7 @@ async function liveOf(tag) {
 
 const runProbe = (tag) => new Promise((resolve) => {
   const t0 = Date.now()
-  const p = spawn(process.execPath, ['--env-file=.env', PROBE, tag], { cwd: COPY, stdio: ['ignore', 'pipe', 'pipe'] })
+  const p = spawn(process.execPath, ['--env-file=.env', PROBE, tag], { cwd: COPY, env: { ...process.env, PUPPETEER_PATH: process.env.PUPPETEER_PATH ?? `${SCRATCH_PREFIX}/node_modules/puppeteer` }, stdio: ['ignore', 'pipe', 'pipe'] })
   let text = ''
   p.stdout.on('data', (d) => { text += d }); p.stderr.on('data', (d) => { text += d })
   p.on('exit', (code) => resolve({ code, text, ms: Date.now() - t0 }))
@@ -105,6 +106,11 @@ for (const run of RUNS) {
   if (readFileSync(join(COPY, PROBE), 'utf8') !== run.src) { stopped = `${run.id}: the copy's probe did not read back as written`; break }
   const r = await runProbe(run.tag)
   writeFileSync(join(OUT, `${RUN_ID}-${run.id}.txt`), r.text)
+  // A run that printed no result did not run (Verification 48): stop, never score it.
+  // The counterfactual is MEANT to die inside its finally, after its checks ran,
+  // so for it a reached check plus the injected text counts as having run.
+  const ran = /\d+\/\d+ checks passed/.test(r.text) || (run.id === 'H1-old' && r.text.includes('(INJECTED)') && /^(PASS|FAIL) {2}/m.test(r.text))
+  if (!ran) { stopped = `${run.id}: no result line after ${r.ms}ms, so it did not run; see ${RUN_ID}-${run.id}.txt`; break }
   const res = await liveOf(run.tag)
   r.live = res.live
   const ok = run.want(r)
