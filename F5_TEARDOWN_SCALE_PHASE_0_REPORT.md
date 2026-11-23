@@ -147,3 +147,46 @@ I7 closes Finding 1 rather than only rebuilding around it. **Starved-estate chec
 3. **The index: out of this round, or drafted for your review.** I recommend out.
 
 STOPPED.
+
+## Correction, P7 (2026-11-23). The P1 timing claim was wrong
+
+The sentence under P1, "a page costs ~0.4 to 0.75s warm, more than 10x under 8s", is **wrong as a statement of headroom**. It is left standing above, so a reader can see what was claimed and on what evidence (Verification 29).
+
+**How those timings were taken.**
+- The client wall clock in Node, through supabase-js with the service key, over the internet to PostgREST.
+- The statement was the test's own: the two-tag OR, ordered by id, one 1,000-row page.
+- There were only 9 samples, 3 at each offset. **They were taken after the same script had already scanned the whole table** with an exact count per tag.
+- **So every sample was warm. The script never timed a page on a table it had not just read.** The cold cost was in Phase 0's own data: the first `a1deep` count took 4,130ms. I read that as the cost of a count, not as what a first page costs.
+
+**Re-measured through PostgREST, as the test issues it** (12 samples each, `.verify/f5-teardown-scale/p7-page-timings.txt`, script `p7-measure.mjs` beside it):
+
+    one row by primary key (round trip)       min 111  median 146  max 618 ms
+    P1, offset 7000, ordered                  min 511  median 560  max 6,657 ms   (the 6,657 is the FIRST sample)
+    P1, unordered                             min 456  median 522  max 701 ms
+    exact count of the filter                 min 384  median 430  max 720 ms
+
+- **Warm, it reproduces Phase 0:** about 0.4s at the server, after subtracting the round trip.
+- **The first touch took 6,657ms**, which is 83% of the timeout. Phase 0's method could not see this.
+
+**The 10x gap against John's 4,054ms is not fully accounted for from here.**
+- John's plan read all shared hits, so buffer residency does not explain it.
+- The network round trip is about 0.11s, so the network does not explain it.
+- Three candidates that this session cannot test:
+  - **JIT compilation.** It counts toward Execution Time, and in a parallel plan each worker compiles.
+  - **A different plan.** PostgREST sends the statement as a parameterised prepared statement, which may not get the parallel plan.
+  - **EXPLAIN's per-row instrumentation.** This should be small with timing off.
+- The SQL that tells them apart is in the round's report.
+
+**Which statement_timeout applies to service_role through PostgREST: 8s, measured** (`.verify/f5-teardown-scale/p7-timeout-ladder.txt`, script `p7-timeout.mjs` beside it).
+- The probe was a graduated whole-table count. Each extra `ilike` term makes every row extract `payload->>name` once more:
+
+      2 terms     200   1,110ms
+      20 terms    200   5,773ms
+      60 terms    500   8,296ms  57014 canceling statement due to statement timeout
+
+- service_role has no setting of its own (John's pg_roles reading). PostgREST signs in as authenticator, whose 8s applies from login, and then switches role for each request. **The 8s cancellation is measured; the mechanism in this paragraph is inference.**
+- **A finding the ladder also gives:** each `payload->>name` term costs about 0.25s across the whole table. Extracting the name from the jsonb on every row is the dominant cost, so tearDown's three-tag OR costs about three extractions per row.
+
+**What this corrects downstream:**
+- **Headroom is about 1.2x cold, 2x on John's server-side reading, and 14x only warm.** A crossing needs a cold first touch, not an anomaly. D6's wording, "a crossing is a stall", is too strong, and the round's report says so.
+- **The headroom guard's `COLD_FACTOR = 6` undercounts.** Today's cold-to-warm ratio on the P1 statement was 6,657 / 511, about 13x. This is recorded, not changed: with the index in (D3 reversed), the term the guard watches stops scanning the table.

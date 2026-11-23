@@ -122,3 +122,28 @@ H1  Harden probe-create-from-any-contact.mjs's teardown: a per-run tag instead o
 H2  Census every other probe whose finally block starts with a tag scan before tearDown, and every probe using a FIXED tag. List them; fix only H1 this round, queue the rest.
 
 Sequence: P7, the D3 draft and H1, then STOP for my review. After John applies the index and confirms its EXPLAIN: full gate, merge --no-ff (rebuild main from the branch), merged gate, ls-remote, "ready for John's push". Report teardown-scoping's duration and the headroom guard's minimum on every gate run.
+
+## The build, against the amended rulings (2026-11-23). STOPPED for John's review
+
+1. **P7.** The correction is written into F5_TEARDOWN_SCALE_PHASE_0_REPORT.md under "Correction, P7".
+   - Phase 0's page timings were nine warm samples, taken after the same script had scanned the table.
+   - Re-measured through PostgREST: about 0.4s at the server when warm, but the first touch took 6,657ms.
+   - The service_role bound is 8s, measured: a 60-term whole-table count was cancelled with 57014 at 8,296ms wall.
+   - John's 4,054ms is not fully accounted for from this session. JIT, the plan and EXPLAIN overhead are named, with the SQL that separates them.
+2. **D3 (reversed), drafted, not applied.**
+   - The migration is `supabase/migrations/20261123000001_record_revisions_name_trigram_index.sql`, with its rollback in `supabase/rollbacks/`.
+   - It installs pg_trgm in `extensions` if absent, and refuses by name if pg_trgm is installed in another schema.
+   - It builds a plain (not CONCURRENTLY) GIN index on `(payload ->> 'name') extensions.gin_trgm_ops`, then runs ANALYZE.
+   - Not parse-checked.
+3. **H1, built and calibrated.**
+   - probe-create-from-any-contact.mjs now takes a per-run tag and builds its fixture inside the try.
+   - Every teardown step records its failure and carries on, so tearDown is always reached.
+   - A named check ends the run: zero live, read from the tracked ids plus a fresh tag scan.
+   - Calibrator run mwt7cmd8:
+     - H1-new, enumeration forced to fail: the failure was reported, the check failed, and 0 of 8 records were live.
+     - H1-old, the pre-H1 teardown with the same injection: 8 of 8 live, cleaned to 0.
+     - Reverted: 23/23.
+4. **H2, censused, nothing fixed.** The list is in the round's report and in `.verify/f5-teardown-scale/h2-census.txt`.
+   - Two manual probes start their finally with an unguarded tag scan.
+   - 23 wired probes use a fixed tag.
+5. **A premise conflict for John, not resolved here.** DESIGN_PRINCIPLES "F5 TEARDOWN SCALE" says the hard purge (D1) "is worth having only while the tag query reads the whole table" and that with an index "Verification 11's letter can be restored". D3 reversed removes that premise once the index is applied. John ruled that D1 stands as built. Under Verification 29 the decision is re-taken rather than re-weighed, so it is his to re-take.

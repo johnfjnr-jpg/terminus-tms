@@ -55,3 +55,8 @@ create extension if not exists pg_trgm with schema extensions;
 create index if not exists record_revisions_payload_name_trgm_idx
   on public.record_revisions
   using gin ((payload ->> 'name') extensions.gin_trgm_ops);
+
+-- Statistics on the new indexed expression, so the planner's estimate for a
+-- tag filter comes from data rather than a default selectivity. ANALYZE is
+-- legal inside a transaction block (VACUUM is not) and changes no row.
+analyze public.record_revisions;
