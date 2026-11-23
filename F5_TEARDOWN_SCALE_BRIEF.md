@@ -104,3 +104,21 @@ gate run.
 4. CURRENT_STATE regenerated. Live 134 to 135: the one new live opportunity
    was created 13:50 local by a staff account, so it is a person's record, not
    residue. Every other moved line is a soft-deleted or history count.
+
+## Amended rulings after the red merged gate (2026-11-23), verbatim
+
+F5_TEARDOWN_SCALE: John's decision on the red merged gate (4c35c54). Neither option alone. The amended rulings below never reached you; they apply now.
+
+Do NOT re-gate or push. Keep everything built (D1, D4, D5 stand as built).
+
+MEASURED BY JOHN in the SQL Editor (postgres role, no statement timeout):
+- The P1 query (offset 7000, limit 1000), explain (analyze, timing off, buffers): Execution Time 4,054ms; with per-node timing 4,061ms. Parallel seq scan over the whole table, all shared hits. Planner estimate 42 to 44 rows; actual 8,000.
+- pg_roles: authenticator statement_timeout=8s, lock_timeout=8s; authenticated 8s; service_role none of its own; postgres none.
+This CONTRADICTS Phase 0's "0.4 to 0.75s warm, more than 10x under 8s". Real headroom is about 2x.
+
+P7  Read-only first: how were Phase 0's page timings taken? Re-measure the same statement through PostgREST, as the test issues it, and account for the 10x gap. Confirm which statement_timeout applies to a service_role request through PostgREST. Correct the Phase 0 report in writing.
+D3  REVERSED, the index comes IN. Draft the migration: pg_trgm in the extensions schema if not present, and a GIN trigram index on (payload->>'name') of record_revisions using extensions.gin_trgm_ops, so the existing ilike and like prefix filters use it unchanged. Full rollback. State the write overhead on record_revisions inserts and the build time on about 171,000 rows. List every gate statement that filters payload->>'name' (the cfanyprobe teardown scan at probe-create-from-any-contact.mjs:279 included) and confirm each pattern can use the index. Not parse-checked: STOP for my review.
+H1  Harden probe-create-from-any-contact.mjs's teardown: a per-run tag instead of the fixed 'cfanyprobe'; tearDown reached in every outcome, so a failed enumeration still tears down; the run ends asserting zero live records of its tag. Calibrate: a forced enumeration failure still leaves zero live.
+H2  Census every other probe whose finally block starts with a tag scan before tearDown, and every probe using a FIXED tag. List them; fix only H1 this round, queue the rest.
+
+Sequence: P7, the D3 draft and H1, then STOP for my review. After John applies the index and confirms its EXPLAIN: full gate, merge --no-ff (rebuild main from the branch), merged gate, ls-remote, "ready for John's push". Report teardown-scoping's duration and the headroom guard's minimum on every gate run.
