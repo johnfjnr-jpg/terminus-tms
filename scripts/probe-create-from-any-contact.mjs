@@ -43,7 +43,11 @@ import { admin, handOver, tearDown } from './fixtures.mjs'
 import { readFileSync, mkdirSync } from 'node:fs'
 import { OWNERSHIP_REFUSAL } from '../src/lib/write-errors.js'
 
-const TAG = process.argv[2] ?? 'cfanyprobe'
+// A PER-RUN TAG (F5_TEARDOWN_SCALE H1, John 2026-11-23). It was the fixed
+// 'cfanyprobe', so every run's tag scan matched every earlier run's soft
+// deleted records (40 by then) as well as its own. A calibration still passes
+// its own tag as the argument.
+const TAG = process.argv[2] ?? `cfanyprobe-${Date.now().toString(36)}`
 const BASE = process.env.TMS_BASE ?? 'http://localhost:3000'
 const SHOT_DIR = '.verify/create-from-any-contact'
 const results = []
@@ -76,44 +80,54 @@ const fp = async (id) => JSON.stringify({
 // it creates anything it would then leave behind.
 const puppeteer = await loadPuppeteer('probe-create-from-any-contact.mjs')
 
-// ── THE FIXTURE: an Account and two Qualified contacts, then handed away ──
-const other = must(await db.from('track_approvers').select('user_id').neq('user_id', ME).limit(1), 'another user')[0]?.user_id
-if (!other) throw new Error('no second real user to own the fixture: the claim needs one')
-const industry = (await api('GET', '/industries'))[0]
-const account = await api('POST', '/accounts', { name: `${TAG} Account`, industry_id: industry.id, billingCountry: 'Singapore' })
-const mkContact = async (which) => {
-  const c = await api('POST', '/contacts', {
-    name: `${TAG} ${which} Contact`, company: `${TAG} Holdings`,
-    email: `${TAG}-${which}@example.invalid`, mobile: '+65 9000 0001',
-    industry_id: industry.id, source: 'Direct Outreach', jobRole: 'Head of Infrastructure',
-    linkedin: 'https://example.invalid/in/x', address: '1 Fixture Street', address2: 'Level 2',
-    city: 'Singapore', postcode: '018956', country: 'Singapore', region: 'Asia Pacific',
-    summary: `Fixture for ${TAG}.`,
-  })
-  await api('POST', `/contacts/${c.id}/link-account`, { account_id: account.id })
-  await api('POST', `/records/${c.id}/transition`, { to_stage: 'Qualified' })
-  return c.id
-}
-const contacts = { list: await mkContact('list'), detail: await mkContact('detail') }
-for (const id of [...Object.values(contacts), account.id]) await handOver(id, other)
-const rows = must(await db.from('records').select('id, owner_id, status, parent_record_id').in('id', [...Object.values(contacts), account.id]).limit(3), 'fixture')
-check('fixture: both contacts Qualified, linked to the Account, and both they and the Account owned by ANOTHER user',
-  rows.length === 3 && rows.every((r) => r.owner_id === other) &&
-  Object.values(contacts).every((id) => { const r = rows.find((x) => x.id === id); return r?.status === 'Qualified' && r.parent_record_id === account.id }),
-  JSON.stringify(rows.map((r) => [r.status, r.owner_id === other ? 'OTHER' : 'ME'])))
-
-// The fingerprint must be able to move (Verification 13): a contact-keyed
-// audit row on a THROWAWAY contact moves it. Not on the measured contacts.
-{
-  const spare = await mkContact('spare')
-  const b = await fp(spare)
-  must(await db.from('audit_log').insert({ record_id: spare, record_type: 'contact', action: 'probe_fp_calibration', actor_id: ME, detail: { probe: TAG } }).select('id'), 'calibration row')
-  check('the fingerprint moves on a contact-keyed write (so "unchanged" below is a reading)', (await fp(spare)) !== b)
-}
-
+// EVERY ID THIS RUN CREATES, known WITHOUT a tag scan, so the zero-live check
+// at the end does not rest on the statement that stalled (F5_TEARDOWN_SCALE
+// H1). The tag scan is still taken and added: it is what finds a record the
+// run created and never saw.
+const tracked = new Set()
 let browser
 const created = []
+// THE FIXTURE IS INSIDE THE TRY, so a failure building it still reaches the
+// teardown below. It used to sit before the try, where a failed POST left
+// whatever had already been created.
 try {
+  // ── THE FIXTURE: an Account and two Qualified contacts, then handed away ──
+  const other = must(await db.from('track_approvers').select('user_id').neq('user_id', ME).limit(1), 'another user')[0]?.user_id
+  if (!other) throw new Error('no second real user to own the fixture: the claim needs one')
+  const industry = (await api('GET', '/industries'))[0]
+  const account = await api('POST', '/accounts', { name: `${TAG} Account`, industry_id: industry.id, billingCountry: 'Singapore' })
+  tracked.add(account.id)
+  const mkContact = async (which) => {
+    const c = await api('POST', '/contacts', {
+      name: `${TAG} ${which} Contact`, company: `${TAG} Holdings`,
+      email: `${TAG}-${which}@example.invalid`, mobile: '+65 9000 0001',
+      industry_id: industry.id, source: 'Direct Outreach', jobRole: 'Head of Infrastructure',
+      linkedin: 'https://example.invalid/in/x', address: '1 Fixture Street', address2: 'Level 2',
+      city: 'Singapore', postcode: '018956', country: 'Singapore', region: 'Asia Pacific',
+      summary: `Fixture for ${TAG}.`,
+    })
+    tracked.add(c.id)
+    await api('POST', `/contacts/${c.id}/link-account`, { account_id: account.id })
+    await api('POST', `/records/${c.id}/transition`, { to_stage: 'Qualified' })
+    return c.id
+  }
+  const contacts = { list: await mkContact('list'), detail: await mkContact('detail') }
+  for (const id of [...Object.values(contacts), account.id]) await handOver(id, other)
+  const rows = must(await db.from('records').select('id, owner_id, status, parent_record_id').in('id', [...Object.values(contacts), account.id]).limit(3), 'fixture')
+  check('fixture: both contacts Qualified, linked to the Account, and both they and the Account owned by ANOTHER user',
+    rows.length === 3 && rows.every((r) => r.owner_id === other) &&
+    Object.values(contacts).every((id) => { const r = rows.find((x) => x.id === id); return r?.status === 'Qualified' && r.parent_record_id === account.id }),
+    JSON.stringify(rows.map((r) => [r.status, r.owner_id === other ? 'OTHER' : 'ME'])))
+
+  // The fingerprint must be able to move (Verification 13): a contact-keyed
+  // audit row on a THROWAWAY contact moves it. Not on the measured contacts.
+  {
+    const spare = await mkContact('spare')
+    const b = await fp(spare)
+    must(await db.from('audit_log').insert({ record_id: spare, record_type: 'contact', action: 'probe_fp_calibration', actor_id: ME, detail: { probe: TAG } }).select('id'), 'calibration row')
+    check('the fingerprint moves on a contact-keyed write (so "unchanged" below is a reading)', (await fp(spare)) !== b)
+  }
+
   browser = await puppeteer.launch({ headless: 'new' })
   const page = await browser.newPage()
   await page.setViewport({ width: 1440, height: 1000 })
@@ -122,6 +136,7 @@ try {
     if (r.request().method() !== 'POST' || !/\/create-(opportunity|test-bed)$/.test(new URL(r.url()).pathname)) return
     let body = null
     try { body = JSON.parse(await r.text()) } catch { }
+    if (body?.id) tracked.add(body.id)
     posts.push({ path: new URL(r.url()).pathname, status: r.status(), body })
   })
   const pageErrors = []
@@ -273,18 +288,44 @@ try {
   }
   check('no uncaught page error', pageErrors.length === 0, pageErrors.join(' | '))
 } finally {
-  await browser?.close()
-  // Hand everything back so the tag sweep (whose candidate set is the test
-  // account's records) reaches it, then sweep and re-query (Verification 11).
-  const ids = must(await db.from('record_revisions').select('record_id').like('payload->>name', `${TAG} %`).range(0, 999), 'tagged')
-  for (const rid of new Set(ids.map((x) => x.record_id))) {
-    const r = must(await db.from('records').select('owner_id, deleted_at').eq('id', rid).single(), 'owner')
-    if (!r.deleted_at && r.owner_id !== ME) await handOver(rid, ME)
+  // ── TEARDOWN, REACHED IN EVERY OUTCOME (F5_TEARDOWN_SCALE H1) ───────────
+  //
+  // The merged gate of 2026-11-22 died HERE: the first statement of this
+  // block was the tag scan, it hit the statement timeout, it threw, and
+  // tearDown never ran, leaving three records live. Every step below records
+  // its failure and carries on, so tearDown is always reached; and the run
+  // then FAILS on anything recorded, so a stall is reported, never absorbed.
+  const failures = []
+  try { await browser?.close() } catch (e) { failures.push(`browser close: ${e.message}`) }
+  // A whole-table scan until payload->>'name' is indexed: it can stall.
+  const tagScan = async (what) => new Set(must(await db.from('record_revisions').select('record_id')
+    .like('payload->>name', `${TAG} %`).range(0, 999), what).map((x) => x.record_id))
+  let tagged = new Set()
+  try { tagged = await tagScan('tagged') } catch (e) { failures.push(`tag enumeration: ${e.message}`) }
+  // Hand back what can be reached, so tearDown's owner-scoped candidates hold
+  // it. handOver() ledgered every hand-away, so tearDown reaches a handed
+  // record through the ledger even where this step could not.
+  for (const rid of new Set([...tracked, ...tagged])) {
+    try {
+      const r = must(await db.from('records').select('owner_id, deleted_at').eq('id', rid).single(), 'owner')
+      if (!r.deleted_at && r.owner_id !== ME) await handOver(rid, ME)
+    } catch (e) { failures.push(`hand back ${rid}: ${e.message}`) }
   }
-  await tearDown(TAG)
-  const live = must(await db.from('records').select('id').in('id', [...new Set(ids.map((x) => x.record_id))]).is('deleted_at', null).range(0, 999), 'residue')
-  console.log(`teardown: ${new Set(ids.map((x) => x.record_id)).size} tagged records, ${live.length} still live`)
-  if (live.length) results.push(false)
+  try { await tearDown(TAG) } catch (e) { failures.push(`tearDown: ${e.message}`) }
+  // ZERO LIVE RECORDS OF THIS RUN'S TAG, re-queried (Verification 11): the
+  // tracked ids, plus a FRESH tag scan. If that scan fails, the tracked ids are
+  // still checked and the failure is reported: zero is then not proven.
+  let after = new Set()
+  try { after = await tagScan('residue tag scan') } catch (e) { failures.push(`residue tag scan: ${e.message}`) }
+  const all = [...new Set([...tracked, ...tagged, ...after])]
+  let live = []
+  try {
+    live = all.length ? must(await db.from('records').select('id').in('id', all).is('deleted_at', null).range(0, 999), 'residue') : []
+  } catch (e) { failures.push(`residue: ${e.message}`) }
+  for (const f of failures) console.log(`teardown FAIL: ${f}`)
+  console.log(`teardown: tag ${TAG}, ${tracked.size} tracked, ${tagged.size} tagged before, ${after.size} tagged after, ${all.length} records, ${live.length} still live`)
+  check(`teardown: zero live records of this run's tag ${TAG}, and every teardown step ran clean`,
+    live.length === 0 && failures.length === 0, `${live.length} live; ${failures.length} step failure(s)`)
 }
 const failed = results.filter((x) => !x).length
 console.log(`\n${results.length - failed}/${results.length} checks passed`)

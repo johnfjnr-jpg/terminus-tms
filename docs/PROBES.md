@@ -15,7 +15,7 @@ Counted from this file's own table and from `STAGES` in `scripts/verify-all.mjs`
 | disposition | meaning | rows |
 |---|---|---|
 | WIRED | run by the gate: a `scripts/verify-all.mjs` stage (39 stages), a suite `package.json` runs, the pre-commit hook, or imported or opened by one of those | 162 |
-| MANUAL | kept and run by hand; the reason is in the row | 82 |
+| MANUAL | kept and run by hand; the reason is in the row | 83 |
 | TOOL | an operator tool, not a check | 3 |
 | RETIRED | deleted in PROBE_TRIAGE (R6); git history keeps every one | 451 |
 
@@ -38,6 +38,7 @@ Counted from this file's own table and from `STAGES` in `scripts/verify-all.mjs`
 | `scripts/check-session.mjs` | WIRED | THE SESSION IS VALID, ASKED BEFORE ANYTHING DEPENDS ON IT | gate stage |
 | `scripts/check-state-fresh.mjs` | WIRED | IS CURRENT_STATE.md STALE? | gate stage |
 | `scripts/convert-atomicity/calibrate-migration-test.mjs` | MANUAL | Calibration of scripts/tests/convert-atomicity.test.mjs, in both directions. | calibrator of wired tests/convert-atomicity.test.mjs; run when that check changes |
+| `scripts/f5-teardown-scale/calibrate-cfany-teardown.mjs` | MANUAL | Calibration of probe-create-from-any-contact.mjs's hardened teardown (F5_TEARDOWN_SCALE H1): its tag enumeration forced to throw still leaves zero live and the run reports it; the same injection on the pre-H1 probe leaves records live (counterfactual, then cleaned); then a reverted run. On a temp copy of HEAD. | calibrator of wired probe-create-from-any-contact.mjs; three server-and-browser runs, about four minutes, run when that probe's teardown changes |
 | `scripts/f5-teardown-scale/calibrate-teardown-scoping.mjs` | MANUAL | Calibration of teardown-scoping.test.mjs's page-cap test (F5_TEARDOWN_SCALE D5): seven injections I1 to I7, each read by its named assertion, on a temp copy of HEAD that carries no fixture ledger (the starved estate); then a reverted whole-file run. | calibrator of a test the gate's database suite runs; about four minutes against the live database, run when that test or tearDown changes |
 | `scripts/create-from-any-contact/calibrate-probe.mjs` | MANUAL | Calibration of scripts/probe-create-from-any-contact.mjs: eight injections, each read by its named check, on a temp copy of HEAD served on its own port; then a reverted run. | calibrator of wired probe-create-from-any-contact.mjs; a server-and-browser run of about ten minutes, run when that probe changes |
 | `scripts/create-from/calibrate-guards.mjs` | MANUAL | Calibration of scripts/tests/create-from-ownership.test.mjs, both directions. | calibrator of wired tests/create-from-ownership.test.mjs; run when that check changes |
