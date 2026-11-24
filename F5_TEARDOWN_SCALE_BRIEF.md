@@ -147,3 +147,21 @@ Sequence: P7, the D3 draft and H1, then STOP for my review. After John applies t
    - Two manual probes start their finally with an unguarded tag scan.
    - 23 wired probes use a fixed tag.
 5. **A premise conflict for John, not resolved here.** DESIGN_PRINCIPLES "F5 TEARDOWN SCALE" says the hard purge (D1) "is worth having only while the tag query reads the whole table" and that with an index "Verification 11's letter can be restored". D3 reversed removes that premise once the index is applied. John ruled that D1 stands as built. Under Verification 29 the decision is re-taken rather than re-weighed, so it is his to re-take.
+
+## Index applied and confirmed; rulings on the two open findings (John, 2026-11-24), verbatim
+
+F5_TEARDOWN_SCALE: index APPLIED and confirmed (John, 2026-11-24).
+
+APPLY RECORD, for the close-out: the ledger row for 20261123000001 was recorded BEFORE the migration ran (the pre-check had shown no pg_trgm row). John then applied the migration (begin/commit). Post-apply: the index exists, pg_trgm in extensions, ledger present. State this order plainly.
+
+EXPLAIN after the apply, SQL Editor:
+- P1 (two-tag ilike, offset 7000): BitmapOr of two Bitmap Index Scans on record_revisions_payload_name_trgm_idx; 4,506ms before, 265.8ms after. Estimate 7,777, actual 8,070. Nearly all of the remaining time is the heap visits for the 8,070 matched rows.
+- cfanyprobe like: Bitmap Index Scan, 477.6ms before, 16.1ms after.
+
+RULINGS on the two open findings:
+1. D1 stands, re-taken on a new premise (Verification 29): the hard purge is kept because test-owned fixture rows left soft-deleted grow the table for every whole-table reader and grow the matched set of any reused tag, not because tag queries read the whole table (no longer true). Rewrite the DESIGN_PRINCIPLES "F5 TEARDOWN SCALE" entry to say so, with the superseded sentence left visible.
+2. YES, correct teardown-scoping's comments and the headroom guard before the gate. The guard must measure what it claims: re-aim it at the indexed statement's cost, re-measure the cold-to-warm ratio after the index, and set COLD_FACTOR from that measurement, stated with the samples. Calibrate that the guard still FIRES on a statement made to exceed its ceiling.
+
+H2: queued as the next round (per-run tags for the 23 wired fixed-tag probes, then the manual ones; the two unguarded finally blocks).
+
+Then: full gate on the branch, rebuild main from 03b4257 with merge --no-ff, merged gate, ls-remote, and STOP with the report. Report teardown-scoping's duration, the headroom guard's minimum and the database suite's time on every gate run. Do NOT say "ready for John's push" until John has passed the report to me.
