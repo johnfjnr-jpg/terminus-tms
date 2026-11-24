@@ -189,3 +189,21 @@ Then: full gate on the branch, rebuild main from 03b4257 with merge --no-ff, mer
 1. **Gate on 2bdff41: RED, 28 of 39 stages, and both causes were mine.** CURRENT_STATE staleness failed (144ms) because it had not been regenerated after the migration. Ten browser stages did not run because the gate was launched without PUPPETEER_PATH. The deep test passed in 18,737ms with a headroom minimum of 174ms, and the database suite took 109,085ms (113/113). CURRENT_STATE was regenerated (6bf7aef) and the NEW tree was gated; the same tree was not rerun.
 2. **Gate on 6bf7aef: RED, 38 of 39 stages.** The database suite took 112,879ms (112/113). The deep test failed in 24,737ms with `headroom probe: canceling statement due to statement timeout`: the INDEXED 3-tag statement, over 1,532 freshly inserted rows, crossed 8s on one sample. No minimum was produced. The purge still ran: 33 records removed, 0 rows of the run's tags left.
 3. **This is the second indexed statement to cross 8s in one day.** The first was score-success's first touch (item 4 above). Both reads are against an index whose warm cost is 150 to 450ms. Per D6 it is investigated, never retried. No merge was made, main was not touched, and origin is still at 03b4257.
+
+## Rulings on the branch gate red (John, 2026-11-24)
+
+R1  Draft migration 20261124000001, exactly these statements and nothing else:
+      alter index public.record_revisions_payload_name_trgm_idx set (fastupdate = off);
+      select gin_clean_pending_list('public.record_revisions_payload_name_trgm_idx'::regclass);
+    Rollback: alter index ... reset (fastupdate); and the ledger row delete. Comment why: the two indexed statement timeouts today (score-success on first touch, the headroom probe right after about 6,000 inserts) match the GIN pending-list mechanism; cause NOT established. Paste both files in full in the report and STOP for my review.
+R2  COLD_FACTOR: not confirmed. After John applies R1, re-measure the cold-to-warm ratio on the same eight tags plus score-success, first touches included, and report every sample. If any indexed statement exceeds 8s again after R1, STOP: the pending list is ruled out and it is investigated, not absorbed into the factor.
+R3  Gating 6bf7aef after 2bdff41's self-inflicted red: accepted (a new tree, disclosed). Queue: the gate refuses to start (exit non-zero, before any stage) when PUPPETEER_PATH is unset or unusable.
+R4  Record the apply order honestly in the close-out, as before.
+
+After John applies R1 and the re-measure is clean: full gate on the branch, rebuild main from 03b4257 with merge --no-ff, merged gate, ls-remote, and STOP with the report. Do not say "ready for John's push" until John has read it.
+
+### R1 drafted, STOPPED for review
+
+- supabase/migrations/20261124000001_record_revisions_name_trigram_fastupdate_off.sql: the two ruled statements, fastupdate off first, then the flush.
+- supabase/rollbacks/20261124000001_record_revisions_name_trigram_fastupdate_off.rollback.sql: reset (fastupdate) and the ledger row delete, in one begin/commit.
+- R3's gate refusal is queued beside H2. R2 waits on the apply.
