@@ -165,3 +165,21 @@ RULINGS on the two open findings:
 H2: queued as the next round (per-run tags for the 23 wired fixed-tag probes, then the manual ones; the two unguarded finally blocks).
 
 Then: full gate on the branch, rebuild main from 03b4257 with merge --no-ff, merged gate, ls-remote, and STOP with the report. Report teardown-scoping's duration, the headroom guard's minimum and the database suite's time on every gate run. Do NOT say "ready for John's push" until John has passed the report to me.
+
+## The build, against the rulings of 2026-11-24
+
+**Apply record.** The ledger row for 20261123000001 was recorded BEFORE the migration ran; the pre-check had shown no pg_trgm row. John then applied the migration in one begin/commit. After the apply, the index exists, pg_trgm is in `extensions`, and the ledger row is present.
+
+1. **D1, re-taken.** The DESIGN_PRINCIPLES "F5 TEARDOWN SCALE" entry now carries John's new premise. The superseded sentence is struck through and left in place. The test's own D1 comment says the same.
+2. **The headroom guard, re-aimed** in teardown-scoping.test.mjs.
+   - HEADROOM: the minimum of 5 samples of the real 3-tag statement times COLD_FACTOR must clear 8,000ms with a 1.5x margin.
+   - COLD_FACTOR is 4, set from a post-index measurement: first touch over the warm minimum, across eight fixture tags, gave 1.29, 2.01, 2.08, 2.10, 2.26, 2.65, 2.74 and 3.47 (`.verify/f5-teardown-scale/p8-cold-warm.all.txt`).
+   - INDEX (new): the old no-match "scan term" probe now asserts its cost over a one-row pk read stays under 100ms, so a dropped or unused index fails by name.
+   - The stale whole-table comments in the test, fixtures.mjs and the create-from-any-contact probe are dated, with the history left visible.
+3. **Calibrated** by scripts/f5-teardown-scale/calibrate-headroom-guard.mjs, run mwu32dw6, 3/3.
+   - HEADROOM fired at a 3,522ms minimum against the 1,333ms ceiling.
+   - INDEX fired at 387ms over the round trip against 100ms of slack.
+   - The reverted run passed, at a 162ms minimum and 24ms over the round trip.
+   - Zero rows of any run's tags were left.
+   - Two earlier injections were too light and the harness stopped on each: 848ms with 12 branches and 1,115ms with 30. **A 30-branch whole-table read passes HEADROOM, so only the INDEX check catches a pre-index regression.**
+4. **A finding, not absorbed: the cold index.** The first indexed statement of the measuring session, `score-success` (4,452 matched rows), was cancelled by the 8s timeout. Retouched, it took 3,063ms, then 516 and 355. That is at least 22x, censored, against 3.47x for every later tag. It reads as the GIN index being cold after idle and is not covered by COLD_FACTOR. It bears on H2, because score-success is one of the wired fixed-tag probes.

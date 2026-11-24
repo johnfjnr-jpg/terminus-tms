@@ -59,13 +59,20 @@ const inject = (src, anchor, replacement) => {
 // Branch names assembled, so this file carries no statement the unbounded or
 // source scans would read as a real query (Verification 39).
 const unindexed = (n) => Array.from({ length: n }, (_, i) => `payload->>zz_unindexed.ilike.zz${i}%`).join(',')
-const HEAVY_BRANCHES = 12
+// MEASURED, NOT GUESSED, after two light injections (runs mwu2zrk5, mwu30qlu):
+// 12 and then 30 branches on a missing key gave warm minimums of 848ms and
+// 1,115ms, both UNDER the 1,333ms ceiling, so the guard correctly stayed
+// silent and the harness stopped. A missing key is cheap per row. A
+// leading-wildcard ilike on the real name is not: one missing-key branch to
+// force the whole-table read, plus 25 of those, measured 1,737 to 1,778ms warm.
+const HEAVY_BRANCHES = 25
+const heavy = () => [unindexed(1), ...Array.from({ length: HEAVY_BRANCHES }, (_, i) => `payload->>name.ilike.%zq${i}%`)].join(',')
 const RUNS = [
   { id: 'HEADROOM',
     src: inject(HEAD_SRC, ".select('id, record_id').or(or(RUN_TAGS)).order('id', { ascending: true }).range(0, 999), 'headroom probe')",
-      `.select('id, record_id').or(or(RUN_TAGS) + ',${unindexed(HEAVY_BRANCHES)}').order('id', { ascending: true }).range(0, 999), 'headroom probe')`),
+      `.select('id, record_id').or(or(RUN_TAGS) + ',${heavy()}').order('id', { ascending: true }).range(0, 999), 'headroom probe')`),
     want: (t) => /HEADROOM: the MINIMUM of 5 samples was \d+ms warm, past the \d+ms ceiling/.test(t) && !/canceling statement/.test(t),
-    expect: `FAILS on "HEADROOM:" (the statement carries ${HEAVY_BRANCHES} unindexed branches), not on a timeout` },
+    expect: `FAILS on "HEADROOM:" (a whole-table read with ${HEAVY_BRANCHES} leading-wildcard branches), not on a timeout` },
   { id: 'INDEX',
     src: inject(HEAD_SRC, ".ilike('payload->>name', 'zzzz-headroom-no-match-%')",
       `.or('payload->>name.ilike.zzzz-headroom-no-match-%,${unindexed(1)}')`),
