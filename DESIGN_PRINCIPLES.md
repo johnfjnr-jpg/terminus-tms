@@ -14223,10 +14223,33 @@ premise rather than re-argue the choice:**
   Verification 11's reasons are history that something else references, and
   counters that collide. Neither applies to a row nothing references, and the
   RESTRICT census is what proves "nothing references" on each run.
-- **The departure is worth having only while the tag query reads the whole
+- ~~**The departure is worth having only while the tag query reads the whole
   table.** If `payload->>'name'` is ever indexed (the `pg_trgm` option, out of
   this round, D3), the per-row cost disappears and Verification 11's letter can
-  be restored for this test.
+  be restored for this test.~~ **SUPERSEDED 2026-11-24; see below.** The
+  sentence is left as written, because it named its own premise and the
+  premise is what failed.
+
+**RE-TAKEN ON A NEW PREMISE, ruled by John 2026-11-24 (Verification 29: the
+premise failed, so the decision is re-taken, not re-weighed).** D3 was reversed
+and the index came in: `record_revisions_payload_name_trgm_idx`, GIN with
+`gin_trgm_ops` on `payload ->> 'name'` (migration `20261123000001`). John's
+EXPLAIN after the apply: the P1 statement went from 4,506ms to 265.8ms as a
+BitmapOr of two Bitmap Index Scans, and the `cfanyprobe` scan from 477.6ms to
+16.1ms. **Tag queries no longer read the whole table**, so the "Why" paragraph
+above now describes the history, not the state.
+
+**D1 stands, and this is now why:** test-owned fixture rows left soft deleted
+- **grow the table for every reader that still reads it whole**, which the
+  index does nothing for;
+- **and grow the MATCHED SET of any tag that is reused.** An indexed tag
+  statement pays in heap visits for every row its tags match. John measured
+  that as nearly all of P1's remaining 265.8ms, over 8,070 matched rows.
+
+**What the re-taken decision rests on, so the next round can test it:** that
+some reader still reads `record_revisions` whole, or that some tag is reused
+across runs. The H2 census found 23 wired probes with fixed tags, so the second
+premise holds today. If both stop being true, the decision is re-taken again.
 
 **Verification 11 is unchanged for every other fixture.** A record made through
 the API, or one that a person, an audit row or a counter can reach, is soft
@@ -14242,4 +14265,5 @@ The rebuilt test asserts that its sweep set is only this run's tags, and that
 **Stalls are reduced, not removed (D6).** The test went from about 45
 whole-table statements a run to about 20, and every page still reads the whole
 table. A future red on this test is investigated as a stall (the
-`fixtures.mjs:490` class), never retried.
+`fixtures.mjs:490` class), never retried. *(2026-11-24: since the index, no
+page reads the whole table. D6 is unchanged.)*

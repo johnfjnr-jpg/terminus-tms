@@ -173,6 +173,19 @@ test('a record handed to another owner is still swept', async () => {
 // THIS REDUCES STALL EXPOSURE; IT DOES NOT REMOVE IT. Every page is still a
 // whole-table scan. A future red here is investigated as a stall, never
 // retried (ruling D6).
+//
+// ── 2026-11-24: THE INDEX IS IN, AND THE TWO SENTENCES ABOVE ARE HISTORY ──
+//
+// `record_revisions_payload_name_trgm_idx` (migration 20261123000001, GIN,
+// gin_trgm_ops on payload->>'name') was applied by John on 2026-11-24. Every
+// tag filter in this file is a prefix ilike the index serves, so a page is a
+// bitmap index scan plus heap visits for the MATCHED rows, not a read of the
+// whole table. John's EXPLAIN: the P1 statement 4,506ms before, 265.8ms after.
+// "No index serves payload->>name" and "every page is still a whole-table
+// scan" were true when written and are left above as the record (Verification
+// 29). What grows now is a tag's MATCHED SET, which is why this test's tags
+// are per run. Ruling D6 is unchanged: a red here is investigated, never
+// retried.
 const PAD = 1500
 const CANDIDATES = 30
 
@@ -291,56 +304,89 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
     // ── THE HEADROOM GUARD, ON THIS RUN'S OWN TAGS ────────────────────────
     //
     // It times one page of the statement tearDown's tag branch actually runs:
-    // a TAG_CHUNK_SIZE-tag OR, ordered by id, one 1,000-row page. It used to
-    // take its tags from the ledger, which is borrowing again; the run now
-    // makes exactly TAG_CHUNK_SIZE tags of its own. Every page reads the whole
-    // table, so the timing still measures the term that grows.
+    // a TAG_CHUNK_SIZE-tag OR, ordered by id, one 1,000-row page, over this
+    // run's own tags (1,532 matched rows, every run).
     //
-    // ONE DRAW OF A 3.7x DISTRIBUTION IS NOT A MEASUREMENT (the F5 timeout
-    // fix round): noise is strictly additive, so the MINIMUM of N samples is
-    // the guard, and the 6x cold factor is applied to the SCAN term alone.
+    // SUPERSEDED, LEFT VISIBLE (Verification 29). Before the index this block
+    // said "every page reads the whole table, so the timing still measures the
+    // term that grows", and carried a second probe, a no-match ilike, as the
+    // whole-table SCAN TERM, multiplied by a cold factor of 6. After the index
+    // that probe is an index lookup that finds nothing: it measured the network
+    // and passed whatever happened. Re-aimed 2026-11-24 on John's ruling:
+    //
+    // 1. HEADROOM. The MINIMUM of SAMPLES (noise is strictly additive, the F5
+    //    timeout fix round), times COLD_FACTOR, must sit under the timeout with
+    //    MARGIN to spare.
+    //
+    //    COLD_FACTOR IS MEASURED, NOT CARRIED. Post-index, through PostgREST,
+    //    the same statement shape (one tag, ordered, one page), first touch of
+    //    a historical fixture tag against the minimum of six warm repeats
+    //    (.verify/f5-teardown-scale/p8-cold-warm.all.txt, 2026-11-24):
+    //
+    //        cfanyprobe 1.29   a1deep 2.01   R38GATE 2.08   a1pad2 2.10
+    //        a1pad3 2.26       tqlay 2.65    a1pad1 2.74    a1keep 3.47
+    //
+    //    Maximum 3.47, so COLD_FACTOR is 4. The old 6 was taken before the
+    //    index, against whole-table scans; P7 measured that regime at about 13x.
+    //
+    //    WHAT THIS DOES NOT COVER, MEASURED IN THE SAME SESSION. The FIRST
+    //    indexed statement of that session, `score-success` (4,452 matched
+    //    rows, common trigrams), was cancelled by the 8s statement timeout;
+    //    retouched it took 3,063ms, then 516 and 355 warm. That is at least
+    //    22x, censored by the timeout. It reads as the GIN index itself being
+    //    cold after idle, paid once by whichever statement touches it first,
+    //    and largest for a tag whose trigrams have long posting lists. A factor
+    //    cannot bound it; it is reported to John as a finding, not absorbed.
+    //
+    // 2. THE INDEX SERVES THE FILTER. The no-match lookup now asks the
+    //    question it can answer: its server-side cost over a one-row primary
+    //    key read must stay under INDEX_SLACK_MS. Indexed it is about zero
+    //    (min 115ms against rtt 118ms); forced off the index (an OR with an
+    //    unindexed branch, a whole-table read) it was about 200ms over rtt. A
+    //    dropped or unusable index fails here by name, where the headroom
+    //    bound alone would let a warm 400ms seq scan through.
     const TIMEOUT_MS = 8000
-    const COLD_FACTOR = 6
+    const COLD_FACTOR = 4
     const MARGIN = 1.5
     const CEILING = Math.round(TIMEOUT_MS / COLD_FACTOR / MARGIN)
+    const INDEX_SLACK_MS = 100
     const SAMPLES = 5
     assert.equal(RUN_TAGS.length, TAG_CHUNK_SIZE,
       'the probe must use the same chunk size the code does, or it times a statement nobody runs')
-    const timings = []
-    for (let i = 0; i < SAMPLES; i++) {
-      const t0 = Date.now()
-      const { error: probeErr } = await db.from('record_revisions')
-        .select('id, record_id').or(or(RUN_TAGS)).order('id', { ascending: true }).range(0, 999)
-      if (probeErr) throw new Error(`headroom probe: ${probeErr.message}`)
-      timings.push(Date.now() - t0)
+    const minOf = async (n, q, w) => {
+      const ms = []
+      for (let i = 0; i < n; i++) {
+        const t0 = Date.now()
+        const { error } = await q()
+        if (error) throw new Error(`${w}: ${error.message}`)
+        ms.push(Date.now() - t0)
+      }
+      return { ms, min: Math.min(...ms) }
     }
-    const probeMs = Math.min(...timings)
-    const scanTimings = []
-    for (let i = 0; i < SAMPLES; i++) {
-      const t0 = Date.now()
-      const { error: scanErr } = await db.from('record_revisions').select('id, record_id')
-        .ilike('payload->>name', 'zzzz-headroom-no-match-%')
-        .order('id', { ascending: true }).range(0, 999)
-      if (scanErr) throw new Error(`scan-term probe: ${scanErr.message}`)
-      scanTimings.push(Date.now() - t0)
-    }
-    const scanMs = Math.min(...scanTimings)
-    const COLD_BOUND = Math.round(TIMEOUT_MS / MARGIN)
+    const probe = await minOf(SAMPLES, () => db.from('record_revisions')
+      .select('id, record_id').or(or(RUN_TAGS)).order('id', { ascending: true }).range(0, 999), 'headroom probe')
+    const rtt = await minOf(SAMPLES, () => db.from('record_revisions')
+      .select('id').order('id', { ascending: true }).range(0, 0), 'rtt probe')
+    const lookup = await minOf(SAMPLES, () => db.from('record_revisions').select('id, record_id')
+      .ilike('payload->>name', 'zzzz-headroom-no-match-%')
+      .order('id', { ascending: true }).range(0, 999), 'index lookup probe')
     const scanned = await exactCount(db.from('record_revisions')
       .select('id', { count: 'exact', head: true }).or(or(RUN_TAGS)), 'headroom population')
+    const overRtt = lookup.min - rtt.min
     console.log(`    headroom: this run's ${RUN_TAGS.length} tags, ${scanned} rows, ${SAMPLES} samples `
-      + `[${timings.join(', ')}] min ${probeMs}ms, ceiling ${CEILING}ms`)
-    console.log(`    cold tail: scan term min ${scanMs}ms x ${COLD_FACTOR} cold = `
-      + `${scanMs * COLD_FACTOR}ms, bound ${COLD_BOUND}ms (${TIMEOUT_MS}ms / ${MARGIN}x margin)`)
+      + `[${probe.ms.join(', ')}] min ${probe.min}ms, ceiling ${CEILING}ms `
+      + `(${TIMEOUT_MS}ms / ${COLD_FACTOR}x cold / ${MARGIN}x margin)`)
+    console.log(`    index: no-match lookup min ${lookup.min}ms [${lookup.ms.join(', ')}], `
+      + `rtt min ${rtt.min}ms [${rtt.ms.join(', ')}], over rtt ${overRtt}ms, slack ${INDEX_SLACK_MS}ms`)
     assert.ok(scanned > 1000, `the headroom probe matched ${scanned} rows; it must fetch a full page`)
-    assert.ok(probeMs < CEILING,
-      `the MINIMUM of ${SAMPLES} samples was ${probeMs}ms warm, past the ${CEILING}ms ceiling. `
-      + `Samples: [${timings.join(', ')}]. Noise is strictly additive, so every sample was genuinely `
+    assert.ok(probe.min < CEILING,
+      `HEADROOM: the MINIMUM of ${SAMPLES} samples was ${probe.min}ms warm, past the ${CEILING}ms ceiling. `
+      + `Samples: [${probe.ms.join(', ')}]. Noise is strictly additive, so every sample was genuinely `
       + `this slow. Do NOT step TAG_CHUNK_SIZE down; find what made the statement more expensive.`)
-    assert.ok(scanMs * COLD_FACTOR < COLD_BOUND,
-      `the SCAN TERM minimum is ${scanMs}ms warm; times ${COLD_FACTOR} cold that is `
-      + `${scanMs * COLD_FACTOR}ms against a ${COLD_BOUND}ms bound. This is the term that grows with `
-      + `the whole table. Samples: [${scanTimings.join(', ')}].`)
+    assert.ok(overRtt < INDEX_SLACK_MS,
+      `INDEX: the no-match tag lookup costs ${overRtt}ms over a one-row pk read (lookup min ${lookup.min}ms, `
+      + `rtt min ${rtt.min}ms), past ${INDEX_SLACK_MS}ms. An indexed lookup costs about nothing; this one is `
+      + `reading the table. Check record_revisions_payload_name_trgm_idx exists and is used.`)
 
     // ── THE COUNTERFACTUAL: the unranged query the defect shipped cannot see it
     //
@@ -392,6 +438,13 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
 // because every page reads the whole table, and this test alone would add
 // ~1,530 revision rows a run. tearDown above performs the claim, soft delete,
 // asserted; this removes what is left of it.
+//
+// RE-TAKEN ON A NEW PREMISE, John 2026-11-24 (Verification 29). The sentence
+// above, "every page reads the whole table", stopped being true when the
+// trigram index was applied. The purge stays for a different reason: rows
+// left soft deleted grow the table for every reader that still reads it
+// whole, and grow the MATCHED SET of any tag that is reused, which is now
+// what an indexed tag statement pays for.
 //
 // BOTH FILTERS ARE IN THE QUERY. A row goes only if it carries one of this
 // run's tags AND belongs to the test account. The set is enumerated from the

@@ -297,7 +297,9 @@ try {
   // then FAILS on anything recorded, so a stall is reported, never absorbed.
   const failures = []
   try { await browser?.close() } catch (e) { failures.push(`browser close: ${e.message}`) }
-  // A whole-table scan until payload->>'name' is indexed: it can stall.
+  // Served by the trigram index since 2026-11-24, so it costs the rows this
+  // run's tag matches. A cold index can still stall it, so a failure here is
+  // recorded and teardown carries on.
   const tagScan = async (what) => new Set(must(await db.from('record_revisions').select('record_id')
     .like('payload->>name', `${TAG} %`).range(0, 999), what).map((x) => x.record_id))
   let tagged = new Set()

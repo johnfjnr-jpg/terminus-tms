@@ -652,6 +652,9 @@ export async function tearDown(explicitTag) {
   // F5: 25 cost ~1,459ms warm per statement, and roughly 6x that cold, which
   // is past the 8s statement timeout. 6 costs ~578ms warm. More statements,
   // each far under the ceiling, same rows.
+  // 2026-11-24: those costs, and the measurements below, are of WHOLE-TABLE
+  // scans. The trigram index on payload->>'name' (20261123000001) now serves
+  // this filter; a statement costs in proportion to the rows its tags match.
   const TAG_CHUNK = TAG_CHUNK_SIZE
   const taggedRevs = []
   for (let i = 0; i < tags.length; i += TAG_CHUNK) {
@@ -772,8 +775,9 @@ export async function tearDown(explicitTag) {
   //
   // `rememberTag` only ever appended, so the ledger grew for the life of the
   // checkout and every reader paid for it. Measured: one weigh query costs the
-  // same ~310ms whether its tag matches 0 rows or 1,677, because it scans
-  // `record_revisions` whole, and `teardown-scoping.test.mjs` runs one per
+  // same ~310ms whether its tag matches 0 rows or 1,677, because it scanned
+  // `record_revisions` whole (before the 2026-11-24 trigram index), and
+  // `teardown-scoping.test.mjs` ran one per
   // ledger tag. The ledger reached 107 tags, 80 of them from one day's probes,
   // and that test went 34s to 77s.
   //
