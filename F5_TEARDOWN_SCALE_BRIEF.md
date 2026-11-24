@@ -207,3 +207,41 @@ After John applies R1 and the re-measure is clean: full gate on the branch, rebu
 - supabase/migrations/20261124000001_record_revisions_name_trigram_fastupdate_off.sql: the two ruled statements, fastupdate off first, then the flush.
 - supabase/rollbacks/20261124000001_record_revisions_name_trigram_fastupdate_off.rollback.sql: reset (fastupdate) and the ledger row delete, in one begin/commit.
 - R3's gate refusal is queued beside H2. R2 waits on the apply.
+
+### R1 applied (John, 2026-11-24); R2 re-measure: STOPPED, score-success crossed 8s again
+
+**Apply record (R4).** John reviewed and approved the migration, then applied it in one begin/commit. The ledger row for 20261124000001 was recorded AFTER that, as a separate statement. The pages-removed count from gin_clean_pending_list was not received (the ruling carried the placeholder "[NUMBER]"). The apply was not verified from this session, because PostgREST does not expose pg_class.reloptions.
+
+**John's diagnostics BEFORE the apply (SQL Editor).**
+- The index's reloptions were null, so fastupdate was on, the default. Its size was 7,992 kB.
+- record_revisions: n_tup_ins 51,432; n_dead_tup 15,340; last_autovacuum 2026-11-23 12:01:43 UTC, before the index existed; last_autoanalyze 2026-11-24 02:38:28 UTC; autovacuum_count 1.
+- John's reading: no autovacuum cleaned the pending list after the index was built, so every insert since then sat in it and every search scanned it.
+
+**R2, run 2026-11-24 04:45 UTC, after the apply.** The measurer was .verify/f5-teardown-scale/p8-cold-warm.mjs, with output in r2-after-fastupdate-off.txt. Each tag got its first touch, then six warm repeats, as one 1,000-row page of the indexed prefix ilike.
+
+| tag | matched | first ms | warm ms | warm min | first/min |
+|---|---|---|---|---|---|
+| score-success | 4,500 | **8,369, cancelled (57014)** | 906, 753, 585, 358, 439, 346 | 346 | >23.1 |
+| cfanyprobe | 66 | 261 | 150, 130, 145, 146, 140, 147 | 130 | 2.01 |
+| a1deep | 3,594 | 503 | 279, 285, 183, 267, 265, 199 | 183 | 2.75 |
+| R38GATE | 11 | 140 | 113, 134, 124, 120, 116, 122 | 113 | 1.24 |
+| a1pad1 | 1,928 | 294 | 289, 261, 204, 285, 248, 147 | 147 | 2.00 |
+| a1pad2 | 1,926 | 406 | 720, 141, 160, 252, 245, 198 | 141 | 2.88 |
+| a1pad3 | 1,926 | 249 | 262, 239, 192, 192, 150, 190 | 150 | 1.66 |
+| tqlay | 63 | 251 | 125, 124, 117, 116, 125, 125 | 116 | 2.16 |
+| a1keep | 2,985 | 269 | 259, 255, 208, 259, 258, 149 | 149 | 1.81 |
+
+Reference reads in the same run:
+- one-row pk read: 158, 116, 249, 107, 124, 125, 112, 141 (min 107);
+- no-match index lookup: 306, 122, 111, 109, 117, 122, 239, 122 (min 109);
+- a forced whole-table read (an OR with one unindexed branch): 805, 368, 264, 366, 908 (min 264).
+
+**Per R2 this is the stop.** An indexed statement crossed 8s after R1, so the pending list is ruled out as the whole cause, and the event goes to investigation, not into COLD_FACTOR. No gate was run, main was not touched, and nothing was pushed.
+
+**What the samples show.**
+1. **The event is specific to the tag, not to the population.** score-success's first touch has now timed out in both sessions it was measured in. a1deep matches 3,594 rows and its first touch took 503ms. The eight other tags ran 1.24x to 2.88x their warm minimum.
+2. **The cancelled statement was slower than a whole-table read.** The forced whole-table read took a 264ms minimum, and score-success's first touch was cancelled at 8,369ms. Whatever is expensive is in how that statement is planned or executed, not in the amount of data.
+3. **Candidate, NOT established:** score-success%'s trigrams are common across the table, so the GIN scan has many long posting lists to combine. A cold read of those lists, or a lossy bitmap rechecking many heap pages, would cost more than a sequential read.
+4. **The read-only step that settles it** is EXPLAIN (ANALYZE, BUFFERS) of the exact statement in the SQL Editor, ideally on its first run after idle. Beside it, select reloptions to confirm fastupdate=off.
+
+**CURRENT_STATE regenerated** (ruled): live records unchanged at 135; the migration list gains 20261124000001. R2 was run before the regeneration rather than after. Both are reads, so the order changes no result.

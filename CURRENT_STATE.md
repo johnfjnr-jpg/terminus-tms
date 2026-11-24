@@ -12,8 +12,8 @@ Contains no environment variable, key or token, and no client data. Records
 appear as counts by status only, never by name or reference code, because
 this file is uploaded into chat sessions.
 
-- Generated at: `2026-11-24T02:54:44.381Z`
-- Git commit: `2bdff410883749236aa496ed551ee88c72146ccf`
+- Generated at: `2026-11-24T04:46:18.670Z`
+- Git commit: `ed2985cdbfdeb329b45f75e6a1b1520ae5ad263a`
 - Working tree at generation: `clean`
 
 Staleness has two parts, and both must hold for this file to be current:
@@ -63,8 +63,8 @@ CLAUDE.md build discipline 13. These console settings are MITIGATIONS, not the c
 
 | tag | published commit | date | commits from `HEAD` | local agrees |
 |---|---|---|---|---|
-| `controls-complete` | `56b516e` | 2026-08-29 | 1292 | yes |
-| `reshape-complete` | `3499884` | 2026-08-29 | 1263 | yes |
+| `controls-complete` | `56b516e` | 2026-08-29 | 1295 | yes |
+| `reshape-complete` | `3499884` | 2026-08-29 | 1266 | yes |
 
 ## `stage_definitions`
 
@@ -518,36 +518,36 @@ _None._
 
 ## Record counts by type and status
 
-135 live, 132407 soft deleted, 132542 rows in total.
+135 live, 132631 soft deleted, 132766 rows in total.
 
 | record_type | status | live | soft deleted |
 |---|---|---|---|
 | account | Active | 0 | 6 |
-| account | active | 7 | 1830 |
-| contact | Active | 0 | 3831 |
+| account | active | 7 | 1833 |
+| contact | Active | 0 | 3837 |
 | contact | Nurture | 0 | 17 |
-| contact | Qualified | 12 | 14753 |
+| contact | Qualified | 12 | 14789 |
 | contact | Unqualified | 5 | 770 |
-| document | approved | 65 | 6267 |
+| document | approved | 65 | 6275 |
 | document | draft | 0 | 5 |
 | document | received | 1 | 78 |
 | opportunity | Closed Lost | 0 | 20 |
-| opportunity | Closed Won | 2 | 144 |
-| opportunity | Evaluation | 0 | 354 |
+| opportunity | Closed Won | 2 | 152 |
+| opportunity | Evaluation | 0 | 355 |
 | opportunity | Negotiating | 1 | 16 |
-| opportunity | Proposal | 3 | 2156 |
-| opportunity | Qualification | 7 | 12905 |
-| opportunity | Solution Alignment | 7 | 1662 |
+| opportunity | Proposal | 3 | 2162 |
+| opportunity | Qualification | 7 | 12935 |
+| opportunity | Solution Alignment | 7 | 1666 |
 | test_bed | Closed | 5 | 9 |
 | test_bed | Installation and Commissioning | 1 | 35 |
 | test_bed | Monitoring and Analysis | 0 | 2 |
 | test_bed | Pre-Site Assessment | 0 | 8 |
-| test_bed | Qualification | 4 | 1672 |
+| test_bed | Qualification | 4 | 1676 |
 | test_bed | Review and Completion | 1 | 0 |
 | test_bed | Site Assessment | 1 | 17 |
 | unit | Active | 0 | 1 |
 | unit | Installed | 4 | 19 |
-| unit | Planned | 9 | 24721 |
+| unit | Planned | 9 | 24757 |
 | unit | Removed | 0 | 1 |
 
 ### Test fixture record types
@@ -558,20 +558,20 @@ row by row, and are included in the totals above.
 
 | distinct `harness_*` record types | live rows | soft deleted rows |
 |---|---|---|
-| 7539 | 0 | 61108 |
+| 7549 | 0 | 61190 |
 
 No harness record type holds a live row; every fixture row is soft deleted.
 
 ## `approvals`
 
-5705 rows, of which 3 carry a null `stage`.
+5719 rows, of which 3 carry a null `stage`.
 
 | decision | track | rows | null stage |
 |---|---|---|---|
-| approved | Commercial | 2775 | 0 |
-| approved | Legal | 1616 | 1 |
+| approved | Commercial | 2782 | 0 |
+| approved | Legal | 1620 | 1 |
 | approved | Senior | 3 | 2 |
-| approved | Technical | 1305 | 0 |
+| approved | Technical | 1308 | 0 |
 | rejected | Commercial | 1 | 0 |
 | rejected | Finance | 4 | 0 |
 | rejected | Legal | 1 | 0 |
@@ -702,7 +702,7 @@ than written as a literal list, so its members are not enumerable here.
 
 ## Migrations, in filename order
 
-135 files in `supabase/migrations/`.
+136 files in `supabase/migrations/`.
 
 1. `20260801000000_initial_schema.sql`
 2. `20260802000000_lead_opportunity.sql`
@@ -839,6 +839,7 @@ than written as a literal list, so its members are not enumerable here.
 133. `20261120000001_term_quotes_versions_carry_a_kind.sql`
 134. `20261122000001_create_opportunity_from_any_visible_contact.sql`
 135. `20261123000001_record_revisions_name_trigram_index.sql`
+136. `20261124000001_record_revisions_name_trigram_fastupdate_off.sql`
 
 ## Seed files, in application order
 
