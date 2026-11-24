@@ -14251,6 +14251,50 @@ some reader still reads `record_revisions` whole, or that some tag is reused
 across runs. The H2 census found 23 wired probes with fixed tags, so the second
 premise holds today. If both stop being true, the decision is re-taken again.
 
+**THE TWO STALLS OF 2026-11-24, CAUSES ESTABLISHED by John in the SQL Editor.**
+Two indexed tag statements crossed the 8s statement timeout on the day the index
+went in. They had two different causes.
+- **C1. The gate-2 headroom timeout, on freshly inserted rows: the GIN pending
+  list.** `fastupdate` was on, the default, and no autovacuum had run since the
+  index was built (last_autovacuum 2026-11-23 12:01:43 UTC, autovacuum_count 1).
+  So every insert since then sat in the unsorted pending list that every search
+  scans. `gin_clean_pending_list` removed **429 pages** (about 3.4 MB, just under
+  the 4 MB `gin_pending_list_limit`). **Fixed by `20261124000001`**:
+  `fastupdate = off`, then the flush. `reloptions` now read `{fastupdate=off}`.
+- **C2. The score-success timeouts: a per-row ilike filter on a primary-key
+  walk.** For `ORDER BY id LIMIT 1000` the planner walks
+  `record_revisions_pkey`, not the trigram index, and runs the filter on every
+  row it passes: 38,484 removed by filter, all shared hits, no disk reads. With
+  `ilike` that took 6,613ms; with `like` it took 280ms on the identical plan and
+  rows. ilike on `payload->>'name'` costs about 24x like per row. **Fixed by
+  ruling F1**: every tag filter in the fixture machinery is now a case-sensitive
+  prefix `like`. A case census first found 0 live records that ilike reached and
+  like does not. `fixture-names-carry-tag.test.mjs` keeps every fixture name
+  starting with its tag exactly.
+- **The earlier reading was wrong, and is named so (Verification 29).** It said
+  score-success's first-touch timeout was the GIN index being cold after idle,
+  paid as disk reads, and the brief and two reports carried that. John's EXPLAIN
+  showed no disk reads at all. The pending-list candidate was also wrong for C2:
+  after the flush, the same first touch timed out again at 8,369ms.
+- **This strengthens D1.** On an ordered page the cost is every row the
+  primary-key walk passes before it fills the page, so soft-deleted fixture rows
+  lengthen the walk for every tag query, not only for whole-table readers.
+- **AND THE FORM OF THE FILTER DECIDES THE PLAN. Ruled by John 2026-11-24, G1
+  to G3.** After the switch to like, the DIRECT single-term form
+  (`.like('payload->>name', ...)`, ORDER BY id, one page) alternated between the
+  trigram index and a primary-key walk. Its minimum was 116ms, but about half of
+  20 samples ran 300 to 680ms, and an earlier sample took 4,223ms. **No fixture
+  code issues that form.** tearDown always issued the OR-FORM, which held at a
+  0ms minimum over a one-row pk read, with one term and with three. The INDEX
+  guard had been aimed at the direct form, which nobody runs, and it went red
+  there.
+  - **It was re-aimed to the claim (the or-form tearDown issues), not relaxed
+    after a red.** Its 100ms slack is unchanged.
+  - **Every tag filter in the fixture machinery now goes through one helper**,
+    `tagOr` in `scripts/lib/tag-filter.mjs`.
+  - `one-tag-filter.test.mjs` refuses a direct or hand-built `payload->>name`
+    filter in fixtures.mjs, teardown-scoping and its two calibrators.
+
 **Verification 11 is unchanged for every other fixture.** A record made through
 the API, or one that a person, an audit row or a counter can reach, is soft
 deleted as before.

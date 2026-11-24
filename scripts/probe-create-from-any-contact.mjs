@@ -298,8 +298,10 @@ try {
   const failures = []
   try { await browser?.close() } catch (e) { failures.push(`browser close: ${e.message}`) }
   // Served by the trigram index since 2026-11-24, so it costs the rows this
-  // run's tag matches. A cold index can still stall it, so a failure here is
-  // recorded and teardown carries on.
+  // run's tag matches. ~~A cold index can still stall it~~ (wrong: the two
+  // stalls of 2026-11-24 were the GIN pending list, C1, and a per-row ilike
+  // filter on a primary-key walk, C2; this scan was always a case-sensitive
+  // like). A failure here is still recorded and teardown carries on.
   const tagScan = async (what) => new Set(must(await db.from('record_revisions').select('record_id')
     .like('payload->>name', `${TAG} %`).range(0, 999), what).map((x) => x.record_id))
   let tagged = new Set()

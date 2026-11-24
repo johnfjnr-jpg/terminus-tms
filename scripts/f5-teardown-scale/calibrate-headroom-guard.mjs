@@ -30,6 +30,7 @@ import { mkdtempSync, readFileSync, writeFileSync, symlinkSync, existsSync, rmSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { tagOr, syntheticNameCost } from '../lib/tag-filter.mjs'
 
 const REPO = '/Users/johnfryatt/terminus-tms'
 const TEST = 'scripts/tests/teardown-scoping.test.mjs'
@@ -65,8 +66,11 @@ const unindexed = (n) => Array.from({ length: n }, (_, i) => `payload->>zz_unind
 // silent and the harness stopped. A missing key is cheap per row. A
 // leading-wildcard ilike on the real name is not: one missing-key branch to
 // force the whole-table read, plus 25 of those, measured 1,737 to 1,778ms warm.
+// 2026-11-24, ruling F1: the tag filters became case-sensitive like, and the
+// ceiling moved to 1,067ms (COLD_FACTOR 5). These heavy branches stay ILIKE on
+// purpose: they are a synthetic cost, not a tag filter, and ilike is the cost.
 const HEAVY_BRANCHES = 25
-const heavy = () => [unindexed(1), ...Array.from({ length: HEAVY_BRANCHES }, (_, i) => `payload->>name.ilike.%zq${i}%`)].join(',')
+const heavy = () => [unindexed(1), syntheticNameCost(HEAVY_BRANCHES)].join(',')
 const RUNS = [
   { id: 'HEADROOM',
     src: inject(HEAD_SRC, ".select('id, record_id').or(or(RUN_TAGS)).order('id', { ascending: true }).range(0, 999), 'headroom probe')",
@@ -74,8 +78,8 @@ const RUNS = [
     want: (t) => /HEADROOM: the MINIMUM of 5 samples was \d+ms warm, past the \d+ms ceiling/.test(t) && !/canceling statement/.test(t),
     expect: `FAILS on "HEADROOM:" (a whole-table read with ${HEAVY_BRANCHES} leading-wildcard branches), not on a timeout` },
   { id: 'INDEX',
-    src: inject(HEAD_SRC, ".ilike('payload->>name', 'zzzz-headroom-no-match-%')",
-      `.or('payload->>name.ilike.zzzz-headroom-no-match-%,${unindexed(1)}')`),
+    src: inject(HEAD_SRC, '.or(or(NO_MATCH))',
+      `.or(or(NO_MATCH) + ',${unindexed(1)}')`),
     want: (t) => /INDEX: the no-match tag lookup costs \d+ms over a one-row pk read/.test(t) && !/canceling statement/.test(t),
     expect: 'FAILS on "INDEX:" (the lookup is forced off the index), not on a timeout' },
   { id: 'reverted', src: HEAD_SRC,
@@ -86,7 +90,7 @@ const RUNS = [
 const fixtures = await import(pathToFileURL(join(COPY, 'scripts/fixtures.mjs')).href)
 const db = fixtures.admin()
 async function leftOf(stamp) {
-  const or = ['a1deep', 'a1keep', 'a1third'].map((p) => `payload->>name.ilike.${p}-${stamp}%`).join(',')
+  const or = tagOr(['a1deep', 'a1keep', 'a1third'].map((p) => `${p}-${stamp}`))
   const { count, error } = await db.from('record_revisions').select('id', { count: 'exact', head: true }).or(or)
   if (error) throw new Error(`residue count ${stamp}: ${error.message}`)
   return count

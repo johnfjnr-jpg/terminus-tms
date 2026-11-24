@@ -25,6 +25,7 @@ import { mkdtempSync, readFileSync, writeFileSync, symlinkSync, existsSync, rmSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { admin } from '../fixtures.mjs'
+import { tagOr } from '../lib/tag-filter.mjs'
 
 const REPO = '/Users/johnfryatt/terminus-tms'
 const TEST = 'scripts/tests/teardown-scoping.test.mjs'
@@ -65,8 +66,8 @@ const INJECTIONS = [
     edits: [['const pick = candidates.find((id) => depth(id) > 1000)', 'const pick = candidates.find((id) => depth(id) <= 1000)']],
     expect: 'inside the first page' },
   { id: 'I5', what: 'tag scope widened: a1deep-X also matches a1keep-X (the control)', file: FIX,
-    edits: [["const or = tags.slice(i, i + TAG_CHUNK).map((t) => `payload->>name.ilike.${t}%`).join(',')",
-      "const or = tags.slice(i, i + TAG_CHUNK).flatMap((t) => [t, t.replace(/^a1deep-/, 'a1keep-')]).map((t) => `payload->>name.ilike.${t}%`).join(',')"]],
+    edits: [['const or = tagOr(tags.slice(i, i + TAG_CHUNK))',
+      "const or = tagOr(tags.slice(i, i + TAG_CHUNK).flatMap((t) => [t, t.replace(/^a1deep-/, 'a1keep-')]))"]],
     expect: 'the control was swept though its tag was excluded' },
   { id: 'I6', what: 'the purge skips its deletes', file: TEST,
     edits: [['  // 4. Revisions, then records. Both filters in each statement.', '  // 4. I6: deletes skipped\n  if (false) {'],
@@ -93,7 +94,7 @@ function run(label, pattern) {
 // The residue a run of THIS test can leave: rows under the per-run tag shapes.
 const db = admin()
 const TAG_SHAPES = ['a1deep-', 'a1keep-', 'a1third-']
-const shapeOr = TAG_SHAPES.map((t) => `payload->>name.ilike.${t}%`).join(',')
+const shapeOr = tagOr(TAG_SHAPES)
 async function residue() {
   const { count, error, status } = await db.from('record_revisions')
     .select('id', { count: 'exact', head: true }).or(shapeOr)
@@ -108,7 +109,7 @@ async function cleanUpRun(text) {
   const run = (text.match(/this run's own tag a1deep-([a-z0-9]+)/) ?? [])[1]
   if (!run) throw new Error('I6 cleanup: no run tag in the output, so nothing can be named to remove')
   const tags = TAG_SHAPES.map((t) => `${t}${run}`)
-  const or = tags.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  const or = tagOr(tags)
   const ids = new Set()
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db.from('record_revisions').select('id, record_id').or(or)

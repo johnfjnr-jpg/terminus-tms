@@ -37,6 +37,7 @@ import { api as apiCall } from './api-client.mjs'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { tagOr } from './lib/tag-filter.mjs'
 
 // ── SCRATCH LIVES IN THE REPO, NOT IN SOMEBODY'S SESSION ─────────────────
 //
@@ -655,10 +656,25 @@ export async function tearDown(explicitTag) {
   // 2026-11-24: those costs, and the measurements below, are of WHOLE-TABLE
   // scans. The trigram index on payload->>'name' (20261123000001) now serves
   // this filter; a statement costs in proportion to the rows its tags match.
+  // (SUPERSEDED the same day by C2 below for an ordered page; left visible.)
+  //
+  // ── LIKE, NOT ILIKE. Ruling F1, John, 2026-11-24 ─────────────────────────
+  //
+  // This was a prefix ILIKE. John's EXPLAIN of score-success's first page:
+  // the planner walks record_revisions_pkey for the ORDER BY id and runs the
+  // filter on every row it passes (38,484 removed by filter, all shared hits),
+  // 6,613ms with ilike and 280ms with like on the identical plan. ilike on
+  // payload->>'name' costs about 24x like per row, and here the per-row cost
+  // IS the statement's cost (cause C2, DESIGN_PRINCIPLES "F5 TEARDOWN SCALE").
+  //
+  // Case-sensitive is safe because the tag is written untransformed at the
+  // start of every fixture name (fixture-names-carry-tag.test.mjs), and the
+  // F1a census found 0 live records an ilike reached that this like does not
+  // (.verify/f5-teardown-scale/f1a-case-census.txt, calibrated).
   const TAG_CHUNK = TAG_CHUNK_SIZE
   const taggedRevs = []
   for (let i = 0; i < tags.length; i += TAG_CHUNK) {
-    const or = tags.slice(i, i + TAG_CHUNK).map((t) => `payload->>name.ilike.${t}%`).join(',')
+    const or = tagOr(tags.slice(i, i + TAG_CHUNK))
     // ── F5's HARDENING, AND A MEASUREMENT I GOT WRONG FIRST ──────────────
     //
     // `payload` was selected here and never read - only `record_id` is taken

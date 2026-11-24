@@ -13,6 +13,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { admin, tearDown, tagsToSweep, TAG_CHUNK_SIZE } from '../fixtures.mjs'
+import { tagOr } from '../lib/tag-filter.mjs'
 
 const db = admin()
 const must = ({ data, error }, w) => { if (error) throw new Error(`${w}: ${error.message}`); return data }
@@ -186,6 +187,16 @@ test('a record handed to another owner is still swept', async () => {
 // 29). What grows now is a tag's MATCHED SET, which is why this test's tags
 // are per run. Ruling D6 is unchanged: a red here is investigated, never
 // retried.
+//
+// ── 2026-11-24, LATER: LIKE, NOT ILIKE (ruling F1) ────────────────────────
+//
+// "A page is a bitmap index scan plus heap visits for the MATCHED rows" is
+// not true of an ORDERED page, and is left above as the record. John's
+// EXPLAIN of score-success's first page: the planner walks the primary key
+// for ORDER BY id and runs the filter on every row it passes (38,484 removed
+// by filter, no disk reads), 6,613ms with ilike, 280ms with like on the same
+// plan. Every tag filter in this file, the purge included, is now a
+// case-sensitive prefix like.
 const PAD = 1500
 const CANDIDATES = 30
 
@@ -208,7 +219,8 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
   const KEEP = `a1keep-${RUN}`
   const THIRD = `a1third-${RUN}`
   const RUN_TAGS = [TAG, KEEP, THIRD]
-  const or = (ts) => ts.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  // The one tag filter tearDown also uses (ruling G3).
+  const or = tagOr
   const created = new Set()
 
   // Built directly, as this file's `tagged()` builds every fixture: a record
@@ -326,17 +338,27 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
     //        cfanyprobe 1.29   a1deep 2.01   R38GATE 2.08   a1pad2 2.10
     //        a1pad3 2.26       tqlay 2.65    a1pad1 2.74    a1keep 3.47
     //
-    //    Maximum 3.47, so COLD_FACTOR is 4. The old 6 was taken before the
-    //    index, against whole-table scans; P7 measured that regime at about 13x.
+    //    ~~Maximum 3.47, so COLD_FACTOR is 4.~~ SUPERSEDED by the F2 re-measure
+    //    below. The old 6 was taken before the index, against whole-table
+    //    scans; P7 measured that regime at about 13x.
     //
-    //    WHAT THIS DOES NOT COVER, MEASURED IN THE SAME SESSION. The FIRST
-    //    indexed statement of that session, `score-success` (4,452 matched
-    //    rows, common trigrams), was cancelled by the 8s statement timeout;
-    //    retouched it took 3,063ms, then 516 and 355 warm. That is at least
-    //    22x, censored by the timeout. It reads as the GIN index itself being
-    //    cold after idle, paid once by whichever statement touches it first,
-    //    and largest for a tag whose trigrams have long posting lists. A factor
-    //    cannot bound it; it is reported to John as a finding, not absorbed.
+    //    ~~WHAT THIS DOES NOT COVER. score-success's first touch was cancelled
+    //    by the 8s timeout. It reads as the GIN index itself being cold after
+    //    idle.~~ WRONG, and left visible (Verification 29). John's EXPLAIN:
+    //    no disk reads at all. The planner walks the primary key for ORDER BY
+    //    id and runs the ilike on every row it passes, and ilike costs about
+    //    24x like there (cause C2). The filter is now like (ruling F1).
+    //
+    //    F2, THE RE-MEASURE WITH LIKE, 2026-11-24 05:04 UTC, after the GIN
+    //    pending list was turned off and flushed (20261124000001), the same
+    //    eight tags plus score-success, first touch over the minimum of six
+    //    warm repeats (.verify/f5-teardown-scale/f2-cold-warm-like.txt):
+    //
+    //        tqlay 1.11        R38GATE 1.28   cfanyprobe 1.54   a1pad3 2.03
+    //        a1pad1 2.13       a1keep 2.13    a1deep 2.77       a1pad2 2.95
+    //        score-success 4.32 (first 1,219ms, warm min 282ms)
+    //
+    //    No statement crossed 8s. Maximum 4.32, so COLD_FACTOR is 5.
     //
     // 2. THE INDEX SERVES THE FILTER. The no-match lookup now asks the
     //    question it can answer: its server-side cost over a one-row primary
@@ -346,7 +368,7 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
     //    dropped or unusable index fails here by name, where the headroom
     //    bound alone would let a warm 400ms seq scan through.
     const TIMEOUT_MS = 8000
-    const COLD_FACTOR = 4
+    const COLD_FACTOR = 5
     const MARGIN = 1.5
     const CEILING = Math.round(TIMEOUT_MS / COLD_FACTOR / MARGIN)
     const INDEX_SLACK_MS = 100
@@ -367,8 +389,18 @@ test('tearDown reaches a record beyond row 1,000 of its own tag population', asy
       .select('id, record_id').or(or(RUN_TAGS)).order('id', { ascending: true }).range(0, 999), 'headroom probe')
     const rtt = await minOf(SAMPLES, () => db.from('record_revisions')
       .select('id').order('id', { ascending: true }).range(0, 0), 'rtt probe')
+    // RE-AIMED TO THE CLAIM, ruling G1 (John, 2026-11-24): the lookup is the
+    // OR-FORM tearDown issues, TAG_CHUNK_SIZE no-match terms. It was a direct
+    // single-term like (before that, ilike), which no fixture code issues.
+    // After F1 that direct form, ordered by id, alternated between the trigram
+    // index and a primary-key walk: min 116ms, about half of 20 samples at 300
+    // to 680ms, one at 4,223ms. This guard fired on it (202ms over rtt) and was
+    // right about that statement. The or-form, measured with one term and with
+    // three: min 0ms over rtt in both runs, the 5-sample statistic -19 to +23ms
+    // (.verify/f5-teardown-scale/g1-orform-measure.txt). The 100ms slack stands.
+    const NO_MATCH = Array.from({ length: TAG_CHUNK_SIZE }, (_, i) => `zzzz-headroom-no-match-${i}-`)
     const lookup = await minOf(SAMPLES, () => db.from('record_revisions').select('id, record_id')
-      .ilike('payload->>name', 'zzzz-headroom-no-match-%')
+      .or(or(NO_MATCH))
       .order('id', { ascending: true }).range(0, 999), 'index lookup probe')
     const scanned = await exactCount(db.from('record_revisions')
       .select('id', { count: 'exact', head: true }).or(or(RUN_TAGS)), 'headroom population')
@@ -469,7 +501,7 @@ async function purgeRun(db, owner, runTags, created) {
     if (error) throw new Error(`purge ${w}: status ${status} ${error.message}`)
     return n
   }
-  const or = runTags.map((t) => `payload->>name.ilike.${t}%`).join(',')
+  const or = tagOr(runTags)
   const chunks = (xs) => Array.from({ length: Math.ceil(xs.length / 150) }, (_, i) => xs.slice(i * 150, i * 150 + 150))
 
   // 1. The run's records, from the DATABASE by tag.
