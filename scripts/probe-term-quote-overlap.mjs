@@ -16,6 +16,8 @@
 //   reopened   the banner, from a TAGGED FIXTURE draft whose stored snapshot
 //              differs from today's (seeded by the service role; live settings
 //              are read, never written)
+//   restored   TQ_RESTORE: the fixture draft restored, so the version list, the
+//              restored banner and the unsaved strip are all on screen
 //   payment    Payment terms with PO factoring on (unsaved, screen state)
 //   quote      the Quote step
 //   inactive   the tab when Commercials is the method
@@ -96,20 +98,38 @@ try {
   mkdirSync(SHOT_DIR, { recursive: true })
 
   await open()
-  await measure('draft', () => !!document.querySelector('#opp-tab-term [data-testid="tp-breakdown-card"]') && !!document.querySelector('#opp-tab-term [data-testid="tq-version"]'))
+  // TQ_RESTORE: "with the list open". The version list renders in the card
+  // whenever the record has a term version, so the wait requires its rows.
+  await measure('draft', () => !!document.querySelector('#opp-tab-term [data-testid="tp-breakdown-card"]') && !!document.querySelector('#opp-tab-term [data-testid="tq-version"]')
+    && document.querySelectorAll('#opp-tab-term [data-testid="tq-version-row"]').length >= 1)
 
   // The tagged fixture draft: today's parameters with ONE value moved.
   const stored = structuredClone(today.params)
   const cents = Math.round(Number(stored.PRICE_LADDER_BY_PRODUCT.safesight['120']) * 100) + 1000
   stored.PRICE_LADDER_BY_PRODUCT.safesight['120'] = `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`
   r = await latest()
-  must(await db.rpc('insert_deal_sheet_version', {
+  const fixture = must(await db.rpc('insert_deal_sheet_version', {
     p_record_id: opp.oppId, p_expected_revision: r.revision_number, p_reason: `${TAG} FIXTURE draft, stored snapshot differs from today's`,
     p_inputs: QUOTE, p_rates: { params: stored, fixture: TAG }, p_sections: [], p_batch_id: null,
     p_created_by: session.user.id, p_created_by_email: null, p_kind: 'term_quote',
   }), 'fixture draft')
   await open()
   await measure('reopened', () => !!document.querySelector('#opp-tab-term [data-testid="tq-reopened"]'))
+
+  // TQ_RESTORE: restored, the list open, the restored banner (B) and the
+  // "Modified, not saved" strip (S) on screen together. Unsaved, so Reset
+  // returns the tab to the record's quote for the states that follow.
+  // The fixture carries the record's own quote, so a restore alone leaves
+  // nothing unsaved (14.9): one unit count is then changed, so the strip is
+  // on screen beside the banner it would sit with after a real restore.
+  await page.click(`#opp-tab-term [data-version-id="${fixture.id}"] [data-restore-version]`)
+  await page.waitForSelector('#opp-tab-term [data-testid="tq-restored"]', { timeout: 10000 })
+  await page.focus('#opp-tab-term [data-testid="tp-units-hemir"]')
+  await page.$eval('#opp-tab-term [data-testid="tp-units-hemir"]', (e) => e.select())
+  await page.keyboard.press('Backspace'); await page.keyboard.type('2'); await page.keyboard.press('Tab')
+  await measure('restored', () => !!document.querySelector('#opp-tab-term [data-testid="tq-restored"]')
+    && !!document.querySelector('#opp-tab-term [data-testid="stmt-unsaved"]') && document.querySelectorAll('#opp-tab-term [data-testid="tq-version-row"]').length >= 2)
+  await page.click('#opp-tab-term [data-testid="stmt-reset"]')
 
   await page.click('#opp-tab-term [data-testid="tp-tab-payment"]')
   await page.waitForSelector('#opp-tab-term [data-testid="tp-factoring-toggle"]', { timeout: 10000 })

@@ -148,6 +148,16 @@ try {
       p_created_by: session.user.id, p_created_by_email: null, p_kind: 'term_quote',
     }), 'fixture draft')
     draftMoved.stored = stored
+    // ADMIN FIXTURE, declared: a COMMERCIALS version on the term record, so
+    // the term list's kind filter has something to exclude. Without it the
+    // filter's removal changed nothing here: calibration came back SILENT
+    // (Verification 51), because this record held term versions only.
+    const lr2 = await latestRev(TF.oppId)
+    must(await db.rpc('insert_deal_sheet_version', {
+      p_record_id: TF.oppId, p_expected_revision: lr2.revision_number, p_reason: `${TF.tag} FIXTURE Commercials version on a term deal`,
+      p_inputs: { ssNew: 10 }, p_rates: { rates: { ssUnitCost: 100 }, fixture: TF.tag }, p_sections: [], p_batch_id: null,
+      p_created_by: session.user.id, p_created_by_email: null, p_kind: 'commercials',
+    }), 'fixture Commercials version on the term record')
   }
 
   // ═══ LIST ═════════════════════════════════════════════════════════════
