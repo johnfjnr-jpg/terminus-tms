@@ -49,3 +49,19 @@ After rulings: spec, tests fail first in their own commit, build, calibration (e
 ## Phase record
 
 Rulings given after Phase 0 are appended below at the phase they launch.
+
+### Phase 0: STOPPED for rulings (2026-11-25)
+
+Report: OneDrive 2026-11-25_TQ_RESTORE_PHASE_0.md. Measured from the click by
+scripts/tq-restore/p0-measure.mjs and p0-cross-record.mjs.
+
+- OUTSIDE SCOPE, destroying live data: the Commercials form shows the
+  previously opened record's values on the next record, unmarked, and a save
+  writes them (fixture B's duration 48 overwritten with A's 36). DealPanel is
+  re-rendered per record with no key and seeds its state once. Raised under
+  build discipline 10's live-data exception; the ruling is John's.
+- P7 conflicts raised: R5 against TR-3 (Commercials guards Restore-on-dirty
+  only); R2's bar (the Term quote tab has none; Commercials' strip says Reset,
+  not Discard); R1's figure line against R7; TR-1's 3,978,240.00 is not today's
+  live figure (4,026,624.00); R4 against W6 on the Commercials tab; the reopened
+  banner's closing sentence for a restored version.
