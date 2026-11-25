@@ -27,10 +27,7 @@ import { termQuoteValue, whatMoved, whatMovedSentence } from '../../../src/lib/t
 class NoopResizeObserver { observe() {} unobserve() {} disconnect() {} }
 ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= NoopResizeObserver
 
-// RED FIRST (the hook refuses a red suite): vitest passes a `test.fails` only
-// while it fails, and reports the moment it passes. The build commit replaces
-// RED_FIRST with `test`.
-const RED_FIRST = test.fails
+// Red first in 3402b41, as `test.fails`; plain tests since the build.
 
 const SETTINGS_KEYS = ['TERMS', 'COMPARE_TERM', 'PRICE_LADDER_BY_PRODUCT', 'VOLUME_BANDS_BY_PRODUCT', 'HW_UPFRONT_MARGIN', 'MARGIN_FLOOR', 'CURRENCY'] as const
 const TODAY = tqParams() as Record<string, unknown> & { costs: Record<string, { hwCost: string, hostingMonthly: string }> }
@@ -114,14 +111,14 @@ const writes = (calls: Call[]) => calls.filter((c) => c.method !== 'GET' && !/\/
 beforeEach(() => { root?.unmount(); root = null })
 
 describe('L1 to L3, L7: the Term quote tab lists its own versions', () => {
-  RED_FIRST('term rows only, newest first, with the shared row states', async () => {
+  test('term rows only, newest first, with the shared row states', async () => {
     const { api } = server()
     await mount(opp(), api)
     const rows = [...host.querySelectorAll('[data-testid="tq-version-row"]')]
     expect(rows.map((r) => r.querySelector('.ds-label')?.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['V1.1 draft', 'V1.0 approved'])
   })
 
-  RED_FIRST('L3: the issued row shows its FROZEN Base TCV; the draft its Base TCV on its OWN stored settings, "as saved"', async () => {
+  test('L3: the issued row shows its FROZEN Base TCV; the draft its Base TCV on its OWN stored settings, "as saved"', async () => {
     const { api } = server()
     await mount(opp(), api)
     const figs = [...host.querySelectorAll('[data-testid="tq-version-figure"]')].map((e) => e.textContent?.trim())
@@ -134,7 +131,7 @@ describe('L1 to L3, L7: the Term quote tab lists its own versions', () => {
 })
 
 describe('TR-1 and TR-2 (fixture params): Restore is unsaved edits, and Reset goes back', () => {
-  RED_FIRST('TR-1: Restore V1.0 over a saved 80/96 reads V1.0\'s figure, "Modified, not saved" showing, nothing written', async () => {
+  test('TR-1: Restore V1.0 over a saved 80/96 reads V1.0\'s figure, "Modified, not saved" showing, nothing written', async () => {
     const { api, calls } = server()
     await mount(opp(), api)
     expect(base(), 'precondition: the tab opens on the record\'s 80/96').toBe(money(tcv(Q(80, 96), TODAY)))
@@ -146,7 +143,7 @@ describe('TR-1 and TR-2 (fixture params): Restore is unsaved edits, and Reset go
     expect(writes(calls), 'Restore created a version or wrote something').toEqual([])
   })
 
-  RED_FIRST('TR-2: then Reset returns to the record\'s saved quote, and the strip goes', async () => {
+  test('TR-2: then Reset returns to the record\'s saved quote, and the strip goes', async () => {
     const { api } = server()
     await mount(opp(), api)
     await click(q('[data-version-id="v10"] [data-restore-version]'))
@@ -155,7 +152,7 @@ describe('TR-1 and TR-2 (fixture params): Restore is unsaved edits, and Reset go
     expect(strip()).toBeNull()
   })
 
-  RED_FIRST('Restore over UNSAVED edits asks the one dialogue first; until it is answered nothing changes', async () => {
+  test('Restore over UNSAVED edits asks the one dialogue first; until it is answered nothing changes', async () => {
     const { api } = server()
     await mount(opp(), api)
     await typeUnits('70')
@@ -168,7 +165,7 @@ describe('TR-1 and TR-2 (fixture params): Restore is unsaved edits, and Reset go
 })
 
 describe('S: the strip on the Term quote tab', () => {
-  RED_FIRST('Save changes writes the record\'s termQuote ONLY, and takes no version', async () => {
+  test('Save changes writes the record\'s termQuote ONLY, and takes no version', async () => {
     const { api, calls } = server()
     await mount(opp(), api)
     await click(q('[data-version-id="v10"] [data-restore-version]'))
@@ -194,7 +191,7 @@ describe('S: the strip on the Term quote tab', () => {
 })
 
 describe('B: the banner after a Restore', () => {
-  RED_FIRST('a restored version whose stored settings differ from today\'s: the ruled sentence, and the reopened notice gives way', async () => {
+  test('a restored version whose stored settings differ from today\'s: the ruled sentence, and the reopened notice gives way', async () => {
     const { api } = server()
     await mount(opp(), api)
     expect(q('[data-testid="tq-reopened"]'), 'precondition: V1.1 is a draft whose snapshot differs, so the reopened notice shows').not.toBeNull()
@@ -207,7 +204,7 @@ describe('B: the banner after a Restore', () => {
     expect(q('[data-testid="tq-reopened"]')).toBeNull()
   })
 
-  RED_FIRST('a restored version whose stored settings are today\'s: no banner', async () => {
+  test('a restored version whose stored settings are today\'s: no banner', async () => {
     const { api } = server()
     await mount(opp(), api)
     await click(q('[data-version-id="v10"] [data-restore-version]'))
@@ -216,7 +213,7 @@ describe('B: the banner after a Restore', () => {
 })
 
 describe('L6 and W', () => {
-  RED_FIRST('L6: a refused Restore says why on the version card\'s feedback line', async () => {
+  test('L6: a refused Restore says why on the version card\'s feedback line', async () => {
     const { api } = server({ restore: () => ({ ok: false, status: 404, data: { error: 'version not found' } }) })
     await mount(opp(), api)
     await click(q('[data-version-id="v10"] [data-restore-version]'))

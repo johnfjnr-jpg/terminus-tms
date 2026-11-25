@@ -242,7 +242,11 @@ export default async function dealSheetVersionsRoutes(app) {
     const db = createUserClient(request.jwt)
     const { data, error } = await db
       .from('deal_sheet_versions')
-      .select('id, kind, major, minor, status, reason, sections, batch_id, revision_number, inputs, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
+      // TQ_RESTORE L4: `rates` and the frozen ask join the select, so the Term
+      // quote tab can show a draft's Base TCV on its OWN stored settings and a
+      // submitted version's frozen Base TCV without a read per row. Columns,
+      // not schema: no migration.
+      .select('id, kind, major, minor, status, reason, sections, batch_id, revision_number, inputs, rates, ask:frozen_figures->page->ask, created_by, created_by_email, created_at, issued_by, issued_by_email, issued_at')
       .eq('record_id', request.params.id)
       .order('major', { ascending: false })
       .order('minor', { ascending: false })

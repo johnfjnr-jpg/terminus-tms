@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TermPricingView } from '../term-pricing/TermPricingView'
 import { UnsavedStrip } from '../ui/UnsavedStrip'
 import { useShell } from '../ShellContext'
+import { VersionList } from '../versions/VersionList'
 import { formFromInput, inputFromForm } from '../term-pricing/form'
 import type { TermQuoteForm } from '../term-pricing/form'
 import { issueView, reasonPrompt, versionWhen, versionLabel } from '../versions/model'
@@ -20,7 +21,7 @@ import type { VersionSeam } from '../versions/VersionCardHost'
 import { pricingMethodOf, PRICING_METHOD_LABELS } from '../../../src/lib/pricing-method.js'
 import { CLOSED_WON_PRICING_REFUSAL, WON_STAGE } from '../../../src/lib/pricing-keys.js'
 import { buildParams } from '../../../src/lib/term-pricing-settings.js'
-import { priceTermVersion, settingsChanged, whatMoved, whatMovedSentence, centsMoney, TERM_PRODUCTS } from '../../../src/lib/term-quote.js'
+import { priceTermVersion, settingsChanged, whatMoved, whatMovedSentence, centsMoney, termQuoteValue, TERM_PRODUCTS } from '../../../src/lib/term-quote.js'
 
 type Method = 'term_quote' | 'commercials'
 type ApiResult = { ok: boolean, status?: number, data?: unknown }
@@ -121,9 +122,25 @@ export function termQuoteSeam({ form, saved, opp, patch, setForm }: {
   }
 }
 
-export function TermVersionCard({ versions, workingLabel, approvedLabel, seam, api, oppId, onDone }: {
+// ── L3: A TERM ROW'S FIGURE LINE ─────────────────────────────────────────
+//
+// A submitted version's FROZEN Base TCV (spec 14.6), read from the list
+// route's `ask` (L4). A draft's Base TCV priced on the settings stored WITH IT,
+// through priceTermVersion's submitted branch, which prices on the version's
+// own `rates.params` (the as-saved figure the reopened notice already uses),
+// labelled "as saved" because today's settings may price it differently.
+export function termRowFigure(v: DealVersion): string {
+  if (v.status === 'issued') return `Base TCV ${money(v.ask?.baseTcv ?? null)}`
+  const stored = v.rates?.params ?? null
+  const tcv = stored ? priceTermVersion({ ...v, status: 'issued' }, null).tcv : null
+  return `Base TCV ${money(tcv)} as saved`
+}
+
+export function TermVersionCard({ versions, workingLabel, approvedLabel, seam, api, oppId, onDone, onRestore }: {
   versions: DealVersion[], workingLabel: string | null, approvedLabel: string | null
   seam: VersionSeam, api: Api, oppId: string, onDone: () => void
+  /** L5: the host's Restore, which rejects with the refusal's sentence (L6). */
+  onRestore: (id: string) => Promise<void>
 }) {
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState<null | 'save' | 'issue'>(null)
@@ -187,6 +204,15 @@ export function TermVersionCard({ versions, workingLabel, approvedLabel, seam, a
           onChange={(e) => setReason(e.target.value)} />
       </label>
       {feedback ? <p className={feedback.ok ? 'msg-success' : 'msg-error'} data-testid="tq-feedback" role="alert">{feedback.text}</p> : null}
+      {/* L1, L2: the shared list, this record's TERM versions only, inside
+          this card so a refused Restore reaches this card's feedback line
+          (L6). No ids: both tabs are mounted at once. */}
+      <div className="tq-version-list" data-testid="tq-versions">
+        <VersionList versions={versions.filter((v) => v.kind === 'term_quote')} pending={window.oppPendingPricingApproval?.() ?? null}
+          rowTestId="tq-version-row" figureOf={termRowFigure}
+          onRestore={async (id) => { setFeedback(null); await onRestore(id) }}
+          onRefused={(text) => setFeedback({ text, ok: false })} />
+      </div>
     </section>
   )
 }
@@ -213,6 +239,31 @@ export function ReopenedDraftBanner({ draft, storedParams, todayParams }: {
         {diff !== null ? <>{' ('}<span data-testid="tq-reopened-diff">{`${diff >= 0 ? '+' : '-'}${centsMoney(BigInt(Math.abs(diff)))}`}</span>{')'}</> : null}
         {'. What moved: '}<span data-testid="tq-reopened-moved">{moved}</span>
         {'. Save a version to keep today\'s figures, or submit it as it stands.'}
+      </div>
+    </div>
+  )
+}
+
+// ── B: AFTER A RESTORE (TQ_RESTORE, spec 14.9) ───────────────────────────
+//
+// Ruling B, in its words: shown when the restored version's stored settings
+// differ from today's in any value (14.5's comparison, never a timestamp), for
+// drafts and submitted versions alike. <saved> is the restored inputs priced
+// on the version's OWN settings; <today> the same inputs on today's; the
+// difference and the plain-words list are the reopened notice's own builders.
+export function RestoredBanner({ label, inputs, storedParams, todayParams }: {
+  label: string, inputs: Record<string, unknown>, storedParams: unknown, todayParams: unknown
+}) {
+  if (!storedParams || !todayParams || !settingsChanged(storedParams, todayParams)) return null
+  const savedTcv = (termQuoteValue(inputs, storedParams) as { tcv: number | null }).tcv
+  const todayTcv = (termQuoteValue(inputs, todayParams) as { tcv: number | null }).tcv
+  const d = savedTcv !== null && todayTcv !== null ? Math.round((todayTcv - savedTcv) * 100) : null
+  const diff = d === null ? '--' : `${d >= 0 ? '+' : '-'}${centsMoney(BigInt(Math.abs(d)))}`
+  return (
+    <div className="tq-status tq-status-warn" role="status" data-testid="tq-restored">
+      <div className="tq-status-body">
+        {`Restored from ${label}. It was priced at ${money(savedTcv)} on its own settings; today's settings price it at ${money(todayTcv)} (${diff}). `
+          + `What moved: ${whatMovedSentence(whatMoved(storedParams, todayParams))}. Save changes to keep it as your working quote.`}
       </div>
     </div>
   )
@@ -310,11 +361,16 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
       const r = await patch(opp.id, { payload: { termQuote: quote } })
       if (!r.ok) { setStripError((r.data as { error?: string } | undefined)?.error ?? 'The term quote could not be saved.'); return }
       setSavedNow(JSON.stringify(quote))
+      setRestored(null)
       reload()
     } finally { setStripSaving(false) }
   }
+  // L5 and B: what was restored, so the banner can name it. Cleared when the
+  // tab goes back to the saved quote or saves the restored one.
+  const [restored, setRestored] = useState<{ label: string, inputs: Record<string, unknown>, storedParams: unknown } | null>(null)
   const resetToSaved = () => {
     setStripError(null)
+    setRestored(null)
     setForm(formFromInput((savedNow ? JSON.parse(savedNow) : payload.termQuote) as Record<string, unknown>))
   }
 
@@ -350,6 +406,28 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
   const seam = termQuoteSeam({ form, saved, opp, patch, setForm })
   const after = () => { void loadVersions(); reload() }
 
+  // ── L5, L6, R2, R3: RESTORE INTO THE TERM QUOTE TAB ───────────────────
+  //
+  // The route only READS (measured, Phase 0 P5), and this writes nothing
+  // either: the inputs go into the tab through the seam's populateForm, and
+  // the strip then says they are unsaved. Over unsaved edits it asks the one
+  // dialogue first, as Commercials does. Every refusal REJECTS with its
+  // sentence, which the card shows (L6); Keep editing leaves the promise
+  // unsettled, which is "nothing happened".
+  const onRestore = (versionId: string): Promise<void> => {
+    const go = async () => {
+      const r = await api('POST', `/api/deal-sheet-versions/${versionId}/restore`)
+      if (!r.ok) throw new Error((r.data as { error?: string } | undefined)?.error ?? 'That version could not be restored.')
+      const d = r.data as { kind?: string, label?: string, inputs?: Record<string, unknown> }
+      if (d.kind !== 'term_quote') throw new Error(`${d.label ?? 'That version'} is a Commercials version, so it cannot be restored into the term quote.`)
+      seam.populateForm(d.inputs ?? {})
+      const row = versions.find((v) => v.id === versionId)
+      setRestored({ label: d.label ?? (row ? versionLabel(row) ?? '' : ''), inputs: d.inputs ?? {}, storedParams: row?.rates?.params ?? null })
+    }
+    if (edited) return new Promise<void>((resolve, reject) => { shell.confirmDiscard(() => { go().then(resolve, reject) }) })
+    return go()
+  }
+
   return (
     <div data-testid="tq-tab">
       <div className="pm-host">
@@ -362,11 +440,16 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
         : (
           <>
             <TermVersionCard versions={versions} workingLabel={opp.working_version ?? null} approvedLabel={opp.approved_version ?? null}
-              seam={seam} api={api} oppId={opp.id} onDone={after} />
+              seam={seam} api={api} oppId={opp.id} onDone={after} onRestore={onRestore} />
             {/* V4: the banner sits UNDER THE VERSION CARD, above the steps
                 (artboard 2). It was first rendered inside the view, below the
                 step tabs; the 1240 capture showed it there. */}
-            {termDraft ? <ReopenedDraftBanner draft={termDraft} storedParams={storedParams} todayParams={todayParams} /> : null}
+            {/* B: after a Restore the restored notice speaks for the tab; the
+                reopened-draft notice is for the case with no restore and is
+                otherwise unchanged. */}
+            {restored
+              ? <RestoredBanner label={restored.label} inputs={restored.inputs} storedParams={restored.storedParams} todayParams={todayParams} />
+              : termDraft ? <ReopenedDraftBanner draft={termDraft} storedParams={storedParams} todayParams={todayParams} /> : null}
             {/* S: the Commercials strip, reused, under the version card and
                 its notices and above the steps, as Commercials puts it above
                 the sheet a person is editing. */}

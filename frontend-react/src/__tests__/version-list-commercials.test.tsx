@@ -18,8 +18,7 @@ import { catalogApi } from './fixtures'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-// RED FIRST, as in term-restore.test.tsx: the build commit replaces it with `test`.
-const RED_FIRST = test.fails
+// Red first in 3402b41, as `test.fails`; plain tests since the build.
 
 const C2 = { id: 'c2', kind: 'commercials', major: 0, minor: 3, status: 'draft', reason: 'second Commercials draft', created_at: '2026-11-24T10:00:00Z', inputs: { ssNew: 12 }, sections: ['units', 'term'] }
 const T1 = { id: 't1', kind: 'term_quote', major: 0, minor: 2, status: 'draft', reason: 'a term draft', created_at: '2026-11-23T10:00:00Z', inputs: { units: { safesight: 60 }, termMonths: 120 }, sections: [] }
@@ -70,14 +69,14 @@ describe('L1, L2: the Commercials list', () => {
     expect(host.textContent).toContain('2 sections recorded')
   })
 
-  RED_FIRST('L2: Commercials rows only: a term version is not listed, and a row read with no kind is Commercials', async () => {
+  test('L2: Commercials rows only: a term version is not listed, and a row read with no kind is Commercials', async () => {
     await mountHost()
     expect(restoreIds()).toEqual(['c2', 'c1'])
   })
 })
 
 describe('L6: a refused Restore says why on the card', () => {
-  RED_FIRST('a route refusal reaches #deal-version-feedback, and the form is not touched', async () => {
+  test('a route refusal reaches #deal-version-feedback, and the form is not touched', async () => {
     const s = await mountHost({ restore: () => ({ ok: false, status: 404, data: { error: 'version not found' } }) })
     await act(async () => { (host.querySelector('[data-restore-version="c2"]') as HTMLElement).click() }); await settle()
     expect(host.querySelector('#deal-version-feedback')?.textContent?.trim()).toBe('version not found')
@@ -92,7 +91,7 @@ describe('L6: a refused Restore says why on the card', () => {
 })
 
 describe('W: Closed Won', () => {
-  RED_FIRST('no Restore is offered on a won deal', async () => {
+  test('no Restore is offered on a won deal', async () => {
     await mountHost({ won: true })
     expect(host.querySelectorAll('.ds-row').length, 'precondition: the rows still render').toBeGreaterThan(0)
     expect(restoreIds()).toEqual([])
