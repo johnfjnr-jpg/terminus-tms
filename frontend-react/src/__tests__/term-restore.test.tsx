@@ -182,7 +182,7 @@ describe('S: the strip on the Term quote tab', () => {
     expect(writes(calls), 'Save changes took a version').toEqual([])
   })
 
-  RED_FIRST('a record holding no termQuote opens with nothing unsaved, and the guard reads it clean', async () => {
+  test('a record holding no termQuote opens with nothing unsaved, and the guard reads it clean', async () => {
     const { api } = server({ versions: [] })
     await mount(opp({ payload: { pricingMethod: 'term_quote' } }), api)
     expect(strip()).toBeNull()

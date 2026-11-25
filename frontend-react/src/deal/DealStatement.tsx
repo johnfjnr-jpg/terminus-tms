@@ -14,6 +14,7 @@
 // computes nothing. The one thing it decides is which rows are open.
 import { useState } from 'react'
 import type { Statement, StatementLine, Drawer } from './statement'
+import { UnsavedStrip } from '../ui/UnsavedStrip'
 
 // FOUR COLUMNS, NOT THE MOCKUP'S THREE. The mockup folds installation into
 // the hardware column and shows HARDWARE | HOSTING | TOTAL. The data has four
@@ -260,15 +261,9 @@ export function DealStatement({ statement, seam, saved = {} }: {
           read, and a Save that is always available says nothing about whether
           there is anything to save - which is the state the old panel's
           disabled button already carries and this must not contradict. */}
-      {seam?.dirty ? (
-        <div className="stmt-unsaved" data-testid="stmt-unsaved" role="status">
-          <span className="stmt-unsaved-text">Modified, not saved</span>
-          <button type="button" className="btn-sm" data-testid="stmt-reset"
-            onClick={seam.onReset}>Reset</button>
-          <button type="button" className="btn-sm btn-primary" data-testid="stmt-save"
-            onClick={seam.onSave}>Save changes</button>
-        </div>
-      ) : null}
+      {/* TQ_RESTORE S: lifted to ui/UnsavedStrip unchanged, so the Term quote
+          tab renders the same component. */}
+      {seam?.dirty ? <UnsavedStrip onReset={seam.onReset} onSave={seam.onSave} /> : null}
 
       <div className="stmt-sheet">
         <div className="stmt-colhead">

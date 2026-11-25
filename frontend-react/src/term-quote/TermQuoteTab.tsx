@@ -10,6 +10,8 @@
 // record's termQuote) and posts what the seam returns.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TermPricingView } from '../term-pricing/TermPricingView'
+import { UnsavedStrip } from '../ui/UnsavedStrip'
+import { useShell } from '../ShellContext'
 import { formFromInput, inputFromForm } from '../term-pricing/form'
 import type { TermQuoteForm } from '../term-pricing/form'
 import { issueView, reasonPrompt, versionWhen, versionLabel } from '../versions/model'
@@ -281,6 +283,41 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
     lastSaved.current = saved
     if (!unsaved) setForm(formFromInput(payload.termQuote as Record<string, unknown>))
   }, [saved])
+  // ── S: WHAT COUNTS AS AN UNSAVED EDIT (TQ_RESTORE, spec 14.9) ──────────
+  //
+  // The seam's `dirty` above says a record holding NO termQuote is unsaved, on
+  // purpose: Save version must write the opening values first. That is the
+  // wrong question for the strip and the leave guard, which ask whether the
+  // PERSON changed anything. Their baseline is the record's saved quote, or,
+  // on a record holding none, the form the tab opened with. A save made here
+  // moves the baseline at once (`savedNow`), before the reload lands.
+  const shell = useShell()
+  const [savedNow, setSavedNow] = useState<string | null>(null)
+  useEffect(() => { setSavedNow(null) }, [saved])
+  const opening = savedNow ?? (payload.termQuote ? saved : JSON.stringify(inputFromForm(formFromInput(undefined as never))))
+  const current = JSON.stringify(inputFromForm(form))
+  const edited = !pm.won && pm.method === 'term_quote' && current !== opening
+  const editedRef = useRef(edited)
+  editedRef.current = edited
+  // G1: on the shell's one leave guard, asked at the moment of leaving.
+  useEffect(() => shell.registerDirtySource('term_quote', () => editedRef.current), [shell])
+  const [stripSaving, setStripSaving] = useState(false)
+  const [stripError, setStripError] = useState<string | null>(null)
+  const saveChanges = async () => {
+    setStripSaving(true); setStripError(null)
+    try {
+      const quote = inputFromForm(form)
+      const r = await patch(opp.id, { payload: { termQuote: quote } })
+      if (!r.ok) { setStripError((r.data as { error?: string } | undefined)?.error ?? 'The term quote could not be saved.'); return }
+      setSavedNow(JSON.stringify(quote))
+      reload()
+    } finally { setStripSaving(false) }
+  }
+  const resetToSaved = () => {
+    setStripError(null)
+    setForm(formFromInput((savedNow ? JSON.parse(savedNow) : payload.termQuote) as Record<string, unknown>))
+  }
+
   const [versions, setVersions] = useState<DealVersion[]>([])
   const [todayParams, setTodayParams] = useState<unknown>(null)
   const [storedParams, setStoredParams] = useState<unknown>(null)
@@ -330,6 +367,11 @@ export function TermQuoteHost({ opp, api, patch, reload, navToken }: {
                 (artboard 2). It was first rendered inside the view, below the
                 step tabs; the 1240 capture showed it there. */}
             {termDraft ? <ReopenedDraftBanner draft={termDraft} storedParams={storedParams} todayParams={todayParams} /> : null}
+            {/* S: the Commercials strip, reused, under the version card and
+                its notices and above the steps, as Commercials puts it above
+                the sheet a person is editing. */}
+            {edited ? <UnsavedStrip onReset={resetToSaved} onSave={() => { void saveChanges() }} saving={stripSaving} /> : null}
+            {stripError ? <p className="msg-error" role="alert" data-testid="tq-strip-error">{stripError}</p> : null}
             <TermPricingView navToken={navToken} bound={{ value: form, onChange: setForm }} />
           </>
         )}
