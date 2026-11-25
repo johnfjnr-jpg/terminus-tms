@@ -37,6 +37,10 @@ export interface DealVersion {
   created_by_email?: string | null
   issued_by_email?: string | null
   approval?: VersionApproval
+  /** TQ_RESTORE L4: the list route's stored settings (a term row's `params`). */
+  rates?: { params?: unknown } | null
+  /** TQ_RESTORE L4: `frozen_figures->page->ask`, a submitted term row's frozen figures. */
+  ask?: { baseTcv?: number | null } | null
 }
 
 export interface PendingApproval {

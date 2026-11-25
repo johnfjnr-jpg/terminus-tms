@@ -23,7 +23,7 @@ import { formatDate as fmtDate, formatTimestamp as fmtTimestamp } from '../../sr
 import { assessSeries, lensRollupAt } from '../../src/lib/lens-rollup.js'
 import * as radar from '../../src/lib/radar.js'
 import { validateFactoringTermAgainstDuration } from '../../src/lib/system-defaults.js'
-import { closedWonPricingRefusal } from '../../src/lib/pricing-keys.js'
+import { closedWonPricingRefusal, WON_STAGE } from '../../src/lib/pricing-keys.js'
 import { TermQuoteHost, CommercialsMethodHost } from './term-quote/TermQuoteTab'
 import type { TermOpp } from './term-quote/TermQuoteTab'
 
@@ -139,7 +139,7 @@ declare global {
     initOpportunityReferencePanel?: (opp: OppRecord) => void
     initOpportunityTermQuote?: (opp: OppRecord) => void
     initOpportunityPricingMethod?: (opp: OppRecord) => void
-    initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam }) => void
+    initOpportunityDealVersions?: (o: { opportunityId: string, seam: DealFormSeam, won?: boolean }) => void
     oppPatch?: (id: string, body: unknown) => Promise<{ ok: boolean, status?: number, data?: unknown }>
     dealFormSeam?: DealFormSeam
   }
@@ -341,7 +341,11 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
     // makes the two forms interchangeable, and one probe covers both only if
     // the object is reachable by the same name under each.
     window.dealFormSeam = seam
-    window.initOpportunityDealVersions?.({ opportunityId: opp.id, seam })
+    // TQ_RESTORE G1: the form's unsaved edits on the shell's one leave guard,
+    // asked through the seam at the moment of leaving. A new record's panel
+    // registers under the same name and so replaces the last one's.
+    shellServices.registerDirtySource('commercials', () => seam.hasUnsavedChanges())
+    window.initOpportunityDealVersions?.({ opportunityId: opp.id, seam, won: opp.status === WON_STAGE })
   }
 
   // B1: a refusal message is about the record it was refused on. The panel is
@@ -352,11 +356,23 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
     dealOppId = opp.id
   }
   if (!dealRoot) dealRoot = createRoot(container)
+  // ── KEYED BY RECORD. TQ_RESTORE X1 (John, 2026-11-25) ──────────────────
+  //
+  // ONE root is re-rendered for every record load, and the panel seeds its
+  // values, its baseline and its seam ONCE (`useState(initialValues)`, the
+  // seam's `useRef`). Unkeyed, record B opened after record A showed A's
+  // values unmarked, Save changes wrote A's values for every key nobody
+  // touched onto B, and the version path's save went to RECORD A (measured
+  // from the click by scripts/tq-restore/p0-cross-record.mjs; the tests are
+  // deal-panel-per-record.test.tsx). The key remounts the panel for a NEW
+  // record only: a reload of the record already on screen keeps the same key,
+  // so it re-renders and keeps typed edits, as before.
   dealRoot.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ShellProvider services={shellServices}>
           <DealPanel
+            key={opp.id}
             initialValues={valuesFromPayload(payload)}
             initialUi={uiFromPayload(payload)}
             testBedCost={opp.opportunity_details?.test_bed_cost ?? 0}
@@ -493,23 +509,27 @@ let versionRoot: Root | null = null
 // here means re-rendering the tree only when the RECORD changes, and
 // refreshing an unchanged one through the feed the card already publishes.
 let versionOppId: string | null = null
+let versionWon = false
 let versionReload: (() => void) | null = null
 
 window.initOpportunityDealVersions = function (
-  { opportunityId, seam }: { opportunityId: string, seam: DealFormSeam },
+  { opportunityId, seam, won = false }: { opportunityId: string, seam: DealFormSeam, won?: boolean },
 ): void {
   const container = document.getElementById(VERSION_CONTAINER)
   if (!container) return
   document.getElementById(VANILLA_CARD)?.classList.add('hidden')
   // Same record, already mounted: refresh through the published feed, which is
   // the vanilla's renderVersionList() and touches the list, not the controls.
-  if (versionRoot && versionOppId === opportunityId) {
+  // W (TQ_RESTORE): unless the record has just been won or un-won, which
+  // changes whether Restore is offered and so needs a render.
+  if (versionRoot && versionOppId === opportunityId && versionWon === won) {
     // The vanilla's init calls loadVersions(), so an idempotent init has to
     // refetch too or the list goes stale after a change made elsewhere.
     versionReload?.()
     return
   }
   versionOppId = opportunityId
+  versionWon = won
   if (!versionRoot) versionRoot = createRoot(container)
   versionRoot.render(
     <StrictMode>
@@ -518,6 +538,7 @@ window.initOpportunityDealVersions = function (
           <VersionCardHost
             registerReload={(reload) => { versionReload = reload }}
             opportunityId={opportunityId}
+            won={won}
             seam={seam as unknown as VersionSeam}
             api={(m, p, b) => window.api!(m, p, b) as Promise<{ ok: boolean, status?: number, data?: unknown }>} />
         </ShellProvider>

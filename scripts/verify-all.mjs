@@ -481,6 +481,18 @@ export const STAGES = [
     needsBrowser: true,
   },
   {
+    // TQ_RESTORE (John's PROBE ruling, 2026-11-25): the two-record Commercials
+    // save (X1), the Term quote tab's list, Restore, strip and banner B, the
+    // leave guard on both tabs, and Closed Won, from the click, every verdict
+    // read back from the database.
+    required: true,
+    name: 'browser term restore and leave guard',
+    cmd: ['node', ['--env-file=.env', 'scripts/probe-tq-restore-click.mjs']],
+    needs: 'the dev server on :3000, a live session-ref.json AND a scratch browser',
+    needsSession: true,
+    needsBrowser: true,
+  },
+  {
     // TERM_QUOTES THEN: no overprint, nothing below its content and no
     // sideways scroll in any of the tab's six states, at 1240/1440/1920;
     // `--sweep` (40px, 1240 to 1920) stays manual, as the term pricing guard's.

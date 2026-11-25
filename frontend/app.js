@@ -103,13 +103,55 @@ function showApp(session) {
 // arriving at a DIFFERENT record, and unloading the tab. Warning about a
 // discard that will not happen would make the dialog's own words false, and
 // teaches people to dismiss it.
-function oppAssessNavigationDiscards(view, id) {
-  if (!oppAssessDirtyKeys().length) return false
-  // Same record is not a loss: Phase 1 clears only when the id changes.
+//
+// ── ONE LEAVE GUARD, EVERY DIRTY SOURCE. TQ_RESTORE G1 to G3 (2026-11-25) ─
+//
+// The guard above was the assessment drafts' alone. It is now ONE REGISTRY
+// that navigate() and beforeunload both ask: the assessment drafts (registered
+// here, behaviour unchanged), the Commercials form and the Term quote tab
+// (registered by the bundle, through shell-services' registerDirtySource). The
+// same reasoning holds for all three, measured for the two pricing tabs in
+// TQ_RESTORE Phase 0 P4: each keeps its edits across a tab switch, a method
+// switch and a list view, and loses them on arriving at a DIFFERENT record
+// (each is keyed by record) and on unloading. So those two, and only those,
+// ask. The dialogue is the one that exists (G3).
+//
+// A source reports through its OWN function, asked at the moment of leaving,
+// so nothing caches a dirty flag that a save or a remount could leave stale.
+// Re-registering a name replaces it, and only the registration that is still
+// current can remove itself: a remount registers the new form before React
+// runs the old one's cleanup.
+const dirtySources = new Map()
+window.tmsRegisterDirtySource = function (name, isDirty) {
+  dirtySources.set(name, isDirty)
+  return () => { if (dirtySources.get(name) === isDirty) dirtySources.delete(name) }
+}
+window.tmsRegisterDirtySource('assessment', () => oppAssessDirtyKeys().length > 0)
+
+// The names of the sources holding unsaved edits now. A source whose function
+// throws (an unmounted form) reads as CLEAN: a page that can never be left is
+// worse than one that does not ask.
+function dirtySourceNames() {
+  const out = []
+  for (const [name, isDirty] of dirtySources) {
+    let dirty = false
+    try { dirty = !!isDirty() } catch { dirty = false }
+    if (dirty) out.push(name)
+  }
+  return out
+}
+
+function leaveDiscards(view, id) {
+  if (!dirtySourceNames().length) return false
+  // Same record is not a loss: nothing is cleared while the id is unchanged.
   if (view === 'opportunity-detail' && id === currentOppDetailId) return false
-  // Any other view leaves the drafts in place, invisible but intact.
+  // Any other view leaves the edits in place, invisible but intact.
   return view === 'opportunity-detail'
 }
+// Set only for the one navigation a person has just confirmed, so it does not
+// ask twice: the pricing tabs discard by remounting for the new record, which
+// happens AFTER this call, so their sources still read dirty at this moment.
+let navigateConfirmed = false
 
 // The views that render ONE record and therefore carry its identity in their
 // markup. A list view holds no record state, so revealing it early shows an old
@@ -356,12 +398,13 @@ function loadApprovalPageOrSayWhyNot(id) {
 function navigate(view, id) {
   // The guard runs BEFORE anything is hidden or loaded, so Keep editing
   // returns to a screen that never moved.
-  if (oppAssessNavigationDiscards(view, id)) {
+  if (!navigateConfirmed && leaveDiscards(view, id)) {
     openDiscardConfirm(() => {
       for (const k of oppAssessDirtyKeys()) {
         delete oppAssessDraft[k]; delete oppAssessReason[k]; delete oppAssessAnswer[k]
       }
-      navigate(view, id)
+      navigateConfirmed = true
+      try { navigate(view, id) } finally { navigateConfirmed = false }
     })
     return
   }
@@ -8865,8 +8908,9 @@ window.navigate = navigate
 // exactly the mechanism Section 5 prescribes, clear the flag when the save
 // succeeds rather than try to tell an app-initiated navigation from a real one
 // afterwards, and Phase 5's derived registry gets it for free.
+// TQ_RESTORE G1: every registered source, not the assessment drafts alone.
 window.addEventListener('beforeunload', e => {
-  if (!oppAssessDirtyKeys().length) return
+  if (!dirtySourceNames().length) return
   e.preventDefault()
   // Assigning returnValue is what actually triggers the browser's own prompt
   // in Chrome. The string is never displayed; browsers show their own wording.

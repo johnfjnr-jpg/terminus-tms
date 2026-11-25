@@ -47,8 +47,10 @@ declare global {
   }
 }
 
-export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
+export function VersionCardHost({ opportunityId, seam, api, registerReload, won = false }: {
   opportunityId: string
+  /** W (TQ_RESTORE): a Closed Won deal, where Restore is not offered. */
+  won?: boolean
   seam: VersionSeam
   api: Api
   /**
@@ -161,10 +163,13 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
   const onRestore = async (versionId: string) => {
     const go = async () => {
       const r = await api('POST', `/api/deal-sheet-versions/${versionId}/restore`)
-      if (!r.ok) return
+      // TQ_RESTORE L6: a refusal SAYS WHY. This returned silently, so a route
+      // refusal looked exactly like a Restore that had not been clicked.
+      if (!r.ok) throw new Error((r.data as { error?: string } | undefined)?.error ?? 'That version could not be restored.')
       const data = r.data as { inputs?: Record<string, unknown>, kind?: string, label?: string }
       // TERM_QUOTES P1: one sequence holds both kinds. A term version's inputs
       // are a quote, not a Commercials form, so they are never poured into it.
+      // L2 keeps term rows off this card; the refusal stays for any caller.
       if (data.kind === 'term_quote') {
         throw new Error(`${data.label ?? 'That version'} is a term quote version, so it cannot be restored into Commercials.`)
       }
@@ -173,7 +178,13 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
     }
     // RESTORE REFUSES-OR-DISCARDS rather than forcing a save first, and it asks
     // through the same discard dialogue the rest of the application uses.
-    if (seam.hasUnsavedChanges()) { window.openDiscardConfirm?.(() => { void go() }); return }
+    // L6: the restore after the dialogue is the card's promise too, so its
+    // refusal reaches the feedback line rather than an unawaited throw (Phase 0
+    // P5 measured that throw as an uncaught page error and nothing on screen).
+    // Keep editing leaves the promise unsettled, which is "nothing happened".
+    if (seam.hasUnsavedChanges()) {
+      return new Promise<void>((resolve, reject) => { window.openDiscardConfirm?.(() => { go().then(resolve, reject) }) })
+    }
     await go()
   }
 
@@ -188,6 +199,7 @@ export function VersionCardHost({ opportunityId, seam, api, registerReload }: {
       // global, which is how this tree reaches the rest of the application.
       onOpenApproval={() => { shell.navigate('opportunity-approval', opportunityId) }}
       onRestore={onRestore}
+      canRestore={!won}
       onAsk={(id, label, reporter) => window.requestPricingApproval?.(id, label, reporter)} />
   )
 }

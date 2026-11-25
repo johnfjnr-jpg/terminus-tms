@@ -1,9 +1,7 @@
 import { useRef, useState } from 'react'
-import {
-  rangeView, versionLabel, versionAuthor, versionWhen, approvalLine, trackLine,
-  issueView, askView, reasonPrompt, EMPTY_STATE,
-} from './model'
+import { versionLabel, issueView, askView, reasonPrompt } from './model'
 import type { DealVersion, PendingApproval } from './model'
+import { VersionList } from './VersionList'
 
 // ── THE VERSION CARD ─────────────────────────────────────────────────────
 //
@@ -49,12 +47,14 @@ export interface VersionCardProps {
   onIssue(): Promise<void> | void
   onRestore(id: string): Promise<void> | void
   onAsk(versionId: string, label: string, reporter: AskReporter): void
+  /** W (TQ_RESTORE): false on a Closed Won deal, where Restore is not offered. */
+  canRestore?: boolean
 }
 
 export function VersionCard({
-  versions, pending, gateApplies, onSave, onIssue, onRestore, onAsk, onOpenApproval,
+  versions, pending, gateApplies, onSave, onIssue, onRestore, onAsk, onOpenApproval, canRestore = true,
 }: VersionCardProps) {
-  const [range, setRange] = useState<number | 'all'>(5)
+  const listed = versions.filter((v) => (v.kind ?? 'commercials') === 'commercials')
   const [reason, setReason] = useState('')
   const [feedback, setFeedback] = useState<{ text: string, ok: boolean } | null>(null)
   // The request's own state, owned here so a re-render cannot undo it.
@@ -93,7 +93,7 @@ export function VersionCard({
   const savingRef = useRef(false)
   const [askState, setAskState] = useState<string | null>(null)
 
-  const view = rangeView(versions, range)
+
   const issue = issueView(versions)
   // ── H2: A REFUSED ISSUE IS SHOWN, THROUGH THE PATH A REFUSED SAVE USES ──
   //
@@ -182,68 +182,14 @@ export function VersionCard({
 
   return (
     <div className="pg-card" id="deal-version-panel">
-      <div className="pg-card-head">
-        <p className="pg-card-title">Versions</p>
-        <div className={`view-toggle${view.toggleHidden ? ' hidden' : ''}`} id="deal-version-range">
-          {([5, 10, 'all'] as const).map((r) => (
-            <button key={String(r)} data-range={String(r)} type="button"
-              className={String(range) === String(r) ? 'active' : ''}
-              onClick={() => setRange(r)}>{r === 'all' ? 'All' : `Last ${r}`}</button>
-          ))}
-        </div>
-      </div>
+      {/* TQ_RESTORE L1: the list is VersionList, extracted from here unchanged
+          and handed this card's ids. L2: this card lists Commercials versions
+          only; a row read with no kind is Commercials (TERM_QUOTES P1). The
+          label sequence is shared, so a gap is a term version listed on the
+          other tab. L6: a refused Restore reaches this card's feedback line. */}
+      <VersionList ids versions={listed} pending={pending} canRestore={canRestore}
+        onRestore={onRestore} onRefused={(text) => setFeedback({ text, ok: false })} />
 
-      <p className={`pg-item-note${view.noteHidden ? ' hidden' : ''}`}
-        id="deal-version-range-note">{view.note}</p>
-
-      <div id="deal-version-list">
-        {view.shown.length === 0
-          ? <p className="pg-item-note">{EMPTY_STATE}</p>
-          : view.shown.map((v) => {
-            const sections = v.sections ?? []
-            const track = trackLine(v, pending)
-            const approval = approvalLine(v)
-            return (
-              <div className="ds-row" key={v.id}>
-                <div style={{ minWidth: 0 }}>
-                  <div className="ds-label">{versionLabel(v)}
-                    {' '}
-                    {/* ── R-L4: THREE STATES ON SCREEN, ONE DB WORD ────────
-                        John's ruling 2026-09-29. The DB still stores `issued`
-                        and nothing about that changes; what a person reads does.
-
-                        A promoted version is AWAITING APPROVAL until every
-                        track has signed, and APPROVED once they have. The word
-                        "issued" is reserved for the future logged
-                        customer-send event, so it appears nowhere on screen.
-
-                        The approval state comes from the row the server already
-                        sends, which `approvalLine` below reads for its own
-                        sentence, so the badge and the line cannot disagree. */}
-                    <span className="pg-item-note" style={{ display: 'inline' }}>
-                      {v.status !== 'issued'
-                        ? 'draft'
-                        : v.approval?.state === 'approved' ? 'approved' : 'awaiting approval'}
-                    </span>
-                  </div>
-                  <div className="pg-item-note">{v.reason}</div>
-                  <div className="pg-item-note">{versionAuthor(v)} &middot; {versionWhen(v)}</div>
-                  {approval ? <div className="pg-item-note">{approval}</div> : null}
-                  {track ? <div className="pg-item-note">{track}</div> : null}
-                  <div className="pg-item-note" title={sections.join(', ')}>
-                    {sections.length} section{sections.length === 1 ? '' : 's'} recorded
-                  </div>
-                </div>
-                {/* W6: every row, in every state. Nothing suppresses a restore. */}
-                <div className="ds-value">
-                  <button className="btn-text" type="button"
-                    data-restore-version={v.id}
-                    onClick={() => { void onRestore(v.id) }}>Restore</button>
-                </div>
-              </div>
-            )
-          })}
-      </div>
 
       <div>
         <label className="label" htmlFor="deal-version-reason">{prompt.label}</label>
