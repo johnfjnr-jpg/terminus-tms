@@ -112,7 +112,7 @@ describe('G1: the Commercials form is a registered dirty source, through the pro
   })
   afterEach(() => { vi.resetModules() })
 
-  RED_FIRST('registered as "commercials": clean at open, dirty after an edit', async () => {
+  test('registered as "commercials": clean at open, dirty after an edit', async () => {
     await import('../main')
     await act(async () => { (window as unknown as { initOpportunityDealPanel(o: unknown): void }).initOpportunityDealPanel({ id: 'opp-a', status: 'Qualification', payload: { ssNew: 10, duration: 36 }, opportunity_details: {} }) })
     await settle()

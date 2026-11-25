@@ -16,10 +16,8 @@ import { readFileSync } from 'node:fs'
 
 const APP = readFileSync(new URL('../../frontend/app.js', import.meta.url), 'utf8')
 
-// RED FIRST: the hook refuses a red suite, so every test here is a todo until
-// the build commit removes this marker. Each test still RUNS; a todo failure
-// prints as todo.
-const RED_FIRST = { todo: 'TQ_RESTORE red first: built in the guard commit' }
+// Red first in 3402b41 (every test a todo); built in the guard commit.
+const RED_FIRST = {}
 
 const block = (startText, what) => {
   const start = APP.indexOf(startText)
@@ -33,6 +31,16 @@ const block = (startText, what) => {
   throw new Error(`${what} never closes`)
 }
 
+// One whole line, found by its start. A name the extracted code reads and the
+// harness does not supply would resolve to the inert stub, which is TRUTHY:
+// `!navigateConfirmed` would read false and switch the guard off silently, so
+// every declaration the guard reads is extracted, never stubbed.
+const line = (startText, what) => {
+  const start = APP.indexOf(startText)
+  assert.ok(start >= 0, `${what} is not in app.js`)
+  return APP.slice(start, APP.indexOf('\n', start))
+}
+
 const stub = new Proxy(function () {}, {
   get: (_t, k) => (k === Symbol.toPrimitive ? () => '' : k === Symbol.iterator ? [][Symbol.iterator] : k === 'then' ? undefined : stub),
   apply: () => stub,
@@ -42,6 +50,8 @@ function load({ assessDirty = [], currentOppDetailId = 'opp-a' } = {}) {
   const src = [
     APP.slice(APP.indexOf('const dirtySources = new Map()'), APP.indexOf('\n', APP.indexOf('const dirtySources = new Map()'))),
     block('window.tmsRegisterDirtySource = function', 'the registry'),
+    line("window.tmsRegisterDirtySource('assessment'", 'the assessment registration'),
+    line('let navigateConfirmed = false', 'the confirmed-navigation flag'),
     block('function dirtySourceNames(', 'dirtySourceNames'),
     block('function leaveDiscards(', 'leaveDiscards'),
     block('function navigate(', 'navigate'),

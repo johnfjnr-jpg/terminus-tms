@@ -158,6 +158,7 @@ export function shellServices(
     openInlineBuyerContact: () => true,
     setContactReturnView: () => {},
     confirmDiscard: (proceed: () => void) => { proceed() },
+    registerDirtySource: () => () => {},
     ...over,
   }
 }

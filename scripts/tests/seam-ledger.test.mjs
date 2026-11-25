@@ -66,6 +66,10 @@ const REACHES_BACK = {
   navigate: 'opening the Opportunity a conversion created',
   staleWriteHtml: 'the shell\'s one renderer for the 409 sentence',
   confirmDiscard: 'the shared unsaved-changes dialogue',
+  registerDirtySource: 'TQ_RESTORE G1: the shell\'s ONE leave guard, which navigate() and '
+    + 'beforeunload ask. The registry lives in app.js beside the dialogue it opens, so '
+    + 'the Commercials form, the Term quote tab and the assessment drafts are asked by '
+    + 'one predicate rather than three',
   requestChangeReason: 'the shared change-reason dialogue',
   getOppLoadedRevision: 'unused by this surface, declared by the seam',
   setContactReturnView: 'unused by this surface, declared by the seam',

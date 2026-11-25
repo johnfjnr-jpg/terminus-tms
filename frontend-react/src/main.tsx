@@ -341,6 +341,10 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
     // makes the two forms interchangeable, and one probe covers both only if
     // the object is reachable by the same name under each.
     window.dealFormSeam = seam
+    // TQ_RESTORE G1: the form's unsaved edits on the shell's one leave guard,
+    // asked through the seam at the moment of leaving. A new record's panel
+    // registers under the same name and so replaces the last one's.
+    shellServices.registerDirtySource('commercials', () => seam.hasUnsavedChanges())
     window.initOpportunityDealVersions?.({ opportunityId: opp.id, seam })
   }
 

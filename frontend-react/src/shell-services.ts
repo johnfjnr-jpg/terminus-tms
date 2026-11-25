@@ -241,6 +241,13 @@ export interface ShellServices {
    * caller has already decided the action is wanted.
    */
   confirmDiscard(proceed: () => void): void
+  /**
+   * TQ_RESTORE G1: put a surface's unsaved edits on the shell's ONE leave
+   * guard, which navigate() and beforeunload ask. `isDirty` is asked at the
+   * moment of leaving, never cached. Returns the unregister. A shell with no
+   * registry gets a no-op: the surface still works, it is simply not guarded.
+   */
+  registerDirtySource(name: string, isDirty: () => boolean): () => void
 }
 
 export interface ChangeReasonOptions {
@@ -280,6 +287,7 @@ type ShellWindow = Window & {
   staleWriteHtml?: (recordId: string, kind?: string) => string
   contactReturnView?: () => 'contacts' | 'leads'
   openDiscardConfirm?: (proceed: () => void) => void
+  tmsRegisterDirtySource?: (name: string, isDirty: () => boolean) => () => void
   /** R2 option B: frontend/anchor-popup.js, loaded before the bundle. */
   TerminusAnchor?: {
     show?: (opts: unknown) => void
@@ -423,5 +431,9 @@ export const shellServices: ShellServices = {
     const fn = w().openDiscardConfirm
     if (typeof fn === 'function') { fn(proceed); return }
     proceed()
+  },
+  registerDirtySource(name: string, isDirty: () => boolean): () => void {
+    const fn = w().tmsRegisterDirtySource
+    return typeof fn === 'function' ? fn(name, isDirty) : () => {}
   },
 }
