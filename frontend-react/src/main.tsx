@@ -352,11 +352,23 @@ window.initOpportunityDealPanel = function (opp: OppRecord): void {
     dealOppId = opp.id
   }
   if (!dealRoot) dealRoot = createRoot(container)
+  // ── KEYED BY RECORD. TQ_RESTORE X1 (John, 2026-11-25) ──────────────────
+  //
+  // ONE root is re-rendered for every record load, and the panel seeds its
+  // values, its baseline and its seam ONCE (`useState(initialValues)`, the
+  // seam's `useRef`). Unkeyed, record B opened after record A showed A's
+  // values unmarked, Save changes wrote A's values for every key nobody
+  // touched onto B, and the version path's save went to RECORD A (measured
+  // from the click by scripts/tq-restore/p0-cross-record.mjs; the tests are
+  // deal-panel-per-record.test.tsx). The key remounts the panel for a NEW
+  // record only: a reload of the record already on screen keeps the same key,
+  // so it re-renders and keeps typed edits, as before.
   dealRoot.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ShellProvider services={shellServices}>
           <DealPanel
+            key={opp.id}
             initialValues={valuesFromPayload(payload)}
             initialUi={uiFromPayload(payload)}
             testBedCost={opp.opportunity_details?.test_bed_cost ?? 0}

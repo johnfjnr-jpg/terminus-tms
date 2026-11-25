@@ -320,9 +320,14 @@ export function DealPanel({
         setBaseline(captureSavedBaseline(latest.current.payload))
       },
       populate: (p) => {
-        // RESTORE WRITES THE FORM AND RE-BASELINES IT. `updateDirtyState` has
-        // no successor: dirty is computed against the baseline, so moving the
-        // baseline with the values IS the whole of what the vanilla pushed.
+        // RESTORE WRITES THE FORM AND LEAVES THE BASELINE WHERE IT IS.
+        // Corrected by TQ_RESTORE X3 (2026-11-25): this said the restore
+        // re-baselines, and it never did. Measured from the click
+        // (scripts/tq-restore/p0-measure.mjs, P1): a restore on a clean form
+        // shows "Modified, not saved", the record is untouched, and Reset
+        // returns to the saved values. The restored inputs are UNSAVED EDITS
+        // until Save, which is what the version machinery wants: a restore
+        // writes nothing by itself.
           //
           // THROUGH THE SHARED READER. This was an inline loop over CENSUS ids
           // keyed by `id.replace(/^deal-/, '')`, which restored neither the

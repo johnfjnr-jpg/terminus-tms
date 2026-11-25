@@ -53,12 +53,6 @@ beforeEach(() => {
 })
 afterEach(() => { vi.resetModules() })
 
-// RED FIRST (ruling X1). The hook refuses a red suite, so the three defect
-// tests are committed as `test.fails`: vitest passes them ONLY while their
-// assertion fails, and reports a failure the moment one passes. The fix commit
-// replaces RED_FIRST with `test`. The first test stays a plain `test`: it is
-// the harness's own precondition and must pass on both sides of the fix.
-const RED_FIRST = test.fails
 
 describe('X1: the Commercials form and its baseline are seeded per record', () => {
   test('the first record opened shows its own values (the harness renders the panel at all)', async () => {
@@ -68,7 +62,7 @@ describe('X1: the Commercials form and its baseline are seeded per record', () =
     expect(input('deal-duration').value).toBe('36')
   })
 
-  RED_FIRST('B OPENED AFTER A shows B\'s values, 20 and 48, unmarked', async () => {
+  test('B OPENED AFTER A shows B\'s values, 20 and 48, unmarked', async () => {
     await import('../main')
     await init(A)
     expect(input('deal-ssNew').value, 'precondition: A rendered').toBe('10')
@@ -78,7 +72,7 @@ describe('X1: the Commercials form and its baseline are seeded per record', () =
     expect(unmarked(), 'B opened carrying unsaved changes it never had').toBe(true)
   })
 
-  RED_FIRST('A SAVE ON B WRITES B\'S OWN UNTOUCHED VALUES: 21 typed, 48 kept', async () => {
+  test('A SAVE ON B WRITES B\'S OWN UNTOUCHED VALUES: 21 typed, 48 kept', async () => {
     await import('../main')
     await init(A)
     await init(B)
@@ -95,7 +89,7 @@ describe('X1: the Commercials form and its baseline are seeded per record', () =
 
   // The other route to the same write: Save changes, #btn-save-deal, which the
   // Phase 0 click measurement used. Two routes, so two tests (Verification 37).
-  RED_FIRST('AND THROUGH SAVE CHANGES: 21 typed on B, B holds 21/48', async () => {
+  test('AND THROUGH SAVE CHANGES: 21 typed on B, B holds 21/48', async () => {
     await import('../main')
     await init(A)
     await init(B)

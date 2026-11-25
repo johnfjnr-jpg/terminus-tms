@@ -65,3 +65,37 @@ scripts/tq-restore/p0-measure.mjs and p0-cross-record.mjs.
   not Discard); R1's figure line against R7; TR-1's 3,978,240.00 is not today's
   live figure (4,026,624.00); R4 against W6 on the Commercials tab; the reopened
   banner's closing sentence for a restored version.
+
+## Rulings on Phase 0 (John, 2026-11-25), appended verbatim as received
+
+RECEIVED TRUNCATED: the paste ends mid-sentence inside B. Everything after
+"on its own" was not received. X is worked; B and anything after it wait.
+
+TQ_RESTORE: rulings on Phase 0 (John, 2026-11-25).
+
+X  THE CROSS-RECORD FINDING IS FIXED FIRST, in this round (build discipline 10).
+X1 Key the deal panel by record (key={rec.id} or equivalent) so the Commercials form and its baseline are seeded per record. Tests fail first in their own commit: the two-record save from p0-cross-record (A 10/36, B 20/48; open A then B; B must show 20/48, unmarked; type 21 on B and save; B must hold 21/48).
+X2 Read-only census, before the fix lands: for the live opportunities, list any revision whose Commercials keys equal another record's revision taken earlier the same day, excluding defaults and empty forms. Report candidates with record, revision, author and time. No repair. If none, say so with the query.
+X3 Correct the wrong comment at DealPanel.tsx:323.
+
+G  ONE GUARD, BOTH TABS (supersedes R5's "same triggers").
+G1 One registry of dirty sources, asked by navigate() and beforeunload. Registered: the Commercials form and the Term quote tab (and the existing Assessment drafts, unchanged).
+G2 Triggers: Restore while dirty, navigating to another record, browser close or reload. Tab switches and method switches keep edits (measured, P4) and do not prompt.
+G3 The existing dialogue only: "Discard unsaved changes?", Keep editing | Discard. No new wording.
+
+S  THE STRIP ON THE TERM QUOTE TAB: reuse of the Commercials "Modified, not saved" strip, its markup and classes (not a layout change under R7). "Save changes" writes the record's termQuote only, through the existing PATCH; "Reset" returns to the saved quote. TR-2 reads Reset, not Discard.
+
+L  THE LIST.
+L1 Extract VersionList (range toggle, rows, Restore) from VersionCard; both tabs render it; Commercials unchanged in look and behaviour.
+L2 Each tab lists its own kind. Label gaps across kinds are expected.
+L3 Term rows: one figure line in the row's existing note style, in place of "sections recorded": issued rows show frozen Base TCV; drafts show Base TCV priced on their own rates.params via priceTermVersion, labelled "as saved". Reuse, not a mockup.
+L4 The list route selects rates and frozen_figures->page->ask. No migration.
+L5 Restore targets the term seam's populateForm.
+L6 Any Restore refusal reaches the card's feedback line, never an unawaited throw.
+L7 States keep the existing lowercase spelling in the shared component.
+
+W  CLOSED WON: Restore is not offered on either tab (supersedes W6). The term tab on a won deal keeps the won panel, no list.
+
+B  BANNER after a Restore, when the restored version's stored snapshot differs from today's params, for drafts and issued versions alike:
+   "Restored from V<x.y>. It was priced at <saved> on its own
+   [TRUNCATED HERE]
