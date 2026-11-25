@@ -99,3 +99,21 @@ W  CLOSED WON: Restore is not offered on either tab (supersedes W6). The term ta
 B  BANNER after a Restore, when the restored version's stored snapshot differs from today's params, for drafts and issued versions alike:
    "Restored from V<x.y>. It was priced at <saved> on its own
    [TRUNCATED HERE]
+
+### X done (2026-11-25): 4a3391b tests fail first, 5b84c7c the fix and X3. Stopped for the truncated rulings.
+
+## The rest of the rulings, resent (John, 2026-11-25), appended verbatim
+
+TQ_RESTORE: the rest of the rulings (B onward), resent (John, 2026-11-25). G, S, L and W stand as received.
+
+B  BANNER after a Restore, when the restored version's stored snapshot differs from today's params, for drafts and issued versions alike:
+   "Restored from V<x.y>. It was priced at <saved> on its own settings; today's settings price it at <today> (<diff>). What moved: <list>. Save changes to keep it as your working quote."
+   The reopened-draft banner (no restore) is unchanged.
+
+T  TR-1's exact figures go in a component test on fixture params. The click probe asserts against the engine on today's settings. Never write live settings.
+
+X4 Read-only, added: list deal_sheet_versions on live opportunities created after 2026-09-06 02:16 UTC whose inputs equal another record's revision payload (Commercials keys) taken earlier the same UTC day, excluding defaults and empty forms. Report candidates as in X2 (labelled, no ids). No repair.
+
+PROBE as P6, plus: the two-record save on Commercials (X1) from the click, and the guard on BOTH tabs for navigate-to-another-record and reload. Calibrate: an unkeyed panel FIRES X1; an unregistered dirty source FIRES the guard check on each tab; each injection alone, read by its named check.
+
+SEQUENCE: G, S, L, W, B (spec first where behaviour changes; tests fail first in their own commit), calibration (each FIRES), sweep 1240..1920 step 40 with the list open, full gate, merge --no-ff, merged gate, ls-remote, STOP with the report. Do not say "ready for John's push" until I have read it.

@@ -1,4 +1,6 @@
-# Terminus Term Pricing: Specification v2.1
+# Terminus Term Pricing: Specification v2.2
+
+**Amended (v2.2, John, 2026-11-25, TQ_RESTORE, rulings X, G, S, L, W, B and T):** the Term quote tab lists its record's term versions and can RESTORE one, as unsaved edits that nothing writes until Save changes; the tab gains the Commercials "Modified, not saved" strip; one leave guard covers both pricing tabs (section 14.9). Test cases TR-1 to TR-3 (section 11.9). **The calculation is unchanged: every figure in sections 10 and 11 is unchanged.**
 
 **Status:** Approved for prototype build (John, 1 Oct 2026). Margin levels to be tuned to market later.
 **Supersedes:** v1.1 (1 Oct 2026) and v1.0 (Neil, 30 Sep 2026)
@@ -776,6 +778,16 @@ Fixture params only, never the live settings: section 11.7's fixture (the live s
 | TQ-3 | TQ-1 submitted at 500.00; then the ladder moved as TQ-2 | the version and the approval page still read 3,414,000.00 | A submitted version's figures stand (14.6) |
 | TQ-4 | A Closed Won record | a direct version insert of either kind is refused at the database | No new pricing on a won deal (14.8) |
 
+### 11.9 v2.2 cases (TQ_RESTORE)
+
+Fixture params only, never the live settings: section 11.8's fixture. TR-1's ruled figure for 80 units at 96 months, 3,978,240.00, is NOT what this fixture prices: the fixture's SafeSight ladder at 96 months is 560.00, which gives 4,026,624.00 (9 × 560.00 + 40 × 532.00 + 31 × 504.00 = 41,944.00 a month, × 96). The case below carries the engine's figure, and the disagreement is reported to John rather than resolved here.
+
+| # | Inputs | Expected | Why |
+|---|---|---|---|
+| TR-1 | V1.0 saved at SafeSight 60 units, 120 months (3,414,000.00). The tab edited to 80 units, 96 months (4,026,624.00 on the fixture), not saved. Restore V1.0 | the tab reads 3,414,000.00 with "Modified, not saved" showing; the record and the version count are unchanged until Save changes | Restore is unsaved edits (14.9) |
+| TR-2 | TR-1, then Reset | the tab returns to the record's saved termQuote | Reset is the strip's own (14.9) |
+| TR-3 | An edit, then navigating to another record | "Discard unsaved changes?", Keep editing or Discard; Keep editing keeps the edit | One leave guard (14.9) |
+
 ## 12. Implementing in the TMS prototype
 
 - Built through the TMS round method, as a standalone Term Pricing screen first. It does not touch the existing Commercials engine or its golden deals.
@@ -851,3 +863,12 @@ The calculation is sections 2 to 9, unchanged. This section says where a term qu
 
 - A Closed Won record takes no new version of either method, and no change to a draft one; the database refuses it (TQ-4). The screen says: "This deal is Closed Won; its pricing is the won version's and cannot change."
 - The record's pricing keys, including `termQuote` and `pricingMethod`, cannot change either. Non-pricing fields stay editable.
+
+### 14.9 Versions, Restore and unsaved edits on the Term quote tab (v2.2, TQ_RESTORE)
+
+- **The list (L1 to L3, L7).** The Term quote tab lists the record's `term_quote` versions only, newest first, in the same list the Commercials tab uses (its range toggle, rows and Restore); the Commercials tab lists its own kind only. One sequence holds both kinds, so a tab's labels can have gaps. A row's state reads `draft`, `awaiting approval` or `approved`. A term row's figure line, in place of the Commercials row's "sections recorded", is its Base TCV: a submitted version's FROZEN figure (14.6), or a draft's priced on the settings stored with it (14.3), labelled "as saved".
+- **Restore (L5, L6, R2, R3).** Restore puts the version's inputs into the tab as UNSAVED EDITS. It writes nothing by itself: no version, no record change. The restored quote prices on today's settings (14.5). A refused restore says why on the version card, never silently.
+- **The strip (S).** When the tab differs from the record's saved quote it shows "Modified, not saved", with **Reset** (back to the saved quote) and **Save changes** (writes the record's `termQuote` only, and takes no version). On a record holding no `termQuote`, the tab's opening values are not an edit.
+- **After a Restore (B),** when the restored version's stored settings differ from today's in any value (14.5's comparison), draft or submitted alike, the tab says: "Restored from V<x.y>. It was priced at <saved> on its own settings; today's settings price it at <today> (<diff>). What moved: <list>. Save changes to keep it as your working quote." The reopened-draft notice (14.5), with no restore, is unchanged.
+- **One leave guard, both pricing tabs (G).** Unsaved edits on the Term quote tab, the Commercials form or the assessment drafts are asked about, in the one existing dialogue ("Discard unsaved changes?", Keep editing or Discard), on: a Restore over unsaved edits; navigating to ANOTHER record; and closing or reloading the browser. A tab switch, a method switch, or leaving for a list and coming back keeps the edits and does not ask.
+- **Closed Won (W).** Restore is not offered on either tab. The Term quote tab keeps the won panel (14.8) and shows no list.
