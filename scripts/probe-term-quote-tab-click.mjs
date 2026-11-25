@@ -70,6 +70,51 @@ try {
     try { body = await r.json() } catch { /* not json */ }
     patches.push({ status: r.status(), body: JSON.stringify(body?.error ?? body?.payload?.pricingMethod ?? '').slice(0, 160), sent: r.request().postData()?.slice(0, 120) })
   })
+  // F5_TEARDOWN_SCALE ruling K1 (2026-11-25): every /api request the page has
+  // in flight, so a click that sends nothing can be read against what the
+  // product was doing at that moment.
+  const inFlight = new Map()
+  const reqKey = (q) => `${q.method()} ${new URL(q.url()).pathname}`
+  page.on('request', (q) => { if (q.url().includes('/api/')) inFlight.set(q, reqKey(q)) })
+  page.on('requestfinished', (q) => inFlight.delete(q))
+  page.on('requestfailed', (q) => inFlight.delete(q))
+  // What is at the control's centre, and whether it can take a click. Self
+  // contained, because Puppeteer ships it to the page as source. With `want`
+  // it answers only "live": present, enabled, and the control (or its child)
+  // is what elementFromPoint returns (Verification 14's click clause).
+  const liveState = (sel, want) => {
+    const el = document.querySelector(sel)
+    if (!el) return want ? false : { present: false }
+    const r = el.getBoundingClientRect()
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    const hit = document.elementFromPoint(cx, cy)
+    const onTop = !!hit && (hit === el || el.contains(hit))
+    if (want) return !el.disabled && onTop
+    const name = (n) => !n ? null : `${n.tagName.toLowerCase()}${n.id ? `#${n.id}` : ''}${n.dataset?.testid ? `[${n.dataset.testid}]` : ''}${typeof n.className === 'string' && n.className.trim() ? `.${n.className.trim().split(/\s+/).join('.')}` : ''}`
+    return { present: true, disabled: el.disabled, onTop, hit: name(hit), at: [Math.round(cx), Math.round(cy)], viewport: [innerWidth, innerHeight], oppLoads: window.__oppLoadsInFlight?.() ?? null }
+  }
+  // K1: read the control at first sight, wait (bounded) for it to be live,
+  // read it again at the click. K2: a control NOT live at first sight while
+  // the product had a request or a load in flight is a product finding (a
+  // person's click would be swallowed), reported as its own failed check
+  // rather than absorbed by the wait. Returns whether the click was made.
+  const clickWhenLive = async (sel, label, ms = 10000) => {
+    const present = await sleepless(page, (s) => !!document.querySelector(s), sel, ms)
+    if (!present) { check(`${label}: ${sel} is present`, false, `absent after ${ms}ms`); return false }
+    await page.$eval(sel, (e) => e.scrollIntoView({ block: 'center', inline: 'center' }))
+    const first = { ...(await page.evaluate(liveState, sel)), api: [...inFlight.values()] }
+    console.log(`  ${label} first sight: ${JSON.stringify(first)}`)
+    const busy = first.api.length > 0 || (first.oppLoads ?? 0) > 0
+    if (!(first.disabled === false && first.onTop)) {
+      check(`${label}: not live at first sight with nothing in flight (else a click is swallowed)`, !busy, JSON.stringify(first))
+    }
+    const live = await page.waitForFunction(liveState, { timeout: ms }, sel, true).then(() => true, () => false)
+    const atClick = { ...(await page.evaluate(liveState, sel)), api: [...inFlight.values()] }
+    console.log(`  ${label} at click: ${JSON.stringify(atClick)}`)
+    if (!live) { check(`${label}: ${sel} present, enabled and on top within ${ms}ms`, false, JSON.stringify(atClick)); return false }
+    await page.click(sel)
+    return true
+  }
   await page.goto('http://localhost:3000/', { waitUntil: 'networkidle0' })
   await page.evaluate((k, v) => localStorage.setItem(k, v), `sb-${REF}-auth-token`, JSON.stringify(session))
   await page.reload({ waitUntil: 'networkidle0' })
@@ -227,14 +272,16 @@ try {
 
   // ── K10 ──
   await open(); await tab('term')
-  await sleepless(page, () => !!document.querySelector('#opp-tab-term [data-testid="pm-commercials"]'))
-  await page.click('#opp-tab-term [data-testid="pm-commercials"]')
+  // K1 (2026-11-25): the merged gate's red was this click sending NO request.
+  // The control is now read and made to be live before it is clicked.
+  const clickedComm = await clickWhenLive('#opp-tab-term [data-testid="pm-commercials"]', 'K10 pm-commercials')
   let m = null
-  for (let i = 0; i < 40; i++) { m = (await recordPayload()).payload?.pricingMethod; if (m === 'commercials') break; await new Promise((r) => setTimeout(r, 500)) }
+  for (let i = 0; clickedComm && i < 40; i++) { m = (await recordPayload()).payload?.pricingMethod; if (m === 'commercials') break; await new Promise((r) => setTimeout(r, 500)) }
   const termInactive = await sleepless(page, () => document.querySelector('#opp-tab-term [data-testid="pm-inactive"] .pm-inactive-head')?.textContent.trim() === 'Not in use. This deal is priced by Commercials.')
-  check('K10: choosing Commercials writes pricingMethod, and the Term quote tab goes inactive', m === 'commercials' && termInactive, `${m} ${termInactive}; PATCHes ${JSON.stringify(patches.slice(-3))}`)
+  check('K10: choosing Commercials writes pricingMethod, and the Term quote tab goes inactive', clickedComm && m === 'commercials' && termInactive, `clicked ${clickedComm}; ${m} ${termInactive}; PATCHes ${JSON.stringify(patches.slice(-3))}`)
   await tab('commercial')
-  await page.click('#opp-tab-commercial [data-testid="pm-term_quote"]')
+  // K4: the same selector, so the same helper.
+  await clickWhenLive('#opp-tab-commercial [data-testid="pm-term_quote"]', 'K10 pm-term_quote')
   for (let i = 0; i < 40; i++) { m = (await recordPayload()).payload?.pricingMethod; if (m === 'term_quote') break; await new Promise((r) => setTimeout(r, 500)) }
   check('K10: and back, from the Commercials tab\'s selector', m === 'term_quote', m)
 

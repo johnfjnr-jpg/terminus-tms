@@ -14186,3 +14186,128 @@ exactly the two ruled items, so a third is a red test read by whoever adds it.
 unchecked audit insert (the atomic-creation rule of record: a creation path is
 born atomic via an INVOKER function); and a failed create burns a reference
 code, because the code is issued before the write.
+
+# F5 TEARDOWN SCALE: A TEST HARD-PURGES ITS OWN FIXTURE ROWS
+
+**Ruled by John 2026-11-22 (F5_TEARDOWN_SCALE_BRIEF.md, D1).** This is a
+departure from the LETTER of CLAUDE.md Verification 11 ("test fixtures are SOFT
+deleted, never hard deleted"), for test-owned fixture rows only.
+
+**The ruling.** `teardown-scoping.test.mjs`'s page-cap test lets `tearDown`
+perform the claim under test, a soft delete, and asserts it. Then the test
+HARD-purges its own rows:
+- **Two filters, both in the query.** It reaches only rows that carry this run's
+  per-run tags AND belong to the test account. The set is enumerated from the
+  database and must equal the set the run created. A matching row the run did
+  not create stops the purge rather than widening it.
+- **Every RESTRICT child is enumerated first.** These are `approvals`,
+  `audit_log`, `record_contacts` (both sides), `deal_sheet_versions`,
+  `transition_requests` and the four `records` self-references. One that holds
+  a row stops the purge.
+- **The test ends asserting zero rows of the run remain**, in every table it
+  wrote and in every child, cascade children included.
+- **Counters are never touched.**
+
+**Why: soft-deleted fixture history is the cost every tag statement pays.**
+Nothing indexes `payload->>'name'`, so every page of a tag query reads the whole
+of `record_revisions`, whatever the tag matches. That was 170,909 rows on
+2026-11-22, up from 99,599 at the F5 timeout fix on 2026-09-13. The rebuilt test
+writes ~1,530 revision rows a run. Left soft deleted, that is about 4x the
+table's measured per-run growth, paid on every later run by every tag statement
+in the estate. Measured at Phase 0 (F5_TEARDOWN_SCALE_PHASE_0_REPORT.md).
+
+**What the departure rests on (Verification 29), so a later round can test the
+premise rather than re-argue the choice:**
+- **The rows are synthetic and unreachable by any person.** They were built by
+  admin insert, with no reference code and no Account, Contact or audit row.
+  Verification 11's reasons are history that something else references, and
+  counters that collide. Neither applies to a row nothing references, and the
+  RESTRICT census is what proves "nothing references" on each run.
+- ~~**The departure is worth having only while the tag query reads the whole
+  table.** If `payload->>'name'` is ever indexed (the `pg_trgm` option, out of
+  this round, D3), the per-row cost disappears and Verification 11's letter can
+  be restored for this test.~~ **SUPERSEDED 2026-11-24; see below.** The
+  sentence is left as written, because it named its own premise and the
+  premise is what failed.
+
+**RE-TAKEN ON A NEW PREMISE, ruled by John 2026-11-24 (Verification 29: the
+premise failed, so the decision is re-taken, not re-weighed).** D3 was reversed
+and the index came in: `record_revisions_payload_name_trgm_idx`, GIN with
+`gin_trgm_ops` on `payload ->> 'name'` (migration `20261123000001`). John's
+EXPLAIN after the apply: the P1 statement went from 4,506ms to 265.8ms as a
+BitmapOr of two Bitmap Index Scans, and the `cfanyprobe` scan from 477.6ms to
+16.1ms. **Tag queries no longer read the whole table**, so the "Why" paragraph
+above now describes the history, not the state.
+
+**D1 stands, and this is now why:** test-owned fixture rows left soft deleted
+- **grow the table for every reader that still reads it whole**, which the
+  index does nothing for;
+- **and grow the MATCHED SET of any tag that is reused.** An indexed tag
+  statement pays in heap visits for every row its tags match. John measured
+  that as nearly all of P1's remaining 265.8ms, over 8,070 matched rows.
+
+**What the re-taken decision rests on, so the next round can test it:** that
+some reader still reads `record_revisions` whole, or that some tag is reused
+across runs. The H2 census found 23 wired probes with fixed tags, so the second
+premise holds today. If both stop being true, the decision is re-taken again.
+
+**THE TWO STALLS OF 2026-11-24, CAUSES ESTABLISHED by John in the SQL Editor.**
+Two indexed tag statements crossed the 8s statement timeout on the day the index
+went in. They had two different causes.
+- **C1. The gate-2 headroom timeout, on freshly inserted rows: the GIN pending
+  list.** `fastupdate` was on, the default, and no autovacuum had run since the
+  index was built (last_autovacuum 2026-11-23 12:01:43 UTC, autovacuum_count 1).
+  So every insert since then sat in the unsorted pending list that every search
+  scans. `gin_clean_pending_list` removed **429 pages** (about 3.4 MB, just under
+  the 4 MB `gin_pending_list_limit`). **Fixed by `20261124000001`**:
+  `fastupdate = off`, then the flush. `reloptions` now read `{fastupdate=off}`.
+- **C2. The score-success timeouts: a per-row ilike filter on a primary-key
+  walk.** For `ORDER BY id LIMIT 1000` the planner walks
+  `record_revisions_pkey`, not the trigram index, and runs the filter on every
+  row it passes: 38,484 removed by filter, all shared hits, no disk reads. With
+  `ilike` that took 6,613ms; with `like` it took 280ms on the identical plan and
+  rows. ilike on `payload->>'name'` costs about 24x like per row. **Fixed by
+  ruling F1**: every tag filter in the fixture machinery is now a case-sensitive
+  prefix `like`. A case census first found 0 live records that ilike reached and
+  like does not. `fixture-names-carry-tag.test.mjs` keeps every fixture name
+  starting with its tag exactly.
+- **The earlier reading was wrong, and is named so (Verification 29).** It said
+  score-success's first-touch timeout was the GIN index being cold after idle,
+  paid as disk reads, and the brief and two reports carried that. John's EXPLAIN
+  showed no disk reads at all. The pending-list candidate was also wrong for C2:
+  after the flush, the same first touch timed out again at 8,369ms.
+- **This strengthens D1.** On an ordered page the cost is every row the
+  primary-key walk passes before it fills the page, so soft-deleted fixture rows
+  lengthen the walk for every tag query, not only for whole-table readers.
+- **AND THE FORM OF THE FILTER DECIDES THE PLAN. Ruled by John 2026-11-24, G1
+  to G3.** After the switch to like, the DIRECT single-term form
+  (`.like('payload->>name', ...)`, ORDER BY id, one page) alternated between the
+  trigram index and a primary-key walk. Its minimum was 116ms, but about half of
+  20 samples ran 300 to 680ms, and an earlier sample took 4,223ms. **No fixture
+  code issues that form.** tearDown always issued the OR-FORM, which held at a
+  0ms minimum over a one-row pk read, with one term and with three. The INDEX
+  guard had been aimed at the direct form, which nobody runs, and it went red
+  there.
+  - **It was re-aimed to the claim (the or-form tearDown issues), not relaxed
+    after a red.** Its 100ms slack is unchanged.
+  - **Every tag filter in the fixture machinery now goes through one helper**,
+    `tagOr` in `scripts/lib/tag-filter.mjs`.
+  - `one-tag-filter.test.mjs` refuses a direct or hand-built `payload->>name`
+    filter in fixtures.mjs, teardown-scoping and its two calibrators.
+
+**Verification 11 is unchanged for every other fixture.** A record made through
+the API, or one that a person, an audit row or a counter can reach, is soft
+deleted as before.
+
+**And the instance that made the rebuild necessary.** The test it replaces built
+its population from fixed tag names plus the ledger's heaviest tag, which on
+2026-11-22 was another probe's (`score-success`). The test swept that tag every
+run, which is the 66-record defect's shape inside the test written to prevent it.
+The rebuilt test asserts that its sweep set is only this run's tags, and that
+`tearDown` removed nothing the run did not create.
+
+**Stalls are reduced, not removed (D6).** The test went from about 45
+whole-table statements a run to about 20, and every page still reads the whole
+table. A future red on this test is investigated as a stall (the
+`fixtures.mjs:490` class), never retried. *(2026-11-24: since the index, no
+page reads the whole table. D6 is unchanged.)*

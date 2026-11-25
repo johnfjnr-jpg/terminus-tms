@@ -1,0 +1,45 @@
+-- Terminus TMS: turn off the GIN pending list on the record_revisions name
+-- trigram index, and flush what it holds.
+--
+-- F5_TEARDOWN_SCALE, ruling R1 of 2026-11-24 (John).
+--
+-- WHY. Two statements served by record_revisions_payload_name_trgm_idx
+-- (20261123000001) crossed the authenticator's 8s statement_timeout on
+-- 2026-11-24, against a warm cost of about 150 to 450ms:
+--   1. score-success's first lookup (4,452 matched rows), cancelled at 8s;
+--      retouched it took 3,063ms, then 516 and 355.
+--   2. teardown-scoping's headroom probe, the indexed 3-tag OR, run seconds
+--      after its own 1,532 inserts and about 6,000 inserts across the day's
+--      calibration runs.
+-- Both MATCH the GIN pending-list mechanism. With fastupdate on (the
+-- default), new entries go to an unsorted pending list that every search
+-- must scan in full, and a cleanup of that list (by autovacuum, or by an
+-- insert that finds it past gin_pending_list_limit) can make a search wait.
+-- THE CAUSE IS NOT ESTABLISHED. PostgREST returns no plans (PGRST107), and a
+-- cold index after idle also fits the first event. If an indexed statement
+-- crosses 8s again after this is applied, the pending list is ruled out and
+-- the event is investigated, not absorbed into the guard's COLD_FACTOR (R2).
+--
+-- WHAT IT CHANGES. Every insert then pays its index write in full, with no
+-- deferred batch and no flush spike. Nothing any filter says changes.
+--
+-- THE ORDER. fastupdate goes off FIRST, so no new entry can join the pending
+-- list after the flush. Turning it off does not empty the list by itself;
+-- gin_clean_pending_list moves what is there into the main index. It returns
+-- the number of pending-list pages removed: that number is a reading, and
+-- worth keeping.
+--
+-- NOT VERIFIED HERE: the lock ALTER INDEX ... SET takes for this parameter,
+-- and the privilege gin_clean_pending_list needs (ownership of the index).
+-- Apply when nothing writes, as the index's own migration said.
+--
+-- Idempotent (Architecture 7): setting the option twice is a no-op, and
+-- flushing an empty pending list removes 0 pages. Exactly these two
+-- statements and nothing else, as ruled.
+-- Not parse-checked: this session reaches Postgres only through PostgREST
+-- (Build discipline 14). No self-recording ledger row (Architecture 10 as
+-- corrected); record it separately after a by-hand apply.
+-- Rollback: supabase/rollbacks/20261124000001_record_revisions_name_trigram_fastupdate_off.rollback.sql
+
+alter index public.record_revisions_payload_name_trgm_idx set (fastupdate = off);
+select gin_clean_pending_list('public.record_revisions_payload_name_trgm_idx'::regclass);
