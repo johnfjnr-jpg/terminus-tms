@@ -378,3 +378,35 @@ Then: commit (the hook's four suites must pass), the headroom calibrator re-run 
    - Two faults in my own harness along the way: a population floor of 2 where teardown-scoping makes one call (the test body holds an alias), and a typed pass count of 7 where the suite prints 6. Both were corrected to the counts the run printed.
 4. **G4, recorded, not acted on:** the 3-tag like OR's minimum of 268ms is above gate 1's 174ms under ilike. It is unexplained, and under the 1,067ms ceiling.
 5. **G5, accepted:** COLD_FACTOR 5 and the 1,067ms ceiling, with F2's caveat. score-success had been read with ilike 20 minutes before F2. On John's EXPLAIN its cost is CPU, not cache, so its "first touch" was the first statement of the process.
+
+### The merged gate on 21b66b5: RED, 38 of 39 (2026-11-24). STOPPED
+
+- The branch gate on 75510b0 was GREEN, 39 of 39.
+- The merged gate failed one check in `browser term quote tab`: K10, "choosing Commercials writes pricingMethod, and the Term quote tab goes inactive". The click on `pm-commercials` sent NO request, and the stage took 98,631ms against 53,820ms on the branch.
+- The merged tree is byte-identical to the branch tree, and nothing under src/ or frontend/ differs from 03b4257's merge base. K10 passed in the 10 other gate logs kept. There was no residue.
+- The cause was not established: the run did not record what was at the click point (Verification 14's click clause). Nothing was pushed; origin main stayed at 03b4257.
+
+## Ruling on the K10 red (John, 2026-11-25). Option 1.
+
+K1  Instrument K10 in probe-term-quote-tab-click.mjs. Immediately before the click on pm-commercials, record elementFromPoint at the control's centre, the control's disabled state and any in-flight request count. Then wait for the control to be present, enabled and on top (elementFromPoint is the control or its child) before clicking, with a bounded wait whose expiry is a named failure stating what was found.
+K2  If the instrument shows the control disabled or covered BECAUSE the product had a save or reload in flight (not because the probe raced the first render), that is a PRODUCT finding: a user's click would be swallowed silently. Then STOP and report it; do not absorb it into the wait.
+K3  Calibrate: an injected cover over the control FIRES the named failure; an injected disabled state FIRES it; the untouched probe passes.
+K4  Apply the same present-enabled-on-top wait to the probe's other selector clicks only if the same helper serves them; otherwise list them as queued.
+
+Then: commit on the branch (the hook's four suites), branch gate, rebuild main from 03b4257 with merge --no-ff (21b66b5 and 4c35c54 kept as recovery points), the merged gate once, ls-remote, and STOP with the report. Report the K10 instrument's readings, teardown-scoping's duration, the headroom minimum, the INDEX figure and the database suite's time on every gate run. Record this stop and ruling in the brief. Do not say "ready for John's push" until John has read it.
+
+### K1 to K4, built
+
+1. **K1:** `clickWhenLive(sel, label)` in the probe.
+   - It waits for presence, scrolls the control to centre (what `page.click` would do), and prints a FIRST-SIGHT reading: present, disabled, onTop, the elementFromPoint hit, the point, `__oppLoadsInFlight()`, and every /api request in flight (tracked from the page's request events).
+   - It then waits up to 10,000ms for present, enabled and on top, and prints an AT-CLICK reading.
+   - Expiry is the named failure `K10 pm-commercials: <selector> present, enabled and on top within 10000ms`, carrying the reading. The K10 check also requires that the click was made.
+2. **K2:** a control NOT live at first sight while anything was in flight fails its own check, `not live at first sight with nothing in flight (else a click is swallowed)`, so it is reported rather than absorbed by the wait.
+   - **Its limit, measured:** two background GETs (the record's history and exit criteria) were in flight at first sight on every run, so this check fires on ANY not-live first sight, including both injections. It records a coincidence, not a cause. If it fires on a gate, the readings are read before anything is concluded.
+3. **K3, calibrated 3/3** (scripts/f5-teardown-scale/calibrate-k10-live-click.mjs, run mwvqeggz, on temp copies of the working-tree probe, sha256 8897728130696af2):
+   - COVER, a transparent fixed cover over the viewport: the named failure fired, hit `div#k3-cover`, onTop false.
+   - DISABLED, the control disabled in the DOM: the named failure fired, disabled true.
+   - reverted: 29/29, the at-click reading on top.
+   - Each run's tag read back from the database with zero live records.
+4. **K4:** the K10 return click (`pm-term_quote`, the same selector) goes through the same helper. The probe's nine other `page.click` sites are not served by it and are QUEUED: the detail-tab click in `tab()`, `tp-ladder-120` twice, `tq-save` twice, `tq-submit` twice, `tp-tab-payment`, and `tp-factoring-toggle`.
+5. **The instrument's first readings, on the tree** (.verify/f5-teardown-scale/k1-untouched-tree.txt): both K10 clicks live at first sight, enabled, the hit the button itself. The return click was made with the opportunity reload still in flight (`oppLoads` 1, five GETs), and it landed.
