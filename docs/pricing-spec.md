@@ -780,7 +780,7 @@ Fixture params only, never the live settings: section 11.7's fixture (the live s
 
 ### 11.9 v2.2 cases (TQ_RESTORE)
 
-Fixture params only, never the live settings: section 11.8's fixture. TR-1's ruled figure for 80 units at 96 months, 3,978,240.00, is NOT what this fixture prices: the fixture's SafeSight ladder at 96 months is 560.00, which gives 4,026,624.00 (9 × 560.00 + 40 × 532.00 + 31 × 504.00 = 41,944.00 a month, × 96). The case below carries the engine's figure, and the disagreement is reported to John rather than resolved here.
+Fixture params only, never the live settings: section 11.8's fixture. **Resolved for the engine (John, 2026-11-26):** 80 SafeSight units at 96 months price at **4,026,624.00** (9 × 560.00 + 40 × 532.00 + 31 × 504.00 = 41,944.00 a month, × 96), profit **1,850,624.00**, margin **46.0%**. The figure first ruled for TR-1, 3,978,240.00, was a band-count error: 31 units fall in band 3, not 30. Both TR-1 positions taken in the round are accepted: the case below carries the engine's figure, and it is built on a record holding 80/96, so the restore leaves an unsaved edit to show.
 
 | # | Inputs | Expected | Why |
 |---|---|---|---|

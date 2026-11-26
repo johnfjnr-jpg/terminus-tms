@@ -117,3 +117,46 @@ X4 Read-only, added: list deal_sheet_versions on live opportunities created afte
 PROBE as P6, plus: the two-record save on Commercials (X1) from the click, and the guard on BOTH tabs for navigate-to-another-record and reload. Calibrate: an unkeyed panel FIRES X1; an unregistered dirty source FIRES the guard check on each tab; each injection alone, read by its named check.
 
 SEQUENCE: G, S, L, W, B (spec first where behaviour changes; tests fail first in their own commit), calibration (each FIRES), sweep 1240..1920 step 40 with the list open, full gate, merge --no-ff, merged gate, ls-remote, STOP with the report. Do not say "ready for John's push" until I have read it.
+
+### Built (2026-11-25)
+
+The round was built in the ruled order on `tq-restore`:
+- 92ab1e9: the brief.
+- aa570e3: Phase 0.
+- 4a3391b and 5b84c7c: X1 and X3.
+- 64ac4f3: spec v2.2 and X4.
+- 3402b41: the tests and the click probe, failing first.
+- fb8861b: G.
+- 39febb0: S.
+- e9d41f5: L, W and B.
+- 075e312: calibration 8/8 and the sweep, 15/15.
+- 8a68b4e: CURRENT_STATE.
+
+The branch gate on 8a68b4e and the merged gate on e9e4234 both passed 40/40, with the database suite at 113/113. The merge e9e4234 has parents 5df8ad3 and 8a68b4e.
+
+## Close-out (John, 2026-11-26), appended verbatim
+
+TQ_RESTORE: John has pushed e9e4234. Close-out reviewed and approved.
+
+One docs-only commit on main (markdown only, riding the merged gate under Verification 48(a), named so in the message):
+1. Append this close-out to TQ_RESTORE_BRIEF.md.
+2. Spec 11.9: resolved for the engine. 80 SafeSight at 96 months is 4,026,624.00 (monthly 41,944.00; profit 1,850,624.00; margin 46.0%). My 3,978,240.00 was a band-count error: 31 units in band 3, not 30. Both TR-1 positions are accepted (built on a record holding 80/96).
+3. Record in the brief that prototypes/term-quote-tab.html artboards 4 and 6 carry the wrong figures (3,978,240.00 / 1,802,240.00 / 45.3%). They're illustrative, not goldens.
+Queue: correct the hand-typed 3,978,240 literal in the won-panel rendering test; R1 residue (X2); the reopened-draft banner's "or submit it as it stands" ending.
+Then ls-remote and STOP. Report the commit; I will review before John pushes it.
+
+### Recorded (2026-11-26)
+
+- **The TR-1 figure is resolved:**
+  - 80 SafeSight units at 96 months price at 4,026,624.00 on the fixture params, with profit 1,850,624.00 and margin 46.0%.
+  - On 2026-11-26, the engine was run on spec 11.8's fixture and returned all three: a TCV of 402,662,400 cents, a gross profit of 185,062,400 cents, and a margin of 7229/15729.
+  - Spec section 11.9 records the resolution. Both TR-1 positions are accepted.
+- **The prototype's figures are wrong.** Artboards 4 and 6 of `prototypes/term-quote-tab.html` show 3,978,240.00 for Base TCV, 1,802,240.00 for profit and 45.3% for margin, all from the same band-count error.
+  - They are illustrative, not goldens. Spec section 12 already says the golden figures come from sections 10 and 11.
+  - The prototype is left as it is.
+- **Queued, not done:**
+  - Correct the hand-typed 3,978,240 in `frontend-react/src/__tests__/term-quote-tab.test.tsx`. It appears twice:
+    - the won-panel rendering test, lines 234 and 242;
+    - the what-moved comparison rendering, lines 270 and 274, with its +564,240.00 delta.
+  - The R1 residue that X2 found. X2 ruled no repair.
+  - The reopened-draft banner still ends "or submit it as it stands".
